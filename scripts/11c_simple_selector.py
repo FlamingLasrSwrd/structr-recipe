@@ -11,6 +11,12 @@ would run it -- the "optimizer" is a client-side concern, not a
 stored procedure.
 
 Scoring dimensions for v1 (per the design conversation):
+  - HARD: a meal_type filter (e.g. "Dinner") disqualifies any candidate
+    whose RecipeIdentity isn't tagged with it -- including untagged
+    recipes (prep steps, structural test fixtures), which is what keeps
+    them out of the pool without a separate "is this a real meal"
+    concept. See mealplanner/meal_type_schema.py for why this is
+    Concept-scheme tagging, not a class or a plain enum property.
   - HARD: any Specification in the candidate whose `specifies` matches
     an active hard ExclusionConstraint, directly or via
     hasBiologicalOrigin, disqualifies the candidate outright. A HARD
@@ -80,6 +86,21 @@ def excluded_domain_type_ids(client) -> set[str]:
         for food in target_full.get("foodsOfThisOrigin", []):
             excluded.add(food["id"])
     return excluded
+
+
+def candidate_meal_types(client, plan: dict) -> set[str]:
+    """The Concept names (e.g. {"Dinner"}) the Plan's RecipeIdentity is
+    tagged with. A Plan with no specializationOf, or a RecipeIdentity
+    with no tags at all, returns an empty set -- deliberately: an
+    untagged recipe (a prep step, a structural test fixture) never
+    matches a meal-type filter, which is what keeps it out of the
+    candidate pool without needing a separate "is this a real meal"
+    concept."""
+    recipe_ref = plan.get("specializationOf")
+    if not recipe_ref:
+        return set()
+    recipe = client.get_all("RecipeIdentity", recipe_ref["id"])["result"]
+    return {c["name"] for c in recipe.get("hasMealType", [])}
 
 
 def candidate_required_types(client, plan: dict) -> set[str]:
@@ -175,8 +196,12 @@ def variety_score(client, plan_id: str, now: datetime) -> float:
     return max(0.0, min(1.0, most_recent_days_ago / VARIETY_CAP_DAYS))
 
 
-def select(client, meal_plan_id: str, now: datetime) -> list[dict]:
-    """Returns candidates ranked best-first: [{plan, score, disqualified, reason}, ...]"""
+def select(client, meal_plan_id: str, now: datetime, meal_type: str | None = None) -> list[dict]:
+    """Returns candidates ranked best-first: [{plan, score, disqualified, reason}, ...].
+
+    meal_type: if given (e.g. "Dinner"), candidates whose RecipeIdentity
+    isn't tagged with it are disqualified -- including recipes with NO
+    tags at all (prep steps, structural test fixtures)."""
     meal_plan = client.get_all("MealPlan", meal_plan_id)["result"]
     time_budget = meal_plan.get("timeBudgetMinutes") or 60.0
     time_weight = meal_plan.get("timeBudgetWeight") or 0.5
@@ -188,6 +213,11 @@ def select(client, meal_plan_id: str, now: datetime) -> list[dict]:
 
     results = []
     for plan in all_plans:
+        if meal_type is not None and meal_type not in candidate_meal_types(client, plan):
+            results.append({"plan": plan, "score": None, "disqualified": True,
+                             "reason": f"not tagged for meal type {meal_type!r}"})
+            continue
+
         required = candidate_required_types(client, plan)
         hit = required & excluded
         if hit:
@@ -259,18 +289,20 @@ def main():
           f"timeBudgetWeight={meal_plan.get('timeBudgetWeight')} "
           f"varietyWeight={meal_plan.get('varietyWeight')}")
 
-    print("\nRanking candidates...")
-    ranked = select(client, meal_plan_id, now)
-    for r in ranked:
-        name = r["plan"]["name"]
-        if r["disqualified"]:
-            print(f"  DISQUALIFIED  {name:45s}  {r['reason']}")
-        else:
-            print(f"  score={r['score']:.3f}  {name:45s}  {r['reason']}")
+    for meal_type in [None, "Dinner"]:
+        label = meal_type or "(unfiltered)"
+        print(f"\nRanking candidates -- meal_type={label}...")
+        ranked = select(client, meal_plan_id, now, meal_type=meal_type)
+        for r in ranked:
+            name = r["plan"]["name"]
+            if r["disqualified"]:
+                print(f"  DISQUALIFIED  {name:45s}  {r['reason']}")
+            else:
+                print(f"  score={r['score']:.3f}  {name:45s}  {r['reason']}")
 
-    winner = next((r for r in ranked if not r["disqualified"]), None)
-    if winner:
-        print(f"\nWinner: {winner['plan']['name']} (score={winner['score']:.3f})")
+        winner = next((r for r in ranked if not r["disqualified"]), None)
+        if winner:
+            print(f"  Winner: {winner['plan']['name']} (score={winner['score']:.3f})")
     return ranked
 
 
