@@ -42,6 +42,9 @@ HIERARCHIES: list[tuple[str, bool]] = [
     # Real, lookup-bearing per Sec 3's table ("Storage Condition | Quality
     # | second shelf-life key") -- not a throwaway.
     ("Storage Condition", True),
+    # Real, per Sec 3's table: "Biological Origin | FoodObject |
+    # allergen/dietary filtering" -- what ExclusionConstraint applies to.
+    ("Biological Origin", True),
 ]
 
 # (name, hierarchy, parent_name_or_None, is_lookup_bearing)
@@ -87,6 +90,7 @@ DOMAIN_TYPES: list[tuple[str, str, str | None, bool]] = [
     ("Fridge", "Storage Condition", None, True),
     ("Freezer", "Storage Condition", None, True),
     ("Pantry", "Storage Condition", None, True),
+    ("Tree Nut", "Biological Origin", None, True),
 ]
 
 # One real DefaultSpecification: the braising yield factor for raw

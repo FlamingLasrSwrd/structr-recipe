@@ -149,6 +149,16 @@ MEAL_PLAN_ENTRY_ONCREATE = (
     'error("references", "fresh_cook_entry_needs_both_references_and_planned_servings")))'
 )
 
+# Not one of the model's original 30 -- a consequence of adding
+# strictness/weight to PlanningConstraint for the simple-path selector
+# (a soft constraint with no weight can't contribute to a weighted
+# score; a hard constraint doesn't need one, since it's pass/fail).
+PLANNING_CONSTRAINT_ONCREATE = (
+    'if(equal(this.strictness, "soft"), '
+    'if(empty(this.weight), error("weight", "soft_constraint_requires_a_weight"), null), '
+    'null)'
+)
+
 STOCK_POLICY_ONCREATE = (
     'if(and(not(empty(this.hasTargetLevel)), not(empty(this.hasReorderThreshold))), '
     'if(lt(this.hasTargetLevel.value, this.hasReorderThreshold.value), '

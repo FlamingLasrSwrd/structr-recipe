@@ -57,6 +57,12 @@ STRUCTURAL_TYPES: list[tuple[str, bool, str | None]] = [
     ("PlanningConstraint", True, "DirectiveICE"),  # abstract trait, NOT kind-reified -- subclassed instead
     ("StockPolicy", False, "PlanningConstraint"),
     ("NutritionTarget", False, "PlanningConstraint"),
+    # Added post-hoc (not in the original build-sketch tree): "exclude
+    # this ingredient/category entirely" (allergies, dietary
+    # restrictions) had nowhere to go -- StockPolicy is inventory-level,
+    # NutritionTarget is nutrient-level, neither fits "never select
+    # this." Confirmed with the user before adding (hard rule #3).
+    ("ExclusionConstraint", False, "PlanningConstraint"),
     ("ExtensionPropertyDefinition", False, "DirectiveICE"),
     ("AcquisitionList", False, "DirectiveICE"),
     ("DesignativeICE", True, "InformationContentEntity"),
