@@ -93,6 +93,27 @@ DOMAIN_TYPES: list[tuple[str, str, str | None, bool]] = [
     ("Tree Nut", "Biological Origin", None, True),
 ]
 
+# Vocabulary added for the 2026-09 realistic full-lifecycle test pass.
+# Real (not TEST-prefixed) since this is genuinely reusable food/method
+# vocabulary -- only the RECIPES built from it, and their instance data,
+# are test data this round.
+REALISTIC_PASS_HIERARCHIES: list[tuple[str, bool]] = []
+
+REALISTIC_PASS_DOMAIN_TYPES: list[tuple[str, str, str | None, bool]] = [
+    ("Produce", "Perishability Class", None, True),
+    ("Dry Goods", "Perishability Class", None, True),
+    ("Pasta (dry)", "Food Identity", None, True),
+    ("Pasta (cooked)", "Food Identity", None, True),
+    ("Butter", "Food Identity", None, True),
+    ("Parmesan", "Food Identity", None, True),
+    ("Beef (raw)", "Food Identity", None, True),
+    ("Broccoli", "Food Identity", None, True),
+    ("Buttered Pasta with Parmesan", "Food Identity", None, True),
+    ("Beef and Broccoli Stir-Fry", "Food Identity", None, True),
+    ("Boiling", "Transformation Method", "Wet-Heat Method", True),
+    ("Stir-Frying", "Transformation Method", "Wet-Heat Method", True),
+]
+
 # One real DefaultSpecification: the braising yield factor for raw
 # chicken breast -> braised chicken breast, from data-model.md Sec 10's
 # worked example (500g in -> 375g out = 0.75).
