@@ -13,18 +13,36 @@ stored procedure.
 Scoring dimensions for v1 (per the design conversation):
   - HARD: any Specification in the candidate whose `specifies` matches
     an active hard ExclusionConstraint, directly or via
-    hasBiologicalOrigin, disqualifies the candidate outright.
+    hasBiologicalOrigin, disqualifies the candidate outright. A HARD
+    NutritionTarget whose range the candidate falls outside also
+    disqualifies -- same hard/soft mechanism, same code path.
   - SOFT, time fit: 1.0 if within the week's time budget, degrading
     linearly past it.
   - SOFT, variety: bonus for not having been planned recently (capped
     at a 14-day window; never-used gets the max bonus).
+  - SOFT, nutrition fit: how well the candidate's output NutrientProfile
+    fits each active (MealPlan.hasConstraint-attached) NutritionTarget's
+    range, weighted by that NutritionTarget's own `weight`.
 
-Deliberately NOT scored yet: nutrition fit (NutrientProfile isn't
-wired up at the recipe level -- nutrition data currently only exists
-on actual cooked OUTPUTS, not on Plans, so there's nothing to score
-against before cooking) and stock-awareness/waste (needs
-currentMagnitude()/physicalOnHand(), still unbuilt). Both are natural
-v2 additions once their underlying data exists -- noted, not faked.
+Nutrition data source: Sec 8 rule 7(a) only -- the output Food-Identity
+Type's OWN NutrientProfile (analytically measured, or here, a flagged
+placeholder). Rule 7(b) (yield/retention-factor-derived from raw
+ingredients) is NOT implemented -- it needs RetentionFactor
+DefaultSpecifications wired up per-ingredient-per-transformation, real
+curation work, deferred rather than faked. A candidate with no
+NutrientProfile for a given target's nutrient is neither penalized nor
+rewarded (neutral, same convention as unknown duration).
+
+Batch-vs-serving caveat: this compares the WHOLE OUTPUT BATCH's
+nutrition against the target range, not a per-serving amount --
+Plan.hasRecipeYield isn't currently expressed in a way that cleanly
+converts to a serving count (see mealplanner/domain_invariants.py's
+notes on what's deferred). A real per-serving comparison is a natural
+refinement once that's sorted out; flagged here rather than quietly
+assumed correct.
+
+Deliberately NOT scored yet: stock-awareness/waste (needs
+currentMagnitude()/physicalOnHand(), still unbuilt).
 
 Run with: python3 scripts/11c_simple_selector.py
 """
@@ -78,6 +96,53 @@ def candidate_required_types(client, plan: dict) -> set[str]:
     return required
 
 
+def candidate_output(client, plan: dict) -> tuple[str | None, float | None]:
+    """(output DomainType id, output batch quantity in its stated unit)
+    for a Plan's FIRST output-role Specification. None if it has none."""
+    for step_ref in plan.get("steps", []):
+        step = client.get_all("Step", step_ref["id"])["result"]
+        for spec_ref in step.get("hasSpecification", []):
+            spec = client.get_all("Specification", spec_ref["id"])["result"]
+            if spec.get("hasParticipationRole") != "output":
+                continue
+            specifies = spec.get("specifies")
+            qty_ref = spec.get("hasSpecifiedQuantity")
+            if not specifies:
+                continue
+            qty = None
+            if qty_ref:
+                qty = client.get_all("QuantitySpecification", qty_ref["id"])["result"].get("value")
+            return specifies["id"], qty
+    return None, None
+
+
+def nutrient_profile_amount(client, output_type_id: str, nutrient_id: str) -> float | None:
+    """Per-100g amount from the output type's own NutrientProfile for
+    this nutrient (Sec 8 rule 7(a) only -- see module docstring)."""
+    output_type = client.get_all("DomainType", output_type_id)["result"]
+    for profile_ref in output_type.get("nutrientProfilesAbout", []):
+        profile = client.get_all("NutrientProfile", profile_ref["id"])["result"]
+        if (profile.get("forNutrient") or {}).get("id") == nutrient_id and profile.get("basis") == "per_100g":
+            return profile.get("amount")
+    return None
+
+
+def active_nutrition_targets(client, meal_plan: dict) -> list[dict]:
+    return [
+        client.get_all("NutritionTarget", c["id"])["result"]
+        for c in meal_plan.get("hasConstraint", [])
+        if c["type"] == "NutritionTarget"
+    ]
+
+
+def nutrition_fit_score(actual: float, min_val: float | None, max_val: float | None) -> float:
+    if min_val is not None and actual < min_val:
+        return max(0.0, 1.0 - (min_val - actual) / min_val) if min_val else 0.0
+    if max_val is not None and actual > max_val:
+        return max(0.0, 1.0 - (actual - max_val) / max_val) if max_val else 0.0
+    return 1.0
+
+
 def time_fit_score(duration_minutes: float | None, budget_minutes: float) -> float:
     if duration_minutes is None:
         return 0.5  # unknown duration -- neutral, not a penalty or a reward
@@ -118,6 +183,7 @@ def select(client, meal_plan_id: str, now: datetime) -> list[dict]:
     variety_weight = meal_plan.get("varietyWeight") or 0.5
 
     excluded = excluded_domain_type_ids(client)
+    nutrition_targets = active_nutrition_targets(client, meal_plan)
     all_plans = client.get_all("Plan")["result"]
 
     results = []
@@ -128,11 +194,45 @@ def select(client, meal_plan_id: str, now: datetime) -> list[dict]:
             results.append({"plan": plan, "score": None, "disqualified": True,
                              "reason": f"requires excluded ingredient(s): {hit}"})
             continue
+
+        output_type_id, output_qty = candidate_output(client, plan)
+
+        nutrition_term = 0.0
+        nutrition_notes = []
+        disqualified_by_nutrition = False
+        for target in nutrition_targets:
+            nutrient = target.get("forNutrient")
+            target_range = target.get("hasTargetRange")
+            if not nutrient or not target_range or not output_type_id or output_qty is None:
+                continue
+            range_full = client.get_all("QuantitySpecification", target_range["id"])["result"]
+            min_val, max_val = range_full.get("minValue"), range_full.get("maxValue")
+            per_100g = nutrient_profile_amount(client, output_type_id, nutrient["id"])
+            if per_100g is None:
+                continue
+            actual = output_qty * per_100g / 100.0
+            fit = nutrition_fit_score(actual, min_val, max_val)
+            in_range = (min_val is None or actual >= min_val) and (max_val is None or actual <= max_val)
+            if target.get("strictness") == "hard" and not in_range:
+                disqualified_by_nutrition = True
+                nutrition_notes.append(f"{nutrient['name']}={actual:.1f}g outside HARD range [{min_val},{max_val}]")
+            else:
+                weight = target.get("weight") or 0.0
+                nutrition_term += weight * fit
+                nutrition_notes.append(f"{nutrient['name']}={actual:.1f}g fit={fit:.2f}")
+
+        if disqualified_by_nutrition:
+            results.append({"plan": plan, "score": None, "disqualified": True,
+                             "reason": "; ".join(nutrition_notes)})
+            continue
+
         tf = time_fit_score(plan.get("estimatedDurationMinutes"), time_budget)
         vs = variety_score(client, plan["id"], now)
-        score = time_weight * tf + variety_weight * vs
-        results.append({"plan": plan, "score": score, "disqualified": False,
-                         "reason": f"time_fit={tf:.2f} variety={vs:.2f}"})
+        score = time_weight * tf + variety_weight * vs + nutrition_term
+        reason = f"time_fit={tf:.2f} variety={vs:.2f}"
+        if nutrition_notes:
+            reason += " " + "; ".join(nutrition_notes)
+        results.append({"plan": plan, "score": score, "disqualified": False, "reason": reason})
 
     results.sort(key=lambda r: (r["disqualified"], -(r["score"] or -1)))
     return results
