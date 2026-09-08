@@ -39,6 +39,9 @@ HIERARCHIES: list[tuple[str, bool]] = [
     # Role kinds -- data-model.md Sec 2 also lists "reservation roles"
     # under Role, alongside Culinary-Role types.
     ("Role Kind", True),
+    # Real, lookup-bearing per Sec 3's table ("Storage Condition | Quality
+    # | second shelf-life key") -- not a throwaway.
+    ("Storage Condition", True),
 ]
 
 # (name, hierarchy, parent_name_or_None, is_lookup_bearing)
@@ -81,6 +84,9 @@ DOMAIN_TYPES: list[tuple[str, str, str | None, bool]] = [
     ("OpenedStatus", "Quality Kind", None, False),
     ("ShelfLife", "Quality Kind", None, False),  # Disposition kind, not a Quality, but same flat pattern
     ("Reservation", "Role Kind", None, False),
+    ("Fridge", "Storage Condition", None, True),
+    ("Freezer", "Storage Condition", None, True),
+    ("Pantry", "Storage Condition", None, True),
 ]
 
 # One real DefaultSpecification: the braising yield factor for raw

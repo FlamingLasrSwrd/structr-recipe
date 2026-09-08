@@ -114,8 +114,47 @@ DEFAULT_SPECIFICATION_ONCREATE = (
 NOT_NULL_PROPERTIES = [
     ("Specification", "hasParticipationRole"),
     ("Allocation", "hasParticipationRole"),
-    ("QuantitySpecification", "value"),
 ]
+
+# --- IMPLEMENTED, added while building the meal-planning layer ---------
+#
+# 3 (extended): QuantitySpecification.value was notNull (see above list
+#   -- since removed) until NutritionTarget.hasTargetRange needed real
+#   range support ("may be open-bounded" is explicit in the model).
+#   Replaced with an onCreate check: exactly one of (scalar value) or
+#   (minValue and/or maxValue) -- not both, not neither -- plus, when
+#   both bounds are present, minValue <= maxValue.
+#
+# 7: "A MealPlanEntry has exactly one of (references + has_planned_servings)
+#   or consumes_leftover_from." MealPlanEntry.onCreate.
+#
+# 26: "has_target_level >= has_reorder_threshold." StockPolicy.onCreate,
+#   chained property access into both QuantitySpecifications' values.
+
+QUANTITY_SPECIFICATION_ONCREATE = (
+    'if(and(not(empty(this.value)), or(not(empty(this.minValue)), not(empty(this.maxValue)))), '
+    'error("value", "must_not_have_both_scalar_value_and_range"), '
+    'if(and(empty(this.value), and(empty(this.minValue), empty(this.maxValue))), '
+    'error("value", "must_have_either_value_or_range"), '
+    'if(and(not(empty(this.minValue)), not(empty(this.maxValue))), '
+    'if(gt(this.minValue, this.maxValue), error("minValue", "min_must_not_exceed_max"), null), '
+    'null)))'
+)
+
+MEAL_PLAN_ENTRY_ONCREATE = (
+    'if(not(empty(this.consumesLeftoverFrom)), '
+    'if(or(not(empty(this.references)), not(empty(this.hasPlannedServings))), '
+    'error("consumesLeftoverFrom", "leftover_entry_must_not_also_reference_a_plan"), null), '
+    'if(and(not(empty(this.references)), not(empty(this.hasPlannedServings))), null, '
+    'error("references", "fresh_cook_entry_needs_both_references_and_planned_servings")))'
+)
+
+STOCK_POLICY_ONCREATE = (
+    'if(and(not(empty(this.hasTargetLevel)), not(empty(this.hasReorderThreshold))), '
+    'if(lt(this.hasTargetLevel.value, this.hasReorderThreshold.value), '
+    'error("hasTargetLevel", "target_level_must_be_at_least_reorder_threshold"), null), '
+    'null)'
+)
 
 # --- DEFERRED ------------------------------------------------------------
 #
