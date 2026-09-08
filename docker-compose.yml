@@ -1,0 +1,44 @@
+services:
+  neo4j:
+    image: neo4j:latest
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+    volumes:
+      - neo4j-database:/data
+      - neo4j-logs:/logs
+    networks:
+      structr-network:
+        aliases: [neo4j]
+
+  structr:
+    image: structr/structr:6.0.0
+    depends_on: [neo4j]
+    ports:
+      - "8083:8082"
+    environment:
+      - AGREE_TO_STRUCTR_PRIVACY_POLICY=yes
+      - STRUCTR_superuser_password=${STRUCTR_SUPERUSER_PASSWORD}
+      - STRUCTR_database_available_connections=neo4j_default
+      - STRUCTR_neo4j__default_database_driver=org.structr.bolt.BoltDatabaseService
+      - STRUCTR_neo4j__default_database_connection_url=bolt://neo4j:7687
+      - STRUCTR_neo4j__default_database_connection_username=neo4j
+      - STRUCTR_neo4j__default_database_connection_password=${NEO4J_PASSWORD}
+      - STRUCTR_nodeservice_active=neo4j_default
+      - STRUCTR_application_schema_automigration=true
+    volumes:
+      - structr-files:/var/lib/structr/files
+      - structr-repository:/var/lib/structr/repository
+      - structr-logs:/var/lib/structr/logs
+      - ./structr/license.key:/var/lib/structr/license.key
+    networks:
+      structr-network: {}
+
+volumes:
+  neo4j-database:
+  neo4j-logs:
+  structr-files:
+  structr-repository:
+  structr-logs:
+
+networks:
+  structr-network: {}
