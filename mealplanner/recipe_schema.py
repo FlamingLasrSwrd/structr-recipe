@@ -85,6 +85,15 @@ RELATIONSHIPS: list[tuple[str, str, str, str, str, str, str]] = [
     # -- containment, not parthood (bfo-reference.md Sec 2.2) --
     ("FoodObject", "LOCATED_IN", "ContainerObject", "*", "1", "contents", "locatedIn"),
 
+    # -- Sec 5.3: a Food-Identity Type MAY bear a Culinary Role
+    #    (possibility, not "every instance currently plays this role").
+    #    Self-referential on DomainType, but a DIFFERENT relationship
+    #    type than SUBCLASS_OF, so no reverse-name collision -- both
+    #    "children"/"parent" (SUBCLASS_OF) and whatever this uses stay
+    #    distinct because they're different relationshipType labels
+    #    even though both are DomainType->DomainType.
+    ("DomainType", "MAY_BEAR_ROLE", "DomainType", "*", "*", "canBeBorneBy", "mayBearRole"),
+
     # -- execution (Sec 10's worked example, EXECUTION block) --
     # concretizes: Process -> Plan directly (the model's fuller
     # definition targets any GDC; scoped to Plan since that's this
