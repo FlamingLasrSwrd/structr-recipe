@@ -43,6 +43,11 @@ PROPERTIES: dict[str, list[dict]] = {
         {"name": "timeBudgetMinutes", "propertyType": "Double"},
         {"name": "timeBudgetWeight", "propertyType": "Double"},
         {"name": "varietyWeight", "propertyType": "Double"},
+        # Added when stock-awareness/waste scoring was built (see
+        # mealplanner/inventory.py) -- same "priority profile is just
+        # data on MealPlan" pattern as the first three.
+        {"name": "stockWeight", "propertyType": "Double"},
+        {"name": "wasteWeight", "propertyType": "Double"},
     ],
 }
 
