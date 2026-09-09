@@ -130,6 +130,12 @@ NOT_NULL_PROPERTIES = [
 #
 # 26: "has_target_level >= has_reorder_threshold." StockPolicy.onCreate,
 #   chained property access into both QuantitySpecifications' values.
+#
+# 27a: see ROLE_ONCREATE below -- required naming and building a
+#   relation (Role.targetsEntry) that Sec 7 never named, the third
+#   independent occurrence of that pattern in this project (after the
+#   original Concept/instance-tagging E9 and DefaultSpecification's
+#   forType). Recorded back to data-model.md Sec 7.
 
 QUANTITY_SPECIFICATION_ONCREATE = (
     'if(and(not(empty(this.value)), or(not(empty(this.minValue)), not(empty(this.maxValue)))), '
@@ -156,6 +162,31 @@ MEAL_PLAN_ENTRY_ONCREATE = (
 PLANNING_CONSTRAINT_ONCREATE = (
     'if(equal(this.strictness, "soft"), '
     'if(empty(this.weight), error("weight", "soft_constraint_requires_a_weight"), null), '
+    'null)'
+)
+
+# 27a: "A reservation Role on a physical portion and the
+#   consumes_leftover_from edge between entries... must agree: the
+#   Role's target entry must be the one whose consumes_leftover_from
+#   names the entry whose Process generated that portion."
+#   Only checkable now that Role.targetsEntry exists (see
+#   mealplanner/role_entry_schema.py -- this was the third occurrence
+#   of a recurring pattern: an invariant's prose describing a relation
+#   Sec 7 never actually named). Checks when both chains are already
+#   resolvable; skips (does not error) when the leftover-consuming
+#   entry hasn't been created yet -- same "check when possible, don't
+#   block impossible orderings" reasoning as invariant 16's deferral.
+ROLE_ONCREATE = (
+    'if(and(equal(this.hasKind.name, "Reservation"), not(empty(this.targetsEntry))), '
+    'if(and(not(empty(this.inheresIn.beginsToExistDuring)), '
+    'gt(size(this.inheresIn.beginsToExistDuring.fulfillsMealPlanEntries), 0)), '
+    'if(empty(this.targetsEntry.consumesLeftoverFrom), '
+    'error("targetsEntry", "target_entry_must_itself_consume_a_leftover"), '
+    'if(not(equal(this.targetsEntry.consumesLeftoverFrom.id, '
+    'first(this.inheresIn.beginsToExistDuring.fulfillsMealPlanEntries).id)), '
+    'error("targetsEntry", "reservation_role_target_disagrees_with_leftover_source"), '
+    'null)), '
+    'null), '
     'null)'
 )
 
@@ -191,6 +222,9 @@ STOCK_POLICY_ONCREATE = (
 # 9a, 20, 21, 22: Concept.exactMatch/closeMatch, candidate_type,
 #   RecipeIdentity.defines_output_type -- none of these relations are
 #   built yet.
-# 23-28: MealPlan/MealPlanEntry/StockPolicy/AcquisitionList machinery,
-#   entirely unbuilt.
-# 30: NutritionTarget, unbuilt.
+# 23, 24, 28: AcquisitionList's real netRequirements() computation and
+#   the surplus/planned-consumption checks it depends on -- MealPlan/
+#   StockPolicy/NutritionTarget themselves are now built (see
+#   mealplanner/meal_planning_schema.py), but this specific computation
+#   is not.
+# 30: NutritionTarget rollup consistency, unbuilt.

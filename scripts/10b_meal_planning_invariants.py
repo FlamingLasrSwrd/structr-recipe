@@ -16,6 +16,7 @@ from mealplanner.domain_invariants import (
     MEAL_PLAN_ENTRY_ONCREATE,
     STOCK_POLICY_ONCREATE,
     PLANNING_CONSTRAINT_ONCREATE,
+    ROLE_ONCREATE,
 )
 
 BASE_URL = "http://localhost:8083"
@@ -36,6 +37,7 @@ def main():
         ("MealPlanEntry", MEAL_PLAN_ENTRY_ONCREATE),
         ("StockPolicy", STOCK_POLICY_ONCREATE),
         ("PlanningConstraint", PLANNING_CONSTRAINT_ONCREATE),
+        ("Role", ROLE_ONCREATE),
     ]:
         method_id, created = client.ensure_method(node_id(client, type_name), "onCreate", source, return_raw_result=False)
         print(f"{type_name}.onCreate: id={method_id}, created={created}")
