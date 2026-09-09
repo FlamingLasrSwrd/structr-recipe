@@ -39,13 +39,16 @@ curation work, deferred rather than faked. A candidate with no
 NutrientProfile for a given target's nutrient is neither penalized nor
 rewarded (neutral, same convention as unknown duration).
 
-Batch-vs-serving caveat: this compares the WHOLE OUTPUT BATCH's
-nutrition against the target range, not a per-serving amount --
-Plan.hasRecipeYield isn't currently expressed in a way that cleanly
-converts to a serving count (see mealplanner/domain_invariants.py's
-notes on what's deferred). A real per-serving comparison is a natural
-refinement once that's sorted out; flagged here rather than quietly
-assumed correct.
+Per-serving, not whole-batch: nutrition is divided by Plan.hasRecipeYield
+before comparison against a target's range. hasRecipeYield's unit was
+previously ambiguous (never pinned to a real quantity kind); resolved
+by data-model.md's own AcquisitionList formula ("planned-servings /
+recipe-yield"), which only makes sense if recipe-yield is denominated
+in servings -- see data-model.md Rev 4.3. Comparing one meal's
+per-serving amount against a "daily" NutritionTarget is still a rough
+approximation (it doesn't sum across a day's worth of meals), but it's
+now the right KIND of number, not a whole-batch one compared against a
+per-person target.
 
   - SOFT, stock coverage: fraction of a candidate's raw-ingredient
     requirements already eligibleOnHand (not expired) -- 1.0 means no
@@ -60,9 +63,13 @@ assumed correct.
 Stock/waste data source: mealplanner/inventory.py's currentMagnitude()/
 physicalOnHand()/eligibleOnHand(), built the same way as this selector
 (Python over REST, not StructrScript -- see that module's docstring for
-why). Storage-condition/opened-status eligibility filtering is NOT
-implemented there (a real, flagged scope cut, not an oversight) --
-eligibility here means "not expired" only.
+why). Opened-status eligibility filtering now applies (see
+mealplanner/opened_status_schema.py): when a StockPolicy applies_to an
+ingredient's DomainType, its eligibleWhenOpened/eligibleWhenSealed
+flags are honored. Storage-condition filtering (eligibleStorageConditions)
+is still NOT implemented -- this project doesn't yet track which
+storage condition a portion is actually kept in, a smaller remaining
+gap.
 
 Run with: python3 scripts/11c_simple_selector.py
 """
@@ -153,6 +160,20 @@ def candidate_output(client, plan: dict) -> tuple[str | None, float | None]:
     return None, None
 
 
+def recipe_servings(client, plan: dict) -> float:
+    """Plan.hasRecipeYield, in servings -- data-model.md's AcquisitionList
+    formula ("planned-servings / recipe-yield") only makes sense if
+    recipe-yield is denominated in servings, which settles what was
+    previously an unresolved unit ambiguity (see data-model.md Rev 4.3).
+    Defaults to 1.0 if unset, same neutral-fallback convention as
+    duration/nutrition elsewhere in this selector."""
+    yield_ref = plan.get("hasRecipeYield")
+    if not yield_ref:
+        return 1.0
+    qty = client.get_all("QuantitySpecification", yield_ref["id"])["result"]
+    return qty.get("value") or 1.0
+
+
 def nutrient_profile_amount(client, output_type_id: str, nutrient_id: str) -> float | None:
     """Per-100g amount from the output type's own NutrientProfile for
     this nutrient (Sec 8 rule 7(a) only -- see module docstring)."""
@@ -214,7 +235,19 @@ def stock_and_waste_scores(client, plan: dict, now: datetime) -> tuple[float | N
     max_urgency = 0.0
     notes = []
     for domain_type_id, required_qty in requirements:
-        eligible, soonest_days = eligible_on_hand_with_urgency(client, domain_type_id, now)
+        # If a StockPolicy applies to this ingredient, honor its
+        # opened-status eligibility filter (mealplanner/opened_status_schema.py) --
+        # previously eligible_on_hand had no filtering at all, a gap
+        # flagged in the holes-and-gaps analysis.
+        domain_type = client.get_all("DomainType", domain_type_id)["result"]
+        applying_policies = domain_type.get("stockPoliciesApplying", [])
+        opened_flag = sealed_flag = None
+        if applying_policies:
+            policy = client.get_all("StockPolicy", applying_policies[0]["id"])["result"]
+            opened_flag, sealed_flag = policy.get("eligibleWhenOpened"), policy.get("eligibleWhenSealed")
+        eligible, soonest_days = eligible_on_hand_with_urgency(
+            client, domain_type_id, now, eligible_when_opened=opened_flag, eligible_when_sealed=sealed_flag,
+        )
         coverage = min(1.0, eligible / required_qty) if required_qty else 0.0
         coverages.append(coverage)
         type_name = client.get_all("DomainType", domain_type_id)["result"].get("name")
@@ -306,16 +339,17 @@ def select(client, meal_plan_id: str, now: datetime, meal_type: str | None = Non
             per_100g = nutrient_profile_amount(client, output_type_id, nutrient["id"])
             if per_100g is None:
                 continue
-            actual = output_qty * per_100g / 100.0
+            servings = recipe_servings(client, plan)
+            actual = (output_qty * per_100g / 100.0) / servings
             fit = nutrition_fit_score(actual, min_val, max_val)
             in_range = (min_val is None or actual >= min_val) and (max_val is None or actual <= max_val)
             if target.get("strictness") == "hard" and not in_range:
                 disqualified_by_nutrition = True
-                nutrition_notes.append(f"{nutrient['name']}={actual:.1f}g outside HARD range [{min_val},{max_val}]")
+                nutrition_notes.append(f"{nutrient['name']}={actual:.1f}g/serving outside HARD range [{min_val},{max_val}]")
             else:
                 weight = target.get("weight") or 0.0
                 nutrition_term += weight * fit
-                nutrition_notes.append(f"{nutrient['name']}={actual:.1f}g fit={fit:.2f}")
+                nutrition_notes.append(f"{nutrient['name']}={actual:.1f}g/serving fit={fit:.2f}")
 
         if disqualified_by_nutrition:
             results.append({"plan": plan, "score": None, "disqualified": True,

@@ -45,6 +45,10 @@ def _parse(dt_str: str) -> datetime:
     return datetime.strptime(dt_str, FMT)
 
 
+def dt(client, name: str) -> str:
+    return client.get("/structr/rest/DomainType", params={"name": name})["result"][0]["id"]
+
+
 def current_magnitude(client, quality_id: str, now: datetime) -> float | None:
     """Sec 4.1.1, literally. Returns None if the Quality has no
     observed/imputed Measurement to start from."""
@@ -110,13 +114,58 @@ def _subtypes_of(client, domain_type_id: str) -> set[str]:
     return result
 
 
-def shelf_life_days(client, perishability_type_id: str) -> float | None:
-    density_kind = client.get("/structr/rest/DomainType", params={"name": "ShelfLife"})["result"][0]["id"]
-    result = client.call_method("DomainType", perishability_type_id, "resolveDefault", {"kindId": density_kind})
-    if not isinstance(result, dict) or "id" not in result:
+def shelf_life_days(client, perishability_type_id: str, opened_status_name: str = "Sealed") -> float | None:
+    """DefaultSpecification lookup keyed by (Storage Condition, opened
+    status) -- data-model.md Sec 8's own worked example
+    (keyedBy: [Fridge, Opened] / [Fridge, Sealed]). Deliberately NOT
+    using resolveDefault() here: it's already a documented, latent bug
+    that resolveDefault only filters by hasKind and never actually
+    checks keyedBy (structr-build-sketch.md Sec 5 addendum) -- a
+    genuine compound-key lookup needs the real check, not the
+    workaround material_accounting.py uses (re-verifying a SINGLE
+    resolved candidate's keyedBy after the fact isn't enough when
+    there may be two DIFFERENT compound-keyed candidates on the same
+    Type, which is exactly this case: Fridge+Sealed vs Fridge+Opened).
+    This queries DefaultSpecification directly and requires an EXACT
+    keyedBy set match, not just walking a single hierarchy.
+
+    Storage condition is hardcoded to "Fridge" for now -- this project
+    doesn't yet track which storage condition a given portion is
+    actually kept in (a further, smaller gap than opened-status, not
+    fixed here). opened_status_name defaults to "Sealed": freshly
+    portioned/purchased food with no recorded container is reasonably
+    treated as unopened until noted otherwise.
+    """
+    storage_id = dt(client, "Fridge")
+    opened_id = dt(client, opened_status_name)
+    yield_kind_id = dt(client, "ShelfLife")
+    candidates = client.get_all("DomainType", perishability_type_id)["result"].get("defaultSpecifications", [])
+    for ref in candidates:
+        spec = client.get_all("DefaultSpecification", ref["id"])["result"]
+        if (spec.get("hasKind") or {}).get("id") != yield_kind_id:
+            continue
+        keyed_ids = {k["id"] for k in spec.get("keyedBy", [])}
+        if keyed_ids == {storage_id, opened_id}:
+            value_ref = spec.get("hasValue")
+            if value_ref:
+                return client.get_all("QuantitySpecification", value_ref["id"])["result"].get("value")
+    return None
+
+
+def container_opened_status(client, portion: dict) -> str | None:
+    """The name of the portion's container's opened-status DomainType
+    (e.g. "Opened"/"Sealed"), or None if the portion isn't located_in
+    any container -- per data-model.md Sec 9: "food in no container is
+    outside any opened-status filter rather than undefined." Callers
+    decide what None means for their purpose (shelf_life_days treats it
+    as "assume Sealed"; an eligibility filter should instead treat it
+    as "this filter doesn't apply, don't exclude")."""
+    container_ref = portion.get("locatedIn")
+    if not container_ref:
         return None
-    qty = client.get_all("QuantitySpecification", result["id"])["result"]
-    return qty.get("value")
+    container = client.get_all("ContainerObject", container_ref["id"])["result"]
+    status = container.get("hasOpenedStatus")
+    return status["name"] if status else None
 
 
 def instance_expiration(client, portion: dict, now: datetime) -> tuple[bool, float | None]:
@@ -154,7 +203,8 @@ def instance_expiration(client, portion: dict, now: datetime) -> tuple[bool, flo
     if not baseline:
         return False, None
     latest = max(baseline, key=lambda m: _parse(m["hasTime"]))
-    days = shelf_life_days(client, perishability["id"])
+    opened_status = container_opened_status(client, portion) or "Sealed"
+    days = shelf_life_days(client, perishability["id"], opened_status)
     if days is None:
         return False, None
     expiry = _parse(latest["hasTime"]).timestamp() + days * 86400.0
@@ -188,11 +238,28 @@ def physical_on_hand(client, domain_type_id: str, now: datetime) -> float:
     return total
 
 
-def eligible_on_hand_with_urgency(client, domain_type_id: str, now: datetime) -> tuple[float, float | None]:
-    """(eligible on-hand quantity [not expired], days-until-expiry of the
-    SOONEST-expiring eligible instance, or None if nothing expiring is
-    on hand / no expiration data). Storage-condition/opened-status
-    filtering NOT implemented -- see module docstring."""
+def eligible_on_hand_with_urgency(
+    client, domain_type_id: str, now: datetime,
+    eligible_when_opened: bool | None = None, eligible_when_sealed: bool | None = None,
+) -> tuple[float, float | None]:
+    """(eligible on-hand quantity [not expired, and passing the opened-
+    status filter if one is given], days-until-expiry of the SOONEST-
+    expiring eligible instance, or None).
+
+    eligible_when_opened/eligible_when_sealed: pass a StockPolicy's own
+    flags (mealplanner/meal_planning_schema.py) to apply its filter;
+    leave both None for no opened-status filtering at all (this
+    function's original behavior). Per data-model.md Sec 9: "food in no
+    container is outside any opened-status filter rather than
+    undefined" -- an instance with no container is never excluded by
+    this filter, regardless of what eligible_when_* says, since there's
+    nothing to check the filter against.
+
+    Storage-condition filtering (eligibleStorageConditions) is still
+    NOT implemented -- this project doesn't yet track which storage
+    condition a portion is actually kept in, a further, smaller gap
+    than opened-status (see mealplanner/opened_status_schema.py's
+    docstring and shelf_life_days' hardcoded "Fridge" assumption)."""
     types = _subtypes_of(client, domain_type_id)
     total = 0.0
     soonest: float | None = None
@@ -217,6 +284,13 @@ def eligible_on_hand_with_urgency(client, domain_type_id: str, now: datetime) ->
             is_expired, days_until = instance_expiration(client, instance, now)
             if is_expired:
                 continue
+            if eligible_when_opened is not None or eligible_when_sealed is not None:
+                status = container_opened_status(client, instance)
+                if status == "Opened" and eligible_when_opened is False:
+                    continue
+                if status == "Sealed" and eligible_when_sealed is False:
+                    continue
+                # status is None (no container) -> filter doesn't apply, per Sec 9
             total += magnitude
             if days_until is not None and (soonest is None or days_until < soonest):
                 soonest = days_until
