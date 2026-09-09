@@ -114,7 +114,9 @@ def _subtypes_of(client, domain_type_id: str) -> set[str]:
     return result
 
 
-def shelf_life_days(client, perishability_type_id: str, opened_status_name: str = "Sealed") -> float | None:
+def shelf_life_days(
+    client, perishability_type_id: str, opened_status_name: str = "Sealed", storage_condition_name: str = "Fridge",
+) -> float | None:
     """DefaultSpecification lookup keyed by (Storage Condition, opened
     status) -- data-model.md Sec 8's own worked example
     (keyedBy: [Fridge, Opened] / [Fridge, Sealed]). Deliberately NOT
@@ -124,19 +126,20 @@ def shelf_life_days(client, perishability_type_id: str, opened_status_name: str 
     genuine compound-key lookup needs the real check, not the
     workaround material_accounting.py uses (re-verifying a SINGLE
     resolved candidate's keyedBy after the fact isn't enough when
-    there may be two DIFFERENT compound-keyed candidates on the same
-    Type, which is exactly this case: Fridge+Sealed vs Fridge+Opened).
-    This queries DefaultSpecification directly and requires an EXACT
-    keyedBy set match, not just walking a single hierarchy.
+    there may be several DIFFERENT compound-keyed candidates on the
+    same Type, which is exactly this case: Fridge+Sealed vs
+    Fridge+Opened vs Freezer+Sealed vs Freezer+Opened). This queries
+    DefaultSpecification directly and requires an EXACT keyedBy set
+    match, not just walking a single hierarchy.
 
-    Storage condition is hardcoded to "Fridge" for now -- this project
-    doesn't yet track which storage condition a given portion is
-    actually kept in (a further, smaller gap than opened-status, not
-    fixed here). opened_status_name defaults to "Sealed": freshly
-    portioned/purchased food with no recorded container is reasonably
-    treated as unopened until noted otherwise.
+    Both dimensions default to the more conservative/common case when
+    unknown: storage_condition_name="Fridge" (reasonable for a home
+    kitchen when no container records otherwise -- and now a real,
+    overridable fallback rather than a value baked into this function),
+    opened_status_name="Sealed" (freshly portioned/purchased food with
+    no recorded container is reasonably treated as unopened).
     """
-    storage_id = dt(client, "Fridge")
+    storage_id = dt(client, storage_condition_name)
     opened_id = dt(client, opened_status_name)
     yield_kind_id = dt(client, "ShelfLife")
     candidates = client.get_all("DomainType", perishability_type_id)["result"].get("defaultSpecifications", [])
@@ -166,6 +169,21 @@ def container_opened_status(client, portion: dict) -> str | None:
     container = client.get_all("ContainerObject", container_ref["id"])["result"]
     status = container.get("hasOpenedStatus")
     return status["name"] if status else None
+
+
+def container_storage_condition(client, portion: dict) -> str | None:
+    """The name of the portion's container's storage-condition
+    DomainType (e.g. "Fridge"/"Freezer"), or None if the portion isn't
+    located_in any container -- same "food in no container is outside
+    any filter" reasoning as container_opened_status. Callers decide
+    what None means (shelf_life_days treats it as "assume Fridge"; an
+    eligibility filter should treat it as "this filter doesn't apply")."""
+    container_ref = portion.get("locatedIn")
+    if not container_ref:
+        return None
+    container = client.get_all("ContainerObject", container_ref["id"])["result"]
+    condition = container.get("hasStorageCondition")
+    return condition["name"] if condition else None
 
 
 def instance_expiration(client, portion: dict, now: datetime) -> tuple[bool, float | None]:
@@ -204,7 +222,8 @@ def instance_expiration(client, portion: dict, now: datetime) -> tuple[bool, flo
         return False, None
     latest = max(baseline, key=lambda m: _parse(m["hasTime"]))
     opened_status = container_opened_status(client, portion) or "Sealed"
-    days = shelf_life_days(client, perishability["id"], opened_status)
+    storage_condition = container_storage_condition(client, portion) or "Fridge"
+    days = shelf_life_days(client, perishability["id"], opened_status, storage_condition)
     if days is None:
         return False, None
     expiry = _parse(latest["hasTime"]).timestamp() + days * 86400.0
@@ -241,25 +260,27 @@ def physical_on_hand(client, domain_type_id: str, now: datetime) -> float:
 def eligible_on_hand_with_urgency(
     client, domain_type_id: str, now: datetime,
     eligible_when_opened: bool | None = None, eligible_when_sealed: bool | None = None,
+    eligible_storage_condition_names: set[str] | None = None,
 ) -> tuple[float, float | None]:
     """(eligible on-hand quantity [not expired, and passing the opened-
-    status filter if one is given], days-until-expiry of the SOONEST-
-    expiring eligible instance, or None).
+    status/storage-condition filters if given], days-until-expiry of
+    the SOONEST-expiring eligible instance, or None).
 
     eligible_when_opened/eligible_when_sealed: pass a StockPolicy's own
-    flags (mealplanner/meal_planning_schema.py) to apply its filter;
-    leave both None for no opened-status filtering at all (this
-    function's original behavior). Per data-model.md Sec 9: "food in no
-    container is outside any opened-status filter rather than
-    undefined" -- an instance with no container is never excluded by
-    this filter, regardless of what eligible_when_* says, since there's
-    nothing to check the filter against.
+    flags (mealplanner/meal_planning_schema.py) to apply its opened-
+    status filter; leave both None for no filtering on that dimension.
 
-    Storage-condition filtering (eligibleStorageConditions) is still
-    NOT implemented -- this project doesn't yet track which storage
-    condition a portion is actually kept in, a further, smaller gap
-    than opened-status (see mealplanner/opened_status_schema.py's
-    docstring and shelf_life_days' hardcoded "Fridge" assumption)."""
+    eligible_storage_condition_names: pass a StockPolicy's
+    eligibleStorageConditions (as a set of DomainType names, e.g.
+    {"Fridge"}) to only count on-hand stock kept in one of those
+    conditions -- e.g. a policy checking "what's ready to cook this
+    week" reasonably wants Fridge stock only, not Freezer stock that
+    still needs thawing. Leave None for no filtering on this dimension.
+
+    Both filters follow data-model.md Sec 9: "food in no container is
+    outside any [...] filter rather than undefined" -- an instance with
+    no container is never excluded by either filter, regardless of what
+    the filter says, since there's nothing to check it against."""
     types = _subtypes_of(client, domain_type_id)
     total = 0.0
     soonest: float | None = None
@@ -291,6 +312,11 @@ def eligible_on_hand_with_urgency(
                 if status == "Sealed" and eligible_when_sealed is False:
                     continue
                 # status is None (no container) -> filter doesn't apply, per Sec 9
+            if eligible_storage_condition_names:
+                condition = container_storage_condition(client, instance)
+                if condition is not None and condition not in eligible_storage_condition_names:
+                    continue
+                # condition is None (no container) -> filter doesn't apply, per Sec 9
             total += magnitude
             if days_until is not None and (soonest is None or days_until < soonest):
                 soonest = days_until

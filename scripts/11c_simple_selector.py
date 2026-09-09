@@ -236,17 +236,22 @@ def stock_and_waste_scores(client, plan: dict, now: datetime) -> tuple[float | N
     notes = []
     for domain_type_id, required_qty in requirements:
         # If a StockPolicy applies to this ingredient, honor its
-        # opened-status eligibility filter (mealplanner/opened_status_schema.py) --
-        # previously eligible_on_hand had no filtering at all, a gap
-        # flagged in the holes-and-gaps analysis.
+        # opened-status AND storage-condition eligibility filters
+        # (mealplanner/opened_status_schema.py,
+        # mealplanner/storage_condition_schema.py) -- previously
+        # eligible_on_hand had no filtering at all on either dimension,
+        # a gap flagged in the holes-and-gaps analysis.
         domain_type = client.get_all("DomainType", domain_type_id)["result"]
         applying_policies = domain_type.get("stockPoliciesApplying", [])
-        opened_flag = sealed_flag = None
+        opened_flag = sealed_flag = storage_conditions = None
         if applying_policies:
             policy = client.get_all("StockPolicy", applying_policies[0]["id"])["result"]
             opened_flag, sealed_flag = policy.get("eligibleWhenOpened"), policy.get("eligibleWhenSealed")
+            conditions = policy.get("eligibleStorageConditions") or []
+            storage_conditions = {c["name"] for c in conditions} if conditions else None
         eligible, soonest_days = eligible_on_hand_with_urgency(
             client, domain_type_id, now, eligible_when_opened=opened_flag, eligible_when_sealed=sealed_flag,
+            eligible_storage_condition_names=storage_conditions,
         )
         coverage = min(1.0, eligible / required_qty) if required_qty else 0.0
         coverages.append(coverage)
