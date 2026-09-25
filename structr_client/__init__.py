@@ -1,3 +1,3 @@
-from .client import StructrClient, StructrError
+from .client import SchemaDriftError, StructrClient, StructrError
 
-__all__ = ["StructrClient", "StructrError"]
+__all__ = ["SchemaDriftError", "StructrClient", "StructrError"]

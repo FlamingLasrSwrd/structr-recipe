@@ -23,6 +23,34 @@ class StructrError(RuntimeError):
         super().__init__(f"{method} {url} -> {status}: {body}")
 
 
+class SchemaDriftError(RuntimeError):
+    """A schema object already exists but differs from what the code
+    declares. Raised instead of reconciling: a SchemaNode/SchemaProperty/
+    SchemaRelationshipNode change on a populated schema can orphan or
+    silently reinterpret existing data (CLAUDE.md hard rules #1-#3), and
+    a setup script reporting success while the live schema disagrees
+    with the code is worse than one that stops.
+
+    `differences` maps each attribute to (live value, declared value)."""
+
+    def __init__(self, kind: str, name: str, differences: dict[str, tuple[Any, Any]]):
+        self.kind = kind
+        self.name = name
+        self.differences = differences
+        detail = "; ".join(f"{attr}: live={live!r} declared={declared!r}" for attr, (live, declared) in differences.items())
+        super().__init__(
+            f"{kind} {name!r} already exists but differs from the declared schema ({detail}). "
+            f"Refusing to change a live schema object automatically -- resolve it deliberately "
+            f"(a migration, or correct the declaration if the live value is the intended one)."
+        )
+
+
+def _drift(declared: dict[str, Any], live: dict[str, Any]) -> dict[str, tuple[Any, Any]]:
+    """{attribute: (live, declared)} for every declared attribute whose
+    live value differs."""
+    return {k: (live.get(k), v) for k, v in declared.items() if live.get(k) != v}
+
+
 class StructrClient:
     def __init__(self, base_url: str, username: str, password: str):
         self.base_url = base_url.rstrip("/")
@@ -82,7 +110,11 @@ class StructrClient:
     # Structr's schema endpoints are not idempotent by default: POSTing
     # the same SchemaNode/SchemaProperty/SchemaRelationshipNode twice
     # duplicates or errors. These wrappers check-then-create so a setup
-    # script is safe to re-run after adding one new type.
+    # script is safe to re-run after adding one new type. They also
+    # COMPARE an existing object against the declaration and raise
+    # SchemaDriftError on any difference, never patching it: "already
+    # exists" is not "matches", and a schema change on a populated type
+    # must be a deliberate act (scripts/23a_schema_drift_test.py).
 
     def ensure_type(
         self,
@@ -93,27 +125,22 @@ class StructrClient:
         """Return (schema_node_id, created)."""
         existing = self.get("/structr/rest/SchemaNode", params={"name": name})
         if existing and existing.get("result"):
-            node_id = existing["result"][0]["id"]
-            # Do NOT reconcile inheritedTraits here. A SchemaNode's label
-            # set in Neo4j is fixed at instance-creation time (cheatsheet
-            # hard rule #2 in CLAUDE.md): silently PATCHing inheritedTraits
-            # on a type that already has instances orphans every one of
-            # them from polymorphic-target lookups, with no error at write
-            # time. Schema drift for an existing type must fail loudly and
-            # require a deliberate migration (direct Cypher `SET n:<Label>`
-            # plus a conscious decision), never an automatic reconcile.
+            live = existing["result"][0]
+            # Never reconcile a live type. A SchemaNode's label set in
+            # Neo4j is fixed at instance-creation time (CLAUDE.md hard
+            # rule #2): silently PATCHing inheritedTraits on a type that
+            # already has instances orphans every one of them from
+            # polymorphic-target lookups, with no error at write time.
+            differences = {}
             if inherited_traits is not None:
-                current = existing["result"][0].get("inheritedTraits") or []
-                if set(current) != set(inherited_traits):
-                    raise StructrError(
-                        "ensure_type", f"SchemaNode/{node_id}", 0,
-                        f"{name!r} already exists with inheritedTraits={current!r}, "
-                        f"but the code now declares {inherited_traits!r}. Refusing to "
-                        f"patch a live type's trait set automatically -- this can "
-                        f"orphan existing instances. If this drift is intentional, "
-                        f"resolve it deliberately (see CLAUDE.md hard rule #2).",
-                    )
-            return node_id, False
+                live_traits = set(live.get("inheritedTraits") or [])
+                if live_traits != set(inherited_traits):
+                    differences["inheritedTraits"] = (sorted(live_traits), sorted(inherited_traits))
+            if bool(live.get("isAbstract")) != is_abstract:
+                differences["isAbstract"] = (bool(live.get("isAbstract")), is_abstract)
+            if differences:
+                raise SchemaDriftError("SchemaNode", name, differences)
+            return live["id"], False
 
         payload: dict[str, Any] = {"name": name, "isAbstract": is_abstract}
         if inherited_traits:
@@ -137,7 +164,15 @@ class StructrClient:
             params={"schemaNode": schema_node_id, "name": name},
         )
         if existing and existing.get("result"):
-            return existing["result"][0]["id"], False
+            live = existing["result"][0]
+            differences = _drift(
+                {"propertyType": property_type, "unique": unique, "indexed": indexed,
+                 "notNull": not_null, "format": format},
+                live,
+            )
+            if differences:
+                raise SchemaDriftError(f"SchemaProperty on {schema_node_id}", name, differences)
+            return live["id"], False
 
         payload: dict[str, Any] = {
             "schemaNode": schema_node_id,
@@ -181,6 +216,13 @@ class StructrClient:
                 src = rel.get("sourceId") or (rel.get("sourceNode") or {}).get("id")
                 tgt = rel.get("targetId") or (rel.get("targetNode") or {}).get("id")
                 if src == source_id and tgt == target_id:
+                    differences = _drift(
+                        {"sourceMultiplicity": source_multiplicity, "targetMultiplicity": target_multiplicity,
+                         "sourceJsonName": source_json_name, "targetJsonName": target_json_name},
+                        rel,
+                    )
+                    if differences:
+                        raise SchemaDriftError("SchemaRelationshipNode", f"{relationship_type} {source_id}->{target_id}", differences)
                     return rel["id"], False
 
         payload = {

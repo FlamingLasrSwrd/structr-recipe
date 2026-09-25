@@ -144,6 +144,11 @@ DEFAULT_SPECIFICATION_ONCREATE = (
     'null))'
 )
 
+# Also declared notNull in mealplanner/recipe_schema.py. It used to be
+# declared False there and flipped to True only by the PATCH in
+# scripts/07_domain_invariants.py, so the code and the live schema
+# disagreed; the drift-detecting schema helpers found it. Kept here so
+# 07 stays a self-contained statement of which invariants it enforces.
 NOT_NULL_PROPERTIES = [
     ("Specification", "hasParticipationRole"),
     ("Allocation", "hasParticipationRole"),

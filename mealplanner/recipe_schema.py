@@ -40,14 +40,14 @@ PROPERTIES: dict[str, list[dict]] = {
         {"name": "hasTime", "propertyType": "Date", "format": "yyyy-MM-dd'T'HH:mm:ssZ"},
     ],
     "Specification": [
-        {"name": "hasParticipationRole", "propertyType": "Enum", "format": "input,output,instrument"},
+        {"name": "hasParticipationRole", "propertyType": "Enum", "format": "input,output,instrument", "notNull": True},
         {"name": "isOptional", "propertyType": "Boolean"},
     ],
     "StateRequirement": [
         {"name": "expectedValueLiteral", "propertyType": "String"},
     ],
     "Allocation": [
-        {"name": "hasParticipationRole", "propertyType": "Enum", "format": "input,output,instrument"},
+        {"name": "hasParticipationRole", "propertyType": "Enum", "format": "input,output,instrument", "notNull": True},
     ],
     "TemporalRegion": [
         {"name": "hasBeginning", "propertyType": "Date", "format": "yyyy-MM-dd'T'HH:mm:ssZ"},
