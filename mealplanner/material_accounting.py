@@ -139,38 +139,57 @@ def recipe_servings(client, plan: dict) -> float:
     return qty.get("value") or 1.0
 
 
+def plan_specifications(client, plan: dict) -> list[dict]:
+    """Every Specification of every Step of a Plan, fully loaded."""
+    specs = []
+    for step_ref in plan.get("steps", []):
+        step = client.get_all("Step", step_ref["id"])["result"]
+        for spec_ref in step.get("hasSpecification", []):
+            specs.append(client.get_all("Specification", spec_ref["id"])["result"])
+    return specs
+
+
+def _type_ids(specs: list[dict], role: str) -> set[str]:
+    return {s["specifies"]["id"] for s in specs if s.get("hasParticipationRole") == role and s.get("specifies")}
+
+
 def candidate_input_requirements(client, plan: dict) -> list[tuple[str, float]]:
     """[(input DomainType id, required quantity IN GRAMS), ...] for a
-    Plan's input-role Specifications that carry a quantity and convert
-    to a comparable mass (mealplanner/unit_conversion.py -- Sec 11
-    invariant 13). Instrument-role Specifications never have a quantity
-    (invariant 6); input Specifications without one, or whose declared
-    unit doesn't resolve to grams for this ingredient (e.g. "1 whole
-    onion" with no MassPerUnit default), are skipped here since there's
-    no comparable magnitude to check against on-hand stock -- same
-    "skip, don't guess" convention used throughout this module.
+    Plan's RAW input-role Specifications that carry a quantity and
+    convert to a comparable mass (mealplanner/unit_conversion.py -- Sec
+    11 invariant 13). Instrument-role Specifications never have a
+    quantity (invariant 6); input Specifications without one, or whose
+    declared unit doesn't resolve to grams for this ingredient (e.g. "1
+    whole onion" with no MassPerUnit default), are skipped since there's
+    no comparable magnitude to check against on-hand stock -- same "skip,
+    don't guess" convention used throughout.
+
+    RAW means an input whose type no Step of the same Plan produces. An
+    intermediate (step 1 braises chicken, step 2 takes the braised
+    chicken as an input) is made during the cook, not bought or stocked;
+    counting it as a requirement made stock coverage read 0% forever for
+    any multi-Step recipe. Not hit by the current single-Step recipes.
 
     Moved here from scripts/11c_simple_selector.py (originally added to
     fix a "unit-blind" bug found by external review) so
     mealplanner/reservation.py can share it too."""
+    specs = plan_specifications(client, plan)
+    produced = _type_ids(specs, "output")
     requirements = []
-    for step_ref in plan.get("steps", []):
-        step = client.get_all("Step", step_ref["id"])["result"]
-        for spec_ref in step.get("hasSpecification", []):
-            spec = client.get_all("Specification", spec_ref["id"])["result"]
-            if spec.get("hasParticipationRole") != "input":
-                continue
-            specifies = spec.get("specifies")
-            qty_ref = spec.get("hasSpecifiedQuantity")
-            if not specifies or not qty_ref:
-                continue
-            qty_spec = client.get_all("QuantitySpecification", qty_ref["id"])["result"]
-            qty = qty_spec.get("value")
-            if qty is None:
-                continue
-            qty_grams = convert_to_grams(client, specifies["id"], qty, qty_spec.get("unit"))
-            if qty_grams:
-                requirements.append((specifies["id"], qty_grams))
+    for spec in specs:
+        if spec.get("hasParticipationRole") != "input":
+            continue
+        specifies = spec.get("specifies")
+        qty_ref = spec.get("hasSpecifiedQuantity")
+        if not specifies or not qty_ref or specifies["id"] in produced:
+            continue
+        qty_spec = client.get_all("QuantitySpecification", qty_ref["id"])["result"]
+        qty = qty_spec.get("value")
+        if qty is None:
+            continue
+        qty_grams = convert_to_grams(client, specifies["id"], qty, qty_spec.get("unit"))
+        if qty_grams:
+            requirements.append((specifies["id"], qty_grams))
     return requirements
 
 
@@ -192,31 +211,40 @@ def recipe_servings_strict(client, plan: dict) -> float | None:
     return value
 
 
-def candidate_output(client, plan: dict) -> tuple[str | None, float | None]:
-    """(output DomainType id, output quantity IN GRAMS) for a Plan's
-    FIRST output-role Specification. (None, None) if it has none; the
-    quantity alone is None if it's missing or doesn't convert to grams
-    for the output type (unit_conversion.py, invariant 13).
+def candidate_outputs(client, plan: dict) -> list[tuple[str, float | None]]:
+    """[(output DomainType id, quantity IN GRAMS or None), ...] for
+    every FINAL output of a Plan. The quantity is None if it's missing
+    or doesn't convert to grams for that type (unit_conversion.py,
+    invariant 13).
+
+    FINAL means an output whose type no Step of the same Plan consumes
+    as an input; an intermediate is a means, not something anyone eats.
+    Replaces candidate_output(), which returned only the FIRST output
+    found -- found by external review, since the model allows several
+    per Step (a broth and the meat it cooked, a divided dough) and every
+    later one was silently ignored. Deriving "final" from the Plan's own
+    structure keeps it computed rather than stored, but it does assume a
+    type is identified by its DomainType: a Plan that both consumes and
+    produces the same type in different roles would read as having no
+    final output of that type.
 
     Moved here from scripts/11c_simple_selector.py so
-    mealplanner/nutrition_scope.py can share it. Now unit-converts like
-    candidate_input_requirements() does; it used to return the raw
-    numeric value regardless of unit. Still FIRST-output-only, a known
-    gap: the model allows several outputs per Step."""
-    for step_ref in plan.get("steps", []):
-        step = client.get_all("Step", step_ref["id"])["result"]
-        for spec_ref in step.get("hasSpecification", []):
-            spec = client.get_all("Specification", spec_ref["id"])["result"]
-            if spec.get("hasParticipationRole") != "output":
-                continue
-            specifies = spec.get("specifies")
-            if not specifies:
-                continue
-            grams = None
-            qty_ref = spec.get("hasSpecifiedQuantity")
-            if qty_ref:
-                qty = client.get_all("QuantitySpecification", qty_ref["id"])["result"]
-                if qty.get("value") is not None:
-                    grams = convert_to_grams(client, specifies["id"], qty["value"], qty.get("unit"))
-            return specifies["id"], grams
-    return None, None
+    mealplanner/nutrition_scope.py can share it. Unit-converts like the
+    input path does; it used to return the raw numeric value."""
+    specs = plan_specifications(client, plan)
+    consumed = _type_ids(specs, "input")
+    outputs = []
+    for spec in specs:
+        if spec.get("hasParticipationRole") != "output":
+            continue
+        specifies = spec.get("specifies")
+        if not specifies or specifies["id"] in consumed:
+            continue
+        grams = None
+        qty_ref = spec.get("hasSpecifiedQuantity")
+        if qty_ref:
+            qty = client.get_all("QuantitySpecification", qty_ref["id"])["result"]
+            if qty.get("value") is not None:
+                grams = convert_to_grams(client, specifies["id"], qty["value"], qty.get("unit"))
+        outputs.append((specifies["id"], grams))
+    return outputs

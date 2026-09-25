@@ -100,7 +100,7 @@ def current_magnitude(client, quality_id: str, now: datetime) -> float | None:
     return (latest.get("value") or 0.0) - consumed
 
 
-def _subtypes_of(client, domain_type_id: str) -> set[str]:
+def subtypes_of(client, domain_type_id: str) -> set[str]:
     """domain_type_id and every descendant, walking SUBCLASS_OF downward."""
     result = {domain_type_id}
     frontier = [domain_type_id]
@@ -234,7 +234,7 @@ def instance_expiration(client, portion: dict, now: datetime) -> tuple[bool, flo
 def physical_on_hand(client, domain_type_id: str, now: datetime) -> float:
     """Sum of currentMagnitude() across every FoodObject instance whose
     instanceOf is domain_type_id or a descendant of it."""
-    types = _subtypes_of(client, domain_type_id)
+    types = subtypes_of(client, domain_type_id)
     total = 0.0
     for type_name in ("PortionOfSubstance", "DiscreteWholeItem"):
         for instance in client.get_all(type_name)["result"]:
@@ -261,6 +261,7 @@ def eligible_on_hand_with_urgency(
     client, domain_type_id: str, now: datetime,
     eligible_when_opened: bool | None = None, eligible_when_sealed: bool | None = None,
     eligible_storage_condition_names: set[str] | None = None,
+    include_subtypes: bool = True,
 ) -> tuple[float, float | None]:
     """(eligible on-hand quantity [not expired, and passing the opened-
     status/storage-condition filters if given], days-until-expiry of
@@ -277,11 +278,22 @@ def eligible_on_hand_with_urgency(
     week" reasonably wants Fridge stock only, not Freezer stock that
     still needs thawing. Leave None for no filtering on this dimension.
 
+    include_subtypes: count stock of every descendant type as well
+    (default), or only stock whose type is exactly domain_type_id. A
+    StockPolicy's includesSubtypes flag feeds this; it was never read
+    before, so a policy that said "this exact type only" was counted as
+    if it said "and everything below it".
+
+    An EMPTY eligible_storage_condition_names set means no condition
+    qualifies (only stock in no container passes, per Sec 9), not "no
+    filter" -- pass None for no filtering. Restrictive policy
+    combination (reservation.py) can legitimately produce an empty set.
+
     Both filters follow data-model.md Sec 9: "food in no container is
     outside any [...] filter rather than undefined" -- an instance with
     no container is never excluded by either filter, regardless of what
     the filter says, since there's nothing to check it against."""
-    types = _subtypes_of(client, domain_type_id)
+    types = subtypes_of(client, domain_type_id) if include_subtypes else {domain_type_id}
     total = 0.0
     soonest: float | None = None
     for type_name in ("PortionOfSubstance", "DiscreteWholeItem"):
@@ -312,7 +324,7 @@ def eligible_on_hand_with_urgency(
                 if status == "Sealed" and eligible_when_sealed is False:
                     continue
                 # status is None (no container) -> filter doesn't apply, per Sec 9
-            if eligible_storage_condition_names:
+            if eligible_storage_condition_names is not None:
                 condition = container_storage_condition(client, instance)
                 if condition is not None and condition not in eligible_storage_condition_names:
                     continue

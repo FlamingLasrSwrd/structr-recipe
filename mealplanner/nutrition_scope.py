@@ -60,7 +60,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 
-from mealplanner.material_accounting import candidate_output, recipe_servings_strict
+from mealplanner.material_accounting import candidate_outputs, recipe_servings_strict
 
 FMT = "%Y-%m-%dT%H:%M:%S%z"
 DEFAULT_SERVINGS_EATEN = 1.0
@@ -82,18 +82,31 @@ def nutrient_profile_amount(client, output_type_id: str, nutrient_id: str) -> fl
 
 def serving_nutrient_amount(client, plan: dict, nutrient_id: str) -> float | None:
     """Grams of the nutrient in ONE serving of a Plan's output, or None
-    if any of the three inputs (a profile, an output mass, a yield in
-    servings) is missing."""
-    output_type_id, output_grams = candidate_output(client, plan)
-    if output_type_id is None or output_grams is None:
-        return None
-    per_100g = nutrient_profile_amount(client, output_type_id, nutrient_id)
-    if per_100g is None:
+    if it can't be established. The Plan's amount is the sum over EVERY
+    final output (material_accounting.candidate_outputs), so a recipe
+    with two outputs counts both.
+
+    Unknown propagates: if any final output lacks a mass or a
+    NutrientProfile for this nutrient, or the yield isn't stated in
+    servings, the whole answer is None rather than a partial sum. That is
+    deliberately cautious -- an inedible byproduct with no profile will
+    make a recipe's nutrition unknown until the model can say which
+    outputs are eaten, which it can't today."""
+    outputs = candidate_outputs(client, plan)
+    if not outputs:
         return None
     servings = recipe_servings_strict(client, plan)
     if servings is None:
         return None
-    return (output_grams * per_100g / 100.0) / servings
+    total = 0.0
+    for output_type_id, output_grams in outputs:
+        if output_grams is None:
+            return None
+        per_100g = nutrient_profile_amount(client, output_type_id, nutrient_id)
+        if per_100g is None:
+            return None
+        total += output_grams * per_100g / 100.0
+    return total / servings
 
 
 def _source_plan(client, entry: dict) -> dict | None:

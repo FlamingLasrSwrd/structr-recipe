@@ -63,13 +63,15 @@ the amount unknown, not 1.
 Stock/waste data source: mealplanner/inventory.py's currentMagnitude()/
 physicalOnHand()/eligibleOnHand(), built the same way as this selector
 (Python over REST, not StructrScript -- see that module's docstring for
-why). Opened-status eligibility filtering now applies (see
-mealplanner/opened_status_schema.py): when a StockPolicy applies_to an
-ingredient's DomainType, its eligibleWhenOpened/eligibleWhenSealed
-flags are honored. Storage-condition filtering (eligibleStorageConditions)
-is still NOT implemented -- this project doesn't yet track which
-storage condition a portion is actually kept in, a smaller remaining
-gap.
+why). Which stock counts for an ingredient is set by the StockPolicy
+that governs its type (mealplanner/reservation.py resolve_stock_policy):
+nearest policy up the type hierarchy wins, a policy on an ancestor
+reaches descendants only if includesSubtypes isn't False, and several
+policies on one type combine restrictively. The policy's opened/sealed,
+storage-condition and includesSubtypes settings all apply. Exclusions
+are transitive through both hierarchies (excluded_domain_type_ids), and
+a Plan's intermediates are not treated as raw stock requirements
+(material_accounting.candidate_input_requirements).
 
 Run with: python3 scripts/11c_simple_selector.py
 """
@@ -81,12 +83,14 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from structr_client import StructrClient
-from mealplanner.inventory import eligible_on_hand_with_urgency
+from mealplanner.inventory import eligible_on_hand_with_urgency, subtypes_of
 from mealplanner.material_accounting import candidate_input_requirements
 from mealplanner.nutrition_scope import (
     DEFAULT_SERVINGS_EATEN, scope_total, serving_nutrient_amount, target_scope_problem,
 )
-from mealplanner.reservation import committed_requirements, available_for_planning, stock_policy_filters
+from mealplanner.reservation import (
+    committed_requirements, available_for_planning, policy_eligibility_kwargs, resolve_stock_policy,
+)
 
 BASE_URL = "http://localhost:8083"
 USERNAME = "superadmin"
@@ -96,23 +100,36 @@ WASTE_URGENCY_WINDOW_DAYS = 5.0
 
 
 def excluded_domain_type_ids(client) -> set[str]:
-    """Every DomainType a hard ExclusionConstraint bans, directly or
-    via hasBiologicalOrigin."""
-    hard = client.get_all("ExclusionConstraint")["result"]
-    excluded = set()
-    for ec in hard:
+    """Every DomainType a hard ExclusionConstraint bans.
+
+    Transitive in both hierarchies. For an excluded type T:
+      1. T and every DESCENDANT of T are banned (excluding Tree Nut bans
+         a sub-origin such as Cashew; excluding Beef bans every kind of
+         beef).
+      2. Every food whose Biological Origin is T or any descendant of T
+         is banned, together with that food's own descendants (a roasted
+         form of an excluded nut is still that nut).
+    Found by external review: this used to ban only T and foods linked
+    DIRECTLY to T, so a food whose origin was a child of the excluded
+    origin, or a subtype of an excluded food, slipped through -- for an
+    allergy, the dangerous direction to be wrong in.
+
+    Not banned: a type ABOVE an excluded one. A recipe that calls for
+    generic "Poultry" while only chicken is excluded can be made with
+    something else, so it isn't a hard violation; a recipe that names the
+    excluded type itself is."""
+    excluded: set[str] = set()
+    for ec in client.get_all("ExclusionConstraint")["result"]:
         if ec.get("strictness") != "hard":
             continue
         applies_to = ec.get("appliesTo")
         if not applies_to:
             continue
-        target_id = applies_to["id"]
-        excluded.add(target_id)
-        # anything whose Biological Origin IS this excluded type is
-        # also excluded (e.g. Almonds -> Tree Nut)
-        target_full = client.get_all("DomainType", target_id)["result"]
-        for food in target_full.get("foodsOfThisOrigin", []):
-            excluded.add(food["id"])
+        banned_roots = subtypes_of(client, applies_to["id"])
+        excluded |= banned_roots
+        for root_id in banned_roots:
+            for food in client.get_all("DomainType", root_id)["result"].get("foodsOfThisOrigin", []):
+                excluded |= subtypes_of(client, food["id"])
     return excluded
 
 
@@ -191,10 +208,9 @@ def stock_and_waste_scores(
         # mealplanner/storage_condition_schema.py) -- previously
         # eligible_on_hand had no filtering at all on either dimension,
         # a gap flagged in the holes-and-gaps analysis.
-        opened_flag, sealed_flag, storage_conditions = stock_policy_filters(client, domain_type_id)
+        policy = resolve_stock_policy(client, domain_type_id)
         eligible, soonest_days = eligible_on_hand_with_urgency(
-            client, domain_type_id, now, eligible_when_opened=opened_flag, eligible_when_sealed=sealed_flag,
-            eligible_storage_condition_names=storage_conditions,
+            client, domain_type_id, now, **policy_eligibility_kwargs(policy),
         )
         available = available_for_planning(eligible, domain_type_id, reserved)
         coverage = min(1.0, available / required_qty) if required_qty else 0.0
@@ -205,6 +221,8 @@ def stock_and_waste_scores(
             urgency = max(0.0, 1.0 - soonest_days / WASTE_URGENCY_WINDOW_DAYS) if soonest_days >= 0 else 0.0
             max_urgency = max(max_urgency, urgency)
             note += f", soonest expiry in {soonest_days:.1f}d (urgency={urgency:.2f})"
+        if policy and policy.tied:
+            note += f" [{len(policy.policy_names)} policies tie on this type; combined restrictively]"
         notes.append(note)
 
     return sum(coverages) / len(coverages), max_urgency, notes

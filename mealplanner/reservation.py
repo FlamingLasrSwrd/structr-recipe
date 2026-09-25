@@ -39,10 +39,14 @@ work; flagged here rather than silently folded in or silently ignored.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from mealplanner.inventory import eligible_on_hand_with_urgency
 from mealplanner.material_accounting import recipe_servings, candidate_input_requirements
+from mealplanner.unit_conversion import convert_to_grams
+
+MAX_POLICY_ANCESTORS = 12
 
 
 def committed_requirements(client, meal_plan_id: str) -> dict[str, float]:
@@ -81,32 +85,115 @@ def committed_requirements(client, meal_plan_id: str) -> dict[str, float]:
     return requirements
 
 
-def stock_policy_filters(client, domain_type_id: str) -> tuple[bool | None, bool | None, set[str] | None]:
-    """(eligible_when_opened, eligible_when_sealed, eligible storage
-    condition names) from the StockPolicy applying to this type, or
-    (None, None, None) -- no filtering -- when none does.
+@dataclass
+class PolicyResolution:
+    """The StockPolicy (or tied set of them) governing one DomainType."""
+    root_type_id: str                 # the type the governing policy applies to
+    distance: int                     # 0 = the type itself, n = nth ancestor
+    policy_names: list[str]
+    tied: bool                        # several policies on the same type
+    eligible_when_opened: bool | None
+    eligible_when_sealed: bool | None
+    storage_conditions: set[str] | None
+    include_subtypes: bool
+    targets: list[tuple[str, float | None, str | None]] = field(default_factory=list)  # (policy, value, unit)
 
-    One lookup shared by the selector's stock scoring and
-    net_requirements(), because a StockPolicy's eligibility flags define
-    which stock counts toward its own target. net_requirements() used to
-    skip them: with the test inventory aged past its shelf lives, it said
-    to buy 500 g of chicken while the selector, applying the policy's
-    sealed-only/fridge-only filters, saw 0 g eligible for the very same
-    stock. Found by running the demo again weeks later.
+    def eligibility_kwargs(self) -> dict:
+        return {
+            "eligible_when_opened": self.eligible_when_opened,
+            "eligible_when_sealed": self.eligible_when_sealed,
+            "eligible_storage_condition_names": self.storage_conditions,
+            "include_subtypes": self.include_subtypes,
+        }
 
-    KNOWN GAPS, unchanged from the selector's old inline version: it takes
-    the FIRST applying policy (arbitrary if several target the same
-    type), and only policies on this exact type, not on an ancestor."""
-    domain_type = client.get_all("DomainType", domain_type_id)["result"]
-    applying = domain_type.get("stockPoliciesApplying", [])
-    if not applying:
-        return None, None, None
-    policy = client.get_all("StockPolicy", applying[0]["id"])["result"]
-    conditions = policy.get("eligibleStorageConditions") or []
-    return (
-        policy.get("eligibleWhenOpened"), policy.get("eligibleWhenSealed"),
-        {c["name"] for c in conditions} if conditions else None,
-    )
+
+def combine_policy_fields(policies: list[dict]) -> dict:
+    """Restrictively combine policies that govern the same type. Each
+    dict has eligibleWhenOpened / eligibleWhenSealed (bool or None),
+    storage (set of names or None), includesSubtypes (bool or None).
+
+    A flag is None for "no constraint"; stock counts only if every
+    policy that states a flag allows it, so the result is the AND of the
+    stated flags and the INTERSECTION of the stated storage sets. That is
+    order-independent and can only shrink what counts as usable stock,
+    never grow it. includesSubtypes is False if any policy says False;
+    an unset value is treated as True, the behaviour before this flag
+    was read at all."""
+    def flag(key):
+        stated = [p[key] for p in policies if p[key] is not None]
+        return all(stated) if stated else None
+
+    sets = [p["storage"] for p in policies if p["storage"] is not None]
+    storage = set.intersection(*[set(x) for x in sets]) if sets else None
+    return {
+        "eligibleWhenOpened": flag("eligibleWhenOpened"),
+        "eligibleWhenSealed": flag("eligibleWhenSealed"),
+        "storage": storage,
+        "includesSubtypes": all(p["includesSubtypes"] is not False for p in policies),
+    }
+
+
+def resolve_stock_policy(client, domain_type_id: str) -> PolicyResolution | None:
+    """The StockPolicy governing a DomainType, or None if none does.
+
+    Walks from the type up through its ancestors and stops at the first
+    level that has an applicable policy -- the same "most specific type
+    wins" rule resolveDefault uses (Sec 8). A policy on an ANCESTOR
+    applies only if its includesSubtypes isn't False; a policy on the
+    type itself always applies. Several policies on the same type are
+    combined restrictively (combine_policy_fields) and flagged `tied`.
+
+    Replaces stock_policy_filters(), which took the first policy on the
+    exact type only: arbitrary when several targeted one type (found by
+    external review -- graph order was deciding business behaviour),
+    blind to a policy on an ancestor, and it never read includesSubtypes.
+
+    NOT handled: nested policies. If policies exist on both an ancestor
+    and a descendant, each type is governed by its nearest one, but the
+    two stock pools overlap physically and are not reconciled (see
+    net_requirements)."""
+    current_id, distance, seen = domain_type_id, 0, set()
+    while current_id and current_id not in seen and distance <= MAX_POLICY_ANCESTORS:
+        seen.add(current_id)
+        node = client.get_all("DomainType", current_id)["result"]
+        applicable = []
+        for ref in node.get("stockPoliciesApplying", []):
+            policy = client.get_all("StockPolicy", ref["id"])["result"]
+            if distance > 0 and policy.get("includesSubtypes") is False:
+                continue
+            applicable.append(policy)
+        if applicable:
+            applicable.sort(key=lambda p: p["name"])
+            fields, targets = [], []
+            for policy in applicable:
+                conditions = policy.get("eligibleStorageConditions") or []
+                fields.append({
+                    "eligibleWhenOpened": policy.get("eligibleWhenOpened"),
+                    "eligibleWhenSealed": policy.get("eligibleWhenSealed"),
+                    "storage": {c["name"] for c in conditions} if conditions else None,
+                    "includesSubtypes": policy.get("includesSubtypes"),
+                })
+                target_ref = policy.get("hasTargetLevel")
+                if target_ref:
+                    qty = client.get_all("QuantitySpecification", target_ref["id"])["result"]
+                    targets.append((policy["name"], qty.get("value"), qty.get("unit")))
+            combined = combine_policy_fields(fields)
+            return PolicyResolution(
+                root_type_id=current_id, distance=distance, policy_names=[p["name"] for p in applicable],
+                tied=len(applicable) > 1, eligible_when_opened=combined["eligibleWhenOpened"],
+                eligible_when_sealed=combined["eligibleWhenSealed"], storage_conditions=combined["storage"],
+                include_subtypes=combined["includesSubtypes"], targets=targets,
+            )
+        parent = node.get("parent")
+        current_id = parent["id"] if parent else None
+        distance += 1
+    return None
+
+
+def policy_eligibility_kwargs(resolution: PolicyResolution | None) -> dict:
+    """kwargs for eligible_on_hand_with_urgency: no filtering when no
+    policy governs the type."""
+    return resolution.eligibility_kwargs() if resolution else {}
 
 
 def available_for_planning(eligible: float, domain_type_id: str, reserved: dict[str, float]) -> float:
@@ -119,16 +206,43 @@ def available_for_planning(eligible: float, domain_type_id: str, reserved: dict[
     return max(0.0, eligible - reserved.get(domain_type_id, 0.0))
 
 
+def _target_grams(client, resolution: PolicyResolution) -> float:
+    """Largest target level among the governing policies, in grams.
+    Raises rather than dropping a target whose unit won't convert -- a
+    silently ignored target quietly understates the shopping list."""
+    grams = []
+    for name, value, unit in resolution.targets:
+        if value is None:
+            continue
+        converted = convert_to_grams(client, resolution.root_type_id, value, unit)
+        if converted is None:
+            raise ValueError(f"StockPolicy {name!r}: target {value} {unit!r} doesn't convert to grams")
+        grams.append(converted)
+    return max(grams) if grams else 0.0
+
+
 def net_requirements(client, meal_plan_id: str, now: datetime) -> dict[str, float]:
     """AcquisitionList's formula (data-model.md's Recipes/plans/policies
-    table) and invariant 28: for each DomainType, how many grams need
-    buying this week. Only DomainTypes with a positive net need are
-    included (a real shopping list, not a full inventory dump).
+    table) and invariant 28: how many grams need buying this week, keyed
+    by stock pool. Only pools with a positive net need are included (a
+    real shopping list, not a full inventory dump).
 
-    gross_need[type] = committed_requirements()[type]   (this week's
-                        not-yet-fulfilled fresh-cooking entries)
-                      + (any StockPolicy's hasTargetLevel for that type)
-    net[type] = max(0, gross_need[type] - eligibleOnHand[type])
+    Stock is accounted in POOLS, one per governing policy root (or per
+    ingredient type when no policy governs it). A recipe's demand for an
+    ingredient goes to the pool of the policy that governs that
+    ingredient (resolve_stock_policy), so demand for a subtype and a
+    target level set on its ancestor compete for the same stock instead
+    of each claiming it separately:
+
+        net[pool] = max(0, committed demand in the pool
+                           + the pool's target level
+                           - eligibleOnHand[pool under the policy's filters])
+
+    Target levels come from StockPolicy.hasTargetLevel converted to
+    grams (a target in cups used to be read as grams). Tied policies on
+    one type use the largest target. Because a pool is keyed by its
+    policy's type, a shortfall in a subtype's stock appears under the
+    ancestor the policy names.
 
     RESOLVED AMBIGUITY: the model's own formula reads "...+ (StockPolicy
     shortfalls up to target level) - eligible on-hand". Taken literally
@@ -144,37 +258,39 @@ def net_requirements(client, meal_plan_id: str, now: datetime) -> dict[str, floa
     900g standing pantry reserve for free -- the two needs compete for
     the same purchase.
 
-    SCOPE CUT, not resolved here: the model's formula also divides by
-    "the yield factor of any trimming/prep transformation between the
-    purchased form and the required form" (e.g. a recipe requiring
-    180g diced onion, bought as whole onion). This project has no
+    KNOWN LIMITS: (1) nested policies -- a policy on an ancestor and
+    another on a descendant produce two pools that physically overlap and
+    aren't reconciled, so shared stock is counted in both. (2) The
+    model's formula also divides by "the yield factor of any trimming/
+    prep transformation between the purchased form and the required form"
+    (a recipe needing 180g diced onion, bought whole). There is no
     vocabulary yet distinguishing a Type's purchased form from its
-    as-required form, so that division isn't applied -- the amounts
-    returned here are in the recipe's OWN required form, which may
-    understate a real shopping quantity for anything normally bought
-    less prepared than the recipe calls for. Flagged, not silently
-    assumed away, same as material_accounting.py's own open questions."""
-    gross: dict[str, float] = dict(committed_requirements(client, meal_plan_id))
+    as-required form, so that division isn't applied; amounts are in the
+    recipe's own required form. Flagged, not silently assumed away."""
+    pools: dict[str, dict] = {}
 
+    def pool_for(type_id: str) -> dict:
+        resolution = resolve_stock_policy(client, type_id)
+        root = resolution.root_type_id if resolution else type_id
+        if root not in pools:
+            pools[root] = {
+                "demand": 0.0, "resolution": resolution,
+                "target": _target_grams(client, resolution) if resolution else 0.0,
+            }
+        return pools[root]
+
+    for type_id, grams in committed_requirements(client, meal_plan_id).items():
+        pool_for(type_id)["demand"] += grams
     for policy in client.get_all("StockPolicy")["result"]:
-        applies_to = policy.get("appliesTo")
-        target_ref = policy.get("hasTargetLevel")
-        if not applies_to or not target_ref:
-            continue
-        target_level = client.get_all("QuantitySpecification", target_ref["id"])["result"].get("value")
-        if target_level is None:
-            continue
-        type_id = applies_to["id"]
-        gross[type_id] = gross.get(type_id, 0.0) + target_level
+        if policy.get("appliesTo"):
+            pool_for(policy["appliesTo"]["id"])
 
     net: dict[str, float] = {}
-    for type_id, need in gross.items():
-        opened, sealed, storage = stock_policy_filters(client, type_id)
+    for root, pool in pools.items():
         eligible, _ = eligible_on_hand_with_urgency(
-            client, type_id, now, eligible_when_opened=opened, eligible_when_sealed=sealed,
-            eligible_storage_condition_names=storage,
+            client, root, now, **policy_eligibility_kwargs(pool["resolution"]),
         )
-        remainder = need - eligible
+        remainder = pool["demand"] + pool["target"] - eligible
         if remainder > 0:
-            net[type_id] = remainder
+            net[root] = remainder
     return net
