@@ -172,3 +172,51 @@ def candidate_input_requirements(client, plan: dict) -> list[tuple[str, float]]:
             if qty_grams:
                 requirements.append((specifies["id"], qty_grams))
     return requirements
+
+
+def recipe_servings_strict(client, plan: dict) -> float | None:
+    """Plan.hasRecipeYield in servings, or None if it isn't stated as a
+    positive number of servings. Unlike recipe_servings() this never
+    falls back to 1.0: for nutrition, "1 serving" is a factual claim
+    about how much one person eats, and an unset or non-serving yield
+    (e.g. a "batch") must make the per-serving amount unknown rather
+    than a guess. Found by external review (missing information turning
+    into a plausible-looking default)."""
+    yield_ref = plan.get("hasRecipeYield")
+    if not yield_ref:
+        return None
+    qty = client.get_all("QuantitySpecification", yield_ref["id"])["result"]
+    value = qty.get("value")
+    if value is None or value <= 0 or qty.get("unit") != "servings":
+        return None
+    return value
+
+
+def candidate_output(client, plan: dict) -> tuple[str | None, float | None]:
+    """(output DomainType id, output quantity IN GRAMS) for a Plan's
+    FIRST output-role Specification. (None, None) if it has none; the
+    quantity alone is None if it's missing or doesn't convert to grams
+    for the output type (unit_conversion.py, invariant 13).
+
+    Moved here from scripts/11c_simple_selector.py so
+    mealplanner/nutrition_scope.py can share it. Now unit-converts like
+    candidate_input_requirements() does; it used to return the raw
+    numeric value regardless of unit. Still FIRST-output-only, a known
+    gap: the model allows several outputs per Step."""
+    for step_ref in plan.get("steps", []):
+        step = client.get_all("Step", step_ref["id"])["result"]
+        for spec_ref in step.get("hasSpecification", []):
+            spec = client.get_all("Specification", spec_ref["id"])["result"]
+            if spec.get("hasParticipationRole") != "output":
+                continue
+            specifies = spec.get("specifies")
+            if not specifies:
+                continue
+            grams = None
+            qty_ref = spec.get("hasSpecifiedQuantity")
+            if qty_ref:
+                qty = client.get_all("QuantitySpecification", qty_ref["id"])["result"]
+                if qty.get("value") is not None:
+                    grams = convert_to_grams(client, specifies["id"], qty["value"], qty.get("unit"))
+            return specifies["id"], grams
+    return None, None

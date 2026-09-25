@@ -262,4 +262,14 @@ STOCK_POLICY_ONCREATE = (
 #   (expected_combination_output()'s estimate, material_accounting.py),
 #   which is real, separate work. mealplanner/reservation.py's own
 #   module docstring states this scope cut explicitly.
-# 30: NutritionTarget rollup consistency, unbuilt.
+# 30 (partial): "A NutritionTarget and its rollup must share nutrient and
+#   quantity kind; bounds state inclusive/exclusive; daily scope states
+#   its day-boundary rule." mealplanner/nutrition_scope.py applies the
+#   day-boundary and quantity-kind parts at EVALUATION time, not write
+#   time: a daily target whose dayBoundaryRule isn't "midnight", or whose
+#   range isn't in grams, is reported as unsupported rather than
+#   evaluated. Not enforced when the target is written, and inclusive/
+#   exclusive bounds aren't modeled at all (both bounds are treated as
+#   inclusive). The rollup itself is now computed at each target's
+#   declared scope (daily/weekly/per_meal), which is what the invariant's
+#   "rollup" refers to.

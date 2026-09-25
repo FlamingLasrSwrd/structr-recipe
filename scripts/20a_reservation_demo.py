@@ -12,9 +12,14 @@ baseline demo output on every future run. Exactly the test-isolation
 risk external review flagged (self-reported findings checklist, item
 on test-state contamination) -- caught before it landed, not after.
 
+Also self-cleaning: the entry and temporal region are deleted in a
+finally block. Leaving the entry behind still skewed OTHER scripts,
+because Plan.referencedByEntries (and so variety scoring) is global
+across MealPlans.
+
 Commits ONE MealPlanEntry for "TEST -- Beef and Broccoli Stir-Fry v1" at
 4.0 planned servings (double the recipe's own 2.0-serving yield, so it
-claims 800g beef / 600g broccoli -- more than the 450g/350g on hand),
+claims 800g beef / 600g broccoli -- more than is on hand),
 then shows:
   1. committed_requirements() correctly sums that claim,
   2. the selector's stock-coverage score for a SECOND helping of the
@@ -68,46 +73,53 @@ def main():
     before = committed_requirements(client, meal_plan_id)
     print(f"    {before or '{} (nothing committed yet)'}")
 
-    print("\n[1] Committing one entry: Beef and Broccoli Stir-Fry at 4.0 planned "
-          "servings (2x the recipe's own 2.0-serving yield -- claims 800g beef / "
-          "600g broccoli, more than the 450g/350g actually on hand)...")
-    region_id = client.upsert("TemporalRegion", "name", f"{P}Demo commitment window", {
-        "hasBeginning": now.strftime(FMT), "hasEnd": (now + timedelta(hours=1)).strftime(FMT),
-    })
-    entry_id = client.upsert("MealPlanEntry", "name", f"{P}Demo commitment -- beef and broccoli x2 batch", {
-        "memberOf": meal_plan_id, "isAbout": region_id,
-        "references": beef_plan_id, "hasPlannedServings": 4.0, "isSkipped": False,
-    })
-    print(f"    entry={entry_id}")
+    entry_id = region_id = None
+    try:
+        print("\n[1] Committing one entry: Beef and Broccoli Stir-Fry at 4.0 planned "
+              "servings (2x the recipe's own 2.0-serving yield -- claims 800g beef / "
+              "600g broccoli, more than is actually on hand)...")
+        region_id = client.upsert("TemporalRegion", "name", f"{P}Demo commitment window", {
+            "hasBeginning": now.strftime(FMT), "hasEnd": (now + timedelta(hours=1)).strftime(FMT),
+        })
+        entry_id = client.upsert("MealPlanEntry", "name", f"{P}Demo commitment -- beef and broccoli x2 batch", {
+            "memberOf": meal_plan_id, "isAbout": region_id,
+            "references": beef_plan_id, "hasPlannedServings": 4.0, "isSkipped": False,
+        })
+        print(f"    entry={entry_id}")
 
-    print("\n[2] committed_requirements() after committing...")
-    reserved = committed_requirements(client, meal_plan_id)
-    for type_id, grams in reserved.items():
-        name = client.get_all("DomainType", type_id)["result"].get("name")
-        print(f"    {name}: {grams:.0f}g reserved")
+        print("\n[2] committed_requirements() after committing...")
+        reserved = committed_requirements(client, meal_plan_id)
+        for type_id, grams in reserved.items():
+            name = client.get_all("DomainType", type_id)["result"].get("name")
+            print(f"    {name}: {grams:.0f}g reserved")
 
-    print("\n[3] Selector run -- does a SECOND helping of the same recipe correctly "
-          "see reduced availability?...")
-    ranked = select(client, meal_plan_id, now)
-    for r in ranked:
-        name = r["plan"]["name"]
-        if r["disqualified"]:
-            print(f"    DISQUALIFIED  {name:45s}  {r['reason']}")
-        else:
-            print(f"    score={r['score']:.3f}  {name:45s}  {r['reason']}")
+        print("\n[3] Selector run -- does a SECOND helping of the same recipe correctly "
+              "see reduced availability?...")
+        ranked = select(client, meal_plan_id, now)
+        for r in ranked:
+            name = r["plan"]["name"]
+            if r["disqualified"]:
+                print(f"    DISQUALIFIED  {name:45s}  {r['reason']}")
+            else:
+                print(f"    score={r['score']:.3f}  {name:45s}  {r['reason']}")
 
-    print("\n[4] net_requirements() -- AcquisitionList's formula: does the "
-          "over-committed shortfall show up as a real shopping-list entry?...")
-    net = net_requirements(client, meal_plan_id, now)
-    if not net:
-        print("    (empty -- nothing needs buying)")
-    for type_id, grams in net.items():
-        name = client.get_all("DomainType", type_id)["result"].get("name")
-        print(f"    BUY {grams:.0f}g of {name}")
+        print("\n[4] net_requirements() -- AcquisitionList's formula: does the "
+              "over-committed shortfall show up as a real shopping-list entry?...")
+        net = net_requirements(client, meal_plan_id, now)
+        if not net:
+            print("    (empty -- nothing needs buying)")
+        for type_id, grams in net.items():
+            name = client.get_all("DomainType", type_id)["result"].get("name")
+            print(f"    BUY {grams:.0f}g of {name}")
 
-    print("\nDone. Beef and Broccoli's stock-coverage score above should be near "
-          "0%, not the 100% it would show scored in isolation -- and net_requirements() "
-          "should show a positive shortfall for both Beef (raw) and Broccoli.")
+        print("\nDone. Beef and Broccoli's stock-coverage score above should be near "
+              "0%, not the 100% it would show scored in isolation -- and net_requirements() "
+              "should show a positive shortfall for both Beef (raw) and Broccoli.")
+    finally:
+        for type_name, node_id in ("MealPlanEntry", entry_id), ("TemporalRegion", region_id):
+            if node_id:
+                client.delete(f"/structr/rest/{type_name}/{node_id}")
+        print("\n[cleanup] demo entry and temporal region removed")
 
 
 if __name__ == "__main__":

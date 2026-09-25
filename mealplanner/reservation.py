@@ -81,6 +81,34 @@ def committed_requirements(client, meal_plan_id: str) -> dict[str, float]:
     return requirements
 
 
+def stock_policy_filters(client, domain_type_id: str) -> tuple[bool | None, bool | None, set[str] | None]:
+    """(eligible_when_opened, eligible_when_sealed, eligible storage
+    condition names) from the StockPolicy applying to this type, or
+    (None, None, None) -- no filtering -- when none does.
+
+    One lookup shared by the selector's stock scoring and
+    net_requirements(), because a StockPolicy's eligibility flags define
+    which stock counts toward its own target. net_requirements() used to
+    skip them: with the test inventory aged past its shelf lives, it said
+    to buy 500 g of chicken while the selector, applying the policy's
+    sealed-only/fridge-only filters, saw 0 g eligible for the very same
+    stock. Found by running the demo again weeks later.
+
+    KNOWN GAPS, unchanged from the selector's old inline version: it takes
+    the FIRST applying policy (arbitrary if several target the same
+    type), and only policies on this exact type, not on an ancestor."""
+    domain_type = client.get_all("DomainType", domain_type_id)["result"]
+    applying = domain_type.get("stockPoliciesApplying", [])
+    if not applying:
+        return None, None, None
+    policy = client.get_all("StockPolicy", applying[0]["id"])["result"]
+    conditions = policy.get("eligibleStorageConditions") or []
+    return (
+        policy.get("eligibleWhenOpened"), policy.get("eligibleWhenSealed"),
+        {c["name"] for c in conditions} if conditions else None,
+    )
+
+
 def available_for_planning(eligible: float, domain_type_id: str, reserved: dict[str, float]) -> float:
     """Eligible on-hand minus what's already committed elsewhere in
     this same MealPlan -- the "Available" tier. A pure subtraction,
@@ -141,7 +169,11 @@ def net_requirements(client, meal_plan_id: str, now: datetime) -> dict[str, floa
 
     net: dict[str, float] = {}
     for type_id, need in gross.items():
-        eligible, _ = eligible_on_hand_with_urgency(client, type_id, now)
+        opened, sealed, storage = stock_policy_filters(client, type_id)
+        eligible, _ = eligible_on_hand_with_urgency(
+            client, type_id, now, eligible_when_opened=opened, eligible_when_sealed=sealed,
+            eligible_storage_condition_names=storage,
+        )
         remainder = need - eligible
         if remainder > 0:
             net[type_id] = remainder

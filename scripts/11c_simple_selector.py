@@ -39,16 +39,14 @@ curation work, deferred rather than faked. A candidate with no
 NutrientProfile for a given target's nutrient is neither penalized nor
 rewarded (neutral, same convention as unknown duration).
 
-Per-serving, not whole-batch: nutrition is divided by Plan.hasRecipeYield
-before comparison against a target's range. hasRecipeYield's unit was
-previously ambiguous (never pinned to a real quantity kind); resolved
-by data-model.md's own AcquisitionList formula ("planned-servings /
-recipe-yield"), which only makes sense if recipe-yield is denominated
-in servings -- see data-model.md Rev 4.3. Comparing one meal's
-per-serving amount against a "daily" NutritionTarget is still a rough
-approximation (it doesn't sum across a day's worth of meals), but it's
-now the right KIND of number, not a whole-batch one compared against a
-per-person target.
+Per-serving, not whole-batch, and judged at each target's own scope
+(mealplanner/nutrition_scope.py): a per_meal target compares one
+serving; a daily or weekly target sums the meals already planned in
+that day/week and adds the candidate. Found by external review -- this
+used to compare a single meal against a daily range whatever the
+target's hasTimeScope said. Servings come from Plan.hasRecipeYield in
+servings (data-model.md Rev 4.3); an unset or non-serving yield makes
+the amount unknown, not 1.
 
   - SOFT, stock coverage: fraction of a candidate's raw-ingredient
     requirements already AVAILABLE -- eligibleOnHand (not expired)
@@ -84,8 +82,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from structr_client import StructrClient
 from mealplanner.inventory import eligible_on_hand_with_urgency
-from mealplanner.material_accounting import recipe_servings, candidate_input_requirements
-from mealplanner.reservation import committed_requirements, available_for_planning
+from mealplanner.material_accounting import candidate_input_requirements
+from mealplanner.nutrition_scope import (
+    DEFAULT_SERVINGS_EATEN, scope_total, serving_nutrient_amount, target_scope_problem,
+)
+from mealplanner.reservation import committed_requirements, available_for_planning, stock_policy_filters
 
 BASE_URL = "http://localhost:8083"
 USERNAME = "superadmin"
@@ -144,37 +145,6 @@ def candidate_required_types(client, plan: dict) -> set[str]:
     return required
 
 
-def candidate_output(client, plan: dict) -> tuple[str | None, float | None]:
-    """(output DomainType id, output batch quantity in its stated unit)
-    for a Plan's FIRST output-role Specification. None if it has none."""
-    for step_ref in plan.get("steps", []):
-        step = client.get_all("Step", step_ref["id"])["result"]
-        for spec_ref in step.get("hasSpecification", []):
-            spec = client.get_all("Specification", spec_ref["id"])["result"]
-            if spec.get("hasParticipationRole") != "output":
-                continue
-            specifies = spec.get("specifies")
-            qty_ref = spec.get("hasSpecifiedQuantity")
-            if not specifies:
-                continue
-            qty = None
-            if qty_ref:
-                qty = client.get_all("QuantitySpecification", qty_ref["id"])["result"].get("value")
-            return specifies["id"], qty
-    return None, None
-
-
-def nutrient_profile_amount(client, output_type_id: str, nutrient_id: str) -> float | None:
-    """Per-100g amount from the output type's own NutrientProfile for
-    this nutrient (Sec 8 rule 7(a) only -- see module docstring)."""
-    output_type = client.get_all("DomainType", output_type_id)["result"]
-    for profile_ref in output_type.get("nutrientProfilesAbout", []):
-        profile = client.get_all("NutrientProfile", profile_ref["id"])["result"]
-        if (profile.get("forNutrient") or {}).get("id") == nutrient_id and profile.get("basis") == "per_100g":
-            return profile.get("amount")
-    return None
-
-
 def active_nutrition_targets(client, meal_plan: dict) -> list[dict]:
     return [
         client.get_all("NutritionTarget", c["id"])["result"]
@@ -221,14 +191,7 @@ def stock_and_waste_scores(
         # mealplanner/storage_condition_schema.py) -- previously
         # eligible_on_hand had no filtering at all on either dimension,
         # a gap flagged in the holes-and-gaps analysis.
-        domain_type = client.get_all("DomainType", domain_type_id)["result"]
-        applying_policies = domain_type.get("stockPoliciesApplying", [])
-        opened_flag = sealed_flag = storage_conditions = None
-        if applying_policies:
-            policy = client.get_all("StockPolicy", applying_policies[0]["id"])["result"]
-            opened_flag, sealed_flag = policy.get("eligibleWhenOpened"), policy.get("eligibleWhenSealed")
-            conditions = policy.get("eligibleStorageConditions") or []
-            storage_conditions = {c["name"] for c in conditions} if conditions else None
+        opened_flag, sealed_flag, storage_conditions = stock_policy_filters(client, domain_type_id)
         eligible, soonest_days = eligible_on_hand_with_urgency(
             client, domain_type_id, now, eligible_when_opened=opened_flag, eligible_when_sealed=sealed_flag,
             eligible_storage_condition_names=storage_conditions,
@@ -279,12 +242,95 @@ def variety_score(client, plan_id: str, now: datetime) -> float:
     return max(0.0, min(1.0, most_recent_days_ago / VARIETY_CAP_DAYS))
 
 
-def select(client, meal_plan_id: str, now: datetime, meal_type: str | None = None) -> list[dict]:
+def nutrition_terms(
+    client, meal_plan: dict, plan: dict, targets: list[dict], slot_start: datetime | None,
+    servings_eaten: float, planned_cache: dict,
+) -> tuple[float, list[str], bool]:
+    """(weighted soft nutrition score, notes, disqualified) for one
+    candidate, with each NutritionTarget judged at the scope it declares
+    (mealplanner/nutrition_scope.py explains the semantics).
+
+    per_meal: this candidate's servings against the range, as before.
+    daily/weekly: the nutrient already planned in that scope plus this
+    candidate's. A scoped MAXIMUM can disqualify on a hard target
+    because totals only grow; a scoped MINIMUM never disqualifies here
+    (the scope may simply be unfilled) and is judged by
+    nutrition_report() instead. A candidate with no nutrient data for a
+    target is neutral, as before; a target that can't be evaluated is
+    named in the notes rather than silently dropped."""
+    term, notes, disqualified = 0.0, [], False
+    for target in targets:
+        nutrient, target_range = target.get("forNutrient"), target.get("hasTargetRange")
+        if not nutrient or not target_range:
+            continue
+        rng = client.get_all("QuantitySpecification", target_range["id"])["result"]
+        min_val, max_val = rng.get("minValue"), rng.get("maxValue")
+        problem = target_scope_problem(target, rng.get("unit"))
+        if problem:
+            notes.append(f"{nutrient['name']}: target not evaluated -- {problem}")
+            continue
+        per_serving = serving_nutrient_amount(client, plan, nutrient["id"])
+        if per_serving is None:
+            continue
+        intake = per_serving * servings_eaten
+        scope, hard = target["hasTimeScope"], target.get("strictness") == "hard"
+
+        planned_total, caveats = 0.0, []
+        if scope == "daily" and slot_start is None:
+            if hard and max_val is not None and intake > max_val:
+                disqualified = True
+                notes.append(f"{nutrient['name']}={intake:.1f}g in one meal already exceeds HARD daily max {max_val}")
+            else:
+                notes.append(f"{nutrient['name']}: daily target not scored (no slot_start given)")
+            continue
+        if scope in ("daily", "weekly"):
+            key = (nutrient["id"], scope, slot_start.astimezone(timezone.utc).date() if scope == "daily" else None)
+            if key not in planned_cache:
+                planned_cache[key] = scope_total(client, meal_plan, nutrient["id"], scope, slot_start)
+            planned = planned_cache[key]
+            planned_total = planned.total
+            if planned.unknown:
+                caveats.append(f"{len(planned.unknown)} planned meal(s) have no nutrient data")
+            if planned.assumed_default_servings:
+                caveats.append(f"{len(planned.assumed_default_servings)} planned meal(s) assumed {DEFAULT_SERVINGS_EATEN:g} serving")
+
+        actual = planned_total + intake
+        over_max = max_val is not None and actual > max_val
+        under_min = min_val is not None and actual < min_val
+        violated = (over_max or under_min) if scope == "per_meal" else over_max
+        label = f"{nutrient['name']}={actual:.1f}g {scope}"
+        if scope != "per_meal":
+            label += f" (planned {planned_total:.1f} + this {intake:.1f})"
+        if caveats:
+            label += " [" + "; ".join(caveats) + "]"
+        if hard and violated:
+            disqualified = True
+            notes.append(f"{label} outside HARD range [{min_val},{max_val}]")
+        else:
+            fit = nutrition_fit_score(actual, min_val, max_val)
+            term += (target.get("weight") or 0.0) * fit
+            notes.append(f"{label} fit={fit:.2f}")
+            if hard and under_min:
+                notes.append(f"{nutrient['name']}: HARD {scope} minimum {min_val} can only be judged once the scope is filled (nutrition_report)")
+    return term, notes, disqualified
+
+
+def select(
+    client, meal_plan_id: str, now: datetime, meal_type: str | None = None,
+    slot_start: datetime | None = None, servings_eaten: float = DEFAULT_SERVINGS_EATEN,
+) -> list[dict]:
     """Returns candidates ranked best-first: [{plan, score, disqualified, reason}, ...].
 
     meal_type: if given (e.g. "Dinner"), candidates whose RecipeIdentity
     isn't tagged with it are disqualified -- including recipes with NO
-    tags at all (prep steps, structural test fixtures)."""
+    tags at all (prep steps, structural test fixtures).
+
+    slot_start: when the meal being chosen will start. Needed to score
+    any `daily` NutritionTarget, which sums the meals already planned on
+    the same calendar day; without it daily targets are skipped (noted in
+    the result) rather than judged against one meal in isolation.
+    servings_eaten: how many servings the candidate contributes to
+    intake (default: one person, one serving)."""
     meal_plan = client.get_all("MealPlan", meal_plan_id)["result"]
     time_budget = meal_plan.get("timeBudgetMinutes") or 60.0
     time_weight = meal_plan.get("timeBudgetWeight") or 0.5
@@ -301,6 +347,7 @@ def select(client, meal_plan_id: str, now: datetime, meal_type: str | None = Non
     # on-hand picture instead of each seeing the full amount as if the
     # others didn't exist.
     reserved = committed_requirements(client, meal_plan_id)
+    planned_cache: dict = {}
 
     results = []
     for plan in all_plans:
@@ -316,32 +363,9 @@ def select(client, meal_plan_id: str, now: datetime, meal_type: str | None = Non
                              "reason": f"requires excluded ingredient(s): {hit}"})
             continue
 
-        output_type_id, output_qty = candidate_output(client, plan)
-
-        nutrition_term = 0.0
-        nutrition_notes = []
-        disqualified_by_nutrition = False
-        for target in nutrition_targets:
-            nutrient = target.get("forNutrient")
-            target_range = target.get("hasTargetRange")
-            if not nutrient or not target_range or not output_type_id or output_qty is None:
-                continue
-            range_full = client.get_all("QuantitySpecification", target_range["id"])["result"]
-            min_val, max_val = range_full.get("minValue"), range_full.get("maxValue")
-            per_100g = nutrient_profile_amount(client, output_type_id, nutrient["id"])
-            if per_100g is None:
-                continue
-            servings = recipe_servings(client, plan)
-            actual = (output_qty * per_100g / 100.0) / servings
-            fit = nutrition_fit_score(actual, min_val, max_val)
-            in_range = (min_val is None or actual >= min_val) and (max_val is None or actual <= max_val)
-            if target.get("strictness") == "hard" and not in_range:
-                disqualified_by_nutrition = True
-                nutrition_notes.append(f"{nutrient['name']}={actual:.1f}g/serving outside HARD range [{min_val},{max_val}]")
-            else:
-                weight = target.get("weight") or 0.0
-                nutrition_term += weight * fit
-                nutrition_notes.append(f"{nutrient['name']}={actual:.1f}g/serving fit={fit:.2f}")
+        nutrition_term, nutrition_notes, disqualified_by_nutrition = nutrition_terms(
+            client, meal_plan, plan, nutrition_targets, slot_start, servings_eaten, planned_cache,
+        )
 
         if disqualified_by_nutrition:
             results.append({"plan": plan, "score": None, "disqualified": True,
