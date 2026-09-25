@@ -94,14 +94,24 @@ class StructrClient:
         existing = self.get("/structr/rest/SchemaNode", params={"name": name})
         if existing and existing.get("result"):
             node_id = existing["result"][0]["id"]
-            # Keep inheritedTraits in sync on re-run, in case a new
-            # trait was added to the chain since the type was created.
+            # Do NOT reconcile inheritedTraits here. A SchemaNode's label
+            # set in Neo4j is fixed at instance-creation time (cheatsheet
+            # hard rule #2 in CLAUDE.md): silently PATCHing inheritedTraits
+            # on a type that already has instances orphans every one of
+            # them from polymorphic-target lookups, with no error at write
+            # time. Schema drift for an existing type must fail loudly and
+            # require a deliberate migration (direct Cypher `SET n:<Label>`
+            # plus a conscious decision), never an automatic reconcile.
             if inherited_traits is not None:
                 current = existing["result"][0].get("inheritedTraits") or []
                 if set(current) != set(inherited_traits):
-                    self.patch(
-                        f"/structr/rest/SchemaNode/{node_id}",
-                        {"inheritedTraits": inherited_traits},
+                    raise StructrError(
+                        "ensure_type", f"SchemaNode/{node_id}", 0,
+                        f"{name!r} already exists with inheritedTraits={current!r}, "
+                        f"but the code now declares {inherited_traits!r}. Refusing to "
+                        f"patch a live type's trait set automatically -- this can "
+                        f"orphan existing instances. If this drift is intentional, "
+                        f"resolve it deliberately (see CLAUDE.md hard rule #2).",
                     )
             return node_id, False
 

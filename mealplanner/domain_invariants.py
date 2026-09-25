@@ -58,6 +58,39 @@ STATUS KEY:
 #   (Density/MassPerUnit/PurchaseQuantity/Duration/NutrientAmount
 #   defaults have no comparable documented range to check yet.)
 #
+# 13 (as a computation, not a validator): "Cross-quantity-kind
+#   conversion requires an explicit density; without one,
+#   unconvertible." mealplanner/unit_conversion.py's convert_to_grams()
+#   resolves Density/MassPerUnit defaults (Sec 8) for volume/count ->
+#   mass conversion and returns None (unconvertible) rather than
+#   guessing when neither resolves -- wired into
+#   scripts/11c_simple_selector.py's stock-coverage scoring, fixing a
+#   "unit-blind" gap found by external review (it used to compare a
+#   Specification's raw numeric value directly against on-hand grams
+#   regardless of its declared unit). Unlike most entries in this
+#   IMPLEMENTED section, this isn't an onCreate write-time check --
+#   there's nothing to reject at write time, only a computation that
+#   must not silently guess. Same category as invariant 15 in that
+#   sense, except this one IS wired into the one place that currently
+#   consumes it, where invariant 15 is not.
+#
+# 28 (as a computation, not a validator): "AcquisitionList counts only
+#   entries not yet fulfilledBy a completed Process."
+#   mealplanner/reservation.py's committed_requirements() and
+#   net_requirements() both filter on exactly this (plus isSkipped),
+#   and are wired into scripts/11c_simple_selector.py's stock-coverage
+#   scoring as the "Reserved"/"Available" tiers -- fixing a "no
+#   reservation layer" gap found by external review (two candidates
+#   scored in the same planning session used to both see the full
+#   on-hand stock as available). net_requirements() is AcquisitionList's
+#   own formula (data-model.md's Recipes/plans/policies table),
+#   including a documented resolution of an ambiguity in how it reads
+#   ("StockPolicy shortfalls... - eligible on-hand" would double-
+#   subtract on-hand taken literally) and a documented scope cut
+#   (purchased-form vs. required-form yield division, not built --
+#   no vocabulary exists yet for a Type's purchased form). See that
+#   module's docstring for both.
+#
 # 29: "A cooking output's NutrientContent is always derived."
 #   Measurement.onCreate: if isAboutQuality's hasKind sits in the
 #   Nutrient hierarchy AND that Quality's bearer has
@@ -201,7 +234,6 @@ STOCK_POLICY_ONCREATE = (
 #
 # 2b, 9 (wasRevisionOf part), 11 (Identifier): need wasRevisionOf /
 #   Identifier's denotes+scheme relations, not built.
-# 13: unit conversion / density-based conversion engine, not built.
 # 15: needs currentMagnitude()/physicalOnHand() (compute-don't-store
 #   magnitude-over-time, data-model.md Sec 4.1.1) -- real, substantial
 #   unbuilt machinery, not a validator.
@@ -222,9 +254,12 @@ STOCK_POLICY_ONCREATE = (
 # 9a, 20, 21, 22: Concept.exactMatch/closeMatch, candidate_type,
 #   RecipeIdentity.defines_output_type -- none of these relations are
 #   built yet.
-# 23, 24, 28: AcquisitionList's real netRequirements() computation and
-#   the surplus/planned-consumption checks it depends on -- MealPlan/
-#   StockPolicy/NutritionTarget themselves are now built (see
-#   mealplanner/meal_planning_schema.py), but this specific computation
-#   is not.
+# 23, 24: leftover-reservation surplus/planned-consumption checks
+#   (MealPlanEntry.consumesLeftoverFrom, the reservation Role,
+#   targetsEntry) -- genuinely separate from 28 below: computing a
+#   leftover source's surplus needs to know whether that source has
+#   been cooked yet (a real Allocation's output) or not
+#   (expected_combination_output()'s estimate, material_accounting.py),
+#   which is real, separate work. mealplanner/reservation.py's own
+#   module docstring states this scope cut explicitly.
 # 30: NutritionTarget rollup consistency, unbuilt.

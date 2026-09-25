@@ -135,3 +135,39 @@ YIELD_DEFAULT = {
         "status": "default",
     },
 }
+
+# Vocabulary for mealplanner/unit_conversion.py -- real, reusable
+# Density/MassPerUnit defaults (data-model.md Sec 8's Default-Kind
+# vocabulary), not throwaway test data. AP Flour's density is the
+# model's own Sec 8 worked example value verbatim ("hasKind: Density
+# keyedBy: -- value: 0.59 g/mL"); Yellow Onion's mass-per-unit repeats
+# the value mealplanner/breadth_test.py already used for the same
+# purpose, so this isn't a fresh, unexamined guess either.
+UNIT_CONVERSION_DOMAIN_TYPES: list[tuple[str, str, str | None, bool]] = [
+    ("AP Flour", "Food Identity", None, True),
+    ("Yellow Onion", "Food Identity", None, True),
+]
+
+DENSITY_DEFAULT = {
+    "name": f"Density of AP Flour {PLACEHOLDER_NOTE}",
+    "for_type": "AP Flour",
+    "has_kind": "Density",
+    "value": {
+        "name": f"0.59 g per mL for AP Flour {PLACEHOLDER_NOTE}",
+        "value": 0.59,
+        "unit": "g_per_mL",
+        "status": "default",
+    },
+}
+
+MASS_PER_UNIT_DEFAULT = {
+    "name": f"Mass per unit of Yellow Onion {PLACEHOLDER_NOTE}",
+    "for_type": "Yellow Onion",
+    "has_kind": "MassPerUnit",
+    "value": {
+        "name": f"180g per each for Yellow Onion {PLACEHOLDER_NOTE}",
+        "value": 180.0,
+        "unit": "g_per_each",
+        "status": "default",
+    },
+}

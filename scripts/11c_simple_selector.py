@@ -51,7 +51,9 @@ now the right KIND of number, not a whole-batch one compared against a
 per-person target.
 
   - SOFT, stock coverage: fraction of a candidate's raw-ingredient
-    requirements already eligibleOnHand (not expired) -- 1.0 means no
+    requirements already AVAILABLE -- eligibleOnHand (not expired)
+    minus whatever this MealPlan's own already-committed entries have
+    already claimed (mealplanner/reservation.py) -- 1.0 means no
     shopping needed for that ingredient. Averaged across the
     candidate's input Specifications that have a quantity.
   - SOFT, waste avoidance: bonus for using up on-hand stock that's
@@ -82,6 +84,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from structr_client import StructrClient
 from mealplanner.inventory import eligible_on_hand_with_urgency
+from mealplanner.material_accounting import recipe_servings, candidate_input_requirements
+from mealplanner.reservation import committed_requirements, available_for_planning
 
 BASE_URL = "http://localhost:8083"
 USERNAME = "superadmin"
@@ -160,20 +164,6 @@ def candidate_output(client, plan: dict) -> tuple[str | None, float | None]:
     return None, None
 
 
-def recipe_servings(client, plan: dict) -> float:
-    """Plan.hasRecipeYield, in servings -- data-model.md's AcquisitionList
-    formula ("planned-servings / recipe-yield") only makes sense if
-    recipe-yield is denominated in servings, which settles what was
-    previously an unresolved unit ambiguity (see data-model.md Rev 4.3).
-    Defaults to 1.0 if unset, same neutral-fallback convention as
-    duration/nutrition elsewhere in this selector."""
-    yield_ref = plan.get("hasRecipeYield")
-    if not yield_ref:
-        return 1.0
-    qty = client.get_all("QuantitySpecification", yield_ref["id"])["result"]
-    return qty.get("value") or 1.0
-
-
 def nutrient_profile_amount(client, output_type_id: str, nutrient_id: str) -> float | None:
     """Per-100g amount from the output type's own NutrientProfile for
     this nutrient (Sec 8 rule 7(a) only -- see module docstring)."""
@@ -201,32 +191,22 @@ def nutrition_fit_score(actual: float, min_val: float | None, max_val: float | N
     return 1.0
 
 
-def candidate_input_requirements(client, plan: dict) -> list[tuple[str, float]]:
-    """[(input DomainType id, required quantity), ...] for a Plan's
-    input-role Specifications that carry a quantity. Instrument-role
-    Specifications never have one (invariant 6); input Specifications
-    without a quantity (e.g. "1 whole onion") are skipped here since
-    there's no comparable magnitude to check against on-hand stock."""
-    requirements = []
-    for step_ref in plan.get("steps", []):
-        step = client.get_all("Step", step_ref["id"])["result"]
-        for spec_ref in step.get("hasSpecification", []):
-            spec = client.get_all("Specification", spec_ref["id"])["result"]
-            if spec.get("hasParticipationRole") != "input":
-                continue
-            specifies = spec.get("specifies")
-            qty_ref = spec.get("hasSpecifiedQuantity")
-            if not specifies or not qty_ref:
-                continue
-            qty = client.get_all("QuantitySpecification", qty_ref["id"])["result"].get("value")
-            if qty:
-                requirements.append((specifies["id"], qty))
-    return requirements
-
-
-def stock_and_waste_scores(client, plan: dict, now: datetime) -> tuple[float | None, float, list[str]]:
+def stock_and_waste_scores(
+    client, plan: dict, now: datetime, reserved: dict[str, float]
+) -> tuple[float | None, float, list[str]]:
     """(stock_coverage in [0,1] or None if no comparable inputs,
-    waste_urgency in [0,1], notes)."""
+    waste_urgency in [0,1], notes).
+
+    `reserved`: mealplanner/reservation.py's committed_requirements()
+    for the MealPlan being scored FOR, computed once by select() and
+    passed in here rather than recomputed per candidate. Subtracted
+    from eligibleOnHand before scoring coverage -- fixes a gap found by
+    external review: two candidates scored in the same run used to both
+    see the SAME on-hand stock as 100% available, because nothing
+    accounted for what this MealPlan's own already-committed entries
+    already claim. See mealplanner/reservation.py's module docstring
+    for what "committed" means and its scope (fresh-cooking entries
+    only, not leftover-consuming ones)."""
     requirements = candidate_input_requirements(client, plan)
     if not requirements:
         return None, 0.0, []
@@ -253,10 +233,11 @@ def stock_and_waste_scores(client, plan: dict, now: datetime) -> tuple[float | N
             client, domain_type_id, now, eligible_when_opened=opened_flag, eligible_when_sealed=sealed_flag,
             eligible_storage_condition_names=storage_conditions,
         )
-        coverage = min(1.0, eligible / required_qty) if required_qty else 0.0
+        available = available_for_planning(eligible, domain_type_id, reserved)
+        coverage = min(1.0, available / required_qty) if required_qty else 0.0
         coverages.append(coverage)
         type_name = client.get_all("DomainType", domain_type_id)["result"].get("name")
-        note = f"{type_name}: {eligible:.0f}g on hand / {required_qty:.0f}g needed ({coverage:.0%} covered)"
+        note = f"{type_name}: {available:.0f}g available ({eligible:.0f}g eligible) / {required_qty:.0f}g needed ({coverage:.0%} covered)"
         if soonest_days is not None:
             urgency = max(0.0, 1.0 - soonest_days / WASTE_URGENCY_WINDOW_DAYS) if soonest_days >= 0 else 0.0
             max_urgency = max(max_urgency, urgency)
@@ -314,6 +295,12 @@ def select(client, meal_plan_id: str, now: datetime, meal_type: str | None = Non
     excluded = excluded_domain_type_ids(client)
     nutrition_targets = active_nutrition_targets(client, meal_plan)
     all_plans = client.get_all("Plan")["result"]
+    # Computed once per select() call, not once per candidate -- what
+    # this MealPlan's own already-committed entries claim, so every
+    # candidate scored in this run sees the same, correctly-reduced
+    # on-hand picture instead of each seeing the full amount as if the
+    # others didn't exist.
+    reserved = committed_requirements(client, meal_plan_id)
 
     results = []
     for plan in all_plans:
@@ -363,7 +350,7 @@ def select(client, meal_plan_id: str, now: datetime, meal_type: str | None = Non
 
         tf = time_fit_score(plan.get("estimatedDurationMinutes"), time_budget)
         vs = variety_score(client, plan["id"], now)
-        stock_coverage, waste_urgency, stock_notes = stock_and_waste_scores(client, plan, now)
+        stock_coverage, waste_urgency, stock_notes = stock_and_waste_scores(client, plan, now, reserved)
         stock_term = stock_weight * (stock_coverage or 0.0)
         waste_term = waste_weight * waste_urgency
         score = time_weight * tf + variety_weight * vs + nutrition_term + stock_term + waste_term

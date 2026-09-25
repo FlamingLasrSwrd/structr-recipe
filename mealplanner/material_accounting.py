@@ -28,6 +28,8 @@ inputs instead of assumed to only ever see one.
 
 from __future__ import annotations
 
+from mealplanner.unit_conversion import convert_to_grams
+
 
 def dt(client, name: str) -> str:
     return client.get("/structr/rest/DomainType", params={"name": name})["result"][0]["id"]
@@ -57,8 +59,31 @@ def resolve_yield_or_default(client, input_type_id: str, transformation_kind_id:
 
 
 def expected_combination_output(client, plan: dict) -> float:
-    """Sum of each input's (quantity x its own resolved yield for this
-    Plan's transformation), matching Sec 5.1 applied per-input.
+    """Sum of each input's (quantity x its own resolved yield for its
+    OWN step's transformation), across every Step of the Plan, matching
+    Sec 5.1 applied per-input.
+
+    BUG FIXED (found by external review): an earlier version put
+    `return total` inside the outer per-Step loop, so a multi-Step Plan
+    only ever computed the first Step's inputs. Not caught by this
+    project's own data because every recipe built so far uses exactly
+    one Step per Plan (a "combination recipe" here means one Step with
+    several input Specifications, e.g. pasta + butter + parmesan all
+    input to one "Combining" transformation) -- and because this
+    function isn't wired into any script yet (dead code). Fixed to
+    accumulate across all Steps and look up each Step's own
+    instanceOf transformation independently, rather than leaking the
+    previous Step's transformation kind forward.
+
+    OPEN QUESTION, not resolved here: for a genuinely chained multi-Step
+    Plan (Step 1 boils raw pasta into "boiled pasta"; Step 2 combines
+    that intermediate output with butter/parmesan), summing every
+    Step's raw inputs would double-count material that flows from one
+    Step's output into the next Step's input. This project has no such
+    recipe yet, so the fix above doesn't attempt to solve that case --
+    flagging it rather than silently assuming multi-Step Plans are
+    always "flat" (independent ingredient lists sharing one final
+    output).
 
     CAVEAT: resolveDefault() walks a single DomainType's own
     SUBCLASS_OF* chain; it does not itself filter by keyedBy (this
@@ -72,13 +97,14 @@ def expected_combination_output(client, plan: dict) -> float:
     fixing in resolveDefault itself before this pattern is trusted at
     scale.
     """
-    xform_kind_id = None
+    total = 0.0
     for step_ref in plan.get("steps", []):
         step = client.get_all("Step", step_ref["id"])["result"]
+        # Each step's transformation kind is looked up fresh (not carried
+        # over from a previous step) -- a step's inputs are yielded
+        # against THAT step's own transformation, per Sec 5.1.
         instance_of = step.get("instanceOf")
-        if instance_of:
-            xform_kind_id = instance_of["id"]
-        total = 0.0
+        xform_kind_id = instance_of["id"] if instance_of else None
         for spec_ref in step.get("hasSpecification", []):
             spec = client.get_all("Specification", spec_ref["id"])["result"]
             if spec.get("hasParticipationRole") != "input":
@@ -90,5 +116,59 @@ def expected_combination_output(client, plan: dict) -> float:
             qty = client.get_all("QuantitySpecification", qty_ref["id"])["result"].get("value") or 0.0
             yield_factor = resolve_yield_or_default(client, specifies["id"], xform_kind_id) if xform_kind_id else 1.0
             total += qty * yield_factor
-        return total
-    return 0.0
+    return total
+
+
+def recipe_servings(client, plan: dict) -> float:
+    """Plan.hasRecipeYield, in servings -- data-model.md's AcquisitionList
+    formula ("planned-servings / recipe-yield") only makes sense if
+    recipe-yield is denominated in servings, which settles what was
+    previously an unresolved unit ambiguity (see data-model.md Rev 4.3).
+    Defaults to 1.0 if unset, same neutral-fallback convention as
+    duration/nutrition elsewhere in this project.
+
+    Moved here from scripts/11c_simple_selector.py so
+    mealplanner/reservation.py can share it without a script importing
+    another script -- this and candidate_input_requirements() below are
+    both about walking a Plan's own structure, the same job
+    expected_combination_output() does above."""
+    yield_ref = plan.get("hasRecipeYield")
+    if not yield_ref:
+        return 1.0
+    qty = client.get_all("QuantitySpecification", yield_ref["id"])["result"]
+    return qty.get("value") or 1.0
+
+
+def candidate_input_requirements(client, plan: dict) -> list[tuple[str, float]]:
+    """[(input DomainType id, required quantity IN GRAMS), ...] for a
+    Plan's input-role Specifications that carry a quantity and convert
+    to a comparable mass (mealplanner/unit_conversion.py -- Sec 11
+    invariant 13). Instrument-role Specifications never have a quantity
+    (invariant 6); input Specifications without one, or whose declared
+    unit doesn't resolve to grams for this ingredient (e.g. "1 whole
+    onion" with no MassPerUnit default), are skipped here since there's
+    no comparable magnitude to check against on-hand stock -- same
+    "skip, don't guess" convention used throughout this module.
+
+    Moved here from scripts/11c_simple_selector.py (originally added to
+    fix a "unit-blind" bug found by external review) so
+    mealplanner/reservation.py can share it too."""
+    requirements = []
+    for step_ref in plan.get("steps", []):
+        step = client.get_all("Step", step_ref["id"])["result"]
+        for spec_ref in step.get("hasSpecification", []):
+            spec = client.get_all("Specification", spec_ref["id"])["result"]
+            if spec.get("hasParticipationRole") != "input":
+                continue
+            specifies = spec.get("specifies")
+            qty_ref = spec.get("hasSpecifiedQuantity")
+            if not specifies or not qty_ref:
+                continue
+            qty_spec = client.get_all("QuantitySpecification", qty_ref["id"])["result"]
+            qty = qty_spec.get("value")
+            if qty is None:
+                continue
+            qty_grams = convert_to_grams(client, specifies["id"], qty, qty_spec.get("unit"))
+            if qty_grams:
+                requirements.append((specifies["id"], qty_grams))
+    return requirements
