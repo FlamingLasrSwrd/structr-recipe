@@ -64,9 +64,11 @@ scripts took 209 s. All comfortably inside the laptop-derived estimates this fil
   and then `bash tools/rebuild.sh`. A session that sits idle is reclaimed, and a rebuild running in
   the background at that moment is lost; start it again.
 - **Results arrive as a branch.** Cloud sessions push a branch and can open a pull request from
-  claude.ai/code; you review and merge. The house rule still holds: nothing is committed or pushed
-  without you saying yes. To continue a cloud session on your laptop:
-  `claude --teleport` from a checkout of the repository (it asks you to stash uncommitted changes first).
+  claude.ai/code; you review and merge. `CLAUDE.md`'s working agreements say when a session commits
+  and pushes on its own (changed 2026-09-26: no longer waits for a yes on each batch, to stop
+  fighting the stop hook that blocks ending a turn on unpushed work). To continue a cloud session on
+  your laptop: `claude --teleport` from a checkout of the repository (it asks you to stash
+  uncommitted changes first).
 - **The documents live only in `docs/`.** Decided 2026-09-26: there is one copy, in git, so a cloud
   session and a laptop session see the same thing and the repository is the whole project. The
   Obsidian vault copy is frozen and must not be edited. To keep using Obsidian, open the repository's

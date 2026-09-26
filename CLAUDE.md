@@ -21,10 +21,13 @@ review, so what the README and REVIEW.md claim has to be true.
 
 ## Working agreements (the owner's, learned the hard way)
 
-- **Ask before every commit and push, one batch at a time.** Finish and verify a batch,
-  summarize it, ask "Should I commit and push this?" and wait for a yes. Stage explicit file
-  names, never `git add -A`. Write a message that says why. End it with the Co-Authored-By
-  trailer. Plain fast-forward push; never force. Never rewrite published history.
+- **Commit and push each verified batch without waiting for a yes** (changed 2026-09-26; used to
+  require asking first — that collided with a Claude Code stop hook that blocks ending a turn on
+  uncommitted or unpushed work, so the two rules fought each other every session). Finish and
+  verify a batch before committing it, and say what you did and why in the same message you'd
+  otherwise have used to ask. Stage explicit file names, never `git add -A`. Write a message that
+  says why. End it with the Co-Authored-By trailer. Plain fast-forward push; never force. Never
+  rewrite published history.
 - **Look at `git status` and `git diff` before committing and read every hunk you did not
   write.** Another Claude session may have edited the same tree. Flag foreign changes; do not
   revert them.
