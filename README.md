@@ -6,22 +6,29 @@ The design work (BFO/IAO/RO/PROV-O grounding, four major model revisions, two ad
 
 ## Status
 
-A working spike, not a finished product, and not yet an optimizer: meal selection is a hard-constraint filter plus a weighted scorer, with a real optimizer design left for later. It has been through one external code review, whose findings were checked against the code and mostly fixed; `REVIEW.md` says what was fixed, what was found smaller than reported, and what is still open, and it is the place to start if you are reviewing.
+A working spike, not a finished product, and not yet an optimizer: meal selection is a hard-constraint filter plus a weighted scorer, with a real optimizer design left for later. It has been through two external code reviews, whose findings were each checked against the code and mostly fixed; `REVIEW.md` says what was fixed, what was found smaller than reported, and what is still open, and it is the place to start if you are reviewing.
 
-Of the model's 30 domain invariants (tracked in `mealplanner/domain_invariants.py`): 9 are enforced as write-time checks, 2 hold structurally, 2 are computations rather than validators, 1 is partial, 12 are deferred with reasons, and 4 were missing from the tracker until a self-audit before the second review.
+Of the model's 30 domain invariants (tracked in `mealplanner/domain_invariants.py`, whose coverage of all thirty is checked by a test): 9 are enforced as write-time checks, 2 hold structurally, 2 are computations rather than validators, 2 are partial, 12 are deferred with reasons, and 3 are not built or cannot be checked (10, 25, 27).
 
 ## Layout
 
 - `docs/` — the design documents. `data-model.md` and `structr-build-sketch.md` are authoritative; `structr-cheatsheet.md` is empirically verified Structr mechanics; `CLAUDE.md` holds the hard rules this build followed and a document-authority table. Read `CLAUDE.md` first. The two `design-review-document*.md` files are historical: they describe the model *before* their own fixes and should not be followed.
 - `mealplanner/` — the project's Python: schema declarations (`*_schema.py`), domain-invariant validators, the compute-don't-store engines (`inventory.py`, `material_accounting.py`, `unit_conversion.py`, `reservation.py`, `nutrition_scope.py`), and vocabulary seeds.
 - `structr_client/` — a small generic Structr REST client with no project knowledge, kept separate on purpose. Its schema helpers refuse to reconcile drift (`SchemaDriftError`).
-- `tools/` — `snapshot_state.py` dumps the graph as normalized JSON; `expected_state.json` is the known-good result of a full build.
+- `tests/` — offline unit tests over the pure logic, using an in-memory graph (`tests/fakegraph.py`); no Structr needed. They run on every push (`.github/workflows/tests.yml`).
+- `tools/` — `snapshot_state.py` dumps the graph and the schema (including every validator's source) as normalized JSON; `expected_state.json` is the known-good result of a full build.
 - `scripts/` — numbered in build order. Most build schema or seed data and verify themselves; `11c` is the selector; `20a`–`22a` are self-cleaning demonstrations of specific fixes; `23a` is an offline test.
 - `REVIEW.md` — guide for reviewing this repo.
 
 ## Running it
 
-Requires Docker and Python 3 with `requests`.
+Requires Docker and Python 3 with `requests`. The unit tests need only the latter:
+
+```bash
+python3 -m unittest discover -s tests -t .
+```
+
+To build against a live instance:
 
 ```bash
 cp .env.example .env            # then edit the two passwords
