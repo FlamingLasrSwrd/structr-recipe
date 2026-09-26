@@ -31,11 +31,11 @@ python3 tools/snapshot_state.py | diff - tools/expected_state.json && echo ident
 
 The offline tests also run on every push (`.github/workflows/tests.yml`).
 
-**Verified from scratch.** On an empty instance (fresh containers and volumes) the loop above ran all 45 scripts to completion in about ten (six when the containers were already warm) minutes on a warm machine; it stops at the first failure, so none failed. The snapshot check then reports no difference, and a snapshot of the maintainer's working instance is byte-identical to it: 214 named entities plus 169 schema entries (every type, property, relationship, and the full source of every validator) on each side. The schema is in the snapshot because a validator is a method and can be silently replaced, which is what script `04` once did to script `07`'s. Only the maintainer's environment has been tested (Linux, Docker, Structr 6.0.0, Neo4j 2025.12.1); a first boot on a cold machine takes several times longer. This was not always true (self-audit item 1). `tools/expected_state.json` is a golden file: if a script's output changes, regenerate it and read the diff.
+**Verified from scratch.** On an empty instance (fresh containers and volumes) the loop above ran all 46 scripts to completion (about 4.5 minutes after a 65 s first boot, on a machine with the images already pulled; a cold machine takes several times longer); it stops at the first failure, so none failed. The snapshot check then reports no difference, and a snapshot of the maintainer's working instance is byte-identical to it: 214 named entities plus 169 schema entries (every type, property, relationship, and the full source of every validator) on each side. The schema is in the snapshot because a validator is a method and can be silently replaced, which is what script `04` once did to script `07`'s. Only the maintainer's environment has been tested (Linux, Docker, Structr 6.0.0, Neo4j 2025.12.1); a first boot on a cold machine takes several times longer. This was not always true (self-audit item 1). `tools/expected_state.json` is a golden file: if a script's output changes, regenerate it and read the diff.
 
 ## Round 2: the review of `e8d1cbf`
 
-24 numbered points. Each was checked against the code and the live data first. The fixes are in commit `29b41cc`.
+24 numbered points. Each was checked against the code and the live data first. The fixes are in commit `29b41cc`. Rows 6, 15, 16 and 17 were open then; commit `c7256f1` fixed or decided them, and their rows below say so.
 
 | # | Finding | Status |
 |---|---|---|
@@ -44,7 +44,7 @@ The offline tests also run on every push (`.github/workflows/tests.yml`).
 | 3 | Reservation keyed to the candidate type, not the stock pool | **Fixed, with a correction.** The review's concrete example does not occur (the selector computes eligibility at the ingredient's own type, so a turkey recipe never sees chicken's stock). The underlying scope mismatch was real in both directions, though: a generic "Poultry" demand ignored a chicken reservation, and vice versa. Availability is now computed along the type tree (model §18 J7). Unit tests plus a live check in `22a` |
 | 4 | `StockPolicy` target/threshold compared without units | **Fixed.** Write-time rule: same unit. `24a` |
 | 5 | `resolveDefault` ignores `keyedBy` | **Fixed.** Resolved in Python by (kind, keys) with defined precedence (`mealplanner/defaults.py`, §18 J9), used for yields, shelf lives, densities and mass-per-unit. The StructrScript method remains, kind-only, and nothing in `mealplanner/` calls it |
-| 6 | `expected_combination_output` is dead code and can't handle chained recipes | **Half wrong.** "Dead code" was my own stale docstring; `15c` has used it to compute recipe outputs for a while, and the docstring is corrected. The chained-recipe point is **right and still open**: it needs a material-flow model over the Steps, not a Plan-wide sum |
+| 6 | `expected_combination_output` is dead code and can't handle chained recipes | **Half wrong, half fixed.** "Dead code" was my own stale docstring; `15c` has used it to compute recipe outputs for a while, and the docstring is corrected. The chained-recipe point was right and is **fixed** (§18 J11): material is routed through the Steps, an intermediate is taken up by the Step that consumes it, and only terminal Steps are summed. The hand-worked chain (boil 100 g dry pasta x2.0, toss with 20 g butter) is 200 g; the old code said 400 g. Flow that can't be traced (an intermediate split between Steps with no stated shares, a cycle) raises rather than guessing. `tests/test_material_flow.py`, and a live check in `25a` |
 | 7 | Exclusions inspect instruments, outputs and optional inputs as ingredients | **Fixed** (§18 J10): non-optional inputs and outputs count; instruments never; an optional excluded input is reported so it can be left out. Unit tests, and a live check in `22a` |
 | 8 | `Measurement.hasTime` required but not enforced | **Fixed.** `notNull`, migrated on the live instance by `07` (the drift-detecting helper refused the new declaration until it ran, which is what it is for) |
 | 9 | Range quantities bypass the negative check | **Fixed, and it was wider than reported:** a `QuantitySpecification`'s scalar value had no negative check either. `24a` |
@@ -53,9 +53,9 @@ The offline tests also run on every push (`.github/workflows/tests.yml`).
 | 12 | Unsafe-character guard incomplete | **Fixed.** One `validate_exact_match_value` for comma and semicolon, applied to POST, PATCH and upsert. The semicolon behaviour comes from Structr's documentation; I did not reproduce it |
 | 13 | `wait_until_ready` hides authentication errors | **Fixed.** Retries connection errors, timeouts and 5xx; any other HTTP error fails immediately. A real cold boot passes |
 | 14 | No request timeout | **Fixed.** Default (5 s connect, 120 s read), configurable |
-| 15 | N+1 REST traversal | **Open, and slightly worse.** One selector run over 4 recipes and 17 stock portions makes **303 HTTP requests (19 s)**, up from 256 (18 s) before this pass: the stricter engine reads each portion's food type for unit conversion and the default resolver walks the type tree. The new availability logic only scans an ancestor's stock when something outside the type's own subtree has claimed it, so it adds nothing in the common case. Still not usable beyond toy size |
-| 16 | Same-instant events are undecidable (`>=`) | **Open.** A test now pins the current convention so a change is deliberate |
-| 17 | Expiry anchored to the latest weighing, not a Purchase Process | **Open.** It is bounded by `now` (a future weighing can no longer push expiry out) but still anchored to the weighing |
+| 15 | N+1 REST traversal | **Reduced, not solved.** One selector run over 4 recipes and 17 stock portions made 303 HTTP requests (19 s) at review time and **95 (3.1 s)** now, with the same ranking. After the inventory refactor it was 260, only 112 of them distinct, so the read-only entry points (`select`, `net_requirements`, `nutrition_report`, `find_overdraws`) run over a `structr_client.ReadCache`, which fetches each node, listing and query once and cannot write. Cost is still linear in the amount of stock and history, because the on-hand scan visits every portion ever recorded; a real fix bounds that scan or moves it server-side. Found on the way: `get_all(type)` returned only Structr's default page and said nothing about the rest, so a large type was silently truncated. It now reads every page (`tests/test_client.py`, live check in `25a`) |
+| 16 | Same-instant events are undecidable (`>=`) | **Decided** (§18 J8). A Process at the exact instant of a weighing counts as consuming, i.e. the weighing is read as taken before it. Nothing recorded says which came first, and overstating stock is the costlier error. This deviates from §4.1.1 ("after") on purpose, and a strict reading would need the model to carry the order. The test pins it. You may disagree with the direction |
+| 17 | Expiry anchored to the latest weighing, not a Purchase Process | **Fixed** (§18 J12). The clock starts at the Process the portion `begins_to_exist_during` (the model's purchase or cook), else at the **earliest** weighing; reweighing no longer restarts it. The old code said 4 days left where 2 is right in the review's own shape of case. **Open:** a portion divided off a larger one restarts the clock at the division (no parent link in the model), and the time of *opening* is not modeled. `tests/test_inventory.py`, live check in `25a` |
 | 18 | "No container" means two different things | **Open, needs a decision** |
 | 19 | Nested StockPolicies double-count stock | **Fixed:** the nearest policy owns the physical stock (§18 J2). Unit test plus a live check |
 | 20 | Soft `ExclusionConstraint`s do nothing | **Fixed:** a soft exclusion costs the candidate its weight (§18 J10) |
@@ -79,18 +79,18 @@ The offline tests also run on every push (`.github/workflows/tests.yml`).
 | 5 | Daily/weekly nutrition judged per meal | **Fixed** (`nutrition_scope.py`; §18 J3/J4) |
 | 6 | The selector isn't plan-level | **By design, unchanged.** Greedy per slot |
 | 7 | No reservation layer | **Partly fixed.** Raw-ingredient reservation and `net_requirements()` exist; leftover surplus (invariants 23/24) is not built |
-| 8 | Expiry anchored to the latest measurement | **Open** (round 2 #17) |
+| 8 | Expiry anchored to the latest measurement | **Fixed** (round 2 #17, §18 J12) |
 | 9 | "No container" means two things | **Open** (round 2 #18) |
 | 10 | First applicable StockPolicy wins | **Fixed** (§18 J2) |
 | 11 | Exclusions one hop deep | **Fixed** (§18 J6). A type *above* an excluded one is not banned, which for allergies is a choice worth challenging |
 | 12 | Required-type set loses multiplicity | **No change.** It feeds a set-membership check where multiplicity is irrelevant |
 | 13 | Only the first output considered | **Fixed** (§18 J5) |
-| 14 | Missing yield defaults to 1 serving | **Partly fixed.** Nutrition is strict. **Reservation still uses the lenient `recipe_servings` and defaults to 1.** Open |
+| 14 | Missing yield defaults to 1 serving | **Fixed.** Nutrition was already strict; reservation now is too: an entry for a recipe with no yield in servings raises `QuantityError` naming the entry (§18 J13), and the lenient reader is deleted |
 | 15 | Difficulty authored or derived? | **Open** |
 | 16 | `Function` is unused | **Open** |
 | 17 | Numeric truthiness (`or 1.0`) | **Underrated at the time.** I judged the sites I looked at harmless because invariant 14 forbids a zero yield; round 2 #10 then showed the selector's `or` defaults were real bugs. All are now explicit `is None` checks |
-| 18 | Same-instant events | **Open** (round 2 #16) |
-| 19, 20 | REST N+1 | **Open** (round 2 #15) |
+| 18 | Same-instant events | **Decided** (round 2 #16, §18 J8) |
+| 19, 20 | REST N+1 | **Reduced** (round 2 #15): 303 requests to 95 for the same run |
 | 21 | Docs and code drift | **Partly fixed** (round 2 #22) |
 | 22 | Invariant tracker needs states | **Partly.** It separates structural / write-time / computation / partial / deferred and covers all 30; `tests/test_docs.py` enforces the coverage |
 | 23 | Test scripts leave state behind | **Partly fixed.** `16b`, `20a`, `21a`, `22a`, `24a` remove what they create. `15e` leaves its "Leftover test week" on purpose (`16b` builds on it); `08` and `09` leave everything until `15a` wipes it |
@@ -111,17 +111,19 @@ Between and before the reviews.
 8. **README bug:** it never said to load `.env` into the shell, so every script raised `KeyError`.
 9. **Reproducibility hygiene:** Neo4j was `latest` (now pinned), the compose port was fixed (`STRUCTR_PORT`), and `structr/license.key` is an intentionally empty bind-mount placeholder.
 10. **Test fragility:** a demo asserted "the filter removes exactly 400 g" and failed as soon as other sealed stock existed. Eligibility demos now work out the expected exclusion independently (`mealplanner/fixtures.py`).
+11. **`17c` hard-coded totals:** its expiry check asserted "750 g / 600 g" of chicken in stock and failed on any instance where other demos (`17d`, `18b`) had also left chicken, the same fragility as item 10. Found by re-running the demos on the working instance after the third round's changes; it now checks each of its own portions against values worked out from the constants.
+12. **`dt()` took the first of several matches:** 14 scripts and 3 modules each had a copy that returned `[0]` of whatever matched (or raised `IndexError` on none). There is now one, in `mealplanner/typetree.py`, and it raises unless exactly one DomainType has the name.
 
 ## Open items
 
 Beyond the open rows above:
 
-- **Chained recipes** (round 2 #6): a Plan whose Step 2 consumes Step 1's output double-counts material in `expected_combination_output`. Needs a material-flow model.
-- **Reservation scaling** defaults an unset recipe yield to 1.
-- **Variety scoring** treats an entry planned for the future as "just used" (days-ago goes negative, clamped to zero) and is global across MealPlans. Neither has been examined.
-- **Invariants:** 12 deferred (9, 11, 15-24). Invariant 15 has **no enforcement at all**: an allocation of 500 g against 200 g on hand is accepted (`scripts/15e` shows it).
-- **Duplication:** 14 scripts define their own `dt()`, and 39 define the same URL/user/password constants.
-- **No test for most invariants** beyond the demo scripts, and the unit tests use a fake graph that could, in principle, render Structr differently from the real thing. `22a` re-checks the important cases against real Structr.
+- **Needs a model decision, not code:** round 2 #18 (does "no container" mean *loose* or *unknown*? §9 says a filter doesn't apply to food in no container, which is right for the first and wrong for the second); round 1 #24 (a hard `NutritionTarget` can be satisfied by placeholder nutrient data, and `NutrientProfile` has no provenance field to tell the two apart); round 1 #15 (is difficulty authored or derived?) and #16 (`Function` is unused).
+- **Hard nutritional minimums under greedy selection** (round 2 #21) belong to the optimizer, which has never been designed. Nothing here invents one.
+- **Scaling:** one selector run over 4 recipes is 95 requests (see round 2 #15), but the on-hand scan still reads every portion ever recorded, so cost grows with history.
+- **Invariants:** 11 deferred (9, 11, 16-24) and 3 not built or uncheckable (10, 25, 27). Invariant 15 is an audit, not a write-time check (`inventory.overdraws`): an allocation of 500 g against 200 g on hand is still accepted when it is written, and found afterwards (`scripts/15e`).
+- **Leftover surplus** (invariants 23, 24, 27) is not built; reservation covers raw ingredients only.
+- **No test for most invariants** beyond the demo scripts, and the unit tests use a fake graph that could, in principle, render Structr differently from the real thing. `22a` and `25a` re-check the important cases against real Structr.
 
 ## Where a review would help most
 
@@ -129,7 +131,7 @@ Beyond the open rows above:
 2. **Adversarial data** the fixtures don't contain. `tests/fakegraph.py` makes a new case cheap to write; `22a` shows building throwaway fixtures on a real instance.
 3. **Whether the tests test what they say.** In particular: are there places an assertion restates the code rather than checking independently worked-out values?
 4. **The schema helpers and validators.** `SchemaDriftError` refuses to reconcile; is there a legitimate migration path it makes too hard? The StructrScript validators are string-built Python, and one was once silently overwritten by another script.
-5. **General code quality:** the duplication above, the script/module boundary (`11c` is both a library and a demo), error handling.
+5. **General code quality:** the script/module boundary (`11c` is both a library and a demo, and the tests import it by path), error handling.
 
 ## Test-data convention
 

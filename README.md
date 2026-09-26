@@ -8,16 +8,16 @@ The design work (BFO/IAO/RO/PROV-O grounding, four major model revisions, two ad
 
 A working spike, not a finished product, and not yet an optimizer: meal selection is a hard-constraint filter plus a weighted scorer, with a real optimizer design left for later. It has been through two external code reviews, whose findings were each checked against the code and mostly fixed; `REVIEW.md` says what was fixed, what was found smaller than reported, and what is still open, and it is the place to start if you are reviewing.
 
-Of the model's 30 domain invariants (tracked in `mealplanner/domain_invariants.py`, whose coverage of all thirty is checked by a test): 9 are enforced as write-time checks, 2 hold structurally, 2 are computations rather than validators, 2 are partial, 12 are deferred with reasons, and 3 are not built or cannot be checked (10, 25, 27).
+Of the model's 30 domain invariants (tracked in `mealplanner/domain_invariants.py`, whose coverage of all thirty is checked by a test): 9 are enforced as write-time checks, 2 hold structurally, 3 are computations or audits rather than validators (13, 15, 28), 2 are partial, 11 are deferred with reasons, and 3 are not built or cannot be checked (10, 25, 27).
 
 ## Layout
 
 - `docs/` — the design documents. `data-model.md` and `structr-build-sketch.md` are authoritative; `structr-cheatsheet.md` is empirically verified Structr mechanics; `CLAUDE.md` holds the hard rules this build followed and a document-authority table. Read `CLAUDE.md` first. The two `design-review-document*.md` files are historical: they describe the model *before* their own fixes and should not be followed.
 - `mealplanner/` — the project's Python: schema declarations (`*_schema.py`), domain-invariant validators, the compute-don't-store engines (`inventory.py`, `material_accounting.py`, `unit_conversion.py`, `reservation.py`, `nutrition_scope.py`), and vocabulary seeds.
-- `structr_client/` — a small generic Structr REST client with no project knowledge, kept separate on purpose. Its schema helpers refuse to reconcile drift (`SchemaDriftError`).
+- `structr_client/` — a small generic Structr REST client with no project knowledge, kept separate on purpose. Its schema helpers refuse to reconcile drift (`SchemaDriftError`), `get_all` reads every page of a collection, and `ReadCache` memoizes a read-only computation's requests.
 - `tests/` — offline unit tests over the pure logic, using an in-memory graph (`tests/fakegraph.py`); no Structr needed. They run on every push (`.github/workflows/tests.yml`).
 - `tools/` — `snapshot_state.py` dumps the graph and the schema (including every validator's source) as normalized JSON; `expected_state.json` is the known-good result of a full build.
-- `scripts/` — numbered in build order. Most build schema or seed data and verify themselves; `11c` is the selector; `20a`–`22a` are self-cleaning demonstrations of specific fixes; `23a` is an offline test.
+- `scripts/` — numbered in build order. Most build schema or seed data and verify themselves; `11c` is the selector; `20a`–`22a` and `25a` are self-cleaning demonstrations of specific fixes against real Structr; `23a` is an offline test. Every script connects through `mealplanner/connection.py`.
 - `REVIEW.md` — guide for reviewing this repo.
 
 ## Running it
