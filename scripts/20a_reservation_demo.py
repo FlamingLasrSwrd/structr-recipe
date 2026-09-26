@@ -52,7 +52,7 @@ _selector = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_selector)
 select = _selector.select
 
-BASE_URL = "http://localhost:8083"
+BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
 USERNAME = "superadmin"
 PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 P = "TEST -- "

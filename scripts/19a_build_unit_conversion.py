@@ -25,7 +25,7 @@ from mealplanner.seed_vocabulary import (
 )
 from mealplanner.unit_conversion import convert_to_grams
 
-BASE_URL = "http://localhost:8083"
+BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
 USERNAME = "superadmin"
 PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 

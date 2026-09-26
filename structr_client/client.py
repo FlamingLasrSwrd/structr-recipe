@@ -51,6 +51,18 @@ def _drift(declared: dict[str, Any], live: dict[str, Any]) -> dict[str, tuple[An
     return {k: (live.get(k), v) for k, v in declared.items() if live.get(k) != v}
 
 
+def _reject_comma_name(where: str, value: Any) -> None:
+    """A literal comma in a name silently breaks Structr's exact-match REST
+    query (0 results even when a match exists; structr-cheatsheet.md Sec 4).
+    A node created with one can never be found by name again, so a re-run
+    creates a duplicate instead of finding it, with no error."""
+    if isinstance(value, str) and "," in value:
+        raise ValueError(
+            f"{where}: the name contains a comma, which breaks Structr's exact-match query "
+            f"and will silently create a duplicate on re-run: {value!r}. Rephrase without a comma."
+        )
+
+
 class StructrClient:
     def __init__(self, base_url: str, username: str, password: str):
         self.base_url = base_url.rstrip("/")
@@ -85,6 +97,11 @@ class StructrClient:
         return self._request("GET", path, params=params)
 
     def post(self, path: str, json: dict):
+        # Guarded here as well as in upsert(): a direct POST bypassed the
+        # upsert() check, and a Role and three Measurements were created with
+        # commas in their names that way before this existed.
+        if isinstance(json, dict):
+            _reject_comma_name(f"POST {path}", json.get("name"))
         return self._request("POST", path, json=json)
 
     def patch(self, path: str, json: dict):
@@ -301,12 +318,7 @@ class StructrClient:
         existing one, with no error. Guarded here since it bit real
         scripts twice before this check existed.
         """
-        if isinstance(unique_value, str) and "," in unique_value:
-            raise ValueError(
-                f"upsert({type_name!r}, {unique_prop!r}, ...): unique_value contains a "
-                f"comma, which breaks Structr's exact-match query and will silently "
-                f"create a duplicate on re-run: {unique_value!r}. Rephrase without a comma."
-            )
+        _reject_comma_name(f"upsert({type_name!r}, {unique_prop!r}, ...)", unique_value)
         existing = self.get(f"/structr/rest/{type_name}", params={unique_prop: unique_value})
         payload = {k: v for k, v in fields.items() if v is not None}
         payload[unique_prop] = unique_value

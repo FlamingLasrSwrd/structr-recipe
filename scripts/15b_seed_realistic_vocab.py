@@ -10,9 +10,11 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from structr_client import StructrClient
-from mealplanner.seed_vocabulary import REALISTIC_PASS_HIERARCHIES, REALISTIC_PASS_DOMAIN_TYPES
+from mealplanner.seed_vocabulary import (
+    PLACEHOLDER_NOTE, REALISTIC_PASS_HIERARCHIES, REALISTIC_PASS_DOMAIN_TYPES, REALISTIC_YIELD_DEFAULTS,
+)
 
-BASE_URL = "http://localhost:8083"
+BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
 USERNAME = "superadmin"
 PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 
@@ -38,6 +40,22 @@ def main():
             )["result"][0]["id"]
         domain_type_ids[name] = client.upsert("DomainType", "name", name, fields)
         print(f"domain type {name}: {domain_type_ids[name]}")
+
+    print("\nYield defaults (per-ingredient, keyed by transformation)...")
+    yield_kind = client.get("/structr/rest/DomainType", params={"name": "Yield"})["result"][0]["id"]
+    for for_type, transformation, target, factor in REALISTIC_YIELD_DEFAULTS:
+        value_id = client.upsert("QuantitySpecification", "name", f"{for_type} via {transformation} yield value {PLACEHOLDER_NOTE}", {
+            "value": factor, "unit": "ratio", "status": "default",
+        })
+        fields = {
+            "forType": domain_type_ids.get(for_type) or client.get("/structr/rest/DomainType", params={"name": for_type})["result"][0]["id"],
+            "hasKind": yield_kind, "hasValue": value_id,
+            "keyedBy": [domain_type_ids[transformation]],
+        }
+        if target:
+            fields["targetType"] = domain_type_ids[target]
+        spec_id = client.upsert("DefaultSpecification", "name", f"{transformation} yield factor for {for_type} {PLACEHOLDER_NOTE}", fields)
+        print(f"  {for_type} via {transformation} = {factor}: {spec_id}")
 
     print("\nDone.")
 

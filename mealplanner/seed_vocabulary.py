@@ -171,3 +171,28 @@ MASS_PER_UNIT_DEFAULT = {
         "status": "default",
     },
 }
+
+
+# Per-ingredient yield defaults for the combination recipes (data-model.md
+# Sec 5.1.1: each input's own yield, applied then summed). Real, reusable
+# vocabulary, PLACEHOLDER values. These were seeded onto the live instance
+# by hand when the combination-yield fix was made and never captured in a
+# script, so a from-scratch build lacked them; scripts/15b now creates them.
+# (for_type, transformation it is keyed by, target type or None, factor)
+REALISTIC_YIELD_DEFAULTS: list[tuple[str, str, str | None, float]] = [
+    ("Pasta (dry)", "Boiling", "Pasta (cooked)", 2.0),
+    ("Beef (raw)", "Stir-Frying", None, 0.85),
+    ("Broccoli", "Stir-Frying", None, 0.9),
+]
+
+# Fresh Meat shelf life, keyed by BOTH storage condition and opened status
+# (data-model.md Sec 8's own worked example; Rev 4.3 H4/H5). Supersedes the
+# single-key "Fridge only" default scripts/14a creates, which
+# mealplanner/inventory.py's exact-key lookup can no longer match.
+# (storage condition, opened status, days)
+FRESH_MEAT_SHELF_LIFE: list[tuple[str, str, float]] = [
+    ("Fridge", "Sealed", 5.0),
+    ("Fridge", "Opened", 2.0),
+    ("Freezer", "Sealed", 180.0),
+    ("Freezer", "Opened", 90.0),
+]

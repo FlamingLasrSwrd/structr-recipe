@@ -1,6 +1,6 @@
 services:
   neo4j:
-    image: neo4j:latest
+    image: neo4j:2025.12.1
     environment:
       - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
     volumes:
@@ -14,7 +14,7 @@ services:
     image: structr/structr:6.0.0
     depends_on: [neo4j]
     ports:
-      - "8083:8082"
+      - "${STRUCTR_PORT:-8083}:8082"
     environment:
       - AGREE_TO_STRUCTR_PRIVACY_POLICY=yes
       - STRUCTR_superuser_password=${STRUCTR_SUPERUSER_PASSWORD}
@@ -29,6 +29,9 @@ services:
       - structr-files:/var/lib/structr/files
       - structr-repository:/var/lib/structr/repository
       - structr-logs:/var/lib/structr/logs
+      # Intentionally empty placeholder (Community edition needs no key); it only
+      # exists so this bind mount has a file to attach to instead of Docker
+      # creating a directory in its place.
       - ./structr/license.key:/var/lib/structr/license.key
     networks:
       structr-network: {}

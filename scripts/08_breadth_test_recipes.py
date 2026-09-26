@@ -19,7 +19,7 @@ from mealplanner.breadth_test import (
     ONION_MASS_PER_UNIT, ONION_YIELD, ONION_ACTUAL_OUTPUT_G,
 )
 
-BASE_URL = "http://localhost:8083"
+BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
 USERNAME = "superadmin"
 PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 NOW = datetime.now(timezone.utc)

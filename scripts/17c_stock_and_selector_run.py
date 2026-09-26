@@ -2,7 +2,14 @@
 cases together) plus a real StockPolicy/NutritionTarget, then a full
 selector run across the realistic dataset.
 
-Run with: python3 scripts/15f_stock_and_selector_run.py
+Numbered 17c, not 15f where it began, because it needs what 17a and 17b
+create: the Opened/Sealed types and the compound-key shelf-life defaults
+that mealplanner/inventory.py looks up to decide whether stock has expired.
+Run in the old numeric position on a fresh instance it crashed on the
+missing "Sealed" type. It also has to run BEFORE the 17d/18b demos, which add
+more chicken stock and would break the exact totals checked below.
+
+Run with: python3 scripts/17c_stock_and_selector_run.py
 """
 
 import os
@@ -14,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from structr_client import StructrClient
 from mealplanner.inventory import eligible_on_hand_with_urgency, physical_on_hand
 
-BASE_URL = "http://localhost:8083"
+BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
 USERNAME = "superadmin"
 PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 P = "TEST -- "
@@ -61,6 +68,9 @@ def main():
           f"soonest expiry={urgency:.2f}d")
     ok = abs(physical - 750.0) < 1 and abs(eligible - 600.0) < 1
     print(f"    [{'OK' if ok else 'FAIL'}]")
+    if not ok:
+        print("\nFAILED.")
+        sys.exit(1)
 
     print("\n[3] Real StockPolicy + NutritionTarget...")
     reorder_qty = client.upsert("QuantitySpecification", "name", f"{P}chicken reorder threshold -- 300g", {
@@ -95,6 +105,15 @@ def main():
         "isAbout": week_region, "hasConstraint": [stock_policy_id, nutrition_target_id],
     })
     print(f"    meal_plan={meal_plan_id}")
+
+    # The plan scripts/11c_simple_selector.py's own demo reads. 11c creates it
+    # on first run, but on a fresh build 11c runs long before the realistic
+    # recipes exist (and 15a wipes what it made), so it was only ever present
+    # on the live instance because someone re-ran 11c by hand afterwards.
+    demo_week = client.upsert("MealPlan", "name", f"{P}Selector demo week", {
+        "timeBudgetMinutes": 30.0, "timeBudgetWeight": 0.8, "varietyWeight": 0.2,
+    })
+    print(f"    demo week for 11c={demo_week}")
 
     print("\n[5] Running the selector...")
     import importlib.util

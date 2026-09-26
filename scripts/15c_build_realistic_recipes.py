@@ -31,8 +31,9 @@ from datetime import datetime, timedelta, timezone
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from structr_client import StructrClient
+from mealplanner.material_accounting import expected_combination_output
 
-BASE_URL = "http://localhost:8083"
+BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
 USERNAME = "superadmin"
 PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 P = "TEST -- "
@@ -59,13 +60,24 @@ def make_mass_measurement(client, name, value, when, quality_id, status="observe
 
 def build_recipe_plan(client, *, recipe_name, plan_name, step_name, xform_kind,
                        inputs, output_type_name, output_qty, output_status,
-                       duration_min, difficulty, meal_types):
-    """inputs: [(food_type_name, qty_grams, spec_name), ...]"""
+                       duration_min, difficulty, meal_types, servings):
+    """inputs: [(food_type_name, qty_grams, spec_name), ...]
+
+    servings: what the recipe yields, stored as unit "servings" (data-model.md
+    Rev 4.3 H3). Scripts used to store an arbitrary "1.0 batch" here and the
+    real counts were patched onto the live instance by hand, so a fresh build
+    didn't match it.
+
+    output_qty=None: compute the expected output from the inputs' own yield
+    defaults (material_accounting.expected_combination_output, data-model.md
+    Sec 5.1.1) and store it with status "default". Needs those yield defaults
+    to exist already (15b seeds them). Same story: the computed 958 g / 610 g
+    were patched onto the live instance by hand."""
     recipe_id = client.upsert("RecipeIdentity", "name", f"{P}{recipe_name}", {
         "isRetired": False, "hasMealType": [concept(client, mt) for mt in meal_types],
     })
     yield_qty = client.upsert("QuantitySpecification", "name", f"{P}recipe yield for {recipe_name}", {
-        "value": 1.0, "unit": "batch", "status": "specified",
+        "value": servings, "unit": "servings", "status": "specified",
     })
     plan_id = client.upsert("Plan", "name", f"{P}{plan_name}", {
         "specializationOf": recipe_id, "hasRecipeYield": yield_qty,
@@ -84,6 +96,9 @@ def build_recipe_plan(client, *, recipe_name, plan_name, step_name, xform_kind,
         })
         spec_ids.append((food_name, qty_g, spec_id))
 
+    if output_qty is None:
+        output_qty = expected_combination_output(client, client.get_all("Plan", plan_id)["result"])
+        output_status = "default"
     output_qty_id = client.upsert("QuantitySpecification", "name", f"{P}{recipe_name} output quantity", {
         "value": output_qty, "unit": "g", "status": output_status,
     })
@@ -161,7 +176,7 @@ def main():
         step_name="Braise the chicken breast", xform_kind="Braising",
         inputs=[("Chicken Breast (raw)", 500.0, "chicken S1 input")],
         output_type_name="Chicken Breast (braised)", output_qty=375.0, output_status="default",
-        duration_min=140.0, difficulty="medium", meal_types=["Dinner"],
+        duration_min=140.0, difficulty="medium", meal_types=["Dinner"], servings=2.0,
     )
     a_cook = cook(
         client, recipe_name="Braised Chicken Breast", plan_id=a["plan_id"], xform_kind="Braising",
@@ -182,8 +197,8 @@ def main():
             ("Butter", 30.0, "pasta S2 input butter"),
             ("Parmesan", 20.0, "pasta S3 input parmesan"),
         ],
-        output_type_name="Buttered Pasta with Parmesan", output_qty=950.0, output_status="specified",
-        duration_min=20.0, difficulty="easy", meal_types=["Dinner", "Lunch"],
+        output_type_name="Buttered Pasta with Parmesan", output_qty=None, output_status="default",
+        duration_min=20.0, difficulty="easy", meal_types=["Dinner", "Lunch"], servings=4.0,
     )
     b_cook = cook(
         client, recipe_name="Buttered Pasta with Parmesan", plan_id=b["plan_id"], xform_kind="Boiling",
@@ -204,8 +219,8 @@ def main():
             ("Beef (raw)", 400.0, "stirfry S1 input beef"),
             ("Broccoli", 300.0, "stirfry S2 input broccoli"),
         ],
-        output_type_name="Beef and Broccoli Stir-Fry", output_qty=600.0, output_status="specified",
-        duration_min=25.0, difficulty="medium", meal_types=["Dinner"],
+        output_type_name="Beef and Broccoli Stir-Fry", output_qty=None, output_status="default",
+        duration_min=25.0, difficulty="medium", meal_types=["Dinner"], servings=2.0,
     )
     c_cook = cook(
         client, recipe_name="Beef and Broccoli Stir-Fry", plan_id=c["plan_id"], xform_kind="Stir-Frying",

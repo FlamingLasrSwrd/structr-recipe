@@ -20,7 +20,7 @@ from mealplanner.domain_invariants import (
     NOT_NULL_PROPERTIES,
 )
 
-BASE_URL = "http://localhost:8083"
+BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
 USERNAME = "superadmin"
 PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 

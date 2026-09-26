@@ -1,0 +1,2010 @@
+{
+ "Allocation | TEST -- Beef and Broccoli Stir-Fry allocation input -- Beef (raw)": {
+  "fulfills": "<Specification:TEST -- stirfry S1 input beef>",
+  "hasActualQuantity": "<Measurement:TEST -- Beef and Broccoli Stir-Fry input Beef (raw) mass observation>",
+  "hasParticipationRole": "input",
+  "isAbout": "<PortionOfSubstance:TEST -- Beef and Broccoli Stir-Fry input -- Beef (raw)>",
+  "name": "TEST -- Beef and Broccoli Stir-Fry allocation input -- Beef (raw)",
+  "process": "<Process:TEST -- Beef and Broccoli Stir-Fry cooking process>"
+ },
+ "Allocation | TEST -- Beef and Broccoli Stir-Fry allocation input -- Broccoli": {
+  "fulfills": "<Specification:TEST -- stirfry S2 input broccoli>",
+  "hasActualQuantity": "<Measurement:TEST -- Beef and Broccoli Stir-Fry input Broccoli mass observation>",
+  "hasParticipationRole": "input",
+  "isAbout": "<PortionOfSubstance:TEST -- Beef and Broccoli Stir-Fry input -- Broccoli>",
+  "name": "TEST -- Beef and Broccoli Stir-Fry allocation input -- Broccoli",
+  "process": "<Process:TEST -- Beef and Broccoli Stir-Fry cooking process>"
+ },
+ "Allocation | TEST -- Beef and Broccoli Stir-Fry allocation output": {
+  "fulfills": "<Specification:TEST -- Beef and Broccoli Stir-Fry output>",
+  "generatingProcess": "<Process:TEST -- Beef and Broccoli Stir-Fry cooking process>",
+  "hasActualQuantity": "<Measurement:TEST -- Beef and Broccoli Stir-Fry output mass observation>",
+  "hasParticipationRole": "output",
+  "isAbout": "<PortionOfSubstance:TEST -- Beef and Broccoli Stir-Fry output portion>",
+  "name": "TEST -- Beef and Broccoli Stir-Fry allocation output"
+ },
+ "Allocation | TEST -- Braised Chicken Breast allocation input -- Chicken Breast (raw)": {
+  "fulfills": "<Specification:TEST -- chicken S1 input>",
+  "hasActualQuantity": "<Measurement:TEST -- Braised Chicken Breast input Chicken Breast (raw) mass observation>",
+  "hasParticipationRole": "input",
+  "isAbout": "<PortionOfSubstance:TEST -- Braised Chicken Breast input -- Chicken Breast (raw)>",
+  "name": "TEST -- Braised Chicken Breast allocation input -- Chicken Breast (raw)",
+  "process": "<Process:TEST -- Braised Chicken Breast cooking process>"
+ },
+ "Allocation | TEST -- Braised Chicken Breast allocation output": {
+  "fulfills": "<Specification:TEST -- Braised Chicken Breast output>",
+  "generatingProcess": "<Process:TEST -- Braised Chicken Breast cooking process>",
+  "hasActualQuantity": "<Measurement:TEST -- Braised Chicken Breast output mass observation>",
+  "hasParticipationRole": "output",
+  "isAbout": "<PortionOfSubstance:TEST -- Braised Chicken Breast output portion>",
+  "name": "TEST -- Braised Chicken Breast allocation output"
+ },
+ "Allocation | TEST -- Buttered Pasta with Parmesan allocation input -- Butter": {
+  "fulfills": "<Specification:TEST -- pasta S2 input butter>",
+  "hasActualQuantity": "<Measurement:TEST -- Buttered Pasta with Parmesan input Butter mass observation>",
+  "hasParticipationRole": "input",
+  "isAbout": "<PortionOfSubstance:TEST -- Buttered Pasta with Parmesan input -- Butter>",
+  "name": "TEST -- Buttered Pasta with Parmesan allocation input -- Butter",
+  "process": "<Process:TEST -- Buttered Pasta with Parmesan cooking process>"
+ },
+ "Allocation | TEST -- Buttered Pasta with Parmesan allocation input -- Parmesan": {
+  "fulfills": "<Specification:TEST -- pasta S3 input parmesan>",
+  "hasActualQuantity": "<Measurement:TEST -- Buttered Pasta with Parmesan input Parmesan mass observation>",
+  "hasParticipationRole": "input",
+  "isAbout": "<PortionOfSubstance:TEST -- Buttered Pasta with Parmesan input -- Parmesan>",
+  "name": "TEST -- Buttered Pasta with Parmesan allocation input -- Parmesan",
+  "process": "<Process:TEST -- Buttered Pasta with Parmesan cooking process>"
+ },
+ "Allocation | TEST -- Buttered Pasta with Parmesan allocation input -- Pasta (dry)": {
+  "fulfills": "<Specification:TEST -- pasta S1 input dry pasta>",
+  "hasActualQuantity": "<Measurement:TEST -- Buttered Pasta with Parmesan input Pasta (dry) mass observation>",
+  "hasParticipationRole": "input",
+  "isAbout": "<PortionOfSubstance:TEST -- Buttered Pasta with Parmesan input -- Pasta (dry)>",
+  "name": "TEST -- Buttered Pasta with Parmesan allocation input -- Pasta (dry)",
+  "process": "<Process:TEST -- Buttered Pasta with Parmesan cooking process>"
+ },
+ "Allocation | TEST -- Buttered Pasta with Parmesan allocation output": {
+  "fulfills": "<Specification:TEST -- Buttered Pasta with Parmesan output>",
+  "generatingProcess": "<Process:TEST -- Buttered Pasta with Parmesan cooking process>",
+  "hasActualQuantity": "<Measurement:TEST -- Buttered Pasta with Parmesan output mass observation>",
+  "hasParticipationRole": "output",
+  "isAbout": "<PortionOfSubstance:TEST -- Buttered Pasta with Parmesan output portion>",
+  "name": "TEST -- Buttered Pasta with Parmesan allocation output"
+ },
+ "Concept | Breakfast": {
+  "inScheme": "<ConceptScheme:Meal Type>",
+  "name": "Breakfast"
+ },
+ "Concept | Dinner": {
+  "inScheme": "<ConceptScheme:Meal Type>",
+  "name": "Dinner",
+  "taggedRecipes": [
+   "<RecipeIdentity:TEST -- Beef and Broccoli Stir-Fry>",
+   "<RecipeIdentity:TEST -- Braised Chicken Breast>",
+   "<RecipeIdentity:TEST -- Buttered Pasta with Parmesan>"
+  ]
+ },
+ "Concept | Lunch": {
+  "inScheme": "<ConceptScheme:Meal Type>",
+  "name": "Lunch",
+  "taggedRecipes": [
+   "<RecipeIdentity:TEST -- Buttered Pasta with Parmesan>"
+  ]
+ },
+ "Concept | Snack": {
+  "inScheme": "<ConceptScheme:Meal Type>",
+  "name": "Snack",
+  "taggedRecipes": [
+   "<RecipeIdentity:TEST -- Almond Snack Mix>"
+  ]
+ },
+ "ConceptScheme | Meal Type": {
+  "concepts": [
+   "<Concept:Breakfast>",
+   "<Concept:Dinner>",
+   "<Concept:Lunch>",
+   "<Concept:Snack>"
+  ],
+  "name": "Meal Type"
+ },
+ "ContainerObject | TEST -- opened-status demo -- opened tray": {
+  "contents": [
+   "<PortionOfSubstance:TEST -- fresh portion in opened container>",
+   "<PortionOfSubstance:TEST -- opened-status demo -- chicken in opened tray>"
+  ],
+  "hasOpenedStatus": "<DomainType:Opened>",
+  "instanceOf": "<DomainType:Tray>",
+  "name": "TEST -- opened-status demo -- opened tray"
+ },
+ "ContainerObject | TEST -- opened-status demo -- sealed tray": {
+  "contents": [
+   "<PortionOfSubstance:TEST -- opened-status demo -- chicken in sealed tray>"
+  ],
+  "hasOpenedStatus": "<DomainType:Sealed>",
+  "instanceOf": "<DomainType:Tray>",
+  "name": "TEST -- opened-status demo -- sealed tray"
+ },
+ "ContainerObject | TEST -- storage-condition demo -- freezer tray": {
+  "contents": [
+   "<PortionOfSubstance:TEST -- frozen chicken -- 30 days old>"
+  ],
+  "hasOpenedStatus": "<DomainType:Sealed>",
+  "hasStorageCondition": "<DomainType:Freezer>",
+  "instanceOf": "<DomainType:Tray>",
+  "name": "TEST -- storage-condition demo -- freezer tray"
+ },
+ "DefaultSpecification | Boiling yield factor for Pasta (dry) [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "forType": "<DomainType:Pasta (dry)>",
+  "hasKind": "<DomainType:Yield>",
+  "hasValue": "<QuantitySpecification:Pasta (dry) via Boiling yield value [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "keyedBy": [
+   "<DomainType:Boiling>"
+  ],
+  "name": "Boiling yield factor for Pasta (dry) [PLACEHOLDER -- not sourced from USDA/FDC yet]",
+  "targetType": "<DomainType:Pasta (cooked)>"
+ },
+ "DefaultSpecification | Braising yield factor for Chicken Breast (raw) [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "forType": "<DomainType:Chicken Breast (raw)>",
+  "hasKind": "<DomainType:Yield>",
+  "hasValue": "<QuantitySpecification:0.75 yield ratio for Chicken Breast (raw) via Braising [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "keyedBy": [
+   "<DomainType:Braising>"
+  ],
+  "name": "Braising yield factor for Chicken Breast (raw) [PLACEHOLDER -- not sourced from USDA/FDC yet]",
+  "targetType": "<DomainType:Chicken Breast (braised)>"
+ },
+ "DefaultSpecification | Density of AP Flour [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "forType": "<DomainType:AP Flour>",
+  "hasKind": "<DomainType:Density>",
+  "hasValue": "<QuantitySpecification:0.59 g per mL for AP Flour [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "name": "Density of AP Flour [PLACEHOLDER -- not sourced from USDA/FDC yet]"
+ },
+ "DefaultSpecification | Fresh Meat shelf life default -- Freezer Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "forType": "<DomainType:Fresh Meat>",
+  "hasKind": "<DomainType:ShelfLife>",
+  "hasValue": "<QuantitySpecification:90 day shelf life for Fresh Meat in Freezer Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "keyedBy": [
+   "<DomainType:Freezer>",
+   "<DomainType:Opened>"
+  ],
+  "name": "Fresh Meat shelf life default -- Freezer Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]"
+ },
+ "DefaultSpecification | Fresh Meat shelf life default -- Freezer Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "forType": "<DomainType:Fresh Meat>",
+  "hasKind": "<DomainType:ShelfLife>",
+  "hasValue": "<QuantitySpecification:180 day shelf life for Fresh Meat in Freezer Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "keyedBy": [
+   "<DomainType:Freezer>",
+   "<DomainType:Sealed>"
+  ],
+  "name": "Fresh Meat shelf life default -- Freezer Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]"
+ },
+ "DefaultSpecification | Fresh Meat shelf life default -- Fridge Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "forType": "<DomainType:Fresh Meat>",
+  "hasKind": "<DomainType:ShelfLife>",
+  "hasValue": "<QuantitySpecification:2 day shelf life for Fresh Meat in Fridge Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "keyedBy": [
+   "<DomainType:Fridge>",
+   "<DomainType:Opened>"
+  ],
+  "name": "Fresh Meat shelf life default -- Fridge Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]"
+ },
+ "DefaultSpecification | Fresh Meat shelf life default -- Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "forType": "<DomainType:Fresh Meat>",
+  "hasKind": "<DomainType:ShelfLife>",
+  "hasValue": "<QuantitySpecification:5 day shelf life for Fresh Meat in Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "keyedBy": [
+   "<DomainType:Fridge>",
+   "<DomainType:Sealed>"
+  ],
+  "name": "Fresh Meat shelf life default -- Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]"
+ },
+ "DefaultSpecification | Mass per unit of Yellow Onion [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "forType": "<DomainType:Yellow Onion>",
+  "hasKind": "<DomainType:MassPerUnit>",
+  "hasValue": "<QuantitySpecification:180g per each for Yellow Onion [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "name": "Mass per unit of Yellow Onion [PLACEHOLDER -- not sourced from USDA/FDC yet]"
+ },
+ "DefaultSpecification | Stir-Frying yield factor for Beef (raw) [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "forType": "<DomainType:Beef (raw)>",
+  "hasKind": "<DomainType:Yield>",
+  "hasValue": "<QuantitySpecification:Beef (raw) via Stir-Frying yield value [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "keyedBy": [
+   "<DomainType:Stir-Frying>"
+  ],
+  "name": "Stir-Frying yield factor for Beef (raw) [PLACEHOLDER -- not sourced from USDA/FDC yet]"
+ },
+ "DefaultSpecification | Stir-Frying yield factor for Broccoli [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "forType": "<DomainType:Broccoli>",
+  "hasKind": "<DomainType:Yield>",
+  "hasValue": "<QuantitySpecification:Broccoli via Stir-Frying yield value [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "keyedBy": [
+   "<DomainType:Stir-Frying>"
+  ],
+  "name": "Stir-Frying yield factor for Broccoli [PLACEHOLDER -- not sourced from USDA/FDC yet]"
+ },
+ "DomainType | AP Flour": {
+  "defaultSpecifications": [
+   "<DefaultSpecification:Density of AP Flour [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "hierarchy": "<TypeHierarchy:Food Identity>",
+  "isLookupBearing": true,
+  "name": "AP Flour"
+ },
+ "DomainType | Almonds": {
+  "hasBiologicalOrigin": [
+   "<DomainType:Tree Nut>"
+  ],
+  "hierarchy": "<TypeHierarchy:Food Identity>",
+  "isLookupBearing": true,
+  "name": "Almonds",
+  "specifiedBySpecs": [
+   "<Specification:TEST -- almond snack S1 input almonds>",
+   "<Specification:TEST -- almond snack output>"
+  ]
+ },
+ "DomainType | Beef (raw)": {
+  "defaultSpecifications": [
+   "<DefaultSpecification:Stir-Frying yield factor for Beef (raw) [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "foodInstances": [
+   "<PortionOfSubstance:TEST -- Beef and Broccoli Stir-Fry input -- Beef (raw)>",
+   "<PortionOfSubstance:TEST -- on-hand beef -- sufficient>"
+  ],
+  "hierarchy": "<TypeHierarchy:Food Identity>",
+  "isLookupBearing": true,
+  "name": "Beef (raw)",
+  "specifiedBySpecs": [
+   "<Specification:TEST -- stirfry S1 input beef>"
+  ]
+ },
+ "DomainType | Beef and Broccoli Stir-Fry": {
+  "foodInstances": [
+   "<PortionOfSubstance:TEST -- Beef and Broccoli Stir-Fry output portion>"
+  ],
+  "hierarchy": "<TypeHierarchy:Food Identity>",
+  "isLookupBearing": true,
+  "name": "Beef and Broccoli Stir-Fry",
+  "nutrientProfilesAbout": [
+   "<NutrientProfile:Beef and Broccoli Stir-Fry protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "specifiedBySpecs": [
+   "<Specification:TEST -- Beef and Broccoli Stir-Fry output>"
+  ]
+ },
+ "DomainType | Boiling": {
+  "defaultSpecsKeyedBy": [
+   "<DefaultSpecification:Boiling yield factor for Pasta (dry) [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "hierarchy": "<TypeHierarchy:Transformation Method>",
+  "isLookupBearing": true,
+  "name": "Boiling",
+  "parent": "<DomainType:Wet-Heat Method>",
+  "processInstances": [
+   "<Process:TEST -- Buttered Pasta with Parmesan cooking process>"
+  ],
+  "stepInstances": [
+   "<Step:TEST -- Boil pasta and toss with butter and parmesan>"
+  ]
+ },
+ "DomainType | Braising": {
+  "defaultSpecsKeyedBy": [
+   "<DefaultSpecification:Braising yield factor for Chicken Breast (raw) [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "hierarchy": "<TypeHierarchy:Transformation Method>",
+  "isLookupBearing": true,
+  "name": "Braising",
+  "parent": "<DomainType:Wet-Heat Method>",
+  "processInstances": [
+   "<Process:TEST -- Braised Chicken Breast cooking process>"
+  ],
+  "stepInstances": [
+   "<Step:TEST -- Braise the chicken breast>"
+  ]
+ },
+ "DomainType | Broccoli": {
+  "defaultSpecifications": [
+   "<DefaultSpecification:Stir-Frying yield factor for Broccoli [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "foodInstances": [
+   "<PortionOfSubstance:TEST -- Beef and Broccoli Stir-Fry input -- Broccoli>",
+   "<PortionOfSubstance:TEST -- on-hand broccoli -- sufficient>"
+  ],
+  "hierarchy": "<TypeHierarchy:Food Identity>",
+  "isLookupBearing": true,
+  "name": "Broccoli",
+  "specifiedBySpecs": [
+   "<Specification:TEST -- stirfry S2 input broccoli>"
+  ]
+ },
+ "DomainType | Butter": {
+  "foodInstances": [
+   "<PortionOfSubstance:TEST -- Buttered Pasta with Parmesan input -- Butter>"
+  ],
+  "hierarchy": "<TypeHierarchy:Food Identity>",
+  "isLookupBearing": true,
+  "name": "Butter",
+  "specifiedBySpecs": [
+   "<Specification:TEST -- pasta S2 input butter>"
+  ]
+ },
+ "DomainType | Buttered Pasta with Parmesan": {
+  "foodInstances": [
+   "<PortionOfSubstance:TEST -- Buttered Pasta with Parmesan output portion>"
+  ],
+  "hierarchy": "<TypeHierarchy:Food Identity>",
+  "isLookupBearing": true,
+  "name": "Buttered Pasta with Parmesan",
+  "nutrientProfilesAbout": [
+   "<NutrientProfile:Buttered Pasta with Parmesan protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "specifiedBySpecs": [
+   "<Specification:TEST -- Buttered Pasta with Parmesan output>"
+  ]
+ },
+ "DomainType | Capability": {
+  "children": [
+   "<DomainType:Heating>"
+  ],
+  "hierarchy": "<TypeHierarchy:Capability>",
+  "isLookupBearing": true,
+  "name": "Capability"
+ },
+ "DomainType | Chicken Breast (braised)": {
+  "foodInstances": [
+   "<PortionOfSubstance:TEST -- Braised Chicken Breast output portion>"
+  ],
+  "hierarchy": "<TypeHierarchy:Food Identity>",
+  "isLookupBearing": true,
+  "name": "Chicken Breast (braised)",
+  "nutrientProfilesAbout": [
+   "<NutrientProfile:Chicken Breast (braised) protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "parent": "<DomainType:Poultry>",
+  "specifiedBySpecs": [
+   "<Specification:TEST -- Braised Chicken Breast output>"
+  ],
+  "yieldTargetOf": [
+   "<DefaultSpecification:Braising yield factor for Chicken Breast (raw) [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ]
+ },
+ "DomainType | Chicken Breast (raw)": {
+  "defaultSpecifications": [
+   "<DefaultSpecification:Braising yield factor for Chicken Breast (raw) [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "foodInstances": [
+   "<PortionOfSubstance:TEST -- Braised Chicken Breast input -- Chicken Breast (raw)>",
+   "<PortionOfSubstance:TEST -- fresh portion in opened container>",
+   "<PortionOfSubstance:TEST -- frozen chicken -- 30 days old>",
+   "<PortionOfSubstance:TEST -- on-hand chicken -- already expired>",
+   "<PortionOfSubstance:TEST -- on-hand chicken -- near expiry>",
+   "<PortionOfSubstance:TEST -- opened-status demo -- chicken in opened tray>",
+   "<PortionOfSubstance:TEST -- opened-status demo -- chicken in sealed tray>"
+  ],
+  "hierarchy": "<TypeHierarchy:Food Identity>",
+  "isLookupBearing": true,
+  "name": "Chicken Breast (raw)",
+  "parent": "<DomainType:Poultry>",
+  "specifiedBySpecs": [
+   "<Specification:TEST -- chicken S1 input>"
+  ],
+  "stockPoliciesApplying": [
+   "<StockPolicy:TEST -- Keep chicken breast on hand>"
+  ]
+ },
+ "DomainType | Cleanliness": {
+  "hierarchy": "<TypeHierarchy:Quality Kind>",
+  "name": "Cleanliness"
+ },
+ "DomainType | Cooked Leftover": {
+  "hierarchy": "<TypeHierarchy:Perishability Class>",
+  "isLookupBearing": true,
+  "name": "Cooked Leftover",
+  "perishabilityInstances": [
+   "<PortionOfSubstance:TEST -- Beef and Broccoli Stir-Fry output portion>",
+   "<PortionOfSubstance:TEST -- Braised Chicken Breast output portion>",
+   "<PortionOfSubstance:TEST -- Buttered Pasta with Parmesan output portion>"
+  ]
+ },
+ "DomainType | Density": {
+  "defaultSpecsByKind": [
+   "<DefaultSpecification:Density of AP Flour [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "hierarchy": "<TypeHierarchy:Default Kind>",
+  "name": "Density"
+ },
+ "DomainType | Dry Goods": {
+  "hierarchy": "<TypeHierarchy:Perishability Class>",
+  "isLookupBearing": true,
+  "name": "Dry Goods"
+ },
+ "DomainType | Duration": {
+  "hierarchy": "<TypeHierarchy:Default Kind>",
+  "name": "Duration"
+ },
+ "DomainType | Dutch Oven": {
+  "hierarchy": "<TypeHierarchy:Equipment Type>",
+  "isLookupBearing": true,
+  "name": "Dutch Oven"
+ },
+ "DomainType | Freezer": {
+  "containersWithThisStorageCondition": [
+   "<ContainerObject:TEST -- storage-condition demo -- freezer tray>"
+  ],
+  "defaultSpecsKeyedBy": [
+   "<DefaultSpecification:Fresh Meat shelf life default -- Freezer Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+   "<DefaultSpecification:Fresh Meat shelf life default -- Freezer Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "hierarchy": "<TypeHierarchy:Storage Condition>",
+  "isLookupBearing": true,
+  "name": "Freezer"
+ },
+ "DomainType | Fresh Meat": {
+  "defaultSpecifications": [
+   "<DefaultSpecification:Fresh Meat shelf life default -- Freezer Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+   "<DefaultSpecification:Fresh Meat shelf life default -- Freezer Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+   "<DefaultSpecification:Fresh Meat shelf life default -- Fridge Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+   "<DefaultSpecification:Fresh Meat shelf life default -- Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "hierarchy": "<TypeHierarchy:Perishability Class>",
+  "isLookupBearing": true,
+  "name": "Fresh Meat",
+  "perishabilityInstances": [
+   "<PortionOfSubstance:TEST -- fresh portion in opened container>",
+   "<PortionOfSubstance:TEST -- frozen chicken -- 30 days old>",
+   "<PortionOfSubstance:TEST -- on-hand beef -- sufficient>",
+   "<PortionOfSubstance:TEST -- on-hand chicken -- already expired>",
+   "<PortionOfSubstance:TEST -- on-hand chicken -- near expiry>",
+   "<PortionOfSubstance:TEST -- opened-status demo -- chicken in opened tray>",
+   "<PortionOfSubstance:TEST -- opened-status demo -- chicken in sealed tray>"
+  ]
+ },
+ "DomainType | Fridge": {
+  "defaultSpecsKeyedBy": [
+   "<DefaultSpecification:Fresh Meat shelf life default -- Fridge Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+   "<DefaultSpecification:Fresh Meat shelf life default -- Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "eligibleForStockPolicies": [
+   "<StockPolicy:TEST -- Keep chicken breast on hand>"
+  ],
+  "hierarchy": "<TypeHierarchy:Storage Condition>",
+  "isLookupBearing": true,
+  "name": "Fridge"
+ },
+ "DomainType | Heating": {
+  "hierarchy": "<TypeHierarchy:Capability>",
+  "isLookupBearing": true,
+  "name": "Heating",
+  "parent": "<DomainType:Capability>"
+ },
+ "DomainType | Mass": {
+  "hierarchy": "<TypeHierarchy:Quality Kind>",
+  "name": "Mass",
+  "sdcInstances": [
+   "<Quality:TEST -- Beef and Broccoli Stir-Fry input Beef (raw) mass Quality>",
+   "<Quality:TEST -- Beef and Broccoli Stir-Fry input Broccoli mass Quality>",
+   "<Quality:TEST -- Beef and Broccoli Stir-Fry output mass Quality>",
+   "<Quality:TEST -- Braised Chicken Breast input Chicken Breast (raw) mass Quality>",
+   "<Quality:TEST -- Braised Chicken Breast output mass Quality>",
+   "<Quality:TEST -- Buttered Pasta with Parmesan input Butter mass Quality>",
+   "<Quality:TEST -- Buttered Pasta with Parmesan input Parmesan mass Quality>",
+   "<Quality:TEST -- Buttered Pasta with Parmesan input Pasta (dry) mass Quality>",
+   "<Quality:TEST -- Buttered Pasta with Parmesan output mass Quality>",
+   "<Quality:TEST -- fresh portion in opened container mass Quality>",
+   "<Quality:TEST -- frozen chicken -- 30 days old mass Quality>",
+   "<Quality:TEST -- on-hand beef -- sufficient mass Quality>",
+   "<Quality:TEST -- on-hand broccoli -- sufficient mass Quality>",
+   "<Quality:TEST -- on-hand chicken -- already expired mass Quality>",
+   "<Quality:TEST -- on-hand chicken -- near expiry mass Quality>",
+   "<Quality:TEST -- opened-status demo -- chicken in opened tray mass Quality>",
+   "<Quality:TEST -- opened-status demo -- chicken in sealed tray mass Quality>"
+  ]
+ },
+ "DomainType | MassPerUnit": {
+  "defaultSpecsByKind": [
+   "<DefaultSpecification:Mass per unit of Yellow Onion [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "hierarchy": "<TypeHierarchy:Default Kind>",
+  "name": "MassPerUnit"
+ },
+ "DomainType | NutrientAmount": {
+  "hierarchy": "<TypeHierarchy:Default Kind>",
+  "name": "NutrientAmount"
+ },
+ "DomainType | Opened": {
+  "containersWithThisOpenedStatus": [
+   "<ContainerObject:TEST -- opened-status demo -- opened tray>"
+  ],
+  "defaultSpecsKeyedBy": [
+   "<DefaultSpecification:Fresh Meat shelf life default -- Freezer Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+   "<DefaultSpecification:Fresh Meat shelf life default -- Fridge Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "hierarchy": "<TypeHierarchy:Opened Status>",
+  "isLookupBearing": true,
+  "name": "Opened"
+ },
+ "DomainType | OpenedStatus": {
+  "hierarchy": "<TypeHierarchy:Quality Kind>",
+  "name": "OpenedStatus"
+ },
+ "DomainType | Pantry": {
+  "hierarchy": "<TypeHierarchy:Storage Condition>",
+  "isLookupBearing": true,
+  "name": "Pantry"
+ },
+ "DomainType | Parmesan": {
+  "foodInstances": [
+   "<PortionOfSubstance:TEST -- Buttered Pasta with Parmesan input -- Parmesan>"
+  ],
+  "hierarchy": "<TypeHierarchy:Food Identity>",
+  "isLookupBearing": true,
+  "name": "Parmesan",
+  "specifiedBySpecs": [
+   "<Specification:TEST -- pasta S3 input parmesan>"
+  ]
+ },
+ "DomainType | Pasta (cooked)": {
+  "hierarchy": "<TypeHierarchy:Food Identity>",
+  "isLookupBearing": true,
+  "name": "Pasta (cooked)",
+  "yieldTargetOf": [
+   "<DefaultSpecification:Boiling yield factor for Pasta (dry) [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ]
+ },
+ "DomainType | Pasta (dry)": {
+  "defaultSpecifications": [
+   "<DefaultSpecification:Boiling yield factor for Pasta (dry) [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "foodInstances": [
+   "<PortionOfSubstance:TEST -- Buttered Pasta with Parmesan input -- Pasta (dry)>"
+  ],
+  "hierarchy": "<TypeHierarchy:Food Identity>",
+  "isLookupBearing": true,
+  "name": "Pasta (dry)",
+  "specifiedBySpecs": [
+   "<Specification:TEST -- pasta S1 input dry pasta>"
+  ]
+ },
+ "DomainType | Poultry": {
+  "children": [
+   "<DomainType:Chicken Breast (braised)>",
+   "<DomainType:Chicken Breast (raw)>"
+  ],
+  "hierarchy": "<TypeHierarchy:Food Identity>",
+  "isLookupBearing": true,
+  "name": "Poultry"
+ },
+ "DomainType | Produce": {
+  "hierarchy": "<TypeHierarchy:Perishability Class>",
+  "isLookupBearing": true,
+  "name": "Produce"
+ },
+ "DomainType | Protein": {
+  "hierarchy": "<TypeHierarchy:Nutrient>",
+  "isLookupBearing": true,
+  "name": "Protein",
+  "nutrientProfilesForNutrient": [
+   "<NutrientProfile:Beef and Broccoli Stir-Fry protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+   "<NutrientProfile:Buttered Pasta with Parmesan protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+   "<NutrientProfile:Chicken Breast (braised) protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+   "<NutrientProfile:TEST -- Pasta (cooked) protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "nutritionTargetsForNutrient": [
+   "<NutritionTarget:TEST -- Daily protein target>",
+   "<NutritionTarget:TEST -- NutriScope hard daily protein range>"
+  ]
+ },
+ "DomainType | PurchaseQuantity": {
+  "hierarchy": "<TypeHierarchy:Default Kind>",
+  "name": "PurchaseQuantity"
+ },
+ "DomainType | Reservation": {
+  "hierarchy": "<TypeHierarchy:Role Kind>",
+  "name": "Reservation",
+  "sdcInstances": [
+   "<Role:TEST -- reservation role for the leftover entry>"
+  ]
+ },
+ "DomainType | RetentionFactor": {
+  "hierarchy": "<TypeHierarchy:Default Kind>",
+  "name": "RetentionFactor"
+ },
+ "DomainType | Sealed": {
+  "containersWithThisOpenedStatus": [
+   "<ContainerObject:TEST -- opened-status demo -- sealed tray>",
+   "<ContainerObject:TEST -- storage-condition demo -- freezer tray>"
+  ],
+  "defaultSpecsKeyedBy": [
+   "<DefaultSpecification:Fresh Meat shelf life default -- Freezer Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+   "<DefaultSpecification:Fresh Meat shelf life default -- Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "hierarchy": "<TypeHierarchy:Opened Status>",
+  "isLookupBearing": true,
+  "name": "Sealed"
+ },
+ "DomainType | ShelfLife": {
+  "defaultSpecsByKind": [
+   "<DefaultSpecification:Fresh Meat shelf life default -- Freezer Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+   "<DefaultSpecification:Fresh Meat shelf life default -- Freezer Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+   "<DefaultSpecification:Fresh Meat shelf life default -- Fridge Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+   "<DefaultSpecification:Fresh Meat shelf life default -- Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "hierarchy": "<TypeHierarchy:Quality Kind>",
+  "name": "ShelfLife"
+ },
+ "DomainType | Stir-Frying": {
+  "defaultSpecsKeyedBy": [
+   "<DefaultSpecification:Stir-Frying yield factor for Beef (raw) [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+   "<DefaultSpecification:Stir-Frying yield factor for Broccoli [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "hierarchy": "<TypeHierarchy:Transformation Method>",
+  "isLookupBearing": true,
+  "name": "Stir-Frying",
+  "parent": "<DomainType:Wet-Heat Method>",
+  "processInstances": [
+   "<Process:TEST -- Beef and Broccoli Stir-Fry cooking process>"
+  ],
+  "stepInstances": [
+   "<Step:TEST -- Stir-fry the beef and broccoli>"
+  ]
+ },
+ "DomainType | Tray": {
+  "containerInstances": [
+   "<ContainerObject:TEST -- opened-status demo -- opened tray>",
+   "<ContainerObject:TEST -- opened-status demo -- sealed tray>",
+   "<ContainerObject:TEST -- storage-condition demo -- freezer tray>"
+  ],
+  "hierarchy": "<TypeHierarchy:Container Type>",
+  "isLookupBearing": true,
+  "name": "Tray"
+ },
+ "DomainType | Tree Nut": {
+  "exclusionConstraintsApplying": [
+   "<ExclusionConstraint:TEST -- Tree nut allergy exclusion>"
+  ],
+  "foodsOfThisOrigin": [
+   "<DomainType:Almonds>"
+  ],
+  "hierarchy": "<TypeHierarchy:Biological Origin>",
+  "isLookupBearing": true,
+  "name": "Tree Nut"
+ },
+ "DomainType | Wet-Heat Method": {
+  "children": [
+   "<DomainType:Boiling>",
+   "<DomainType:Braising>",
+   "<DomainType:Stir-Frying>"
+  ],
+  "hierarchy": "<TypeHierarchy:Transformation Method>",
+  "isLookupBearing": true,
+  "name": "Wet-Heat Method"
+ },
+ "DomainType | Yellow Onion": {
+  "defaultSpecifications": [
+   "<DefaultSpecification:Mass per unit of Yellow Onion [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "hierarchy": "<TypeHierarchy:Food Identity>",
+  "isLookupBearing": true,
+  "name": "Yellow Onion"
+ },
+ "DomainType | Yield": {
+  "defaultSpecsByKind": [
+   "<DefaultSpecification:Boiling yield factor for Pasta (dry) [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+   "<DefaultSpecification:Braising yield factor for Chicken Breast (raw) [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+   "<DefaultSpecification:Stir-Frying yield factor for Beef (raw) [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+   "<DefaultSpecification:Stir-Frying yield factor for Broccoli [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
+  "hierarchy": "<TypeHierarchy:Default Kind>",
+  "name": "Yield"
+ },
+ "ExclusionConstraint | TEST -- Tree nut allergy exclusion": {
+  "appliesTo": "<DomainType:Tree Nut>",
+  "name": "TEST -- Tree nut allergy exclusion",
+  "strictness": "hard"
+ },
+ "MealPlan | TEST -- Leftover test week": {
+  "hasEntry": [
+   "<MealPlanEntry:TEST -- Monday dinner -- fresh braised chicken>",
+   "<MealPlanEntry:TEST -- Wednesday lunch -- leftover chicken>"
+  ],
+  "isAbout": "<TemporalRegion:TEST -- Leftover test week temporal region>",
+  "name": "TEST -- Leftover test week",
+  "stockWeight": 0.2,
+  "timeBudgetMinutes": 60.0,
+  "timeBudgetWeight": 0.4,
+  "varietyWeight": 0.3,
+  "wasteWeight": 0.2
+ },
+ "MealPlan | TEST -- Nutrition scope demo week": {
+  "hasConstraint": [
+   "<NutritionTarget:TEST -- NutriScope hard daily protein range>"
+  ],
+  "name": "TEST -- Nutrition scope demo week",
+  "timeBudgetMinutes": 60.0,
+  "timeBudgetWeight": 0.5,
+  "varietyWeight": 0.5
+ },
+ "MealPlan | TEST -- Reservation demo week": {
+  "name": "TEST -- Reservation demo week",
+  "timeBudgetMinutes": 30.0,
+  "timeBudgetWeight": 0.8,
+  "varietyWeight": 0.2
+ },
+ "MealPlan | TEST -- Selector demo week": {
+  "name": "TEST -- Selector demo week",
+  "timeBudgetMinutes": 30.0,
+  "timeBudgetWeight": 0.8,
+  "varietyWeight": 0.2
+ },
+ "MealPlan | TEST -- Selector run week": {
+  "hasConstraint": [
+   "<NutritionTarget:TEST -- Daily protein target>",
+   "<StockPolicy:TEST -- Keep chicken breast on hand>"
+  ],
+  "isAbout": "<TemporalRegion:TEST -- Selector run week temporal region>",
+  "name": "TEST -- Selector run week",
+  "stockWeight": 0.3,
+  "timeBudgetMinutes": 60.0,
+  "timeBudgetWeight": 0.3,
+  "varietyWeight": 0.2,
+  "wasteWeight": 0.3
+ },
+ "MealPlanEntry | TEST -- Monday dinner -- fresh braised chicken": {
+  "fulfilledBy": "<Process:TEST -- Braised Chicken Breast cooking process>",
+  "hasPlannedServings": 4.0,
+  "isAbout": "<TemporalRegion:TEST -- Monday dinner region (source cook)>",
+  "isSkipped": false,
+  "memberOf": "<MealPlan:TEST -- Leftover test week>",
+  "name": "TEST -- Monday dinner -- fresh braised chicken",
+  "references": "<Plan:TEST -- Braised Chicken Breast v1>",
+  "sourceForLeftoverEntries": [
+   "<MealPlanEntry:TEST -- Wednesday lunch -- leftover chicken>"
+  ]
+ },
+ "MealPlanEntry | TEST -- Wednesday lunch -- leftover chicken": {
+  "consumesLeftoverFrom": "<MealPlanEntry:TEST -- Monday dinner -- fresh braised chicken>",
+  "isAbout": "<TemporalRegion:TEST -- Wednesday lunch region (leftovers)>",
+  "isSkipped": false,
+  "memberOf": "<MealPlan:TEST -- Leftover test week>",
+  "name": "TEST -- Wednesday lunch -- leftover chicken",
+  "reservationRole": "<Role:TEST -- reservation role for the leftover entry>"
+ },
+ "Measurement | TEST -- Beef and Broccoli Stir-Fry input Beef (raw) mass observation": {
+  "actualQuantityOfAllocations": [
+   "<Allocation:TEST -- Beef and Broccoli Stir-Fry allocation input -- Beef (raw)>"
+  ],
+  "isAboutQuality": "<Quality:TEST -- Beef and Broccoli Stir-Fry input Beef (raw) mass Quality>",
+  "name": "TEST -- Beef and Broccoli Stir-Fry input Beef (raw) mass observation",
+  "status": "observed",
+  "unit": "g",
+  "value": 420.0
+ },
+ "Measurement | TEST -- Beef and Broccoli Stir-Fry input Broccoli mass observation": {
+  "actualQuantityOfAllocations": [
+   "<Allocation:TEST -- Beef and Broccoli Stir-Fry allocation input -- Broccoli>"
+  ],
+  "isAboutQuality": "<Quality:TEST -- Beef and Broccoli Stir-Fry input Broccoli mass Quality>",
+  "name": "TEST -- Beef and Broccoli Stir-Fry input Broccoli mass observation",
+  "status": "observed",
+  "unit": "g",
+  "value": 310.0
+ },
+ "Measurement | TEST -- Beef and Broccoli Stir-Fry output mass observation": {
+  "actualQuantityOfAllocations": [
+   "<Allocation:TEST -- Beef and Broccoli Stir-Fry allocation output>"
+  ],
+  "isAboutQuality": "<Quality:TEST -- Beef and Broccoli Stir-Fry output mass Quality>",
+  "name": "TEST -- Beef and Broccoli Stir-Fry output mass observation",
+  "status": "observed",
+  "unit": "g",
+  "value": 610.0
+ },
+ "Measurement | TEST -- Braised Chicken Breast input Chicken Breast (raw) mass observation": {
+  "actualQuantityOfAllocations": [
+   "<Allocation:TEST -- Braised Chicken Breast allocation input -- Chicken Breast (raw)>"
+  ],
+  "isAboutQuality": "<Quality:TEST -- Braised Chicken Breast input Chicken Breast (raw) mass Quality>",
+  "name": "TEST -- Braised Chicken Breast input Chicken Breast (raw) mass observation",
+  "status": "observed",
+  "unit": "g",
+  "value": 510.0
+ },
+ "Measurement | TEST -- Braised Chicken Breast output mass observation": {
+  "actualQuantityOfAllocations": [
+   "<Allocation:TEST -- Braised Chicken Breast allocation output>"
+  ],
+  "isAboutQuality": "<Quality:TEST -- Braised Chicken Breast output mass Quality>",
+  "name": "TEST -- Braised Chicken Breast output mass observation",
+  "status": "observed",
+  "unit": "g",
+  "value": 383.0
+ },
+ "Measurement | TEST -- Buttered Pasta with Parmesan input Butter mass observation": {
+  "actualQuantityOfAllocations": [
+   "<Allocation:TEST -- Buttered Pasta with Parmesan allocation input -- Butter>"
+  ],
+  "isAboutQuality": "<Quality:TEST -- Buttered Pasta with Parmesan input Butter mass Quality>",
+  "name": "TEST -- Buttered Pasta with Parmesan input Butter mass observation",
+  "status": "observed",
+  "unit": "g",
+  "value": 32.0
+ },
+ "Measurement | TEST -- Buttered Pasta with Parmesan input Parmesan mass observation": {
+  "actualQuantityOfAllocations": [
+   "<Allocation:TEST -- Buttered Pasta with Parmesan allocation input -- Parmesan>"
+  ],
+  "isAboutQuality": "<Quality:TEST -- Buttered Pasta with Parmesan input Parmesan mass Quality>",
+  "name": "TEST -- Buttered Pasta with Parmesan input Parmesan mass observation",
+  "status": "observed",
+  "unit": "g",
+  "value": 22.0
+ },
+ "Measurement | TEST -- Buttered Pasta with Parmesan input Pasta (dry) mass observation": {
+  "actualQuantityOfAllocations": [
+   "<Allocation:TEST -- Buttered Pasta with Parmesan allocation input -- Pasta (dry)>"
+  ],
+  "isAboutQuality": "<Quality:TEST -- Buttered Pasta with Parmesan input Pasta (dry) mass Quality>",
+  "name": "TEST -- Buttered Pasta with Parmesan input Pasta (dry) mass observation",
+  "status": "observed",
+  "unit": "g",
+  "value": 454.0
+ },
+ "Measurement | TEST -- Buttered Pasta with Parmesan output mass observation": {
+  "actualQuantityOfAllocations": [
+   "<Allocation:TEST -- Buttered Pasta with Parmesan allocation output>"
+  ],
+  "isAboutQuality": "<Quality:TEST -- Buttered Pasta with Parmesan output mass Quality>",
+  "name": "TEST -- Buttered Pasta with Parmesan output mass observation",
+  "status": "observed",
+  "unit": "g",
+  "value": 940.0
+ },
+ "Measurement | TEST -- fresh portion in opened container mass observation": {
+  "isAboutQuality": "<Quality:TEST -- fresh portion in opened container mass Quality>",
+  "name": "TEST -- fresh portion in opened container mass observation",
+  "status": "observed",
+  "unit": "g",
+  "value": 250.0
+ },
+ "Measurement | TEST -- frozen chicken -- 30 days old mass observation": {
+  "isAboutQuality": "<Quality:TEST -- frozen chicken -- 30 days old mass Quality>",
+  "name": "TEST -- frozen chicken -- 30 days old mass observation",
+  "status": "observed",
+  "unit": "g",
+  "value": 500.0
+ },
+ "Measurement | TEST -- on-hand beef -- sufficient mass observation": {
+  "isAboutQuality": "<Quality:TEST -- on-hand beef -- sufficient mass Quality>",
+  "name": "TEST -- on-hand beef -- sufficient mass observation",
+  "status": "observed",
+  "unit": "g",
+  "value": 450.0
+ },
+ "Measurement | TEST -- on-hand broccoli -- sufficient mass observation": {
+  "isAboutQuality": "<Quality:TEST -- on-hand broccoli -- sufficient mass Quality>",
+  "name": "TEST -- on-hand broccoli -- sufficient mass observation",
+  "status": "observed",
+  "unit": "g",
+  "value": 350.0
+ },
+ "Measurement | TEST -- on-hand chicken -- already expired mass observation": {
+  "isAboutQuality": "<Quality:TEST -- on-hand chicken -- already expired mass Quality>",
+  "name": "TEST -- on-hand chicken -- already expired mass observation",
+  "status": "observed",
+  "unit": "g",
+  "value": 150.0
+ },
+ "Measurement | TEST -- on-hand chicken -- near expiry mass observation": {
+  "isAboutQuality": "<Quality:TEST -- on-hand chicken -- near expiry mass Quality>",
+  "name": "TEST -- on-hand chicken -- near expiry mass observation",
+  "status": "observed",
+  "unit": "g",
+  "value": 600.0
+ },
+ "Measurement | TEST -- opened-status demo -- chicken in opened tray mass observation": {
+  "isAboutQuality": "<Quality:TEST -- opened-status demo -- chicken in opened tray mass Quality>",
+  "name": "TEST -- opened-status demo -- chicken in opened tray mass observation",
+  "status": "observed",
+  "unit": "g",
+  "value": 400.0
+ },
+ "Measurement | TEST -- opened-status demo -- chicken in sealed tray mass observation": {
+  "isAboutQuality": "<Quality:TEST -- opened-status demo -- chicken in sealed tray mass Quality>",
+  "name": "TEST -- opened-status demo -- chicken in sealed tray mass observation",
+  "status": "observed",
+  "unit": "g",
+  "value": 400.0
+ },
+ "NutrientProfile | Beef and Broccoli Stir-Fry protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "amount": 20.0,
+  "basis": "per_100g",
+  "forNutrient": "<DomainType:Protein>",
+  "isAbout": "<DomainType:Beef and Broccoli Stir-Fry>",
+  "name": "Beef and Broccoli Stir-Fry protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]"
+ },
+ "NutrientProfile | Buttered Pasta with Parmesan protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "amount": 9.0,
+  "basis": "per_100g",
+  "forNutrient": "<DomainType:Protein>",
+  "isAbout": "<DomainType:Buttered Pasta with Parmesan>",
+  "name": "Buttered Pasta with Parmesan protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]"
+ },
+ "NutrientProfile | Chicken Breast (braised) protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "amount": 31.0,
+  "basis": "per_100g",
+  "forNutrient": "<DomainType:Protein>",
+  "isAbout": "<DomainType:Chicken Breast (braised)>",
+  "name": "Chicken Breast (braised) protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]"
+ },
+ "NutrientProfile | TEST -- Pasta (cooked) protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "amount": 5.0,
+  "basis": "per_100g",
+  "forNutrient": "<DomainType:Protein>",
+  "name": "TEST -- Pasta (cooked) protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]"
+ },
+ "NutritionTarget | TEST -- Daily protein target": {
+  "constrainedPlans": [
+   "<MealPlan:TEST -- Selector run week>"
+  ],
+  "dayBoundaryRule": "midnight",
+  "forNutrient": "<DomainType:Protein>",
+  "hasTargetRange": "<QuantitySpecification:TEST -- daily protein target range -- 50 to 80g>",
+  "hasTimeScope": "daily",
+  "name": "TEST -- Daily protein target",
+  "strictness": "soft",
+  "weight": 0.4
+ },
+ "NutritionTarget | TEST -- NutriScope hard daily protein range": {
+  "constrainedPlans": [
+   "<MealPlan:TEST -- Nutrition scope demo week>"
+  ],
+  "dayBoundaryRule": "midnight",
+  "forNutrient": "<DomainType:Protein>",
+  "hasTargetRange": "<QuantitySpecification:TEST -- NutriScope daily protein range 50 to 80g>",
+  "hasTimeScope": "daily",
+  "name": "TEST -- NutriScope hard daily protein range",
+  "strictness": "hard"
+ },
+ "Plan | TEST -- Almond Snack Mix v1": {
+  "difficultyRating": "easy",
+  "estimatedDurationMinutes": 2.0,
+  "hasRecipeYield": "<QuantitySpecification:TEST -- recipe yield for Almond Snack Mix>",
+  "name": "TEST -- Almond Snack Mix v1",
+  "specializationOf": "<RecipeIdentity:TEST -- Almond Snack Mix>",
+  "steps": [
+   "<Step:TEST -- Portion the almond snack mix>"
+  ]
+ },
+ "Plan | TEST -- Beef and Broccoli Stir-Fry v1": {
+  "difficultyRating": "medium",
+  "estimatedDurationMinutes": 25.0,
+  "executions": [
+   "<Process:TEST -- Beef and Broccoli Stir-Fry cooking process>"
+  ],
+  "hasRecipeYield": "<QuantitySpecification:TEST -- recipe yield for Beef and Broccoli Stir-Fry>",
+  "name": "TEST -- Beef and Broccoli Stir-Fry v1",
+  "specializationOf": "<RecipeIdentity:TEST -- Beef and Broccoli Stir-Fry>",
+  "steps": [
+   "<Step:TEST -- Stir-fry the beef and broccoli>"
+  ]
+ },
+ "Plan | TEST -- Braised Chicken Breast v1": {
+  "difficultyRating": "medium",
+  "estimatedDurationMinutes": 140.0,
+  "executions": [
+   "<Process:TEST -- Braised Chicken Breast cooking process>"
+  ],
+  "hasRecipeYield": "<QuantitySpecification:TEST -- recipe yield for Braised Chicken Breast>",
+  "name": "TEST -- Braised Chicken Breast v1",
+  "referencedByEntries": [
+   "<MealPlanEntry:TEST -- Monday dinner -- fresh braised chicken>"
+  ],
+  "specializationOf": "<RecipeIdentity:TEST -- Braised Chicken Breast>",
+  "steps": [
+   "<Step:TEST -- Braise the chicken breast>"
+  ]
+ },
+ "Plan | TEST -- Buttered Pasta with Parmesan v1": {
+  "difficultyRating": "easy",
+  "estimatedDurationMinutes": 20.0,
+  "executions": [
+   "<Process:TEST -- Buttered Pasta with Parmesan cooking process>"
+  ],
+  "hasRecipeYield": "<QuantitySpecification:TEST -- recipe yield for Buttered Pasta with Parmesan>",
+  "name": "TEST -- Buttered Pasta with Parmesan v1",
+  "specializationOf": "<RecipeIdentity:TEST -- Buttered Pasta with Parmesan>",
+  "steps": [
+   "<Step:TEST -- Boil pasta and toss with butter and parmesan>"
+  ]
+ },
+ "PortionOfSubstance | TEST -- Beef and Broccoli Stir-Fry input -- Beef (raw)": {
+  "allocationsAbout": [
+   "<Allocation:TEST -- Beef and Broccoli Stir-Fry allocation input -- Beef (raw)>"
+  ],
+  "bearerOf": [
+   "<Quality:TEST -- Beef and Broccoli Stir-Fry input Beef (raw) mass Quality>"
+  ],
+  "instanceOf": "<DomainType:Beef (raw)>",
+  "name": "TEST -- Beef and Broccoli Stir-Fry input -- Beef (raw)",
+  "processesUsingAsInput": [
+   "<Process:TEST -- Beef and Broccoli Stir-Fry cooking process>"
+  ]
+ },
+ "PortionOfSubstance | TEST -- Beef and Broccoli Stir-Fry input -- Broccoli": {
+  "allocationsAbout": [
+   "<Allocation:TEST -- Beef and Broccoli Stir-Fry allocation input -- Broccoli>"
+  ],
+  "bearerOf": [
+   "<Quality:TEST -- Beef and Broccoli Stir-Fry input Broccoli mass Quality>"
+  ],
+  "instanceOf": "<DomainType:Broccoli>",
+  "name": "TEST -- Beef and Broccoli Stir-Fry input -- Broccoli",
+  "processesUsingAsInput": [
+   "<Process:TEST -- Beef and Broccoli Stir-Fry cooking process>"
+  ]
+ },
+ "PortionOfSubstance | TEST -- Beef and Broccoli Stir-Fry output portion": {
+  "allocationsAbout": [
+   "<Allocation:TEST -- Beef and Broccoli Stir-Fry allocation output>"
+  ],
+  "bearerOf": [
+   "<Quality:TEST -- Beef and Broccoli Stir-Fry output mass Quality>"
+  ],
+  "beginsToExistDuring": "<Process:TEST -- Beef and Broccoli Stir-Fry cooking process>",
+  "hasPerishabilityType": "<DomainType:Cooked Leftover>",
+  "instanceOf": "<DomainType:Beef and Broccoli Stir-Fry>",
+  "name": "TEST -- Beef and Broccoli Stir-Fry output portion"
+ },
+ "PortionOfSubstance | TEST -- Braised Chicken Breast input -- Chicken Breast (raw)": {
+  "allocationsAbout": [
+   "<Allocation:TEST -- Braised Chicken Breast allocation input -- Chicken Breast (raw)>"
+  ],
+  "bearerOf": [
+   "<Quality:TEST -- Braised Chicken Breast input Chicken Breast (raw) mass Quality>"
+  ],
+  "instanceOf": "<DomainType:Chicken Breast (raw)>",
+  "name": "TEST -- Braised Chicken Breast input -- Chicken Breast (raw)",
+  "processesUsingAsInput": [
+   "<Process:TEST -- Braised Chicken Breast cooking process>"
+  ]
+ },
+ "PortionOfSubstance | TEST -- Braised Chicken Breast output portion": {
+  "allocationsAbout": [
+   "<Allocation:TEST -- Braised Chicken Breast allocation output>"
+  ],
+  "bearerOf": [
+   "<Quality:TEST -- Braised Chicken Breast output mass Quality>",
+   "<Role:TEST -- reservation role for the leftover entry>"
+  ],
+  "beginsToExistDuring": "<Process:TEST -- Braised Chicken Breast cooking process>",
+  "hasPerishabilityType": "<DomainType:Cooked Leftover>",
+  "instanceOf": "<DomainType:Chicken Breast (braised)>",
+  "name": "TEST -- Braised Chicken Breast output portion"
+ },
+ "PortionOfSubstance | TEST -- Buttered Pasta with Parmesan input -- Butter": {
+  "allocationsAbout": [
+   "<Allocation:TEST -- Buttered Pasta with Parmesan allocation input -- Butter>"
+  ],
+  "bearerOf": [
+   "<Quality:TEST -- Buttered Pasta with Parmesan input Butter mass Quality>"
+  ],
+  "instanceOf": "<DomainType:Butter>",
+  "name": "TEST -- Buttered Pasta with Parmesan input -- Butter",
+  "processesUsingAsInput": [
+   "<Process:TEST -- Buttered Pasta with Parmesan cooking process>"
+  ]
+ },
+ "PortionOfSubstance | TEST -- Buttered Pasta with Parmesan input -- Parmesan": {
+  "allocationsAbout": [
+   "<Allocation:TEST -- Buttered Pasta with Parmesan allocation input -- Parmesan>"
+  ],
+  "bearerOf": [
+   "<Quality:TEST -- Buttered Pasta with Parmesan input Parmesan mass Quality>"
+  ],
+  "instanceOf": "<DomainType:Parmesan>",
+  "name": "TEST -- Buttered Pasta with Parmesan input -- Parmesan",
+  "processesUsingAsInput": [
+   "<Process:TEST -- Buttered Pasta with Parmesan cooking process>"
+  ]
+ },
+ "PortionOfSubstance | TEST -- Buttered Pasta with Parmesan input -- Pasta (dry)": {
+  "allocationsAbout": [
+   "<Allocation:TEST -- Buttered Pasta with Parmesan allocation input -- Pasta (dry)>"
+  ],
+  "bearerOf": [
+   "<Quality:TEST -- Buttered Pasta with Parmesan input Pasta (dry) mass Quality>"
+  ],
+  "instanceOf": "<DomainType:Pasta (dry)>",
+  "name": "TEST -- Buttered Pasta with Parmesan input -- Pasta (dry)",
+  "processesUsingAsInput": [
+   "<Process:TEST -- Buttered Pasta with Parmesan cooking process>"
+  ]
+ },
+ "PortionOfSubstance | TEST -- Buttered Pasta with Parmesan output portion": {
+  "allocationsAbout": [
+   "<Allocation:TEST -- Buttered Pasta with Parmesan allocation output>"
+  ],
+  "bearerOf": [
+   "<Quality:TEST -- Buttered Pasta with Parmesan output mass Quality>"
+  ],
+  "beginsToExistDuring": "<Process:TEST -- Buttered Pasta with Parmesan cooking process>",
+  "hasPerishabilityType": "<DomainType:Cooked Leftover>",
+  "instanceOf": "<DomainType:Buttered Pasta with Parmesan>",
+  "name": "TEST -- Buttered Pasta with Parmesan output portion"
+ },
+ "PortionOfSubstance | TEST -- fresh portion in opened container": {
+  "bearerOf": [
+   "<Quality:TEST -- fresh portion in opened container mass Quality>"
+  ],
+  "hasPerishabilityType": "<DomainType:Fresh Meat>",
+  "instanceOf": "<DomainType:Chicken Breast (raw)>",
+  "locatedIn": "<ContainerObject:TEST -- opened-status demo -- opened tray>",
+  "name": "TEST -- fresh portion in opened container"
+ },
+ "PortionOfSubstance | TEST -- frozen chicken -- 30 days old": {
+  "bearerOf": [
+   "<Quality:TEST -- frozen chicken -- 30 days old mass Quality>"
+  ],
+  "hasPerishabilityType": "<DomainType:Fresh Meat>",
+  "instanceOf": "<DomainType:Chicken Breast (raw)>",
+  "locatedIn": "<ContainerObject:TEST -- storage-condition demo -- freezer tray>",
+  "name": "TEST -- frozen chicken -- 30 days old"
+ },
+ "PortionOfSubstance | TEST -- on-hand beef -- sufficient": {
+  "bearerOf": [
+   "<Quality:TEST -- on-hand beef -- sufficient mass Quality>"
+  ],
+  "hasPerishabilityType": "<DomainType:Fresh Meat>",
+  "instanceOf": "<DomainType:Beef (raw)>",
+  "name": "TEST -- on-hand beef -- sufficient"
+ },
+ "PortionOfSubstance | TEST -- on-hand broccoli -- sufficient": {
+  "bearerOf": [
+   "<Quality:TEST -- on-hand broccoli -- sufficient mass Quality>"
+  ],
+  "instanceOf": "<DomainType:Broccoli>",
+  "name": "TEST -- on-hand broccoli -- sufficient"
+ },
+ "PortionOfSubstance | TEST -- on-hand chicken -- already expired": {
+  "bearerOf": [
+   "<Quality:TEST -- on-hand chicken -- already expired mass Quality>"
+  ],
+  "hasPerishabilityType": "<DomainType:Fresh Meat>",
+  "instanceOf": "<DomainType:Chicken Breast (raw)>",
+  "name": "TEST -- on-hand chicken -- already expired"
+ },
+ "PortionOfSubstance | TEST -- on-hand chicken -- near expiry": {
+  "bearerOf": [
+   "<Quality:TEST -- on-hand chicken -- near expiry mass Quality>"
+  ],
+  "hasPerishabilityType": "<DomainType:Fresh Meat>",
+  "instanceOf": "<DomainType:Chicken Breast (raw)>",
+  "name": "TEST -- on-hand chicken -- near expiry"
+ },
+ "PortionOfSubstance | TEST -- opened-status demo -- chicken in opened tray": {
+  "bearerOf": [
+   "<Quality:TEST -- opened-status demo -- chicken in opened tray mass Quality>"
+  ],
+  "hasPerishabilityType": "<DomainType:Fresh Meat>",
+  "instanceOf": "<DomainType:Chicken Breast (raw)>",
+  "locatedIn": "<ContainerObject:TEST -- opened-status demo -- opened tray>",
+  "name": "TEST -- opened-status demo -- chicken in opened tray"
+ },
+ "PortionOfSubstance | TEST -- opened-status demo -- chicken in sealed tray": {
+  "bearerOf": [
+   "<Quality:TEST -- opened-status demo -- chicken in sealed tray mass Quality>"
+  ],
+  "hasPerishabilityType": "<DomainType:Fresh Meat>",
+  "instanceOf": "<DomainType:Chicken Breast (raw)>",
+  "locatedIn": "<ContainerObject:TEST -- opened-status demo -- sealed tray>",
+  "name": "TEST -- opened-status demo -- chicken in sealed tray"
+ },
+ "Process | TEST -- Beef and Broccoli Stir-Fry cooking process": {
+  "concretizes": "<Plan:TEST -- Beef and Broccoli Stir-Fry v1>",
+  "hasInput": [
+   "<PortionOfSubstance:TEST -- Beef and Broccoli Stir-Fry input -- Beef (raw)>",
+   "<PortionOfSubstance:TEST -- Beef and Broccoli Stir-Fry input -- Broccoli>"
+  ],
+  "hasKind": "<DomainType:Stir-Frying>",
+  "name": "TEST -- Beef and Broccoli Stir-Fry cooking process",
+  "occupiesTemporalRegion": "<TemporalRegion:TEST -- Beef and Broccoli Stir-Fry cook temporal region>",
+  "qualifiedGeneration": [
+   "<Allocation:TEST -- Beef and Broccoli Stir-Fry allocation output>"
+  ],
+  "qualifiedUsage": [
+   "<Allocation:TEST -- Beef and Broccoli Stir-Fry allocation input -- Beef (raw)>",
+   "<Allocation:TEST -- Beef and Broccoli Stir-Fry allocation input -- Broccoli>"
+  ],
+  "thingsBegunDuring": [
+   "<PortionOfSubstance:TEST -- Beef and Broccoli Stir-Fry output portion>"
+  ]
+ },
+ "Process | TEST -- Braised Chicken Breast cooking process": {
+  "concretizes": "<Plan:TEST -- Braised Chicken Breast v1>",
+  "fulfillsMealPlanEntries": [
+   "<MealPlanEntry:TEST -- Monday dinner -- fresh braised chicken>"
+  ],
+  "hasInput": [
+   "<PortionOfSubstance:TEST -- Braised Chicken Breast input -- Chicken Breast (raw)>"
+  ],
+  "hasKind": "<DomainType:Braising>",
+  "name": "TEST -- Braised Chicken Breast cooking process",
+  "occupiesTemporalRegion": "<TemporalRegion:TEST -- Braised Chicken Breast cook temporal region>",
+  "qualifiedGeneration": [
+   "<Allocation:TEST -- Braised Chicken Breast allocation output>"
+  ],
+  "qualifiedUsage": [
+   "<Allocation:TEST -- Braised Chicken Breast allocation input -- Chicken Breast (raw)>"
+  ],
+  "thingsBegunDuring": [
+   "<PortionOfSubstance:TEST -- Braised Chicken Breast output portion>"
+  ]
+ },
+ "Process | TEST -- Buttered Pasta with Parmesan cooking process": {
+  "concretizes": "<Plan:TEST -- Buttered Pasta with Parmesan v1>",
+  "hasInput": [
+   "<PortionOfSubstance:TEST -- Buttered Pasta with Parmesan input -- Butter>",
+   "<PortionOfSubstance:TEST -- Buttered Pasta with Parmesan input -- Parmesan>",
+   "<PortionOfSubstance:TEST -- Buttered Pasta with Parmesan input -- Pasta (dry)>"
+  ],
+  "hasKind": "<DomainType:Boiling>",
+  "name": "TEST -- Buttered Pasta with Parmesan cooking process",
+  "occupiesTemporalRegion": "<TemporalRegion:TEST -- Buttered Pasta with Parmesan cook temporal region>",
+  "qualifiedGeneration": [
+   "<Allocation:TEST -- Buttered Pasta with Parmesan allocation output>"
+  ],
+  "qualifiedUsage": [
+   "<Allocation:TEST -- Buttered Pasta with Parmesan allocation input -- Butter>",
+   "<Allocation:TEST -- Buttered Pasta with Parmesan allocation input -- Parmesan>",
+   "<Allocation:TEST -- Buttered Pasta with Parmesan allocation input -- Pasta (dry)>"
+  ],
+  "thingsBegunDuring": [
+   "<PortionOfSubstance:TEST -- Buttered Pasta with Parmesan output portion>"
+  ]
+ },
+ "Quality | TEST -- Beef and Broccoli Stir-Fry input Beef (raw) mass Quality": {
+  "hasKind": "<DomainType:Mass>",
+  "inheresIn": "<PortionOfSubstance:TEST -- Beef and Broccoli Stir-Fry input -- Beef (raw)>",
+  "measurements": [
+   "<Measurement:TEST -- Beef and Broccoli Stir-Fry input Beef (raw) mass observation>"
+  ],
+  "name": "TEST -- Beef and Broccoli Stir-Fry input Beef (raw) mass Quality"
+ },
+ "Quality | TEST -- Beef and Broccoli Stir-Fry input Broccoli mass Quality": {
+  "hasKind": "<DomainType:Mass>",
+  "inheresIn": "<PortionOfSubstance:TEST -- Beef and Broccoli Stir-Fry input -- Broccoli>",
+  "measurements": [
+   "<Measurement:TEST -- Beef and Broccoli Stir-Fry input Broccoli mass observation>"
+  ],
+  "name": "TEST -- Beef and Broccoli Stir-Fry input Broccoli mass Quality"
+ },
+ "Quality | TEST -- Beef and Broccoli Stir-Fry output mass Quality": {
+  "hasKind": "<DomainType:Mass>",
+  "inheresIn": "<PortionOfSubstance:TEST -- Beef and Broccoli Stir-Fry output portion>",
+  "measurements": [
+   "<Measurement:TEST -- Beef and Broccoli Stir-Fry output mass observation>"
+  ],
+  "name": "TEST -- Beef and Broccoli Stir-Fry output mass Quality"
+ },
+ "Quality | TEST -- Braised Chicken Breast input Chicken Breast (raw) mass Quality": {
+  "hasKind": "<DomainType:Mass>",
+  "inheresIn": "<PortionOfSubstance:TEST -- Braised Chicken Breast input -- Chicken Breast (raw)>",
+  "measurements": [
+   "<Measurement:TEST -- Braised Chicken Breast input Chicken Breast (raw) mass observation>"
+  ],
+  "name": "TEST -- Braised Chicken Breast input Chicken Breast (raw) mass Quality"
+ },
+ "Quality | TEST -- Braised Chicken Breast output mass Quality": {
+  "hasKind": "<DomainType:Mass>",
+  "inheresIn": "<PortionOfSubstance:TEST -- Braised Chicken Breast output portion>",
+  "measurements": [
+   "<Measurement:TEST -- Braised Chicken Breast output mass observation>"
+  ],
+  "name": "TEST -- Braised Chicken Breast output mass Quality"
+ },
+ "Quality | TEST -- Buttered Pasta with Parmesan input Butter mass Quality": {
+  "hasKind": "<DomainType:Mass>",
+  "inheresIn": "<PortionOfSubstance:TEST -- Buttered Pasta with Parmesan input -- Butter>",
+  "measurements": [
+   "<Measurement:TEST -- Buttered Pasta with Parmesan input Butter mass observation>"
+  ],
+  "name": "TEST -- Buttered Pasta with Parmesan input Butter mass Quality"
+ },
+ "Quality | TEST -- Buttered Pasta with Parmesan input Parmesan mass Quality": {
+  "hasKind": "<DomainType:Mass>",
+  "inheresIn": "<PortionOfSubstance:TEST -- Buttered Pasta with Parmesan input -- Parmesan>",
+  "measurements": [
+   "<Measurement:TEST -- Buttered Pasta with Parmesan input Parmesan mass observation>"
+  ],
+  "name": "TEST -- Buttered Pasta with Parmesan input Parmesan mass Quality"
+ },
+ "Quality | TEST -- Buttered Pasta with Parmesan input Pasta (dry) mass Quality": {
+  "hasKind": "<DomainType:Mass>",
+  "inheresIn": "<PortionOfSubstance:TEST -- Buttered Pasta with Parmesan input -- Pasta (dry)>",
+  "measurements": [
+   "<Measurement:TEST -- Buttered Pasta with Parmesan input Pasta (dry) mass observation>"
+  ],
+  "name": "TEST -- Buttered Pasta with Parmesan input Pasta (dry) mass Quality"
+ },
+ "Quality | TEST -- Buttered Pasta with Parmesan output mass Quality": {
+  "hasKind": "<DomainType:Mass>",
+  "inheresIn": "<PortionOfSubstance:TEST -- Buttered Pasta with Parmesan output portion>",
+  "measurements": [
+   "<Measurement:TEST -- Buttered Pasta with Parmesan output mass observation>"
+  ],
+  "name": "TEST -- Buttered Pasta with Parmesan output mass Quality"
+ },
+ "Quality | TEST -- fresh portion in opened container mass Quality": {
+  "hasKind": "<DomainType:Mass>",
+  "inheresIn": "<PortionOfSubstance:TEST -- fresh portion in opened container>",
+  "measurements": [
+   "<Measurement:TEST -- fresh portion in opened container mass observation>"
+  ],
+  "name": "TEST -- fresh portion in opened container mass Quality"
+ },
+ "Quality | TEST -- frozen chicken -- 30 days old mass Quality": {
+  "hasKind": "<DomainType:Mass>",
+  "inheresIn": "<PortionOfSubstance:TEST -- frozen chicken -- 30 days old>",
+  "measurements": [
+   "<Measurement:TEST -- frozen chicken -- 30 days old mass observation>"
+  ],
+  "name": "TEST -- frozen chicken -- 30 days old mass Quality"
+ },
+ "Quality | TEST -- on-hand beef -- sufficient mass Quality": {
+  "hasKind": "<DomainType:Mass>",
+  "inheresIn": "<PortionOfSubstance:TEST -- on-hand beef -- sufficient>",
+  "measurements": [
+   "<Measurement:TEST -- on-hand beef -- sufficient mass observation>"
+  ],
+  "name": "TEST -- on-hand beef -- sufficient mass Quality"
+ },
+ "Quality | TEST -- on-hand broccoli -- sufficient mass Quality": {
+  "hasKind": "<DomainType:Mass>",
+  "inheresIn": "<PortionOfSubstance:TEST -- on-hand broccoli -- sufficient>",
+  "measurements": [
+   "<Measurement:TEST -- on-hand broccoli -- sufficient mass observation>"
+  ],
+  "name": "TEST -- on-hand broccoli -- sufficient mass Quality"
+ },
+ "Quality | TEST -- on-hand chicken -- already expired mass Quality": {
+  "hasKind": "<DomainType:Mass>",
+  "inheresIn": "<PortionOfSubstance:TEST -- on-hand chicken -- already expired>",
+  "measurements": [
+   "<Measurement:TEST -- on-hand chicken -- already expired mass observation>"
+  ],
+  "name": "TEST -- on-hand chicken -- already expired mass Quality"
+ },
+ "Quality | TEST -- on-hand chicken -- near expiry mass Quality": {
+  "hasKind": "<DomainType:Mass>",
+  "inheresIn": "<PortionOfSubstance:TEST -- on-hand chicken -- near expiry>",
+  "measurements": [
+   "<Measurement:TEST -- on-hand chicken -- near expiry mass observation>"
+  ],
+  "name": "TEST -- on-hand chicken -- near expiry mass Quality"
+ },
+ "Quality | TEST -- opened-status demo -- chicken in opened tray mass Quality": {
+  "hasKind": "<DomainType:Mass>",
+  "inheresIn": "<PortionOfSubstance:TEST -- opened-status demo -- chicken in opened tray>",
+  "measurements": [
+   "<Measurement:TEST -- opened-status demo -- chicken in opened tray mass observation>"
+  ],
+  "name": "TEST -- opened-status demo -- chicken in opened tray mass Quality"
+ },
+ "Quality | TEST -- opened-status demo -- chicken in sealed tray mass Quality": {
+  "hasKind": "<DomainType:Mass>",
+  "inheresIn": "<PortionOfSubstance:TEST -- opened-status demo -- chicken in sealed tray>",
+  "measurements": [
+   "<Measurement:TEST -- opened-status demo -- chicken in sealed tray mass observation>"
+  ],
+  "name": "TEST -- opened-status demo -- chicken in sealed tray mass Quality"
+ },
+ "QuantitySpecification | 0.59 g per mL for AP Flour [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "defaultSpecification": "<DefaultSpecification:Density of AP Flour [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "name": "0.59 g per mL for AP Flour [PLACEHOLDER -- not sourced from USDA/FDC yet]",
+  "status": "default",
+  "unit": "g_per_mL",
+  "value": 0.59
+ },
+ "QuantitySpecification | 0.75 yield ratio for Chicken Breast (raw) via Braising [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "defaultSpecification": "<DefaultSpecification:Braising yield factor for Chicken Breast (raw) [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "name": "0.75 yield ratio for Chicken Breast (raw) via Braising [PLACEHOLDER -- not sourced from USDA/FDC yet]",
+  "status": "default",
+  "unit": "ratio",
+  "value": 0.75
+ },
+ "QuantitySpecification | 180 day shelf life for Fresh Meat in Freezer Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "defaultSpecification": "<DefaultSpecification:Fresh Meat shelf life default -- Freezer Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "name": "180 day shelf life for Fresh Meat in Freezer Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]",
+  "status": "default",
+  "unit": "days",
+  "value": 180.0
+ },
+ "QuantitySpecification | 180g per each for Yellow Onion [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "defaultSpecification": "<DefaultSpecification:Mass per unit of Yellow Onion [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "name": "180g per each for Yellow Onion [PLACEHOLDER -- not sourced from USDA/FDC yet]",
+  "status": "default",
+  "unit": "g_per_each",
+  "value": 180.0
+ },
+ "QuantitySpecification | 2 day shelf life for Fresh Meat in Fridge Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "defaultSpecification": "<DefaultSpecification:Fresh Meat shelf life default -- Fridge Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "name": "2 day shelf life for Fresh Meat in Fridge Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]",
+  "status": "default",
+  "unit": "days",
+  "value": 2.0
+ },
+ "QuantitySpecification | 5 day shelf life for Fresh Meat in Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "defaultSpecification": "<DefaultSpecification:Fresh Meat shelf life default -- Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "name": "5 day shelf life for Fresh Meat in Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]",
+  "status": "default",
+  "unit": "days",
+  "value": 5.0
+ },
+ "QuantitySpecification | 90 day shelf life for Fresh Meat in Freezer Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "defaultSpecification": "<DefaultSpecification:Fresh Meat shelf life default -- Freezer Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "name": "90 day shelf life for Fresh Meat in Freezer Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]",
+  "status": "default",
+  "unit": "days",
+  "value": 90.0
+ },
+ "QuantitySpecification | Beef (raw) via Stir-Frying yield value [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "defaultSpecification": "<DefaultSpecification:Stir-Frying yield factor for Beef (raw) [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "name": "Beef (raw) via Stir-Frying yield value [PLACEHOLDER -- not sourced from USDA/FDC yet]",
+  "status": "default",
+  "unit": "ratio",
+  "value": 0.85
+ },
+ "QuantitySpecification | Broccoli via Stir-Frying yield value [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "defaultSpecification": "<DefaultSpecification:Stir-Frying yield factor for Broccoli [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "name": "Broccoli via Stir-Frying yield value [PLACEHOLDER -- not sourced from USDA/FDC yet]",
+  "status": "default",
+  "unit": "ratio",
+  "value": 0.9
+ },
+ "QuantitySpecification | Pasta (dry) via Boiling yield value [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "defaultSpecification": "<DefaultSpecification:Boiling yield factor for Pasta (dry) [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "name": "Pasta (dry) via Boiling yield value [PLACEHOLDER -- not sourced from USDA/FDC yet]",
+  "status": "default",
+  "unit": "ratio",
+  "value": 2.0
+ },
+ "QuantitySpecification | TEST -- Beef and Broccoli Stir-Fry output quantity": {
+  "name": "TEST -- Beef and Broccoli Stir-Fry output quantity",
+  "specificationsWithThisQuantity": [
+   "<Specification:TEST -- Beef and Broccoli Stir-Fry output>"
+  ],
+  "status": "default",
+  "unit": "g",
+  "value": 610.0
+ },
+ "QuantitySpecification | TEST -- Braised Chicken Breast output quantity": {
+  "name": "TEST -- Braised Chicken Breast output quantity",
+  "specificationsWithThisQuantity": [
+   "<Specification:TEST -- Braised Chicken Breast output>"
+  ],
+  "status": "default",
+  "unit": "g",
+  "value": 375.0
+ },
+ "QuantitySpecification | TEST -- Buttered Pasta with Parmesan output quantity": {
+  "name": "TEST -- Buttered Pasta with Parmesan output quantity",
+  "specificationsWithThisQuantity": [
+   "<Specification:TEST -- Buttered Pasta with Parmesan output>"
+  ],
+  "status": "default",
+  "unit": "g",
+  "value": 958.0
+ },
+ "QuantitySpecification | TEST -- NutriScope daily protein range 50 to 80g": {
+  "maxValue": 80.0,
+  "minValue": 50.0,
+  "name": "TEST -- NutriScope daily protein range 50 to 80g",
+  "status": "specified",
+  "targetRangeOfNutritionTargets": [
+   "<NutritionTarget:TEST -- NutriScope hard daily protein range>"
+  ],
+  "unit": "g"
+ },
+ "QuantitySpecification | TEST -- almond snack mix quantity": {
+  "name": "TEST -- almond snack mix quantity",
+  "specificationsWithThisQuantity": [
+   "<Specification:TEST -- almond snack S1 input almonds>"
+  ],
+  "status": "specified",
+  "unit": "g",
+  "value": 100.0
+ },
+ "QuantitySpecification | TEST -- almond snack output quantity": {
+  "name": "TEST -- almond snack output quantity",
+  "specificationsWithThisQuantity": [
+   "<Specification:TEST -- almond snack output>"
+  ],
+  "status": "specified",
+  "unit": "g",
+  "value": 100.0
+ },
+ "QuantitySpecification | TEST -- chicken S1 input quantity": {
+  "name": "TEST -- chicken S1 input quantity",
+  "specificationsWithThisQuantity": [
+   "<Specification:TEST -- chicken S1 input>"
+  ],
+  "status": "specified",
+  "unit": "g",
+  "value": 500.0
+ },
+ "QuantitySpecification | TEST -- chicken reorder threshold -- 300g": {
+  "name": "TEST -- chicken reorder threshold -- 300g",
+  "reorderThresholdOfPolicies": [
+   "<StockPolicy:TEST -- Keep chicken breast on hand>"
+  ],
+  "status": "specified",
+  "unit": "g",
+  "value": 300.0
+ },
+ "QuantitySpecification | TEST -- chicken target level -- 1000g": {
+  "name": "TEST -- chicken target level -- 1000g",
+  "status": "specified",
+  "targetLevelOfPolicies": [
+   "<StockPolicy:TEST -- Keep chicken breast on hand>"
+  ],
+  "unit": "g",
+  "value": 1000.0
+ },
+ "QuantitySpecification | TEST -- daily protein target range -- 50 to 80g": {
+  "maxValue": 80.0,
+  "minValue": 50.0,
+  "name": "TEST -- daily protein target range -- 50 to 80g",
+  "status": "specified",
+  "targetRangeOfNutritionTargets": [
+   "<NutritionTarget:TEST -- Daily protein target>"
+  ],
+  "unit": "g"
+ },
+ "QuantitySpecification | TEST -- pasta S1 input dry pasta quantity": {
+  "name": "TEST -- pasta S1 input dry pasta quantity",
+  "specificationsWithThisQuantity": [
+   "<Specification:TEST -- pasta S1 input dry pasta>"
+  ],
+  "status": "specified",
+  "unit": "g",
+  "value": 454.0
+ },
+ "QuantitySpecification | TEST -- pasta S2 input butter quantity": {
+  "name": "TEST -- pasta S2 input butter quantity",
+  "specificationsWithThisQuantity": [
+   "<Specification:TEST -- pasta S2 input butter>"
+  ],
+  "status": "specified",
+  "unit": "g",
+  "value": 30.0
+ },
+ "QuantitySpecification | TEST -- pasta S3 input parmesan quantity": {
+  "name": "TEST -- pasta S3 input parmesan quantity",
+  "specificationsWithThisQuantity": [
+   "<Specification:TEST -- pasta S3 input parmesan>"
+  ],
+  "status": "specified",
+  "unit": "g",
+  "value": 20.0
+ },
+ "QuantitySpecification | TEST -- recipe yield for Almond Snack Mix": {
+  "name": "TEST -- recipe yield for Almond Snack Mix",
+  "recipeYieldOfPlans": [
+   "<Plan:TEST -- Almond Snack Mix v1>"
+  ],
+  "status": "specified",
+  "unit": "servings",
+  "value": 4.0
+ },
+ "QuantitySpecification | TEST -- recipe yield for Beef and Broccoli Stir-Fry": {
+  "name": "TEST -- recipe yield for Beef and Broccoli Stir-Fry",
+  "recipeYieldOfPlans": [
+   "<Plan:TEST -- Beef and Broccoli Stir-Fry v1>"
+  ],
+  "status": "specified",
+  "unit": "servings",
+  "value": 2.0
+ },
+ "QuantitySpecification | TEST -- recipe yield for Braised Chicken Breast": {
+  "name": "TEST -- recipe yield for Braised Chicken Breast",
+  "recipeYieldOfPlans": [
+   "<Plan:TEST -- Braised Chicken Breast v1>"
+  ],
+  "status": "specified",
+  "unit": "servings",
+  "value": 2.0
+ },
+ "QuantitySpecification | TEST -- recipe yield for Buttered Pasta with Parmesan": {
+  "name": "TEST -- recipe yield for Buttered Pasta with Parmesan",
+  "recipeYieldOfPlans": [
+   "<Plan:TEST -- Buttered Pasta with Parmesan v1>"
+  ],
+  "status": "specified",
+  "unit": "servings",
+  "value": 4.0
+ },
+ "QuantitySpecification | TEST -- stirfry S1 input beef quantity": {
+  "name": "TEST -- stirfry S1 input beef quantity",
+  "specificationsWithThisQuantity": [
+   "<Specification:TEST -- stirfry S1 input beef>"
+  ],
+  "status": "specified",
+  "unit": "g",
+  "value": 400.0
+ },
+ "QuantitySpecification | TEST -- stirfry S2 input broccoli quantity": {
+  "name": "TEST -- stirfry S2 input broccoli quantity",
+  "specificationsWithThisQuantity": [
+   "<Specification:TEST -- stirfry S2 input broccoli>"
+  ],
+  "status": "specified",
+  "unit": "g",
+  "value": 300.0
+ },
+ "RecipeIdentity | TEST -- Almond Snack Mix": {
+  "hasMealType": [
+   "<Concept:Snack>"
+  ],
+  "name": "TEST -- Almond Snack Mix",
+  "planVersions": [
+   "<Plan:TEST -- Almond Snack Mix v1>"
+  ]
+ },
+ "RecipeIdentity | TEST -- Beef and Broccoli Stir-Fry": {
+  "hasMealType": [
+   "<Concept:Dinner>"
+  ],
+  "name": "TEST -- Beef and Broccoli Stir-Fry",
+  "planVersions": [
+   "<Plan:TEST -- Beef and Broccoli Stir-Fry v1>"
+  ]
+ },
+ "RecipeIdentity | TEST -- Braised Chicken Breast": {
+  "hasMealType": [
+   "<Concept:Dinner>"
+  ],
+  "name": "TEST -- Braised Chicken Breast",
+  "planVersions": [
+   "<Plan:TEST -- Braised Chicken Breast v1>"
+  ]
+ },
+ "RecipeIdentity | TEST -- Buttered Pasta with Parmesan": {
+  "hasMealType": [
+   "<Concept:Dinner>",
+   "<Concept:Lunch>"
+  ],
+  "name": "TEST -- Buttered Pasta with Parmesan",
+  "planVersions": [
+   "<Plan:TEST -- Buttered Pasta with Parmesan v1>"
+  ]
+ },
+ "Role | TEST -- reservation role for the leftover entry": {
+  "hasKind": "<DomainType:Reservation>",
+  "inheresIn": "<PortionOfSubstance:TEST -- Braised Chicken Breast output portion>",
+  "name": "TEST -- reservation role for the leftover entry",
+  "targetsEntry": "<MealPlanEntry:TEST -- Wednesday lunch -- leftover chicken>"
+ },
+ "Specification | TEST -- Beef and Broccoli Stir-Fry output": {
+  "allocations": [
+   "<Allocation:TEST -- Beef and Broccoli Stir-Fry allocation output>"
+  ],
+  "hasParticipationRole": "output",
+  "hasSpecifiedQuantity": "<QuantitySpecification:TEST -- Beef and Broccoli Stir-Fry output quantity>",
+  "name": "TEST -- Beef and Broccoli Stir-Fry output",
+  "specifies": "<DomainType:Beef and Broccoli Stir-Fry>",
+  "step": "<Step:TEST -- Stir-fry the beef and broccoli>"
+ },
+ "Specification | TEST -- Braised Chicken Breast output": {
+  "allocations": [
+   "<Allocation:TEST -- Braised Chicken Breast allocation output>"
+  ],
+  "hasParticipationRole": "output",
+  "hasSpecifiedQuantity": "<QuantitySpecification:TEST -- Braised Chicken Breast output quantity>",
+  "name": "TEST -- Braised Chicken Breast output",
+  "specifies": "<DomainType:Chicken Breast (braised)>",
+  "step": "<Step:TEST -- Braise the chicken breast>"
+ },
+ "Specification | TEST -- Buttered Pasta with Parmesan output": {
+  "allocations": [
+   "<Allocation:TEST -- Buttered Pasta with Parmesan allocation output>"
+  ],
+  "hasParticipationRole": "output",
+  "hasSpecifiedQuantity": "<QuantitySpecification:TEST -- Buttered Pasta with Parmesan output quantity>",
+  "name": "TEST -- Buttered Pasta with Parmesan output",
+  "specifies": "<DomainType:Buttered Pasta with Parmesan>",
+  "step": "<Step:TEST -- Boil pasta and toss with butter and parmesan>"
+ },
+ "Specification | TEST -- almond snack S1 input almonds": {
+  "hasParticipationRole": "input",
+  "hasSpecifiedQuantity": "<QuantitySpecification:TEST -- almond snack mix quantity>",
+  "name": "TEST -- almond snack S1 input almonds",
+  "specifies": "<DomainType:Almonds>",
+  "step": "<Step:TEST -- Portion the almond snack mix>"
+ },
+ "Specification | TEST -- almond snack output": {
+  "hasParticipationRole": "output",
+  "hasSpecifiedQuantity": "<QuantitySpecification:TEST -- almond snack output quantity>",
+  "name": "TEST -- almond snack output",
+  "specifies": "<DomainType:Almonds>",
+  "step": "<Step:TEST -- Portion the almond snack mix>"
+ },
+ "Specification | TEST -- chicken S1 input": {
+  "allocations": [
+   "<Allocation:TEST -- Braised Chicken Breast allocation input -- Chicken Breast (raw)>"
+  ],
+  "hasParticipationRole": "input",
+  "hasSpecifiedQuantity": "<QuantitySpecification:TEST -- chicken S1 input quantity>",
+  "name": "TEST -- chicken S1 input",
+  "specifies": "<DomainType:Chicken Breast (raw)>",
+  "step": "<Step:TEST -- Braise the chicken breast>"
+ },
+ "Specification | TEST -- pasta S1 input dry pasta": {
+  "allocations": [
+   "<Allocation:TEST -- Buttered Pasta with Parmesan allocation input -- Pasta (dry)>"
+  ],
+  "hasParticipationRole": "input",
+  "hasSpecifiedQuantity": "<QuantitySpecification:TEST -- pasta S1 input dry pasta quantity>",
+  "name": "TEST -- pasta S1 input dry pasta",
+  "specifies": "<DomainType:Pasta (dry)>",
+  "step": "<Step:TEST -- Boil pasta and toss with butter and parmesan>"
+ },
+ "Specification | TEST -- pasta S2 input butter": {
+  "allocations": [
+   "<Allocation:TEST -- Buttered Pasta with Parmesan allocation input -- Butter>"
+  ],
+  "hasParticipationRole": "input",
+  "hasSpecifiedQuantity": "<QuantitySpecification:TEST -- pasta S2 input butter quantity>",
+  "name": "TEST -- pasta S2 input butter",
+  "specifies": "<DomainType:Butter>",
+  "step": "<Step:TEST -- Boil pasta and toss with butter and parmesan>"
+ },
+ "Specification | TEST -- pasta S3 input parmesan": {
+  "allocations": [
+   "<Allocation:TEST -- Buttered Pasta with Parmesan allocation input -- Parmesan>"
+  ],
+  "hasParticipationRole": "input",
+  "hasSpecifiedQuantity": "<QuantitySpecification:TEST -- pasta S3 input parmesan quantity>",
+  "name": "TEST -- pasta S3 input parmesan",
+  "specifies": "<DomainType:Parmesan>",
+  "step": "<Step:TEST -- Boil pasta and toss with butter and parmesan>"
+ },
+ "Specification | TEST -- stirfry S1 input beef": {
+  "allocations": [
+   "<Allocation:TEST -- Beef and Broccoli Stir-Fry allocation input -- Beef (raw)>"
+  ],
+  "hasParticipationRole": "input",
+  "hasSpecifiedQuantity": "<QuantitySpecification:TEST -- stirfry S1 input beef quantity>",
+  "name": "TEST -- stirfry S1 input beef",
+  "specifies": "<DomainType:Beef (raw)>",
+  "step": "<Step:TEST -- Stir-fry the beef and broccoli>"
+ },
+ "Specification | TEST -- stirfry S2 input broccoli": {
+  "allocations": [
+   "<Allocation:TEST -- Beef and Broccoli Stir-Fry allocation input -- Broccoli>"
+  ],
+  "hasParticipationRole": "input",
+  "hasSpecifiedQuantity": "<QuantitySpecification:TEST -- stirfry S2 input broccoli quantity>",
+  "name": "TEST -- stirfry S2 input broccoli",
+  "specifies": "<DomainType:Broccoli>",
+  "step": "<Step:TEST -- Stir-fry the beef and broccoli>"
+ },
+ "Step | TEST -- Boil pasta and toss with butter and parmesan": {
+  "hasSpecification": [
+   "<Specification:TEST -- Buttered Pasta with Parmesan output>",
+   "<Specification:TEST -- pasta S1 input dry pasta>",
+   "<Specification:TEST -- pasta S2 input butter>",
+   "<Specification:TEST -- pasta S3 input parmesan>"
+  ],
+  "instanceOf": "<DomainType:Boiling>",
+  "name": "TEST -- Boil pasta and toss with butter and parmesan",
+  "plan": "<Plan:TEST -- Buttered Pasta with Parmesan v1>"
+ },
+ "Step | TEST -- Braise the chicken breast": {
+  "hasSpecification": [
+   "<Specification:TEST -- Braised Chicken Breast output>",
+   "<Specification:TEST -- chicken S1 input>"
+  ],
+  "instanceOf": "<DomainType:Braising>",
+  "name": "TEST -- Braise the chicken breast",
+  "plan": "<Plan:TEST -- Braised Chicken Breast v1>"
+ },
+ "Step | TEST -- Portion the almond snack mix": {
+  "hasSpecification": [
+   "<Specification:TEST -- almond snack S1 input almonds>",
+   "<Specification:TEST -- almond snack output>"
+  ],
+  "name": "TEST -- Portion the almond snack mix",
+  "plan": "<Plan:TEST -- Almond Snack Mix v1>"
+ },
+ "Step | TEST -- Stir-fry the beef and broccoli": {
+  "hasSpecification": [
+   "<Specification:TEST -- Beef and Broccoli Stir-Fry output>",
+   "<Specification:TEST -- stirfry S1 input beef>",
+   "<Specification:TEST -- stirfry S2 input broccoli>"
+  ],
+  "instanceOf": "<DomainType:Stir-Frying>",
+  "name": "TEST -- Stir-fry the beef and broccoli",
+  "plan": "<Plan:TEST -- Beef and Broccoli Stir-Fry v1>"
+ },
+ "StockPolicy | TEST -- Keep chicken breast on hand": {
+  "appliesTo": "<DomainType:Chicken Breast (raw)>",
+  "constrainedPlans": [
+   "<MealPlan:TEST -- Selector run week>"
+  ],
+  "eligibleStorageConditions": [
+   "<DomainType:Fridge>"
+  ],
+  "eligibleWhenSealed": true,
+  "hasReorderThreshold": "<QuantitySpecification:TEST -- chicken reorder threshold -- 300g>",
+  "hasTargetLevel": "<QuantitySpecification:TEST -- chicken target level -- 1000g>",
+  "includesSubtypes": true,
+  "name": "TEST -- Keep chicken breast on hand",
+  "strictness": "soft",
+  "weight": 0.3
+ },
+ "TemporalRegion | TEST -- Beef and Broccoli Stir-Fry cook temporal region": {
+  "name": "TEST -- Beef and Broccoli Stir-Fry cook temporal region",
+  "processes": [
+   "<Process:TEST -- Beef and Broccoli Stir-Fry cooking process>"
+  ]
+ },
+ "TemporalRegion | TEST -- Braised Chicken Breast cook temporal region": {
+  "name": "TEST -- Braised Chicken Breast cook temporal region",
+  "processes": [
+   "<Process:TEST -- Braised Chicken Breast cooking process>"
+  ]
+ },
+ "TemporalRegion | TEST -- Buttered Pasta with Parmesan cook temporal region": {
+  "name": "TEST -- Buttered Pasta with Parmesan cook temporal region",
+  "processes": [
+   "<Process:TEST -- Buttered Pasta with Parmesan cooking process>"
+  ]
+ },
+ "TemporalRegion | TEST -- Leftover test week temporal region": {
+  "mealPlansAbout": [
+   "<MealPlan:TEST -- Leftover test week>"
+  ],
+  "name": "TEST -- Leftover test week temporal region"
+ },
+ "TemporalRegion | TEST -- Monday dinner region (source cook)": {
+  "mealPlanEntriesAbout": [
+   "<MealPlanEntry:TEST -- Monday dinner -- fresh braised chicken>"
+  ],
+  "name": "TEST -- Monday dinner region (source cook)"
+ },
+ "TemporalRegion | TEST -- Selector run week temporal region": {
+  "mealPlansAbout": [
+   "<MealPlan:TEST -- Selector run week>"
+  ],
+  "name": "TEST -- Selector run week temporal region"
+ },
+ "TemporalRegion | TEST -- Wednesday lunch region (leftovers)": {
+  "mealPlanEntriesAbout": [
+   "<MealPlanEntry:TEST -- Wednesday lunch -- leftover chicken>"
+  ],
+  "name": "TEST -- Wednesday lunch region (leftovers)"
+ },
+ "TypeHierarchy | Biological Origin": {
+  "domainTypes": [
+   "<DomainType:Tree Nut>"
+  ],
+  "name": "Biological Origin",
+  "singleParent": true
+ },
+ "TypeHierarchy | Capability": {
+  "domainTypes": [
+   "<DomainType:Capability>",
+   "<DomainType:Heating>"
+  ],
+  "name": "Capability",
+  "singleParent": true
+ },
+ "TypeHierarchy | Container Type": {
+  "domainTypes": [
+   "<DomainType:Tray>"
+  ],
+  "name": "Container Type",
+  "singleParent": true
+ },
+ "TypeHierarchy | Default Kind": {
+  "domainTypes": [
+   "<DomainType:Density>",
+   "<DomainType:Duration>",
+   "<DomainType:MassPerUnit>",
+   "<DomainType:NutrientAmount>",
+   "<DomainType:PurchaseQuantity>",
+   "<DomainType:RetentionFactor>",
+   "<DomainType:Yield>"
+  ],
+  "name": "Default Kind",
+  "singleParent": true
+ },
+ "TypeHierarchy | Equipment Type": {
+  "domainTypes": [
+   "<DomainType:Dutch Oven>"
+  ],
+  "name": "Equipment Type",
+  "singleParent": true
+ },
+ "TypeHierarchy | Food Identity": {
+  "domainTypes": [
+   "<DomainType:AP Flour>",
+   "<DomainType:Almonds>",
+   "<DomainType:Beef (raw)>",
+   "<DomainType:Beef and Broccoli Stir-Fry>",
+   "<DomainType:Broccoli>",
+   "<DomainType:Butter>",
+   "<DomainType:Buttered Pasta with Parmesan>",
+   "<DomainType:Chicken Breast (braised)>",
+   "<DomainType:Chicken Breast (raw)>",
+   "<DomainType:Parmesan>",
+   "<DomainType:Pasta (cooked)>",
+   "<DomainType:Pasta (dry)>",
+   "<DomainType:Poultry>",
+   "<DomainType:Yellow Onion>"
+  ],
+  "name": "Food Identity",
+  "singleParent": true
+ },
+ "TypeHierarchy | Nutrient": {
+  "domainTypes": [
+   "<DomainType:Protein>"
+  ],
+  "name": "Nutrient",
+  "singleParent": true
+ },
+ "TypeHierarchy | Opened Status": {
+  "domainTypes": [
+   "<DomainType:Opened>",
+   "<DomainType:Sealed>"
+  ],
+  "name": "Opened Status",
+  "singleParent": true
+ },
+ "TypeHierarchy | Perishability Class": {
+  "domainTypes": [
+   "<DomainType:Cooked Leftover>",
+   "<DomainType:Dry Goods>",
+   "<DomainType:Fresh Meat>",
+   "<DomainType:Produce>"
+  ],
+  "name": "Perishability Class",
+  "singleParent": true
+ },
+ "TypeHierarchy | Quality Kind": {
+  "domainTypes": [
+   "<DomainType:Cleanliness>",
+   "<DomainType:Mass>",
+   "<DomainType:OpenedStatus>",
+   "<DomainType:ShelfLife>"
+  ],
+  "name": "Quality Kind",
+  "singleParent": true
+ },
+ "TypeHierarchy | Role Kind": {
+  "domainTypes": [
+   "<DomainType:Reservation>"
+  ],
+  "name": "Role Kind",
+  "singleParent": true
+ },
+ "TypeHierarchy | Storage Condition": {
+  "domainTypes": [
+   "<DomainType:Freezer>",
+   "<DomainType:Fridge>",
+   "<DomainType:Pantry>"
+  ],
+  "name": "Storage Condition",
+  "singleParent": true
+ },
+ "TypeHierarchy | Transformation Method": {
+  "domainTypes": [
+   "<DomainType:Boiling>",
+   "<DomainType:Braising>",
+   "<DomainType:Stir-Frying>",
+   "<DomainType:Wet-Heat Method>"
+  ],
+  "name": "Transformation Method",
+  "singleParent": true
+ }
+}

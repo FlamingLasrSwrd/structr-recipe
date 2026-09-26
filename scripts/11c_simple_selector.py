@@ -92,7 +92,7 @@ from mealplanner.reservation import (
     committed_requirements, available_for_planning, policy_eligibility_kwargs, resolve_stock_policy,
 )
 
-BASE_URL = "http://localhost:8083"
+BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
 USERNAME = "superadmin"
 PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 VARIETY_CAP_DAYS = 14.0

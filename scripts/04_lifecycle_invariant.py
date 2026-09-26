@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from structr_client import StructrClient, StructrError
 
-BASE_URL = "http://localhost:8083"
+BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
 USERNAME = "superadmin"
 PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 
@@ -61,7 +61,7 @@ def main():
         client.post(
             "/structr/rest/Measurement",
             {
-                "name": "TEST -- invariant 12, negative value (should be rejected)",
+                "name": "TEST -- invariant 12 negative value (should be rejected)",
                 "value": -3.0, "unit": "g", "status": "observed",
                 "visibleToAuthenticatedUsers": True,
             },
@@ -73,24 +73,18 @@ def main():
         print(f"    [{'OK' if ok else 'FAIL'}] negative value rejected: {e.status} {e.body}")
         all_ok &= ok
 
-    zero_id = client.post(
-        "/structr/rest/Measurement",
-        {
-            "name": "TEST -- invariant 12, zero value (boundary, should be accepted)",
-            "value": 0.0, "unit": "g", "status": "observed",
-            "visibleToAuthenticatedUsers": True,
-        },
-    )["result"][0]
+    # upsert, not post: a re-run should find these rather than duplicate them.
+    # (The negative case above stays a POST -- a rejected create is the test.)
+    zero_id = client.upsert(
+        "Measurement", "name", "TEST -- invariant 12 zero value (boundary - should be accepted)",
+        {"value": 0.0, "unit": "g", "status": "observed"},
+    )
     print(f"    [OK] zero value accepted: {zero_id}")
 
-    positive_id = client.post(
-        "/structr/rest/Measurement",
-        {
-            "name": "TEST -- invariant 12, positive value (should be accepted)",
-            "value": 12.5, "unit": "g", "status": "observed",
-            "visibleToAuthenticatedUsers": True,
-        },
-    )["result"][0]
+    positive_id = client.upsert(
+        "Measurement", "name", "TEST -- invariant 12 positive value (should be accepted)",
+        {"value": 12.5, "unit": "g", "status": "observed"},
+    )
     print(f"    [OK] positive value accepted: {positive_id}")
 
     if not all_ok:
