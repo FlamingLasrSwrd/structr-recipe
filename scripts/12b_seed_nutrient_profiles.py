@@ -30,14 +30,14 @@ def main():
     protein = dt(client, "Protein")
     chicken_profile = client.upsert(
         "NutrientProfile", "name", f"Chicken Breast (braised) protein profile {PLACEHOLDER_NOTE}",
-        {"isAbout": dt(client, "Chicken Breast (braised)"), "forNutrient": protein, "amount": 31.0, "basis": "per_100g"},
+        {"isAbout": dt(client, "Chicken Breast (braised)"), "forNutrient": protein, "amount": 31.0, "basis": "per_100g", "provenance": "placeholder"},
     )
     print(f"    {chicken_profile}")
 
     print("\n[2] NutrientProfile: Pasta (cooked), protein, ~5g/100g...")
     pasta_profile = client.upsert(
         "NutrientProfile", "name", f"TEST -- Pasta (cooked) protein profile {PLACEHOLDER_NOTE}",
-        {"isAbout": dt(client, "TEST -- Pasta (cooked)"), "forNutrient": protein, "amount": 5.0, "basis": "per_100g"},
+        {"isAbout": dt(client, "TEST -- Pasta (cooked)"), "forNutrient": protein, "amount": 5.0, "basis": "per_100g", "provenance": "placeholder"},
     )
     print(f"    {pasta_profile}")
 

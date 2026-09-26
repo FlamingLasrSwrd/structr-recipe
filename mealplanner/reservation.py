@@ -42,7 +42,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from mealplanner.inventory import eligible_on_hand_with_urgency
+from mealplanner.inventory import eligible_lots, eligible_on_hand_with_urgency
 from mealplanner.material_accounting import candidate_input_requirements, recipe_servings_strict
 from mealplanner.typetree import ancestors_or_self
 from mealplanner.unit_conversion import QuantityError, convert_to_grams
@@ -290,6 +290,49 @@ def _target_grams(client, resolution: PolicyResolution) -> float:
     return max(grams) if grams else 0.0
 
 
+def _nested_pools(client, resolutions: dict[str, "PolicyResolution | None"]) -> dict[str, set[str]]:
+    """For each pool root, the OTHER pool roots nested below it, whose stock it
+    must leave out of its own count (the nearest policy owns the physical
+    stock). A pool whose policy doesn't count subtypes has nothing nested."""
+    chains = {root: ancestors_or_self(client, root) for root in resolutions}
+    nested: dict[str, set[str]] = {}
+    for root, resolution in resolutions.items():
+        counts_subtree = resolution.include_subtypes if resolution else True
+        nested[root] = {other for other in resolutions if other != root and root in chains[other]} if counts_subtree else set()
+    return nested
+
+
+def stock_pools(client, type_ids, now: datetime) -> tuple[dict[str, str], dict[str, list]]:
+    """(pool_of, lots): which pool each ingredient type draws from, and each
+    pool's eligible stock as individual lots (inventory.StockLot).
+
+    The same pooling net_requirements() uses: one pool per governing
+    StockPolicy root (or per type when none governs it), with every StockPolicy
+    root a pool of its own so that stock owned by a nested policy is left out of
+    the ancestor's. Used by the planner, which allocates a whole week's demand
+    to lots by expiry date."""
+    resolutions: dict[str, PolicyResolution | None] = {}
+    pool_of: dict[str, str] = {}
+
+    def add(type_id: str) -> str:
+        resolution = resolve_stock_policy(client, type_id)
+        root = resolution.root_type_id if resolution else type_id
+        resolutions.setdefault(root, resolution)
+        return root
+
+    for type_id in type_ids:
+        pool_of[type_id] = add(type_id)
+    for policy in client.get_all("StockPolicy")["result"]:
+        if policy.get("appliesTo"):
+            add(policy["appliesTo"]["id"])
+    nested = _nested_pools(client, resolutions)
+    lots = {
+        root: eligible_lots(client, root, now, exclude_types=nested[root], **policy_eligibility_kwargs(resolution))
+        for root, resolution in resolutions.items()
+    }
+    return pool_of, lots
+
+
 def net_requirements(client, meal_plan_id: str, now: datetime) -> dict[str, float]:
     """AcquisitionList's formula (data-model.md's Recipes/plans/policies
     table) and invariant 28: how many grams need buying this week, keyed
@@ -357,12 +400,11 @@ def net_requirements(client, meal_plan_id: str, now: datetime) -> dict[str, floa
     # count, or the same flour would satisfy both "keep 2 kg of flour" and
     # "keep 1 kg of bread flour". (Found by external review; before this,
     # nested pools were left as independent accounting universes.)
-    chains = {root: ancestors_or_self(client, root) for root in pools}
+    nested_by_root = _nested_pools(client, {root: pool["resolution"] for root, pool in pools.items()})
     net: dict[str, float] = {}
     for root, pool in pools.items():
         resolution = pool["resolution"]
-        counts_subtree = resolution.include_subtypes if resolution else True
-        nested = {other for other in pools if other != root and root in chains[other]} if counts_subtree else set()
+        nested = nested_by_root[root]
         eligible, _ = eligible_on_hand_with_urgency(
             client, root, now, exclude_types=nested, **policy_eligibility_kwargs(resolution),
         )

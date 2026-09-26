@@ -26,11 +26,11 @@ def main():
     protein = dt(client, "Protein")
     pasta_profile = client.upsert(
         "NutrientProfile", "name", f"Buttered Pasta with Parmesan protein profile {PLACEHOLDER_NOTE}",
-        {"isAbout": dt(client, "Buttered Pasta with Parmesan"), "forNutrient": protein, "amount": 9.0, "basis": "per_100g"},
+        {"isAbout": dt(client, "Buttered Pasta with Parmesan"), "forNutrient": protein, "amount": 9.0, "basis": "per_100g", "provenance": "placeholder"},
     )
     stirfry_profile = client.upsert(
         "NutrientProfile", "name", f"Beef and Broccoli Stir-Fry protein profile {PLACEHOLDER_NOTE}",
-        {"isAbout": dt(client, "Beef and Broccoli Stir-Fry"), "forNutrient": protein, "amount": 20.0, "basis": "per_100g"},
+        {"isAbout": dt(client, "Beef and Broccoli Stir-Fry"), "forNutrient": protein, "amount": 20.0, "basis": "per_100g", "provenance": "placeholder"},
     )
     print(f"    pasta={pasta_profile}  stirfry={stirfry_profile}")
 

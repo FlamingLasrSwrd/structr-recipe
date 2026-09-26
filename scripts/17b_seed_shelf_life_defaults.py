@@ -1,6 +1,8 @@
 """Seeds Fresh Meat's shelf life keyed by (storage condition, opened status),
 the compound key data-model.md Sec 8 describes and Rev 4.3 H4/H5 made
-usable, and retires the single-key default scripts/14a created.
+usable, and retires the single-key default scripts/14a created. Also seeds
+the Cooked Leftover class's fridge shelf life, which the planner reads to
+decide how long a leftover keeps.
 
 Why a separate script after 17a: the keys include the Opened/Sealed types,
 which 17a creates. Why it exists at all: these four defaults were seeded onto
@@ -20,7 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mealplanner.connection import connect
 from mealplanner.typetree import dt
 from mealplanner.inventory import shelf_life_days
-from mealplanner.seed_vocabulary import FRESH_MEAT_SHELF_LIFE, PLACEHOLDER_NOTE
+from mealplanner.seed_vocabulary import COOKED_LEFTOVER_SHELF_LIFE, FRESH_MEAT_SHELF_LIFE, PLACEHOLDER_NOTE
 
 
 def main():
@@ -36,6 +38,18 @@ def main():
         spec_id = client.upsert("DefaultSpecification", "name",
                                 f"Fresh Meat shelf life default -- {storage} {opened} {PLACEHOLDER_NOTE}",
                                 {"forType": fresh_meat, "hasKind": dt(client, "ShelfLife"),
+                                 "keyedBy": [dt(client, storage), dt(client, opened)], "hasValue": value_id})
+        print(f"    {storage} + {opened}: {days:g} days ({spec_id})")
+
+    print("\n[1b] ShelfLife default for Cooked Leftover (the planner's keeping time for leftovers)...")
+    cooked = dt(client, "Cooked Leftover")
+    for storage, opened, days in COOKED_LEFTOVER_SHELF_LIFE:
+        value_id = client.upsert("QuantitySpecification", "name",
+                                 f"{days:g} day shelf life for Cooked Leftover in {storage} {opened} {PLACEHOLDER_NOTE}",
+                                 {"value": days, "unit": "days", "status": "default"})
+        spec_id = client.upsert("DefaultSpecification", "name",
+                                f"Cooked Leftover shelf life default -- {storage} {opened} {PLACEHOLDER_NOTE}",
+                                {"forType": cooked, "hasKind": dt(client, "ShelfLife"),
                                  "keyedBy": [dt(client, storage), dt(client, opened)], "hasValue": value_id})
         print(f"    {storage} + {opened}: {days:g} days ({spec_id})")
 
@@ -55,6 +69,11 @@ def main():
         got = shelf_life_days(client, fresh_meat, opened, storage)
         ok = got == days
         print(f"    [{'OK' if ok else 'FAIL'}] shelf_life_days(Fresh Meat, {opened}, {storage}) = {got} (expected {days:g})")
+        all_ok &= ok
+    for storage, opened, days in COOKED_LEFTOVER_SHELF_LIFE:
+        got = shelf_life_days(client, cooked, opened, storage)
+        ok = got == days
+        print(f"    [{'OK' if ok else 'FAIL'}] shelf_life_days(Cooked Leftover, {opened}, {storage}) = {got} (expected {days:g})")
         all_ok &= ok
     if not all_ok:
         print("\nFAILED.")

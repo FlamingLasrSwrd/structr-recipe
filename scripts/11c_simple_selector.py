@@ -86,136 +86,21 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from structr_client import ReadCache
 from mealplanner.connection import connect
-from mealplanner.inventory import eligible_on_hand_with_urgency, subtypes_of
-from mealplanner.material_accounting import candidate_input_requirements, plan_specifications
+from mealplanner.candidates import (
+    active_nutrition_targets, candidate_consumed_types, candidate_meal_types,
+    candidate_optional_types, excluded_domain_type_ids, soft_exclusions,
+)
+from mealplanner.scoring import (
+    VARIETY_CAP_DAYS, WASTE_URGENCY_WINDOW_DAYS, nutrition_fit_score, number as _number, time_fit_score,
+)
+from mealplanner.inventory import eligible_on_hand_with_urgency
+from mealplanner.material_accounting import candidate_input_requirements
 from mealplanner.nutrition_scope import (
     DEFAULT_SERVINGS_EATEN, scope_total, serving_nutrient_amount, target_scope_problem,
 )
 from mealplanner.reservation import (
     Reserved, available_for_planning, policy_eligibility_kwargs, resolve_stock_policy,
 )
-
-VARIETY_CAP_DAYS = 14.0
-WASTE_URGENCY_WINDOW_DAYS = 5.0
-
-
-def _banned_by(client, target_id: str) -> set[str]:
-    """Every DomainType an exclusion of `target_id` bans.
-
-    Transitive in both hierarchies. For an excluded type T:
-      1. T and every DESCENDANT of T are banned (excluding Tree Nut bans
-         a sub-origin such as Cashew; excluding Beef bans every kind of
-         beef).
-      2. Every food whose Biological Origin is T or any descendant of T
-         is banned, together with that food's own descendants (a roasted
-         form of an excluded nut is still that nut).
-    Found by external review: this used to ban only T and foods linked
-    DIRECTLY to T, so a food whose origin was a child of the excluded
-    origin, or a subtype of an excluded food, slipped through -- for an
-    allergy, the dangerous direction to be wrong in.
-
-    Not banned: a type ABOVE an excluded one. A recipe that calls for
-    generic "Poultry" while only chicken is excluded can be made with
-    something else, so it isn't a hard violation; a recipe that names the
-    excluded type itself is."""
-    banned_roots = subtypes_of(client, target_id)
-    banned = set(banned_roots)
-    for root_id in banned_roots:
-        for food in client.get_all("DomainType", root_id)["result"].get("foodsOfThisOrigin", []):
-            banned |= subtypes_of(client, food["id"])
-    return banned
-
-
-def excluded_domain_type_ids(client) -> set[str]:
-    """Every DomainType a HARD ExclusionConstraint bans."""
-    excluded: set[str] = set()
-    for ec in client.get_all("ExclusionConstraint")["result"]:
-        if ec.get("strictness") == "hard" and ec.get("appliesTo"):
-            excluded |= _banned_by(client, ec["appliesTo"]["id"])
-    return excluded
-
-
-def soft_exclusions(client) -> list[tuple[str, float, set[str]]]:
-    """(constraint name, weight, banned type ids) for every SOFT
-    ExclusionConstraint. These used to do nothing at all: ExclusionConstraint
-    inherits strictness and weight from PlanningConstraint, but only "hard"
-    was ever read, so a soft exclusion was silently inert (found by external
-    review). A soft exclusion is a preference against, not a ban: a candidate
-    that needs a banned type loses `weight` from its score."""
-    out = []
-    for ec in client.get_all("ExclusionConstraint")["result"]:
-        if ec.get("strictness") == "soft" and ec.get("appliesTo"):
-            out.append((ec["name"], _number(ec.get("weight"), 0.0), _banned_by(client, ec["appliesTo"]["id"])))
-    return out
-
-
-def _number(value, default: float) -> float:
-    """`default` only when the value is MISSING. `value or default` also
-    replaced a legitimate 0 -- a zero weight (ignore this term) became 0.5,
-    and a zero time budget became 60 -- which is domain data being overwritten
-    by a fallback (found by external review)."""
-    return default if value is None else value
-
-
-def candidate_meal_types(client, plan: dict) -> set[str]:
-    """The Concept names (e.g. {"Dinner"}) the Plan's RecipeIdentity is
-    tagged with. A Plan with no specializationOf, or a RecipeIdentity
-    with no tags at all, returns an empty set -- deliberately: an
-    untagged recipe (a prep step, a structural test fixture) never
-    matches a meal-type filter, which is what keeps it out of the
-    candidate pool without needing a separate "is this a real meal"
-    concept."""
-    recipe_ref = plan.get("specializationOf")
-    if not recipe_ref:
-        return set()
-    recipe = client.get_all("RecipeIdentity", recipe_ref["id"])["result"]
-    return {c["name"] for c in recipe.get("hasMealType", [])}
-
-
-def candidate_consumed_types(client, plan: dict) -> set[str]:
-    """The DomainTypes a cook would actually use or eat, for exclusion
-    purposes: the types named by INPUT and OUTPUT Specifications that are not
-    optional.
-
-    It used to be every Specification's type regardless of role. That
-    rejected a recipe for an excluded INSTRUMENT (equipment isn't eaten) and
-    for an OPTIONAL ingredient (it can simply be omitted), which are wrong
-    the other way from the allergy bug. Outputs count because the finished
-    dish is what is eaten: a recipe whose output is an excluded type makes
-    it. Intermediates are included as outputs too, conservatively."""
-    consumed = set()
-    for spec in plan_specifications(client, plan):
-        if spec.get("hasParticipationRole") == "instrument" or spec.get("isOptional"):
-            continue
-        if spec.get("specifies"):
-            consumed.add(spec["specifies"]["id"])
-    return consumed
-
-
-def candidate_optional_types(client, plan: dict) -> set[str]:
-    """Types the recipe lists only as optional input, for a note: a recipe
-    with an excluded OPTIONAL ingredient isn't rejected, but the user should
-    be told to leave it out."""
-    return {
-        spec["specifies"]["id"] for spec in plan_specifications(client, plan)
-        if spec.get("isOptional") and spec.get("hasParticipationRole") == "input" and spec.get("specifies")
-    }
-
-
-def active_nutrition_targets(client, meal_plan: dict) -> list[dict]:
-    return [
-        client.get_all("NutritionTarget", c["id"])["result"]
-        for c in meal_plan.get("hasConstraint", [])
-        if c["type"] == "NutritionTarget"
-    ]
-
-
-def nutrition_fit_score(actual: float, min_val: float | None, max_val: float | None) -> float:
-    if min_val is not None and actual < min_val:
-        return max(0.0, 1.0 - (min_val - actual) / min_val) if min_val else 0.0
-    if max_val is not None and actual > max_val:
-        return max(0.0, 1.0 - (actual - max_val) / max_val) if max_val else 0.0
-    return 1.0
 
 
 def stock_and_waste_scores(
@@ -268,17 +153,6 @@ def stock_and_waste_scores(
         notes.append(note)
 
     return sum(coverages) / len(coverages), max_urgency, notes
-
-
-def time_fit_score(duration_minutes: float | None, budget_minutes: float) -> float:
-    if duration_minutes is None:
-        return 0.5  # unknown duration -- neutral, not a penalty or a reward
-    if duration_minutes <= budget_minutes:
-        return 1.0
-    if budget_minutes <= 0:
-        return 0.0  # any time at all overshoots a zero budget; don't divide by it
-    overage = duration_minutes - budget_minutes
-    return max(0.0, 1.0 - overage / budget_minutes)
 
 
 def variety_score(client, plan_id: str, reference: datetime) -> float:

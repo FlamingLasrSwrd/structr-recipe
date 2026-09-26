@@ -24,6 +24,11 @@ PROPERTIES: dict[str, list[dict]] = {
     "NutrientProfile": [
         {"name": "amount", "propertyType": "Double"},
         {"name": "basis", "propertyType": "Enum", "format": "per_100g,per_unit"},
+        # Where the number came from. Left unset, a profile is treated as
+        # untrusted: the planner will not let a hard NutritionTarget be decided
+        # on data that is placeholder or of unknown origin (REVIEW.md round 1
+        # #24; data-model.md Sec 18 J15).
+        {"name": "provenance", "propertyType": "Enum", "format": "placeholder,sourced"},
     ],
 }
 

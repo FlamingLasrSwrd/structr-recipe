@@ -14,6 +14,7 @@ A single-user meal-planning tool. It generates a weekly plan satisfying difficul
 | `structr-build-sketch.md` | ✅ **Authoritative** | how the model maps onto Structr |
 | `structr-cheatsheet.md` | ✅ **Authoritative** | Structr mechanics. Empirically verified against a real instance — trust its ✅ items over the official docs |
 | `bfo-reference.md` | 📖 Reference | what BFO classes and relations mean, with domains/ranges |
+| `optimizer-design.md` | 📝 **Proposal, built as a first version — unreviewed** | the design of the optimizer and, in its §12, what was actually built and which of its questions were answered by default. Not authoritative: the objective in particular is a proposal, not a fact about what makes a good week |
 | `design-review-document.md` | 🗄️ **Historical — do not follow** | records round-1 review findings, all since fixed |
 | `design-review-document-round2.md` | 🗄️ **Historical — do not follow** | same, round 2. Its §11 "not yet acted on" items **have** since been acted on |
 
@@ -49,9 +50,11 @@ Each was considered and declined. Adding any of them is a regression, not an imp
 - **New top-level classes via `ExtensionPropertyDefinition`** — it adds typed properties to existing types only.
 - **OWL/DL reasoning** — BFO is design discipline here, not a runtime dependency.
 
-## What has never been designed
+## The optimizer
 
-**The optimizer.** There is no scoring function, no search strategy, and no numeric definition of a good week. Twenty-plus sessions went into the data model and zero into the thing it exists to serve. Do not invent one silently — if a task appears to require it, say so and stop.
+**Status: designed on paper and built as a first version, unreviewed.** For twenty-plus sessions there was no scoring function, no search strategy and no numeric definition of a good week, and the selector (`scripts/11c_simple_selector.py`) picks one meal for one slot, so it cannot enforce a hard nutritional minimum. `optimizer-design.md` proposes the plan-level formulation; `mealplanner/planning/` builds it (`plan_week`), with the selector's scoring shapes shared through `mealplanner/scoring.py`.
+
+The rule stands: **do not change its objective (§4.5 of the design) or its search silently.** The weights and the weighted sum are a proposal for the owner to retune against real weeks. Its first version has no library solver, so on a full week it returns a good plan it cannot prove optimal, and says so (§12).
 
 ## Build order
 

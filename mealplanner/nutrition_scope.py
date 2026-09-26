@@ -69,45 +69,65 @@ SUPPORTED_DAY_BOUNDARY = "midnight"
 MAX_LEFTOVER_HOPS = 5
 
 
-def nutrient_profile_amount(client, output_type_id: str, nutrient_id: str) -> float | None:
-    """Per-100g amount from the output type's own NutrientProfile for
-    this nutrient (Sec 8 rule 7(a) only -- rule 7(b), deriving it from
-    raw ingredients via retention factors, is not implemented)."""
+def nutrient_profile_record(client, output_type_id: str, nutrient_id: str) -> tuple[float | None, str | None]:
+    """(per-100g amount, provenance) from the output type's own NutrientProfile
+    for this nutrient (Sec 8 rule 7(a) only -- rule 7(b), deriving it from raw
+    ingredients via retention factors, is not implemented). (None, None) if
+    there is no per_100g profile. Provenance is "placeholder", "sourced", or
+    None when it was never set."""
     output_type = client.get_all("DomainType", output_type_id)["result"]
     for profile_ref in output_type.get("nutrientProfilesAbout", []):
         profile = client.get_all("NutrientProfile", profile_ref["id"])["result"]
         if (profile.get("forNutrient") or {}).get("id") == nutrient_id and profile.get("basis") == "per_100g":
-            return profile.get("amount")
-    return None
+            return profile.get("amount"), profile.get("provenance")
+    return None, None
+
+
+def nutrient_profile_amount(client, output_type_id: str, nutrient_id: str) -> float | None:
+    """Per-100g amount from the output type's own NutrientProfile for this
+    nutrient, or None (see nutrient_profile_record)."""
+    return nutrient_profile_record(client, output_type_id, nutrient_id)[0]
+
+
+def serving_nutrient(client, plan: dict, nutrient_id: str) -> tuple[float | None, bool]:
+    """(grams of the nutrient in ONE serving of a Plan's output or None if it
+    can't be established, whether every profile behind that figure is
+    `sourced`). The Plan's amount is the sum over EVERY final output
+    (material_accounting.candidate_outputs), so a recipe with two outputs
+    counts both.
+
+    Unknown propagates: if any final output lacks a mass or a NutrientProfile
+    for this nutrient, or the yield isn't stated in servings, the whole answer
+    is None rather than a partial sum. That is deliberately cautious -- an
+    inedible byproduct with no profile will make a recipe's nutrition unknown
+    until the model can say which outputs are eaten, which it can't today.
+
+    The second value is what the planner uses to keep a hard target from being
+    decided on placeholder data: a figure counts as trusted only if every
+    profile contributing to it says `sourced`, so one placeholder or unmarked
+    profile makes the whole figure untrusted."""
+    outputs = candidate_outputs(client, plan)
+    if not outputs:
+        return None, False
+    servings = recipe_servings_strict(client, plan)
+    if servings is None:
+        return None, False
+    total, trusted = 0.0, True
+    for output_type_id, output_grams in outputs:
+        if output_grams is None:
+            return None, False
+        per_100g, provenance = nutrient_profile_record(client, output_type_id, nutrient_id)
+        if per_100g is None:
+            return None, False
+        trusted = trusted and provenance == "sourced"
+        total += output_grams * per_100g / 100.0
+    return total / servings, trusted
 
 
 def serving_nutrient_amount(client, plan: dict, nutrient_id: str) -> float | None:
-    """Grams of the nutrient in ONE serving of a Plan's output, or None
-    if it can't be established. The Plan's amount is the sum over EVERY
-    final output (material_accounting.candidate_outputs), so a recipe
-    with two outputs counts both.
-
-    Unknown propagates: if any final output lacks a mass or a
-    NutrientProfile for this nutrient, or the yield isn't stated in
-    servings, the whole answer is None rather than a partial sum. That is
-    deliberately cautious -- an inedible byproduct with no profile will
-    make a recipe's nutrition unknown until the model can say which
-    outputs are eaten, which it can't today."""
-    outputs = candidate_outputs(client, plan)
-    if not outputs:
-        return None
-    servings = recipe_servings_strict(client, plan)
-    if servings is None:
-        return None
-    total = 0.0
-    for output_type_id, output_grams in outputs:
-        if output_grams is None:
-            return None
-        per_100g = nutrient_profile_amount(client, output_type_id, nutrient_id)
-        if per_100g is None:
-            return None
-        total += output_grams * per_100g / 100.0
-    return total / servings
+    """Grams of the nutrient in ONE serving of a Plan's output, or None if it
+    can't be established (see serving_nutrient)."""
+    return serving_nutrient(client, plan, nutrient_id)[0]
 
 
 def _source_plan(client, entry: dict) -> dict | None:

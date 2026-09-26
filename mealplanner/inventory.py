@@ -39,7 +39,7 @@ weighing it again (found by external review).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from mealplanner.defaults import resolve_default
 from mealplanner.typetree import ancestors_or_self, dt, subtypes_of  # noqa: F401 (re-exported)
@@ -391,6 +391,70 @@ def physical_on_hand(client, domain_type_id: str, now: datetime) -> float:
     return total
 
 
+@dataclass(frozen=True)
+class StockLot:
+    """One portion of eligible stock: what the planner allocates recipes' demand to."""
+
+    portion_id: str
+    name: str
+    grams: float
+    days_until_expiry: float | None     # None: no shelf life resolves for it
+    expires: datetime | None            # now + days_until_expiry
+
+
+def eligible_lots(
+    client, domain_type_id: str, now: datetime,
+    eligible_when_opened: bool | None = None, eligible_when_sealed: bool | None = None,
+    eligible_storage_condition_names: set[str] | None = None,
+    include_subtypes: bool = True,
+    exclude_types: set[str] | None = None,
+) -> list[StockLot]:
+    """The eligible stock of a type as individual lots, soonest expiry first
+    (lots with no known expiry last). eligible_on_hand_with_urgency() is the
+    sum of these; the planner uses the lots themselves, because which stock
+    is still good when a meal is cooked depends on when each lot expires.
+
+    Eligible means: has a positive current magnitude, is not expired at
+    `now`, and passes the opened-status and storage-condition filters, whose
+    semantics are documented on eligible_on_hand_with_urgency (an EMPTY
+    storage set means nothing qualifies; food in no container is outside
+    both filters, Sec 9)."""
+    types = subtypes_of(client, domain_type_id) if include_subtypes else {domain_type_id}
+    for excluded_root in exclude_types or ():
+        types -= subtypes_of(client, excluded_root)
+    lots: list[StockLot] = []
+    for type_name in ("PortionOfSubstance", "DiscreteWholeItem"):
+        for instance in client.get_all(type_name)["result"]:
+            instance_of = instance.get("instanceOf")
+            if not instance_of or instance_of["id"] not in types:
+                continue
+            quality = mass_quality(client, instance)
+            if quality is None:
+                continue
+            magnitude = _magnitude(client, quality, now)
+            if not magnitude or magnitude <= 0:
+                continue
+            is_expired, days_until = instance_expiration(client, instance, now)
+            if is_expired:
+                continue
+            if eligible_when_opened is not None or eligible_when_sealed is not None:
+                status = container_opened_status(client, instance)
+                if status == "Opened" and eligible_when_opened is False:
+                    continue
+                if status == "Sealed" and eligible_when_sealed is False:
+                    continue
+                # status is None (no container) -> filter doesn't apply, per Sec 9
+            if eligible_storage_condition_names is not None:
+                condition = container_storage_condition(client, instance)
+                if condition is not None and condition not in eligible_storage_condition_names:
+                    continue
+                # condition is None (no container) -> filter doesn't apply, per Sec 9
+            expires = None if days_until is None else now + timedelta(days=days_until)
+            lots.append(StockLot(instance["id"], instance.get("name") or instance["id"], magnitude, days_until, expires))
+    lots.sort(key=lambda lot: (lot.days_until_expiry is None, lot.days_until_expiry or 0.0, lot.name))
+    return lots
+
+
 def eligible_on_hand_with_urgency(
     client, domain_type_id: str, now: datetime,
     eligible_when_opened: bool | None = None, eligible_when_sealed: bool | None = None,
@@ -433,38 +497,9 @@ def eligible_on_hand_with_urgency(
     outside any [...] filter rather than undefined" -- an instance with
     no container is never excluded by either filter, regardless of what
     the filter says, since there's nothing to check it against."""
-    types = subtypes_of(client, domain_type_id) if include_subtypes else {domain_type_id}
-    for excluded_root in exclude_types or ():
-        types -= subtypes_of(client, excluded_root)
-    total = 0.0
-    soonest: float | None = None
-    for type_name in ("PortionOfSubstance", "DiscreteWholeItem"):
-        for instance in client.get_all(type_name)["result"]:
-            instance_of = instance.get("instanceOf")
-            if not instance_of or instance_of["id"] not in types:
-                continue
-            quality = mass_quality(client, instance)
-            if quality is None:
-                continue
-            magnitude = _magnitude(client, quality, now)
-            if not magnitude or magnitude <= 0:
-                continue
-            is_expired, days_until = instance_expiration(client, instance, now)
-            if is_expired:
-                continue
-            if eligible_when_opened is not None or eligible_when_sealed is not None:
-                status = container_opened_status(client, instance)
-                if status == "Opened" and eligible_when_opened is False:
-                    continue
-                if status == "Sealed" and eligible_when_sealed is False:
-                    continue
-                # status is None (no container) -> filter doesn't apply, per Sec 9
-            if eligible_storage_condition_names is not None:
-                condition = container_storage_condition(client, instance)
-                if condition is not None and condition not in eligible_storage_condition_names:
-                    continue
-                # condition is None (no container) -> filter doesn't apply, per Sec 9
-            total += magnitude
-            if days_until is not None and (soonest is None or days_until < soonest):
-                soonest = days_until
-    return total, soonest
+    lots = eligible_lots(
+        client, domain_type_id, now, eligible_when_opened, eligible_when_sealed,
+        eligible_storage_condition_names, include_subtypes, exclude_types,
+    )
+    soonest = min((lot.days_until_expiry for lot in lots if lot.days_until_expiry is not None), default=None)
+    return sum(lot.grams for lot in lots), soonest

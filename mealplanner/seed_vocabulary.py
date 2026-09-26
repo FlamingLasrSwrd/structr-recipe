@@ -196,3 +196,12 @@ FRESH_MEAT_SHELF_LIFE: list[tuple[str, str, float]] = [
     ("Freezer", "Sealed", 180.0),
     ("Freezer", "Opened", 90.0),
 ]
+
+# How long cooked food keeps in the fridge, for the planner's leftovers
+# (mealplanner/planning). Common food-safety guidance is three to four days; three
+# is the conservative end. PLACEHOLDER: a person should confirm it before relying
+# on it. Only Fridge/Sealed is seeded, which is the key the planner asks for.
+# (storage condition, opened status, days)
+COOKED_LEFTOVER_SHELF_LIFE: list[tuple[str, str, float]] = [
+    ("Fridge", "Sealed", 3.0),
+]

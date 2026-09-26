@@ -1,7 +1,9 @@
 name: offline tests
 
 # Runs the tests that need no Structr instance: the unit tests over the pure
-# logic, the document-consistency checks, and the schema-helper drift test.
+# logic (including the planner and its brute-force oracle), the document-
+# consistency checks, the schema-helper drift test, and a name check that
+# stands in for pyflakes.
 # The scripts that build and verify a live instance are not run here; see the
 # README for the full-build check.
 
@@ -20,3 +22,4 @@ jobs:
       - run: pip install requests
       - run: python -m unittest discover -s tests -t . -v
       - run: python scripts/23a_schema_drift_test.py
+      - run: python tools/check_names.py

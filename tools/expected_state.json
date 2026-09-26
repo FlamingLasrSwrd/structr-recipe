@@ -175,6 +175,13 @@
   "propertyType": "Enum",
   "unique": false
  },
+ "@schema | property NutrientProfile.provenance": {
+  "format": "placeholder,sourced",
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Enum",
+  "unique": false
+ },
  "@schema | property NutritionTarget.dayBoundaryRule": {
   "format": null,
   "indexed": false,
@@ -1188,6 +1195,16 @@
   "name": "Braising yield factor for Chicken Breast (raw) [PLACEHOLDER -- not sourced from USDA/FDC yet]",
   "targetType": "<DomainType:Chicken Breast (braised)>"
  },
+ "DefaultSpecification | Cooked Leftover shelf life default -- Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "forType": "<DomainType:Cooked Leftover>",
+  "hasKind": "<DomainType:ShelfLife>",
+  "hasValue": "<QuantitySpecification:3 day shelf life for Cooked Leftover in Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "keyedBy": [
+   "<DomainType:Fridge>",
+   "<DomainType:Sealed>"
+  ],
+  "name": "Cooked Leftover shelf life default -- Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]"
+ },
  "DefaultSpecification | Density of AP Flour [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
   "forType": "<DomainType:AP Flour>",
   "hasKind": "<DomainType:Density>",
@@ -1432,6 +1449,9 @@
   "name": "Cleanliness"
  },
  "DomainType | Cooked Leftover": {
+  "defaultSpecifications": [
+   "<DefaultSpecification:Cooked Leftover shelf life default -- Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
+  ],
   "hierarchy": "<TypeHierarchy:Perishability Class>",
   "isLookupBearing": true,
   "name": "Cooked Leftover",
@@ -1496,6 +1516,7 @@
  },
  "DomainType | Fridge": {
   "defaultSpecsKeyedBy": [
+   "<DefaultSpecification:Cooked Leftover shelf life default -- Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
    "<DefaultSpecification:Fresh Meat shelf life default -- Fridge Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
    "<DefaultSpecification:Fresh Meat shelf life default -- Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
   ],
@@ -1650,6 +1671,7 @@
    "<ContainerObject:TEST -- storage-condition demo -- freezer tray>"
   ],
   "defaultSpecsKeyedBy": [
+   "<DefaultSpecification:Cooked Leftover shelf life default -- Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
    "<DefaultSpecification:Fresh Meat shelf life default -- Freezer Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
    "<DefaultSpecification:Fresh Meat shelf life default -- Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>"
   ],
@@ -1659,6 +1681,7 @@
  },
  "DomainType | ShelfLife": {
   "defaultSpecsByKind": [
+   "<DefaultSpecification:Cooked Leftover shelf life default -- Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
    "<DefaultSpecification:Fresh Meat shelf life default -- Freezer Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
    "<DefaultSpecification:Fresh Meat shelf life default -- Freezer Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
    "<DefaultSpecification:Fresh Meat shelf life default -- Fridge Opened [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
@@ -1955,27 +1978,31 @@
   "basis": "per_100g",
   "forNutrient": "<DomainType:Protein>",
   "isAbout": "<DomainType:Beef and Broccoli Stir-Fry>",
-  "name": "Beef and Broccoli Stir-Fry protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]"
+  "name": "Beef and Broccoli Stir-Fry protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]",
+  "provenance": "placeholder"
  },
  "NutrientProfile | Buttered Pasta with Parmesan protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
   "amount": 9.0,
   "basis": "per_100g",
   "forNutrient": "<DomainType:Protein>",
   "isAbout": "<DomainType:Buttered Pasta with Parmesan>",
-  "name": "Buttered Pasta with Parmesan protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]"
+  "name": "Buttered Pasta with Parmesan protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]",
+  "provenance": "placeholder"
  },
  "NutrientProfile | Chicken Breast (braised) protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
   "amount": 31.0,
   "basis": "per_100g",
   "forNutrient": "<DomainType:Protein>",
   "isAbout": "<DomainType:Chicken Breast (braised)>",
-  "name": "Chicken Breast (braised) protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]"
+  "name": "Chicken Breast (braised) protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]",
+  "provenance": "placeholder"
  },
  "NutrientProfile | TEST -- Pasta (cooked) protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
   "amount": 5.0,
   "basis": "per_100g",
   "forNutrient": "<DomainType:Protein>",
-  "name": "TEST -- Pasta (cooked) protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]"
+  "name": "TEST -- Pasta (cooked) protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]",
+  "provenance": "placeholder"
  },
  "NutritionTarget | TEST -- Daily protein target": {
   "constrainedPlans": [
@@ -2467,6 +2494,13 @@
   "status": "default",
   "unit": "days",
   "value": 2.0
+ },
+ "QuantitySpecification | 3 day shelf life for Cooked Leftover in Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
+  "defaultSpecification": "<DefaultSpecification:Cooked Leftover shelf life default -- Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
+  "name": "3 day shelf life for Cooked Leftover in Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]",
+  "status": "default",
+  "unit": "days",
+  "value": 3.0
  },
  "QuantitySpecification | 5 day shelf life for Fresh Meat in Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
   "defaultSpecification": "<DefaultSpecification:Fresh Meat shelf life default -- Fridge Sealed [PLACEHOLDER -- not sourced from USDA/FDC yet]>",
