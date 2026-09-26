@@ -1,7 +1,7 @@
 """The frozen structural trait layer.
 
-Transcribed directly from structr-build-sketch.md Sec 2 (Obsidian vault,
-structr-recipe/structr-build-sketch.md) -- the authoritative source. Do
+Transcribed directly from structr-build-sketch.md Sec 2 (docs/structr-build-sketch.md)
+-- the authoritative source. Do
 not edit types here casually: per CLAUDE.md hard rule #1, renaming a
 SchemaNode after it has instances orphans them irrecoverably, and hard
 rule #3 says the structural layer is frozen after build. Get every name

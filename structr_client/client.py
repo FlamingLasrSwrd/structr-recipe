@@ -2,8 +2,8 @@
 
 Project-agnostic: knows how to talk to a Structr 6.x instance (auth,
 idempotent schema setup, CRUD, upsert). Carries no knowledge of any
-particular project's types or field mappings — see structr-cheatsheet.md
-in the Obsidian vault for the empirical findings this implements.
+particular project's types or field mappings — see docs/structr-cheatsheet.md
+for the empirical findings this implements.
 """
 
 from __future__ import annotations

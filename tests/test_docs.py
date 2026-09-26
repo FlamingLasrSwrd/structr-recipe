@@ -45,5 +45,30 @@ class InvariantTrackerIsComplete(unittest.TestCase):
         self.assertEqual(missing, [], f"invariants with no entry in domain_invariants.py: {missing}")
 
 
+class OperatingDocsPointAtRealFiles(unittest.TestCase):
+    """CLAUDE.md and CLOUD.md tell a session what to run. A path that no longer exists there is a
+    session that fails on its first command, so every repo path they name must exist."""
+
+    PREFIXES = ("tools/", "cloud/", "scripts/", "docs/", "mealplanner/", "tests/", "structr_client/")
+
+    def named_paths(self, filename):
+        text = (ROOT / filename).read_text()
+        found = set()
+        for token in re.findall(r"`([^`\s]+)`", text):
+            if token.startswith(self.PREFIXES) and not any(c in token for c in "*<>{}"):
+                found.add(token.rstrip(".,:;"))
+        return found
+
+    def test_every_path_named_in_the_operating_docs_exists(self):
+        for filename in ("CLAUDE.md", "CLOUD.md"):
+            paths = self.named_paths(filename)
+            self.assertTrue(paths, f"{filename} names no repo paths: is the pattern wrong?")
+            missing = sorted(p for p in paths if not (ROOT / p).exists())
+            self.assertEqual(missing, [], f"{filename} names files that do not exist: {missing}")
+
+    def test_the_setup_script_is_the_one_the_guide_tells_you_to_paste(self):
+        self.assertIn("cloud/setup.sh", (ROOT / "CLOUD.md").read_text())
+
+
 if __name__ == "__main__":
     unittest.main()
