@@ -69,8 +69,10 @@ case "$cmd" in
     fi
     : "${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN (from the Zero Trust dashboard), or add it to .env}"
     install_cloudflared || exit 1
-    # --no-autoupdate: skips needing update.cloudflareclient.com reachable too.
-    setsid nohup cloudflared tunnel run --no-autoupdate --token "$CLOUDFLARE_TUNNEL_TOKEN" \
+    # --no-autoupdate is a `tunnel` flag, not a `run` one -- `tunnel run --no-autoupdate`
+    # fails with "flag provided but not defined" (confirmed against 2026.9.3); it must
+    # come before `run`. Skips needing update.cloudflareclient.com reachable too.
+    setsid nohup cloudflared tunnel --no-autoupdate run --token "$CLOUDFLARE_TUNNEL_TOKEN" \
       >"$log_file" 2>&1 </dev/null &
     echo "$!" > "$pid_file"
     sleep 3
