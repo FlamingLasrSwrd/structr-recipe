@@ -86,9 +86,55 @@ such as its in-app browser tools.
 
 - The repository is public; the environment's variables are not, but any user of the environment
   can read them. Two throwaway values, as above.
-- The stack's ports stay inside the VM. Do not paste a real credential into a cloud session: its
-  transcript is stored on claude.ai, and a shared session shows what it contains.
+- The stack's ports stay inside the VM **unless `tools/tunnel.sh start` is running** (below) — stop
+  it when you're not actively using it.
+- Do not paste a real credential into a cloud session: its transcript is stored on claude.ai, and
+  a shared session shows what it contains.
 - Keep sessions Private unless you mean to share one.
+
+## Public access via Cloudflare Tunnel
+
+For visual testing from outside the VM, without a bare open port. `tools/tunnel.sh` starts/stops
+[`cloudflared`](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/),
+which makes an *outbound* connection from the VM to Cloudflare — nothing ever listens on a public
+port here, so there's no port to forget to close. Put an
+[Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) policy in front of it
+(a login, e.g. an email one-time code) and it's safe to leave configured between sessions even
+though the tunnel process itself is started/stopped manually, same as the stack.
+
+**One-time setup, in the Cloudflare dashboard** (needs a domain on Cloudflare — the free plan is
+enough; add one first at [dash.cloudflare.com](https://dash.cloudflare.com) if you don't have one):
+
+1. **Zero Trust → Networks → Tunnels → Create a tunnel → Cloudflared connector.** Name it (e.g.
+   `structr-recipe`). It gives you a `cloudflared tunnel run --token eyJhbG...` command — the long
+   string after `--token` is what this script needs.
+2. **Public Hostname**, on the same tunnel: a subdomain of your Cloudflare domain (e.g.
+   `structr.yourdomain.com`), pointed at `http://localhost:8083` — that's this VM's own Structr
+   port, resolved from inside the tunnel, not a URL you have to make reachable yourself.
+3. **Access → Applications → Add an application → Self-hosted**, same hostname, with a policy
+   restricted to your own email (or however you want to gate it). This is the part that makes it
+   actually safe: anyone who finds the URL still has to pass Cloudflare's login first, not
+   Structr's own.
+4. Put the token from step 1 in this environment's variables or in `.env` as
+   `CLOUDFLARE_TUNNEL_TOKEN` (see `.env.example`).
+
+None of steps 1-3 live in this repo — they're account/domain configuration, done once, in your
+Cloudflare account, not instance state a script could reproduce.
+
+**Every session after that:**
+
+```bash
+tools/tunnel.sh start     # installs cloudflared if missing, starts the tunnel
+tools/tunnel.sh status    # running or not, tail of its log
+tools/tunnel.sh stop      # when you're done -- the public hostname goes with it
+```
+
+The environment's own network policy has to allow the Cloudflare hosts (`*.cloudflare.com`,
+`*.cfargotunnel.com`, `*.argotunnel.com`) for `cloudflared` to install and connect — edit Network
+access in the environment's settings if `tools/tunnel.sh start` can't reach them.
+
+**Later, opening it to anyone** (not needed yet): remove the Access policy from step 3. The
+tunnel and hostname don't change.
 
 ## Limits
 

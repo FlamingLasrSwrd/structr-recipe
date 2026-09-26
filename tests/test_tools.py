@@ -14,7 +14,7 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
-SCRIPTS = ["tools/wait_for_structr.sh", "tools/rebuild.sh", "cloud/bootstrap.sh", "cloud/setup.sh"]
+SCRIPTS = ["tools/wait_for_structr.sh", "tools/rebuild.sh", "cloud/bootstrap.sh", "cloud/setup.sh", "tools/tunnel.sh"]
 
 
 def write(directory, name, text):
@@ -235,6 +235,95 @@ class RebuildLoop(unittest.TestCase):
         result = self.run_rebuild(WAIT_S="3")
         self.assertEqual(result.returncode, 1)
         self.assertFalse(self.ran.exists())                                # nothing ran against a dead instance
+
+
+class TunnelScript(unittest.TestCase):
+    """tools/tunnel.sh's own logic (start/stop/status bookkeeping), never actually
+    installing or running cloudflared -- that needs real network access and is
+    exercised by hand (CLOUD.md "Public access via Cloudflare Tunnel")."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.repo = pathlib.Path(self.tmp.name)
+        (self.repo / "tools").mkdir()
+        (self.repo / "tools" / "tunnel.sh").write_text((ROOT / "tools" / "tunnel.sh").read_text())
+        self.pid_file = self.repo / "cloudflared.pid"
+        self.log_file = self.repo / "cloudflared.log"
+
+    def run_tunnel(self, *args, **extra):
+        env = {**os.environ, "TUNNEL_PID_FILE": str(self.pid_file), "TUNNEL_LOG_FILE": str(self.log_file), **extra}
+        env.pop("CLOUDFLARE_TUNNEL_TOKEN", None)
+        return subprocess.run(["bash", str(self.repo / "tools/tunnel.sh"), *args], cwd=self.repo,
+                              env=env, capture_output=True, text=True)
+
+    def spawn_long_running_process(self):
+        proc = subprocess.Popen(["sleep", "100"])
+
+        def cleanup():
+            if proc.poll() is None:
+                proc.kill()
+            proc.wait()                                                    # reap it -- avoid a zombie/ResourceWarning
+
+        self.addCleanup(cleanup)
+        return proc
+
+    def test_start_refuses_without_a_token(self):
+        result = self.run_tunnel("start")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("CLOUDFLARE_TUNNEL_TOKEN", result.stderr)
+        self.assertFalse(self.pid_file.exists())                            # nothing left behind by the refusal
+
+    def test_rejects_an_unknown_command(self):
+        for args in ([], ["frobnicate"]):
+            result = self.run_tunnel(*args)
+            self.assertEqual(result.returncode, 2, args)
+            self.assertIn("usage", result.stderr)
+
+    def test_status_reports_not_running_with_no_pid_file(self):
+        result = self.run_tunnel("status")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("not running", result.stdout)
+
+    def test_stop_is_a_safe_no_op_when_not_running(self):
+        result = self.run_tunnel("stop")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("not running", result.stdout)
+
+    def test_status_reports_running_for_a_live_pid(self):
+        proc = self.spawn_long_running_process()
+        self.pid_file.write_text(str(proc.pid))
+        result = self.run_tunnel("status")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("running", result.stdout)
+        self.assertIn(str(proc.pid), result.stdout)
+
+    def test_status_reports_not_running_for_a_stale_pid_file(self):
+        proc = self.spawn_long_running_process()
+        dead_pid = proc.pid
+        proc.kill()
+        proc.wait()
+        self.pid_file.write_text(str(dead_pid))
+        result = self.run_tunnel("status")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("not running", result.stdout)
+
+    def test_stop_kills_the_running_process_and_removes_the_pid_file(self):
+        proc = self.spawn_long_running_process()
+        self.pid_file.write_text(str(proc.pid))
+        result = self.run_tunnel("stop")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("stopped", result.stdout)
+        self.assertIsNotNone(proc.wait(timeout=5))                          # actually terminated, not just forgotten
+        self.assertFalse(self.pid_file.exists())
+
+    def test_start_is_a_no_op_when_already_running(self):
+        proc = self.spawn_long_running_process()
+        self.pid_file.write_text(str(proc.pid))
+        result = self.run_tunnel("start", CLOUDFLARE_TUNNEL_TOKEN="unused-because-already-running")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("already running", result.stdout)
+        self.assertEqual(self.pid_file.read_text(), str(proc.pid))          # untouched, not restarted
 
 
 if __name__ == "__main__":
