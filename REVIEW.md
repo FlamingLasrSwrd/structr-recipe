@@ -31,11 +31,11 @@ python3 tools/snapshot_state.py | diff - tools/expected_state.json && echo ident
 
 The offline tests also run on every push (`.github/workflows/tests.yml`).
 
-**Verified from scratch.** On an empty instance (fresh containers and volumes) the loop above ran all 46 scripts to completion (about 4.5 minutes after a 65 s first boot, on a machine with the images already pulled; a cold machine takes several times longer); it stops at the first failure, so none failed. The snapshot check then reports no difference, and a snapshot of the maintainer's working instance is byte-identical to it: 214 named entities plus 169 schema entries (every type, property, relationship, and the full source of every validator) on each side. The schema is in the snapshot because a validator is a method and can be silently replaced, which is what script `04` once did to script `07`'s. Only the maintainer's environment has been tested (Linux, Docker, Structr 6.0.0, Neo4j 2025.12.1); a first boot on a cold machine takes several times longer. This was not always true (self-audit item 1). `tools/expected_state.json` is a golden file: if a script's output changes, regenerate it and read the diff.
+**Verified from scratch.** On an empty instance (fresh containers and volumes) the loop above ran all 48 scripts to completion (473 s here, on a laptop that was swapping heavily because a second stack was running; the earlier 46-script run took 264 s after a 65 s first boot, with the images already pulled, and a cold machine takes several times longer); it stops at the first failure, so none failed. The snapshot check then reports no difference, and a snapshot of the maintainer's working instance is byte-identical to it: 216 named entities plus 170 schema entries (every type, property, relationship, and the full source of every validator) on each side. The schema is in the snapshot because a validator is a method and can be silently replaced, which is what script `04` once did to script `07`'s. Only the maintainer's environment has been tested (Linux, Docker, Structr 6.0.0, Neo4j 2025.12.1); a first boot on a cold machine takes several times longer. This was not always true (self-audit item 1). `tools/expected_state.json` is a golden file: if a script's output changes, regenerate it and read the diff.
 
 ## Round 2: the review of `e8d1cbf`
 
-24 numbered points. Each was checked against the code and the live data first. The fixes are in commit `29b41cc`. Rows 6, 15, 16 and 17 were open then; commit `c7256f1` fixed or decided them, and their rows below say so.
+24 numbered points. Each was checked against the code and the live data first. The fixes are in commit `29b41cc`. Rows 6, 15, 16 and 17 were open then; commit `c7256f1` fixed or decided them, and their rows below say so. Row 21 (hard minimums) and round 1 #24 (placeholder nutrient data) are addressed by commit `123bea7`, the planner; their rows say what is and is not built.
 
 | # | Finding | Status |
 |---|---|---|
@@ -59,7 +59,7 @@ The offline tests also run on every push (`.github/workflows/tests.yml`).
 | 18 | "No container" means two different things | **Open, needs a decision** |
 | 19 | Nested StockPolicies double-count stock | **Fixed:** the nearest policy owns the physical stock (§18 J2). Unit test plus a live check |
 | 20 | Soft `ExclusionConstraint`s do nothing | **Fixed:** a soft exclusion costs the candidate its weight (§18 J10) |
-| 21 | Greedy selection can't enforce hard minimums | **Open, by design.** This is the optimizer's job; §18 J4 records the boundary |
+| 21 | Greedy selection can't enforce hard minimums | **Built, unreviewed.** A per-slot selector cannot meet a hard minimum: `docs/optimizer-design.md` §2 shows it on a 3-slot day run against the real scoring functions (greedy reaches 36 g against 70 g while 63 of 125 menus are feasible, and no one-slot swap repairs it). The planner (`mealplanner/planning/`, `plan_week`) chooses the week as a whole, so a minimum is a constraint on the day's final total; when none can be met it returns the closest plan and the exact shortfall instead. Verified offline (hand-worked cases, an independent brute-force oracle over 80 random problems, bound-soundness checks, and score equality with the selector for a single slot) and against real Structr (`scripts/26a`, which confirms the committed day with `nutrition_report`). **Limits:** no library solver, so a full week's plan is not proven optimal (the search says so); the objective is a proposal (§4.5). The selector itself is unchanged and still only scores a minimum |
 | 22 | Documents drift from each other and the code | **Partly fixed.** `CLAUDE.md` said Rev 4.2 while the model was 4.3. Now `tests/test_docs.py` fails if the revision, the structural-type count, or the invariant tracker's coverage disagree with the code. There is still no machine-readable manifest |
 | 23 | "~35" vs 50 structural types | **Fixed, and the fix was itself wrong first.** I copied "50" from a comment in `structural_types.py`; the new test showed the real count is **51** (`ExclusionConstraint` was added after that comment was written). All three places corrected |
 | 24 | Not enough automated tests | **Fixed in part:** an offline suite over the pure logic (`tests/`, no Structr), run by CI. It covers the review's own list: future events, mixed units, zero values, optional ingredients, subtype/supertype collisions, overlapping policies, multiple defaults, multiple outputs. Still missing: most invariants have no test beyond the demo scripts |
@@ -77,7 +77,7 @@ The offline tests also run on every push (`.github/workflows/tests.yml`).
 | 3 | `expected_combination_output` returned after the first Step | **Fixed** (see round 2 #6) |
 | 4 | Stock scoring ignored units | **Fixed** (`unit_conversion.py`, invariant 13) |
 | 5 | Daily/weekly nutrition judged per meal | **Fixed** (`nutrition_scope.py`; §18 J3/J4) |
-| 6 | The selector isn't plan-level | **By design, unchanged.** Greedy per slot |
+| 6 | The selector isn't plan-level | **Addressed by the planner** (round 2 #21). The selector is unchanged and still greedy per slot |
 | 7 | No reservation layer | **Partly fixed.** Raw-ingredient reservation and `net_requirements()` exist; leftover surplus (invariants 23/24) is not built |
 | 8 | Expiry anchored to the latest measurement | **Fixed** (round 2 #17, §18 J12) |
 | 9 | "No container" means two things | **Open** (round 2 #18) |
@@ -94,7 +94,7 @@ The offline tests also run on every push (`.github/workflows/tests.yml`).
 | 21 | Docs and code drift | **Partly fixed** (round 2 #22) |
 | 22 | Invariant tracker needs states | **Partly.** It separates structural / write-time / computation / partial / deferred and covers all 30; `tests/test_docs.py` enforces the coverage |
 | 23 | Test scripts leave state behind | **Partly fixed.** `16b`, `20a`, `21a`, `22a`, `24a` remove what they create. `15e` leaves its "Leftover test week" on purpose (`16b` builds on it); `08` and `09` leave everything until `15a` wipes it |
-| 24 | Placeholder nutrient data can satisfy hard constraints | **Open** |
+| 24 | Placeholder nutrient data can satisfy hard constraints | **Fixed for the planner** (§18 J15): `NutrientProfile.provenance`, and a hard target is never decided on a figure that is unknown, placeholder or unmarked. Nothing is marked `sourced`, so today a hard nutrition target leaves every real recipe out until someone sources its figures. The selector still scores with placeholder figures, and only ever scores a hard minimum |
 | 25 | Several meanings of "is a kind of X" | **Partly.** `typetree.subtypes_of` and `ancestors_or_self` are shared; `resolveDefault` (StructrScript) is a separate traversal that no longer matters to `mealplanner/` |
 
 ## Found by our own audits
@@ -113,17 +113,22 @@ Between and before the reviews.
 10. **Test fragility:** a demo asserted "the filter removes exactly 400 g" and failed as soon as other sealed stock existed. Eligibility demos now work out the expected exclusion independently (`mealplanner/fixtures.py`).
 11. **`17c` hard-coded totals:** its expiry check asserted "750 g / 600 g" of chicken in stock and failed on any instance where other demos (`17d`, `18b`) had also left chicken, the same fragility as item 10. Found by re-running the demos on the working instance after the third round's changes; it now checks each of its own portions against values worked out from the constants.
 12. **`dt()` took the first of several matches:** 14 scripts and 3 modules each had a copy that returned `[0]` of whatever matched (or raised `IndexError` on none). There is now one, in `mealplanner/typetree.py`, and it raises unless exactly one DomainType has the name.
+13. **The planner demo's expected value was incomplete, and the planner was right.** `26a` first failed because its independent enumeration ignored leftovers: with the live "Cooked Leftover" default seeded, the planner found a better plan (cook the omelette once, eat it at lunch and dinner: 1.9 against 1.7). The enumeration now understands leftovers and the two cases are checked separately (`leftovers=False` and `True`).
+14. **`12b` cannot be re-run on a built instance:** its second step names a type the early build creates and `15a` later replaces (already true before this round; it only ever ran once, in order). The provenance migration is therefore its own idempotent script, `12c`.
+15. **No pyflakes:** a helper deleted while something still called it is a failure this project has had, so `tools/check_names.py` (undefined names, unused imports) now runs in CI.
 
 ## Open items
 
 Beyond the open rows above:
 
-- **Needs a model decision, not code:** round 2 #18 (does "no container" mean *loose* or *unknown*? §9 says a filter doesn't apply to food in no container, which is right for the first and wrong for the second); round 1 #24 (a hard `NutritionTarget` can be satisfied by placeholder nutrient data, and `NutrientProfile` has no provenance field to tell the two apart); round 1 #15 (is difficulty authored or derived?) and #16 (`Function` is unused).
-- **Hard nutritional minimums under greedy selection** (round 2 #21) belong to the optimizer, which has never been designed. Nothing here invents one.
+- **Needs a model decision, not code:** round 2 #18 (does "no container" mean *loose* or *unknown*? §9 says a filter doesn't apply to food in no container, which is right for the first and wrong for the second); round 1 #15 (is difficulty authored or derived? the planner uses `difficultyRating` only as an optional hard cap) and #16 (`Function` is unused).
+- **The planner** (`mealplanner/planning/`) is unreviewed and has no library solver: it proves a small week optimal and returns a good, unproven plan for a full one (`docs/optimizer-design.md` §12 has the measured limits). Not built: a solver adapter (needs permission to install a package), hard stock ("only cook from what I have"), a per-day time budget, a penalty for unused near-expiry stock, a soft difficulty term.
+- **Nothing is marked `sourced`:** the planner refuses to decide a hard nutrition target on placeholder figures, so it is only as useful as the sourced data behind it.
 - **Scaling:** one selector run over 4 recipes is 95 requests (see round 2 #15), but the on-hand scan still reads every portion ever recorded, so cost grows with history.
-- **Invariants:** 11 deferred (9, 11, 16-24) and 3 not built or uncheckable (10, 25, 27). Invariant 15 is an audit, not a write-time check (`inventory.overdraws`): an allocation of 500 g against 200 g on hand is still accepted when it is written, and found afterwards (`scripts/15e`).
-- **Leftover surplus** (invariants 23, 24, 27) is not built; reservation covers raw ingredients only.
-- **No test for most invariants** beyond the demo scripts, and the unit tests use a fake graph that could, in principle, render Structr differently from the real thing. `22a` and `25a` re-check the important cases against real Structr.
+- **Invariants:** 11 deferred (9, 11, 16-24) and 3 not built or uncheckable (10, 25, 27). Invariant 15 is an audit, not a write-time check (`inventory.overdraws`).
+- **Leftover surplus** (invariants 23, 24, 27) is not built; reservation covers raw ingredients only, and the planner plans leftovers within a single MealPlan.
+- **The cooked-leftover keeping time is a placeholder** (3 days, `17b`).
+- **No test for most invariants** beyond the demo scripts, and the unit tests use a fake graph that could, in principle, render Structr differently from the real thing. `22a`, `25a` and `26a` re-check the important cases against real Structr.
 
 ## Where a review would help most
 
@@ -132,9 +137,10 @@ Beyond the open rows above:
 3. **Whether the tests test what they say.** In particular: are there places an assertion restates the code rather than checking independently worked-out values?
 4. **The schema helpers and validators.** `SchemaDriftError` refuses to reconcile; is there a legitimate migration path it makes too hard? The StructrScript validators are string-built Python, and one was once silently overwritten by another script.
 5. **General code quality:** the script/module boundary (`11c` is both a library and a demo, and the tests import it by path), error handling.
+6. **The planner, `mealplanner/planning/` and `docs/optimizer-design.md`.** Built as a first version and unreviewed. The objective (§4.5), the assumptions taken by default in §12 (nine decisions the owner did not answer), and the treatment of unknown data under hard targets (§4.6, model J15) are what most need a challenge; so is whether a dependency-free search is enough.
 
 ## Test-data convention
 
 Illustrative and test instance data is name-prefixed `TEST -- `; curated vocabulary is not, and placeholder vocabulary values carry `[PLACEHOLDER -- not sourced from USDA/FDC yet]` in their names.
 
-**Audited at the end of a from-scratch build:** 214 named entities, 128 `TEST`-marked and 86 unmarked. All 86 are vocabulary: `DomainType` (45), `TypeHierarchy` (13), `DefaultSpecification` (10) with the `QuantitySpecification` values they point at (10), `NutrientProfile` (3), and the meal-type `Concept`s and scheme (5). No instance data (recipes, portions, processes, measurements, meal plans) is unmarked, and every default value and profile carries the placeholder marker in its name. The step-6 worked example (`06b`-`06d`) does create unmarked instance data, but `15a` deletes it and `15c` rebuilds it as `TEST` data, so it exists unmarked only between those scripts.
+**Audited at the end of a from-scratch build:** 216 named entities, 128 `TEST`-marked and 88 unmarked. All 88 are vocabulary: `DomainType` (45), `TypeHierarchy` (13), `DefaultSpecification` (11) with the `QuantitySpecification` values they point at (11), `NutrientProfile` (3), and the meal-type `Concept`s and scheme (5). No instance data (recipes, portions, processes, measurements, meal plans) is unmarked, and every default value and profile carries the placeholder marker in its name. The step-6 worked example (`06b`-`06d`) does create unmarked instance data, but `15a` deletes it and `15c` rebuilds it as `TEST` data, so it exists unmarked only between those scripts.
