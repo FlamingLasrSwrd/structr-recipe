@@ -25,9 +25,21 @@ python3 -m pip install -q --break-system-packages requests || true
 python3 -m venv /opt/solver-venv 2>/dev/null || python3 -m venv --without-pip /opt/solver-venv || true
 python3 -m pip --python /opt/solver-venv/bin/python install -q "ortools==9.15.6755" "requests>=2.31" || true
 
-# Docker images (the daemon may need starting in a fresh VM).
+# Docker images (the daemon may need starting in a fresh VM). In a Claude cloud VM
+# `service docker start` fails (its init script's `ulimit` is not permitted), so the daemon is
+# then run directly.
+docker_up() {
+  for _ in $(seq 1 "$1"); do docker info >/dev/null 2>&1 && return 0; sleep 1; done
+  return 1
+}
 if command -v docker >/dev/null 2>&1; then
-  docker info >/dev/null 2>&1 || { service docker start >/dev/null 2>&1 || true; sleep 5; }
+  if ! docker_up 1; then
+    service docker start >/dev/null 2>&1 || true
+    if ! docker_up 10 && command -v dockerd >/dev/null 2>&1; then
+      nohup dockerd >/var/log/dockerd.log 2>&1 &
+      docker_up 30 || true
+    fi
+  fi
   docker pull neo4j:2025.12.1 || true
   docker pull structr/structr:6.0.0 || true
 fi
