@@ -51,20 +51,55 @@ def _drift(declared: dict[str, Any], live: dict[str, Any]) -> dict[str, tuple[An
     return {k: (live.get(k), v) for k, v in declared.items() if live.get(k) != v}
 
 
-def _reject_comma_name(where: str, value: Any) -> None:
-    """A literal comma in a name silently breaks Structr's exact-match REST
-    query (0 results even when a match exists; structr-cheatsheet.md Sec 4).
-    A node created with one can never be found by name again, so a re-run
-    creates a duplicate instead of finding it, with no error."""
-    if isinstance(value, str) and "," in value:
-        raise ValueError(
-            f"{where}: the name contains a comma, which breaks Structr's exact-match query "
-            f"and will silently create a duplicate on re-run: {value!r}. Rephrase without a comma."
+# Characters that change what an exact-match REST query means. A comma
+# silently returns 0 results even when a match exists (confirmed empirically,
+# structr-cheatsheet.md Sec 4); a semicolon is Structr's documented OR
+# separator in a search value, so "A;B" would match A or B, not the literal
+# "A;B" (documented, not separately reproduced here).
+UNSAFE_EXACT_MATCH_CHARS = (",", ";")
+
+
+def validate_exact_match_value(where: str, value: Any) -> None:
+    """Refuse a string that cannot be reliably found again by an exact-match
+    query. A node created with one can never be looked up by that name, so
+    a re-run creates a duplicate instead of finding it, with no error.
+
+    Applied wherever a value may later be used as a query key: POST and PATCH
+    (`name`) and upsert (its key). One function, not a growing list of checks
+    in unrelated methods: the comma guard once covered only upsert(), and a
+    Role and three Measurements were created with commas through direct POSTs,
+    and a PATCH could rename a node into the same trap."""
+    if isinstance(value, str):
+        bad = [c for c in UNSAFE_EXACT_MATCH_CHARS if c in value]
+        if bad:
+            raise ValueError(
+                f"{where}: {value!r} contains {' and '.join(repr(c) for c in bad)}, which changes or breaks "
+                f"Structr's exact-match query, so this node could never be found by name again and a "
+                f"re-run would silently create a duplicate. Rephrase without it."
+            )
+
+
+class DuplicateMatchError(RuntimeError):
+    """An exact-match query for what should be a unique value returned
+    several nodes. Treated as a data-integrity incident, not resolved by
+    picking one: patching an arbitrary "first" match would quietly corrupt
+    whichever node happened to come back first."""
+
+    def __init__(self, type_name: str, prop: str, value: Any, ids: list[str]):
+        self.type_name, self.prop, self.value, self.ids = type_name, prop, value, ids
+        super().__init__(
+            f"{len(ids)} {type_name} nodes have {prop}={value!r} (ids: {', '.join(ids)}). "
+            f"Refusing to guess which one is meant; find out how the duplicate arose and remove it."
         )
 
 
 class StructrClient:
-    def __init__(self, base_url: str, username: str, password: str):
+    def __init__(self, base_url: str, username: str, password: str, timeout: tuple[float, float] = (5.0, 120.0)):
+        """timeout is (connect, read) seconds for EVERY request. Without one, a
+        single hung connection blocks forever and wait_until_ready's own
+        deadline is never reached. The read side is generous because a schema
+        change recompiles and can legitimately take many seconds."""
+        self.timeout = timeout
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
         self.session.headers.update(
@@ -82,6 +117,7 @@ class StructrClient:
 
     def _request(self, method: str, path: str, **kwargs) -> dict | list | None:
         url = self._url(path)
+        kwargs.setdefault("timeout", self.timeout)
         resp = self.session.request(method, url, **kwargs)
         if resp.status_code >= 400:
             try:
@@ -97,30 +133,39 @@ class StructrClient:
         return self._request("GET", path, params=params)
 
     def post(self, path: str, json: dict):
-        # Guarded here as well as in upsert(): a direct POST bypassed the
-        # upsert() check, and a Role and three Measurements were created with
-        # commas in their names that way before this existed.
         if isinstance(json, dict):
-            _reject_comma_name(f"POST {path}", json.get("name"))
+            validate_exact_match_value(f"POST {path}", json.get("name"))
         return self._request("POST", path, json=json)
 
     def patch(self, path: str, json: dict):
+        if isinstance(json, dict):
+            validate_exact_match_value(f"PATCH {path}", json.get("name"))
         return self._request("PATCH", path, json=json)
 
     def delete(self, path: str):
         return self._request("DELETE", path)
 
     def wait_until_ready(self, timeout_s: float = 60.0, interval_s: float = 2.0) -> None:
-        """Poll the schema endpoint until it responds, or raise on timeout."""
+        """Poll the schema endpoint until it answers.
+
+        Retries what a starting server produces: refused/reset connections,
+        timeouts, and 5xx. Fails IMMEDIATELY on any other HTTP error (401,
+        403, 404, ...): those are configuration mistakes (wrong password,
+        wrong URL), not "not ready yet", and retrying them made a bad
+        password look like a slow start for the whole timeout."""
         deadline = time.monotonic() + timeout_s
         last_err: Exception | None = None
         while time.monotonic() < deadline:
             try:
                 self.get("/structr/rest/SchemaNode")
                 return
-            except (requests.exceptions.ConnectionError, StructrError) as exc:
+            except StructrError as exc:
+                if exc.status < 500:
+                    raise
                 last_err = exc
-                time.sleep(interval_s)
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
+                last_err = exc
+            time.sleep(interval_s)
         raise TimeoutError(f"Structr not ready after {timeout_s}s") from last_err
 
     # -- idempotent schema setup ---------------------------------------
@@ -311,22 +356,26 @@ class StructrClient:
         visibility explicitly - Structr's default is owner-only and
         fails silently otherwise.
 
-        A literal comma in unique_value silently breaks Structr's
-        exact-match query (0 results even when a match exists) --
-        confirmed empirically, see structr-cheatsheet.md Sec 4. That
-        makes this method create a duplicate instead of finding the
-        existing one, with no error. Guarded here since it bit real
-        scripts twice before this check existed.
+        0 matches: create. 1: patch it. More than 1: DuplicateMatchError.
+        This used to patch whichever came back first, which after any earlier
+        duplicate would quietly corrupt an arbitrary node.
+
+        unique_value must be safe to find again by exact match
+        (validate_exact_match_value): a comma or semicolon in it would make
+        this method create a duplicate instead of finding the existing node.
         """
-        _reject_comma_name(f"upsert({type_name!r}, {unique_prop!r}, ...)", unique_value)
+        validate_exact_match_value(f"upsert({type_name!r}, {unique_prop!r}, ...)", unique_value)
         existing = self.get(f"/structr/rest/{type_name}", params={unique_prop: unique_value})
+        matches = (existing or {}).get("result") or []
+        if len(matches) > 1:
+            raise DuplicateMatchError(type_name, unique_prop, unique_value, [m["id"] for m in matches])
         payload = {k: v for k, v in fields.items() if v is not None}
         payload[unique_prop] = unique_value
         payload["visibleToAuthenticatedUsers"] = visible_to_authenticated_users
         payload["visibleToPublicUsers"] = visible_to_public_users
 
-        if existing and existing.get("result"):
-            node_id = existing["result"][0]["id"]
+        if matches:
+            node_id = matches[0]["id"]
             self.patch(f"/structr/rest/{type_name}/{node_id}", payload)
             return node_id
 

@@ -75,7 +75,7 @@ Entity
     └── TemporalRegion                         ● concrete
 ```
 
-~35 types, of which ~15 are abstract scaffolding. This is the whole schema and it should never change after build.
+51 types (35 concrete, 16 abstract scaffolding; `mealplanner/structural_types.py` is the canonical list and the source of that count). This is the whole schema and it should never change after build.
 
 **Polymorphic targeting pays for itself here.** `Allocation -[ABOUT]-> Entity` and `Identifier -[DENOTES]-> Entity` are single declarations that accept anything, because every concrete type inherits `Entity`. That is exactly the model's deliberately-unrestricted range, and it works natively — provided every concrete type has its traits from creation, which the no-runtime-schema-change rule guarantees.
 
@@ -165,7 +165,7 @@ Heterogeneous walks (all Allocations about one bearer across every Process kind;
 
 **Implementation note, found building this**: `currentMagnitude()`, `physicalOnHand()`/`eligibleOnHand()`, and the selector/`netRequirements()`-shaped logic ended up as plain Python over REST instead of `SchemaMethod`s as planned above. Same root cause each time: these need multi-hop traversal across several entity types plus real control flow (date comparisons, sums across a filtered collection, per-input branching) — exactly the shape that hit StructrScript's real ceiling building `resolveDefault` itself (no working recursion between `SchemaMethod`s, no infix comparison operators, `filter()`/`each()` don't compose the way you'd expect when nested). `resolveDefault(kind)` and `onCreate`/`onSave` validators stayed in StructrScript successfully — the difference is that those only ever walk *one* relationship chain at a time. Anything that needs to correlate across chains (this Allocation's Process's temporal region vs. that Measurement's time; this Plan's several inputs each resolving their own yield) is better done client-side.
 
-**`resolveDefault` doesn't actually implement its own documented signature.** §8 above says a `DefaultSpecification` "resolves independently by its (`hasKind`, `keyedBy`) signature" — but the live implementation only filters candidates by `hasKind`, never checks `keyedBy` at all. Not hit by this project's data yet (no `DomainType` has carried two `Yield` defaults for different transformations at once), but if one ever did, `resolveDefault` would silently return whichever `DefaultSpecification` the `filter()` happens to find first, not necessarily the one matching the caller's actual transformation. `mealplanner/material_accounting.py`'s `resolve_yield_or_default()` works around this by re-checking `keyedBy` on the *returned* result and falling back to 1.0 on a mismatch — a safety net, not a real fix. The real fix belongs in `resolveDefault`'s own StructrScript, adding a `keyedBy` match to the existing `filter()` predicate.
+**`resolveDefault` doesn't actually implement its own documented signature** (and this is now resolved in the code that matters). §8 above says a `DefaultSpecification` "resolves independently by its (`hasKind`, `keyedBy`) signature" — but the StructrScript `SchemaMethod` only filters candidates by `hasKind` and never checks `keyedBy`, so a Type carrying `Yield` defaults for two transformations returned whichever the `filter()` found first, and a caller re-checking the key afterwards could not recover the right one. It is also the unrolled depth-6 workaround described above, not an unbounded walk. **Resolution:** every code path now resolves defaults in Python through `mealplanner/defaults.py` (`resolve_default(type, kind, keys)`: nearest Type with an applicable default wins; applicable means all its keys are among the requested keys; the most keys wins, so exact beats partial beats unkeyed; equal specificity is an error), used for yields, shelf lives, densities and mass-per-unit. The `SchemaMethod` remains for the early spike scripts and is kind-only by design; nothing in `mealplanner/` calls it. This follows the same reasoning as the rest of this addendum: multi-hop logic that StructrScript can't express belongs in Python.
 
 ---
 
@@ -194,7 +194,7 @@ Write one throwaway relationship first and read the resulting property names bac
 - **Trait-level `unique` is global across subtypes.** Do **not** put `unique` on `Identifier.identifierValue` — invariant 11 needs UUIDs unique within their scheme while GTINs are shared. Enforce in an `onCreate` method instead.
 - **`Date` properties come back as real objects**, not strings — call `.getTime()`/`.toISOString()`. Relevant everywhere `hasTime` is compared.
 - **New nodes default to owner-only visibility.** Every write needs an explicit `visibleToAuthenticatedUsers`.
-- **Renaming a `SchemaNode` orphans its instances.** Get the ~35 structural names right the first time; there is no cheap rename later.
+- **Renaming a `SchemaNode` orphans its instances.** Get the 51 structural names right the first time; there is no cheap rename later.
 
 ---
 

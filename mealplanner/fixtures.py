@@ -33,9 +33,11 @@ def make_container(client, name: str, *, opened: str | None = None, storage: str
 
 
 def make_portion(client, name: str, food_type: str, grams: float, *, age_days: float, now: datetime,
-                 perishability: str = "Fresh Meat", container_id: str | None = None) -> str:
+                 perishability: str | None = "Fresh Meat", container_id: str | None = None) -> str:
     """A portion whose only mass observation was taken `age_days` ago."""
-    fields = {"instanceOf": dt(client, food_type), "hasPerishabilityType": dt(client, perishability)}
+    fields = {"instanceOf": dt(client, food_type)}
+    if perishability:
+        fields["hasPerishabilityType"] = dt(client, perishability)
     if container_id:
         fields["locatedIn"] = container_id
     portion = client.upsert("PortionOfSubstance", "name", name, fields)

@@ -1,3 +1,3 @@
-from .client import SchemaDriftError, StructrClient, StructrError
+from .client import DuplicateMatchError, SchemaDriftError, StructrClient, StructrError, validate_exact_match_value
 
-__all__ = ["SchemaDriftError", "StructrClient", "StructrError"]
+__all__ = ["DuplicateMatchError", "SchemaDriftError", "StructrClient", "StructrError", "validate_exact_match_value"]

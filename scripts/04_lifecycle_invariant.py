@@ -36,6 +36,11 @@ INVARIANT_12_SOURCE = (
 )
 
 
+# A fixed instant, not "now": these fixtures only prove the value check, and
+# Measurement.hasTime is required (invariant 2).
+OBSERVED_AT = "2026-01-01T00:00:00+0000"
+
+
 def main():
     client = StructrClient(BASE_URL, USERNAME, PASSWORD)
     client.wait_until_ready()
@@ -49,10 +54,22 @@ def main():
     client.ensure_property(mid, "status", "Enum", format="observed,imputed,derived,estimated")
 
     print("\n[2] Ensuring onCreate validator (invariant 12: no negative quantity-bearing value)...")
-    method_id, created = client.ensure_method(
-        mid, "onCreate", INVARIANT_12_SOURCE, return_raw_result=False
-    )
-    print(f"    method id={method_id}, created={created}")
+    # Install this spike's simple validator ONLY if none exists. scripts/07
+    # later installs the full Measurement.onCreate (units, nutrient rules,
+    # duplicate-observation rule) as the same SchemaMethod, and ensure_method
+    # overwrites. Re-running this script after 07 used to silently replace the
+    # full validator with this negative-only one, downgrading the schema
+    # (found while deploying new validators: 24a caught a unit-less
+    # Measurement being accepted).
+    existing = client.get("/structr/rest/SchemaMethod", params={"schemaNode": mid, "name": "onCreate"})["result"]
+    if existing:
+        print(f"    a Measurement.onCreate already exists (id={existing[0]['id']}); leaving it alone -- "
+              f"scripts/07 owns the full version")
+    else:
+        method_id, created = client.ensure_method(
+            mid, "onCreate", INVARIANT_12_SOURCE, return_raw_result=False
+        )
+        print(f"    method id={method_id}, created={created}")
 
     print("\n[3] Verifying: negative rejected, zero and positive accepted...")
     all_ok = True
@@ -62,7 +79,7 @@ def main():
             "/structr/rest/Measurement",
             {
                 "name": "TEST -- invariant 12 negative value (should be rejected)",
-                "value": -3.0, "unit": "g", "status": "observed",
+                "value": -3.0, "unit": "g", "status": "observed", "hasTime": OBSERVED_AT,
                 "visibleToAuthenticatedUsers": True,
             },
         )
@@ -77,13 +94,13 @@ def main():
     # (The negative case above stays a POST -- a rejected create is the test.)
     zero_id = client.upsert(
         "Measurement", "name", "TEST -- invariant 12 zero value (boundary - should be accepted)",
-        {"value": 0.0, "unit": "g", "status": "observed"},
+        {"value": 0.0, "unit": "g", "status": "observed", "hasTime": OBSERVED_AT},
     )
     print(f"    [OK] zero value accepted: {zero_id}")
 
     positive_id = client.upsert(
         "Measurement", "name", "TEST -- invariant 12 positive value (should be accepted)",
-        {"value": 12.5, "unit": "g", "status": "observed"},
+        {"value": 12.5, "unit": "g", "status": "observed", "hasTime": OBSERVED_AT},
     )
     print(f"    [OK] positive value accepted: {positive_id}")
 

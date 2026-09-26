@@ -1,0 +1,22 @@
+name: offline tests
+
+# Runs the tests that need no Structr instance: the unit tests over the pure
+# logic, the document-consistency checks, and the schema-helper drift test.
+# The scripts that build and verify a live instance are not run here; see the
+# README for the full-build check.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - run: python -m unittest discover -s tests -t . -v
+      - run: python scripts/23a_schema_drift_test.py

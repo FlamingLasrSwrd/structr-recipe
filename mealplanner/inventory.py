@@ -38,6 +38,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from mealplanner.defaults import resolve_default
+from mealplanner.typetree import ancestors_or_self, subtypes_of  # noqa: F401 (re-exported)
+from mealplanner.unit_conversion import QuantityError, convert_to_grams
+
 FMT = "%Y-%m-%dT%H:%M:%S%z"
 
 
@@ -49,110 +53,121 @@ def dt(client, name: str) -> str:
     return client.get("/structr/rest/DomainType", params={"name": name})["result"][0]["id"]
 
 
+def _grams(client, food_type_id: str | None, measurement: dict, what: str) -> float:
+    value, unit = measurement.get("value"), measurement.get("unit")
+    if value is None or not unit:
+        raise QuantityError(
+            f"{what} ({measurement.get('name')!r}) needs a numeric value and a unit; got {value!r} {unit!r}"
+        )
+    grams = convert_to_grams(client, food_type_id, value, unit)
+    if grams is None:
+        raise QuantityError(
+            f"{what} ({measurement.get('name')!r}): {value} {unit!r} cannot be converted to grams for this food "
+            f"(unrecognised unit, or it needs a Density/MassPerUnit default the food doesn't have)"
+        )
+    return grams
+
+
 def current_magnitude(client, quality_id: str, now: datetime) -> float | None:
-    """Sec 4.1.1, literally. Returns None if the Quality has no
-    observed/imputed Measurement to start from."""
+    """Sec 4.1.1, literally, as of `now`, in grams. None if the Quality has
+    no observed/imputed Measurement made at or before `now` to start from.
+
+    Everything is bounded by `now`. The baseline is the latest observed-or-
+    imputed Measurement at or BEFORE now, and only Processes that began
+    between that baseline and now count as consumption. This used to ignore
+    `now` in choosing the baseline, so a Measurement dated tomorrow became
+    today's stock and a Process that hasn't happened yet already consumed it
+    (found by external review). Asking about the past now gives the past.
+
+    Quantities are converted to grams before any arithmetic: a Measurement in
+    kg or oz and an Allocation in another unit used to be added and
+    subtracted as bare numbers. An unusable quantity (no unit, unrecognised
+    unit, an input Allocation with no actual quantity, or a Process with no
+    start time) raises QuantityError. Only Mass Qualities are supported; that
+    is all physical_on_hand tracks, and converting to grams is meaningless for
+    any other kind."""
     quality = client.get_all("Quality", quality_id)["result"]
+    kind = (quality.get("hasKind") or {}).get("name")
+    if kind != "Mass":
+        raise QuantityError(f"current_magnitude supports Mass Qualities only; {quality.get('name')!r} is {kind!r}")
     bearer = quality.get("inheresIn")
+    bearer_full = client.get_all(bearer["type"], bearer["id"])["result"] if bearer else {}
+    food_type_id = (bearer_full.get("instanceOf") or {}).get("id")
+
     measurements = [
         client.get_all("Measurement", m["id"])["result"]
         for m in quality.get("measurements", [])
     ]
-    baseline = [m for m in measurements if m.get("status") in ("observed", "imputed") and m.get("hasTime")]
+    baseline = [
+        m for m in measurements
+        if m.get("status") in ("observed", "imputed") and m.get("hasTime") and _parse(m["hasTime"]) <= now
+    ]
     if not baseline:
         return None
     latest = max(baseline, key=lambda m: _parse(m["hasTime"]))
     latest_time = _parse(latest["hasTime"])
+    on_hand = _grams(client, food_type_id, latest, "baseline mass Measurement")
 
     consumed = 0.0
-    if bearer:
-        bearer_full = client.get_all(bearer["type"], bearer["id"])["result"]
-        for alloc_ref in bearer_full.get("allocationsAbout", []):
-            alloc = client.get_all("Allocation", alloc_ref["id"])["result"]
-            if alloc.get("hasParticipationRole") != "input":
-                continue
-            process_ref = alloc.get("process")
-            if not process_ref:
-                continue
-            process = client.get_all("Process", process_ref["id"])["result"]
-            region_ref = process.get("occupiesTemporalRegion")
-            if not region_ref:
-                continue
-            region = client.get_all("TemporalRegion", region_ref["id"])["result"]
-            beginning = region.get("hasBeginning")
-            if not beginning or _parse(beginning) < latest_time:
-                continue
-            # Note: ">=" not ">" -- a Process occurring at the EXACT same
-            # timestamp as the baseline Measurement still counts as
-            # consumption. Found the hard way: test data built from one
-            # `NOW` variable naturally produces measurement/process
-            # timestamps that tie exactly, and a strict "after" (">")
-            # comparison silently under-counted consumption for every
-            # such case -- a portion whose entire 454g was used by a
-            # same-instant Process read back as still having its full
-            # original mass on hand. "Occurred after that Measurement's
-            # time" is read here as "at or after" for that reason.
-            qty_ref = alloc.get("hasActualQuantity")
-            if qty_ref:
-                qty = client.get_all("Measurement", qty_ref["id"])["result"]
-                consumed += qty.get("value") or 0.0
+    for alloc_ref in bearer_full.get("allocationsAbout", []):
+        alloc = client.get_all("Allocation", alloc_ref["id"])["result"]
+        if alloc.get("hasParticipationRole") != "input":
+            continue
+        process_ref = alloc.get("process")
+        if not process_ref:
+            continue
+        process = client.get_all("Process", process_ref["id"])["result"]
+        region_ref = process.get("occupiesTemporalRegion")
+        beginning = client.get_all("TemporalRegion", region_ref["id"])["result"].get("hasBeginning") if region_ref else None
+        if not beginning:
+            raise QuantityError(
+                f"input Allocation {alloc.get('name')!r} belongs to a Process with no start time, "
+                f"so its consumption cannot be placed relative to the baseline"
+            )
+        began = _parse(beginning)
+        # ">=" on the lower bound, not ">": a Process at the EXACT instant of
+        # the baseline Measurement still counts as consumption. Test data
+        # built from one `NOW` ties exactly, and a strict comparison read a
+        # portion whose whole 454 g was used by a same-instant Process as
+        # still holding all of it. That leaves "measurement before or after
+        # consumption at the same instant" undecidable; it is a known open
+        # question (REVIEW.md #18), not a settled rule.
+        if began < latest_time or began > now:
+            continue
+        qty_ref = alloc.get("hasActualQuantity")
+        if not qty_ref:
+            raise QuantityError(f"input Allocation {alloc.get('name')!r} has no actual quantity")
+        consumed += _grams(client, food_type_id, client.get_all("Measurement", qty_ref["id"])["result"], "input Allocation quantity")
 
-    return (latest.get("value") or 0.0) - consumed
-
-
-def subtypes_of(client, domain_type_id: str) -> set[str]:
-    """domain_type_id and every descendant, walking SUBCLASS_OF downward."""
-    result = {domain_type_id}
-    frontier = [domain_type_id]
-    while frontier:
-        current = frontier.pop()
-        node = client.get_all("DomainType", current)["result"]
-        for child in node.get("children", []):
-            if child["id"] not in result:
-                result.add(child["id"])
-                frontier.append(child["id"])
-    return result
+    return on_hand - consumed
 
 
 def shelf_life_days(
     client, perishability_type_id: str, opened_status_name: str = "Sealed", storage_condition_name: str = "Fridge",
 ) -> float | None:
-    """DefaultSpecification lookup keyed by (Storage Condition, opened
-    status) -- data-model.md Sec 8's own worked example
-    (keyedBy: [Fridge, Opened] / [Fridge, Sealed]). Deliberately NOT
-    using resolveDefault() here: it's already a documented, latent bug
-    that resolveDefault only filters by hasKind and never actually
-    checks keyedBy (structr-build-sketch.md Sec 5 addendum) -- a
-    genuine compound-key lookup needs the real check, not the
-    workaround material_accounting.py uses (re-verifying a SINGLE
-    resolved candidate's keyedBy after the fact isn't enough when
-    there may be several DIFFERENT compound-keyed candidates on the
-    same Type, which is exactly this case: Fridge+Sealed vs
-    Fridge+Opened vs Freezer+Sealed vs Freezer+Opened). This queries
-    DefaultSpecification directly and requires an EXACT keyedBy set
-    match, not just walking a single hierarchy.
+    """The ShelfLife default for a Perishability type in a given storage
+    condition and opened status, in days, or None if none resolves.
+
+    Resolved by (kind, keyedBy) through mealplanner/defaults.py (data-model.md
+    Sec 8's compound key, e.g. keyedBy [Fridge, Sealed] vs [Fridge, Opened]):
+    an exact key match beats a partial one, and the walk goes up the type
+    hierarchy. It used to look only at the type itself and demand an exact
+    key set, after the StructrScript resolveDefault turned out to ignore
+    keyedBy altogether.
 
     Both dimensions default to the more conservative/common case when
-    unknown: storage_condition_name="Fridge" (reasonable for a home
-    kitchen when no container records otherwise -- and now a real,
-    overridable fallback rather than a value baked into this function),
-    opened_status_name="Sealed" (freshly portioned/purchased food with
-    no recorded container is reasonably treated as unopened).
-    """
-    storage_id = dt(client, storage_condition_name)
-    opened_id = dt(client, opened_status_name)
-    yield_kind_id = dt(client, "ShelfLife")
-    candidates = client.get_all("DomainType", perishability_type_id)["result"].get("defaultSpecifications", [])
-    for ref in candidates:
-        spec = client.get_all("DefaultSpecification", ref["id"])["result"]
-        if (spec.get("hasKind") or {}).get("id") != yield_kind_id:
-            continue
-        keyed_ids = {k["id"] for k in spec.get("keyedBy", [])}
-        if keyed_ids == {storage_id, opened_id}:
-            value_ref = spec.get("hasValue")
-            if value_ref:
-                return client.get_all("QuantitySpecification", value_ref["id"])["result"].get("value")
-    return None
+    unknown -- but note the caller decides that (instance_expiration), and
+    that choice is an open question (REVIEW.md #9), not a settled rule."""
+    keys = {dt(client, storage_condition_name), dt(client, opened_status_name)}
+    resolved = resolve_default(client, perishability_type_id, dt(client, "ShelfLife"), keys)
+    if resolved is None:
+        return None
+    if resolved.quantity.get("unit") != "days" or resolved.quantity.get("value") is None:
+        raise ValueError(
+            f"ShelfLife default {resolved.default_name!r} must be a number of days; "
+            f"got {resolved.quantity.get('value')!r} {resolved.quantity.get('unit')!r}"
+        )
+    return resolved.quantity["value"]
 
 
 def container_opened_status(client, portion: dict) -> str | None:
@@ -217,7 +232,12 @@ def instance_expiration(client, portion: dict, now: datetime) -> tuple[bool, flo
         client.get_all("Measurement", m["id"])["result"]
         for m in quality_full.get("measurements", [])
     ]
-    baseline = [m for m in baseline if m.get("status") in ("observed", "imputed") and m.get("hasTime")]
+    # Bounded by `now` like current_magnitude: a Measurement dated in the
+    # future must not push an expiry date out.
+    baseline = [
+        m for m in baseline
+        if m.get("status") in ("observed", "imputed") and m.get("hasTime") and _parse(m["hasTime"]) <= now
+    ]
     if not baseline:
         return False, None
     latest = max(baseline, key=lambda m: _parse(m["hasTime"]))
@@ -252,7 +272,7 @@ def physical_on_hand(client, domain_type_id: str, now: datetime) -> float:
             if not mass_quality:
                 continue
             magnitude = current_magnitude(client, mass_quality["id"], now)
-            if magnitude:
+            if magnitude is not None:
                 total += magnitude
     return total
 
@@ -262,6 +282,7 @@ def eligible_on_hand_with_urgency(
     eligible_when_opened: bool | None = None, eligible_when_sealed: bool | None = None,
     eligible_storage_condition_names: set[str] | None = None,
     include_subtypes: bool = True,
+    exclude_types: set[str] | None = None,
 ) -> tuple[float, float | None]:
     """(eligible on-hand quantity [not expired, and passing the opened-
     status/storage-condition filters if given], days-until-expiry of
@@ -284,6 +305,11 @@ def eligible_on_hand_with_urgency(
     before, so a policy that said "this exact type only" was counted as
     if it said "and everything below it".
 
+    exclude_types: type ids whose stock is left out of the count, each with
+    everything below it. Used so a nested StockPolicy carves its own stock out
+    of an ancestor policy's pool instead of the same physical stock counting
+    towards both (nearest policy owns the stock).
+
     An EMPTY eligible_storage_condition_names set means no condition
     qualifies (only stock in no container passes, per Sec 9), not "no
     filter" -- pass None for no filtering. Restrictive policy
@@ -294,6 +320,8 @@ def eligible_on_hand_with_urgency(
     no container is never excluded by either filter, regardless of what
     the filter says, since there's nothing to check it against."""
     types = subtypes_of(client, domain_type_id) if include_subtypes else {domain_type_id}
+    for excluded_root in exclude_types or ():
+        types -= subtypes_of(client, excluded_root)
     total = 0.0
     soonest: float | None = None
     for type_name in ("PortionOfSubstance", "DiscreteWholeItem"):

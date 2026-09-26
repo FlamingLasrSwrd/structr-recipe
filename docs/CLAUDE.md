@@ -10,7 +10,7 @@ A single-user meal-planning tool. It generates a weekly plan satisfying difficul
 
 | File | Status | Use it for |
 |---|---|---|
-| `data-model.md` (Rev. 4.2) | ✅ **Authoritative** | the model. If anything contradicts it, it loses |
+| `data-model.md` (Rev. 4.4) | ✅ **Authoritative** | the model. If anything contradicts it, it loses |
 | `structr-build-sketch.md` | ✅ **Authoritative** | how the model maps onto Structr |
 | `structr-cheatsheet.md` | ✅ **Authoritative** | Structr mechanics. Empirically verified against a real instance — trust its ✅ items over the official docs |
 | `bfo-reference.md` | 📖 Reference | what BFO classes and relations mean, with domains/ranges |
@@ -23,7 +23,7 @@ The two review documents describe the model *as it was before fixes*. Reading th
 
 From the cheatsheet's empirically-verified findings. These are not stylistic.
 
-1. **Never rename a `SchemaNode`.** It orphans every existing instance — unreachable under both old and new names. Get the ~35 structural type names right the first time.
+1. **Never rename a `SchemaNode`.** It orphans every existing instance — unreachable under both old and new names. Get the 51 structural type names right the first time.
 2. **Never add a trait to a type that already has instances.** A node's Neo4j label set is fixed at creation; existing instances silently fail polymorphic-target lookups forever. Only fixable with direct Cypher `SET n:<Label>`.
 3. **The structural trait layer is frozen after build.** Everything that varies at runtime is data — see the three-layer split in the build sketch. If a task seems to require a new structural type, stop and ask.
 4. **Every write sets visibility explicitly** (`visibleToAuthenticatedUsers` or `visibleToPublicUsers`). The default is owner-only and fails silently.

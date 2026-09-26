@@ -37,12 +37,18 @@ sys.path.insert(0, os.path.dirname(SCRIPTS_DIR))
 from structr_client import StructrClient
 from mealplanner.material_accounting import candidate_input_requirements, candidate_outputs
 from mealplanner.nutrition_scope import nutrient_profile_amount, serving_nutrient_amount
-from mealplanner.reservation import combine_policy_fields, net_requirements, resolve_stock_policy
+from mealplanner.fixtures import make_portion
+from mealplanner.inventory import eligible_on_hand_with_urgency
+from mealplanner.reservation import (
+    Reserved, available_for_planning, combine_policy_fields, net_requirements, resolve_stock_policy,
+)
 
 _spec = importlib.util.spec_from_file_location("selector_11c", os.path.join(SCRIPTS_DIR, "11c_simple_selector.py"))
 _selector = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_selector)
 excluded_domain_type_ids = _selector.excluded_domain_type_ids
+candidate_consumed_types = _selector.candidate_consumed_types
+candidate_optional_types = _selector.candidate_optional_types
 
 BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
 USERNAME = "superadmin"
@@ -54,6 +60,7 @@ FMT = "%Y-%m-%dT%H:%M:%S+0000"
 DOMAIN_NAMES = [
     "Legume", "Lentils", "Red Lentils", "Chickpeas", "Grain", "Oats",
     "Pistachio Origin", "Pistachios", "Roasted Pistachios", "Plain Seed",
+    "Flour", "Bread Flour",
 ]
 SWEEP_ORDER = [
     "MealPlanEntry", "TemporalRegion", "Measurement", "Quality", "PortionOfSubstance", "Specification",
@@ -128,6 +135,15 @@ def main():
                         "step": step_id, "hasParticipationRole": role, "specifies": dt(type_name),
                         "hasSpecifiedQuantity": qty(f"{name} s{i} {role} {type_name} qty", grams), "isOptional": False,
                     })
+            for type_name, grams in step.get("optional", []):
+                client.upsert("Specification", "name", f"{P}{name} s{i} optional {type_name}", {
+                    "step": step_id, "hasParticipationRole": "input", "specifies": dt(type_name),
+                    "hasSpecifiedQuantity": qty(f"{name} s{i} optional {type_name} qty", grams), "isOptional": True,
+                })
+            for type_name in step.get("instruments", []):    # instruments carry no quantity (invariant 6)
+                client.upsert("Specification", "name", f"{P}{name} s{i} instrument {type_name}", {
+                    "step": step_id, "hasParticipationRole": "instrument", "specifies": dt(type_name), "isOptional": False,
+                })
         return client.get_all("Plan", plan)["result"]
 
     sweep(client)
@@ -207,6 +223,37 @@ def main():
             check(False, "a target in an unconvertible unit raises")
         except ValueError as exc:
             check("doesn't convert to grams" in str(exc), "a target in an unconvertible unit raises instead of being dropped")
+        client.delete(f"/structr/rest/StockPolicy/{grain_policy}")   # deliberately broken above; later checks call net_requirements again
+
+        print("\n[A4] Nested policies: the NEAREST policy owns the physical stock...")
+        flour = make_type("Flour", "Food Identity")
+        bread = make_type("Bread Flour", "Food Identity", flour)
+        policy("policy flour", flour, target=2000, includes=True)
+        policy("policy bread flour", bread, target=1000, includes=True)
+        make_portion(client, P + "bread flour portion", P + "Bread Flour", 2000.0, age_days=0, now=now, perishability=None)
+        net = net_requirements(client, meal_plan, now)
+        # 2 kg of bread flour meets bread flour's own 1 kg target with room to spare, but it belongs to that
+        # pool, so "keep 2 kg of flour" still needs the whole 2 kg (it used to read 0: the same flour counted twice)
+        check(abs(net.get(flour, -1) - 2000.0) < 0.01 and bread not in net,
+              f"flour pool needs its full 2000 g, and bread flour needs nothing (got flour={net.get(flour)}, bread={net.get(bread)})")
+
+        print("\n[A5] Availability across the type tree, against real stock and real reservations...")
+        make_portion(client, P + "lentils portion", P + "Lentils", 500.0, age_days=0, now=now, perishability=None)
+        make_portion(client, P + "chickpeas portion", P + "Chickpeas", 500.0, age_days=0, now=now, perishability=None)
+        stock = lambda t: eligible_on_hand_with_urgency(client, types[t], now)[0]
+        legume_stock, chick_stock = stock("Legume"), stock("Chickpeas")
+        check(abs(legume_stock - 1000.0) < 0.01 and abs(chick_stock - 500.0) < 0.01,
+              f"fixture stock: 1000 g of legumes, 500 g of them chickpeas (got {legume_stock:g} and {chick_stock:g})")
+        by_lentils = Reserved.from_by_type(client, {types["Lentils"]: 500.0})
+        got = available_for_planning(client, types["Legume"], legume_stock, now, by_lentils)
+        check(abs(got - 500.0) < 0.01,
+              f"a generic Legume demand sees the 500 g reserved for lentils: 1000 - 500 = 500 (got {got:g})")
+        generic = Reserved.from_by_type(client, {types["Legume"]: 600.0})
+        got = available_for_planning(client, types["Chickpeas"], chick_stock, now, generic)
+        check(abs(got - 400.0) < 0.01,
+              f"a chickpea demand sees the shared pool tightened by a generic 600 g claim: 1000 - 600 = 400 (got {got:g})")
+        got = available_for_planning(client, types["Chickpeas"], chick_stock, now, by_lentils)
+        check(abs(got - 500.0) < 0.01, f"a lentil reservation leaves the chickpeas' own 500 g free (got {got:g})")
 
         # ---------------------------------------------------------------- B
         print("\n[B] Exclusions are transitive...")
@@ -235,6 +282,16 @@ def main():
         banned = banned_by(red, "red lentils")
         check(red in banned and lentils not in banned and legume not in banned,
               "excluding a subtype does NOT ban the types above it")
+
+        print("\n[B2] Which Specifications count as ingredients for an exclusion (real Specifications)...")
+        roles = build_plan("roles", 2.0, [{
+            "in": [(P + "Plain Seed", 100)], "out": [(P + "Grain", 100)],
+            "optional": [(P + "Roasted Pistachios", 20)], "instruments": [P + "Chickpeas"]}])
+        consumed = candidate_consumed_types(client, roles)
+        check(consumed == {types["Plain Seed"], types["Grain"]},
+              "a required input and the output count; an optional input and an instrument do not")
+        check(candidate_optional_types(client, roles) == {types["Roasted Pistachios"]},
+              "the optional input is reported separately, so the user can be told to leave it out")
 
         # ---------------------------------------------------------------- C
         print("\n[C] Every final output counts; intermediates are neither eaten nor stocked...")

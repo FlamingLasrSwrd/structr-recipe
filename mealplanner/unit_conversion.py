@@ -30,6 +30,16 @@ itself already follows (Sec 8's algorithm, step 3).
 
 from __future__ import annotations
 
+from mealplanner.defaults import resolve_default
+
+
+class QuantityError(ValueError):
+    """A quantity that can't take part in arithmetic: no unit, an unrecognised
+    unit, no value, or a unit that needs a Density/MassPerUnit default the food
+    doesn't have. Raised rather than treated as zero: the old code turned such
+    a value into 0 and moved on, so a bad record made results silently wrong
+    instead of visibly broken."""
+
 # unit string (lowercased) -> (quantity_kind, factor to that kind's
 # canonical unit). Canonical units: grams (mass), milliliters (volume),
 # each (count).
@@ -56,16 +66,22 @@ UNIT_TABLE: dict[str, tuple[str, float]] = {
 }
 
 
-def _resolve_unkeyed_default(client, food_type_id: str, kind_name: str) -> float | None:
-    """resolveDefault(kind) for a Default-Kind Sec 8's own worked
-    examples show as never keyedBy anything (Density, MassPerUnit) --
-    unlike Yield, there's only ever one candidate to find, so this
-    doesn't need material_accounting.py's post-hoc keyedBy re-check."""
+def _resolve_unkeyed_default(client, food_type_id: str, kind_name: str, expected_unit: str) -> float | None:
+    """The Density / MassPerUnit default for a food, or None if it has none.
+    Neither is keyedBy anything in the model's own worked example (Sec 8), so
+    it is resolved with no keys, through the same (kind, keyedBy) resolution
+    as every other default. A default stated in the wrong unit is malformed
+    data and raises rather than being read as if it were right."""
     kind_id = client.get("/structr/rest/DomainType", params={"name": kind_name})["result"][0]["id"]
-    result = client.call_method("DomainType", food_type_id, "resolveDefault", {"kindId": kind_id})
-    if not isinstance(result, dict) or "id" not in result:
+    resolved = resolve_default(client, food_type_id, kind_id)
+    if resolved is None:
         return None
-    return client.get_all("QuantitySpecification", result["id"])["result"].get("value")
+    unit, value = resolved.quantity.get("unit"), resolved.quantity.get("value")
+    if unit != expected_unit or value is None:
+        raise ValueError(
+            f"{kind_name} default {resolved.default_name!r} must be a number in {expected_unit!r}; got {value!r} {unit!r}"
+        )
+    return value
 
 
 def convert_to_grams(client, food_type_id: str, value: float, unit: str | None) -> float | None:
@@ -83,15 +99,17 @@ def convert_to_grams(client, food_type_id: str, value: float, unit: str | None) 
 
     if kind == "mass":
         return value * factor
+    if food_type_id is None:
+        return None  # volume and count need a food's Density / MassPerUnit
 
     if kind == "volume":
-        density = _resolve_unkeyed_default(client, food_type_id, "Density")  # g/mL
+        density = _resolve_unkeyed_default(client, food_type_id, "Density", "g_per_mL")
         if density is None:
             return None
         return value * factor * density
 
     if kind == "count":
-        mass_per_unit = _resolve_unkeyed_default(client, food_type_id, "MassPerUnit")  # g/each
+        mass_per_unit = _resolve_unkeyed_default(client, food_type_id, "MassPerUnit", "g_per_each")
         if mass_per_unit is None:
             return None
         return value * factor * mass_per_unit

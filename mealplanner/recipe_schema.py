@@ -37,7 +37,7 @@ PROPERTIES: dict[str, list[dict]] = {
         {"name": "literalValue", "propertyType": "String"},
         # invariant 2 requires exactly one hasTime -- missed in step 4,
         # only surfaced now while building real Measurement instances.
-        {"name": "hasTime", "propertyType": "Date", "format": "yyyy-MM-dd'T'HH:mm:ssZ"},
+        {"name": "hasTime", "propertyType": "Date", "format": "yyyy-MM-dd'T'HH:mm:ssZ", "notNull": True},
     ],
     "Specification": [
         {"name": "hasParticipationRole", "propertyType": "Enum", "format": "input,output,instrument", "notNull": True},

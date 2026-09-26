@@ -34,7 +34,10 @@ STATUS KEY:
 # --- IMPLEMENTED -------------------------------------------------------
 #
 # 12: No quantity-bearing value may be negative.
-#   Measurement.onCreate (see MEASUREMENT_ONCREATE below). Guarded with
+#   Measurement.onCreate (see MEASUREMENT_ONCREATE below) AND
+#   QuantitySpecification.onCreate for its value, minValue and maxValue --
+#   the latter was missing until external review (only Measurement was
+#   checked, so a target range of -10 to 50 was accepted). Guarded with
 #   empty(this.value) first -- lt(null, 0) evaluates true in
 #   StructrScript, which silently broke every categorical Measurement
 #   (opened_status, cleanliness) before this guard was added.
@@ -107,6 +110,10 @@ STATUS KEY:
 MEASUREMENT_ONCREATE = (
     'if(and(not(empty(this.value)), lt(this.value, 0)), '
     'error("value", "must_not_be_negative"), '
+    # A numeric value with no unit can't be used in arithmetic; the inventory
+    # engine raises on one rather than guessing, so refuse it at write time.
+    'if(and(not(empty(this.value)), empty(this.unit)), '
+    'error("unit", "quantity_needs_a_unit"), '
     'if(and(empty(this.value), empty(this.literalValue)), '
     'error("value", "must_have_value_or_literal_value"), '
     'if(and(not(empty(this.isAboutQuality)), and('
@@ -115,7 +122,7 @@ MEASUREMENT_ONCREATE = (
     'if(not(equal(this.status, "derived")), '
     'error("status", "cooking_output_nutrient_content_must_be_derived"), '
     'INV2A_CHECK), '
-    'INV2A_CHECK)))'
+    'INV2A_CHECK))))'
 ).replace(
     "INV2A_CHECK",
     'if(or(equal(this.status, "observed"), equal(this.status, "imputed")), '
@@ -152,6 +159,10 @@ DEFAULT_SPECIFICATION_ONCREATE = (
 NOT_NULL_PROPERTIES = [
     ("Specification", "hasParticipationRole"),
     ("Allocation", "hasParticipationRole"),
+    # Invariant 2: every Measurement has exactly one hasTime. It was optional,
+    # so a Measurement without one was accepted and the inventory engine then
+    # silently ignored it (found by external review and by our own audit).
+    ("Measurement", "hasTime"),
 ]
 
 # --- IMPLEMENTED, added while building the meal-planning layer ---------
@@ -166,7 +177,9 @@ NOT_NULL_PROPERTIES = [
 # 7: "A MealPlanEntry has exactly one of (references + has_planned_servings)
 #   or consumes_leftover_from." MealPlanEntry.onCreate.
 #
-# 26: "has_target_level >= has_reorder_threshold." StockPolicy.onCreate,
+# 26: "has_target_level >= has_reorder_threshold." StockPolicy.onCreate --
+#   now also requiring both to be stated in the SAME unit, because the check
+#   compares bare numbers (500 g against 2 lb used to pass 500 >= 2). Originally:
 #   chained property access into both QuantitySpecifications' values.
 #
 # 27a: see ROLE_ONCREATE below -- required naming and building a
@@ -176,13 +189,24 @@ NOT_NULL_PROPERTIES = [
 #   forType). Recorded back to data-model.md Sec 7.
 
 QUANTITY_SPECIFICATION_ONCREATE = (
+    # Invariant 12 (no negative quantity-bearing value) was only checked on
+    # Measurement; a QuantitySpecification's value and either range bound
+    # could be negative (found by external review).
+    'if(and(not(empty(this.value)), lt(this.value, 0)), '
+    'error("value", "must_not_be_negative"), '
+    'if(and(not(empty(this.minValue)), lt(this.minValue, 0)), '
+    'error("minValue", "must_not_be_negative"), '
+    'if(and(not(empty(this.maxValue)), lt(this.maxValue, 0)), '
+    'error("maxValue", "must_not_be_negative"), '
+    'if(and(or(not(empty(this.value)), or(not(empty(this.minValue)), not(empty(this.maxValue)))), empty(this.unit)), '
+    'error("unit", "quantity_needs_a_unit"), '
     'if(and(not(empty(this.value)), or(not(empty(this.minValue)), not(empty(this.maxValue)))), '
     'error("value", "must_not_have_both_scalar_value_and_range"), '
     'if(and(empty(this.value), and(empty(this.minValue), empty(this.maxValue))), '
     'error("value", "must_have_either_value_or_range"), '
     'if(and(not(empty(this.minValue)), not(empty(this.maxValue))), '
     'if(gt(this.minValue, this.maxValue), error("minValue", "min_must_not_exceed_max"), null), '
-    'null)))'
+    'null)))))))'
 )
 
 MEAL_PLAN_ENTRY_ONCREATE = (
@@ -230,8 +254,14 @@ ROLE_ONCREATE = (
 
 STOCK_POLICY_ONCREATE = (
     'if(and(not(empty(this.hasTargetLevel)), not(empty(this.hasReorderThreshold))), '
+    # The two are compared as bare numbers, so they must be stated in the same
+    # unit: 500 g against 2 lb passed `500 >= 2` (found by external review).
+    # Requiring one unit is simpler and safer than re-implementing unit
+    # conversion inside StructrScript.
+    'if(not(equal(this.hasTargetLevel.unit, this.hasReorderThreshold.unit)), '
+    'error("hasTargetLevel", "target_and_reorder_threshold_must_share_a_unit"), '
     'if(lt(this.hasTargetLevel.value, this.hasReorderThreshold.value), '
-    'error("hasTargetLevel", "target_level_must_be_at_least_reorder_threshold"), null), '
+    'error("hasTargetLevel", "target_level_must_be_at_least_reorder_threshold"), null)), '
     'null)'
 )
 
@@ -270,14 +300,16 @@ STOCK_POLICY_ONCREATE = (
 # --- Not tracked here until the self-audit before the second external
 # review (they were simply missing, not judged and skipped): -------------
 #
-# 2 (first half): "Every Measurement is about exactly one Quality or
-#   Disposition and has exactly one hasTime." isAboutQuality is a single-
-#   valued relationship, which covers "exactly one Quality". hasTime is an
-#   OPTIONAL Date (mealplanner/recipe_schema.py notes the invariant but
-#   doesn't make the property notNull), so a Measurement with no time is
-#   accepted -- and mealplanner/inventory.py then silently ignores it
-#   when choosing a baseline (`and m.get("hasTime")`), so an observation
-#   without a time simply doesn't count. Not enforced.
+# 2 (partial, in the IMPLEMENTED sense): "Every Measurement is about
+#   exactly one Quality or Disposition and has exactly one hasTime."
+#   hasTime is now notNull (NOT_NULL_PROPERTIES; declared notNull in
+#   recipe_schema.py). It was an optional Date, so a Measurement without a
+#   time was accepted and mealplanner/inventory.py then silently ignored it
+#   when choosing a baseline -- found by our own audit and again by external
+#   review. "About exactly one Quality" is NOT enforced: isAboutQuality is
+#   single-valued but optional (the 2a check even tests it for emptiness).
+#   A Measurement also now needs a unit whenever it has a numeric value
+#   (quantity_needs_a_unit), which the inventory engine relies on.
 # 10: a modelling rule about has-member-part vs has-continuant-part vs
 #   located-in. A convention for how to model, not a property of stored
 #   data that anything could check; nothing enforces it and nothing could.

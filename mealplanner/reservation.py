@@ -43,6 +43,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from mealplanner.inventory import eligible_on_hand_with_urgency
+from mealplanner.typetree import ancestors_or_self
 from mealplanner.material_accounting import recipe_servings, candidate_input_requirements
 from mealplanner.unit_conversion import convert_to_grams
 
@@ -196,14 +197,70 @@ def policy_eligibility_kwargs(resolution: PolicyResolution | None) -> dict:
     return resolution.eligibility_kwargs() if resolution else {}
 
 
-def available_for_planning(eligible: float, domain_type_id: str, reserved: dict[str, float]) -> float:
-    """Eligible on-hand minus what's already committed elsewhere in
-    this same MealPlan -- the "Available" tier. A pure subtraction,
-    floored at 0; the REST-calling work already happened to produce
-    `eligible` (eligible_on_hand_with_urgency) and `reserved`
-    (committed_requirements), both computed once per planning run by
-    the caller rather than per candidate."""
-    return max(0.0, eligible - reserved.get(domain_type_id, 0.0))
+@dataclass
+class Reserved:
+    """What a MealPlan's committed entries claim, at two scopes.
+
+    by_type: grams claimed against each ingredient Type exactly as a recipe
+    names it. by_subtree: for every Type, the grams claimed anywhere at or
+    below it. Both are needed because stock is counted over a Type AND its
+    descendants while a reservation is recorded against ONE Type, so the two
+    used to live in different taxonomic scopes: a generic "Poultry" recipe saw
+    a chicken reservation as nothing, and a chicken recipe saw a "Poultry"
+    reservation as nothing (found by external review)."""
+    by_type: dict
+    by_subtree: dict
+
+    @classmethod
+    def from_by_type(cls, client, by_type: dict) -> "Reserved":
+        by_subtree: dict[str, float] = {}
+        for type_id, grams in by_type.items():
+            for ancestor in ancestors_or_self(client, type_id):
+                by_subtree[ancestor] = by_subtree.get(ancestor, 0.0) + grams
+        return cls(dict(by_type), by_subtree)
+
+    @classmethod
+    def for_meal_plan(cls, client, meal_plan_id: str) -> "Reserved":
+        return cls.from_by_type(client, committed_requirements(client, meal_plan_id))
+
+
+def available_for_planning(
+    client, domain_type_id: str, eligible: float, now: datetime, reserved: Reserved, **eligibility,
+) -> float:
+    """Grams a NEW demand at this Type can still claim: eligible stock minus
+    what committed entries have already claimed against it.
+
+    Stock at a Type is everything at or below it, so a claim anywhere below
+    (a chicken reservation, for a Poultry demand) reduces it. A claim ABOVE it
+    (a generic Poultry demand, for a chicken one) can be met from stock this
+    Type doesn't have, but it also competes for the shared ancestor's stock. The
+    Types form a tree, so a new demand fits exactly when, at every ancestor
+    (and at the Type itself), stock in that subtree minus everything already
+    claimed in that subtree is enough. The answer is the smallest such slack.
+
+    An ancestor is only looked at when something outside this Type's own
+    subtree has claimed stock there: with no outside claim its slack can't be
+    tighter than this Type's own, and skipping it saves a full stock scan per
+    level. `eligible` is this Type's stock, computed by the caller under the
+    Type's own StockPolicy filters; those same filters are applied to the
+    ancestors' stock (an approximation: nested policies can differ).
+
+    If the Type's policy counts only stock of exactly this Type
+    (include_subtypes=False), only claims against exactly this Type reduce it.
+    """
+    exact_only = eligibility.get("include_subtypes", True) is False
+    own = reserved.by_type.get(domain_type_id, 0.0) if exact_only else reserved.by_subtree.get(domain_type_id, 0.0)
+    available = eligible - own
+    if exact_only:
+        return max(0.0, available)
+    ancestor_filters = dict(eligibility, include_subtypes=True)
+    for ancestor in ancestors_or_self(client, domain_type_id)[1:]:
+        claimed_there = reserved.by_subtree.get(ancestor, 0.0)
+        if claimed_there - own <= 0:
+            continue
+        stock, _ = eligible_on_hand_with_urgency(client, ancestor, now, **ancestor_filters)
+        available = min(available, stock - claimed_there)
+    return max(0.0, available)
 
 
 def _target_grams(client, resolution: PolicyResolution) -> float:
@@ -258,12 +315,9 @@ def net_requirements(client, meal_plan_id: str, now: datetime) -> dict[str, floa
     900g standing pantry reserve for free -- the two needs compete for
     the same purchase.
 
-    KNOWN LIMITS: (1) nested policies -- a policy on an ancestor and
-    another on a descendant produce two pools that physically overlap and
-    aren't reconciled, so shared stock is counted in both. (2) The
-    model's formula also divides by "the yield factor of any trimming/
-    prep transformation between the purchased form and the required form"
-    (a recipe needing 180g diced onion, bought whole). There is no
+    KNOWN LIMIT: the model's formula also divides by "the yield factor of any
+    trimming/prep transformation between the purchased form and the required
+    form" (a recipe needing 180g diced onion, bought whole). There is no
     vocabulary yet distinguishing a Type's purchased form from its
     as-required form, so that division isn't applied; amounts are in the
     recipe's own required form. Flagged, not silently assumed away."""
@@ -285,10 +339,19 @@ def net_requirements(client, meal_plan_id: str, now: datetime) -> dict[str, floa
         if policy.get("appliesTo"):
             pool_for(policy["appliesTo"]["id"])
 
+    # The NEAREST policy owns the physical stock. A pool for a Type that has
+    # another pool nested below it leaves that nested stock out of its own
+    # count, or the same flour would satisfy both "keep 2 kg of flour" and
+    # "keep 1 kg of bread flour". (Found by external review; before this,
+    # nested pools were left as independent accounting universes.)
+    chains = {root: ancestors_or_self(client, root) for root in pools}
     net: dict[str, float] = {}
     for root, pool in pools.items():
+        resolution = pool["resolution"]
+        counts_subtree = resolution.include_subtypes if resolution else True
+        nested = {other for other in pools if other != root and root in chains[other]} if counts_subtree else set()
         eligible, _ = eligible_on_hand_with_urgency(
-            client, root, now, **policy_eligibility_kwargs(pool["resolution"]),
+            client, root, now, exclude_types=nested, **policy_eligibility_kwargs(resolution),
         )
         remainder = pool["demand"] + pool["target"] - eligible
         if remainder > 0:

@@ -1,4 +1,1039 @@
 {
+ "@schema | method Allocation.onCreate": {
+  "isStatic": false,
+  "returnRawResult": false,
+  "source": "if(and(equal(this.hasParticipationRole, \"instrument\"), not(empty(this.hasActualQuantity))), error(\"hasActualQuantity\", \"instrument_role_must_not_have_quantity\"), null)"
+ },
+ "@schema | method DefaultSpecification.onCreate": {
+  "isStatic": false,
+  "returnRawResult": false,
+  "source": "if(equal(this.hasKind.name, \"Yield\"), if(lte(this.hasValue.value, 0), error(\"hasValue\", \"yield_factor_must_be_positive\"), null), if(equal(this.hasKind.name, \"RetentionFactor\"), if(or(lte(this.hasValue.value, 0), gt(this.hasValue.value, 1)), error(\"hasValue\", \"retention_factor_must_be_in_0_to_1\"), null), null))"
+ },
+ "@schema | method DomainType.resolveDefault": {
+  "isStatic": false,
+  "returnRawResult": true,
+  "source": "if(gt(size(filter(this.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))), 0), first(filter(this.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))).hasValue, if(empty(this.parent), null, if(gt(size(filter(this.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))), 0), first(filter(this.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))).hasValue, if(empty(this.parent.parent), null, if(gt(size(filter(this.parent.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))), 0), first(filter(this.parent.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))).hasValue, if(empty(this.parent.parent.parent), null, if(gt(size(filter(this.parent.parent.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))), 0), first(filter(this.parent.parent.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))).hasValue, if(empty(this.parent.parent.parent.parent), null, if(gt(size(filter(this.parent.parent.parent.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))), 0), first(filter(this.parent.parent.parent.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))).hasValue, if(empty(this.parent.parent.parent.parent.parent), null, if(gt(size(filter(this.parent.parent.parent.parent.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))), 0), first(filter(this.parent.parent.parent.parent.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))).hasValue, if(empty(this.parent.parent.parent.parent.parent.parent), null, null))))))))))))"
+ },
+ "@schema | method MealPlanEntry.onCreate": {
+  "isStatic": false,
+  "returnRawResult": false,
+  "source": "if(not(empty(this.consumesLeftoverFrom)), if(or(not(empty(this.references)), not(empty(this.hasPlannedServings))), error(\"consumesLeftoverFrom\", \"leftover_entry_must_not_also_reference_a_plan\"), null), if(and(not(empty(this.references)), not(empty(this.hasPlannedServings))), null, error(\"references\", \"fresh_cook_entry_needs_both_references_and_planned_servings\")))"
+ },
+ "@schema | method Measurement.onCreate": {
+  "isStatic": false,
+  "returnRawResult": false,
+  "source": "if(and(not(empty(this.value)), lt(this.value, 0)), error(\"value\", \"must_not_be_negative\"), if(and(not(empty(this.value)), empty(this.unit)), error(\"unit\", \"quantity_needs_a_unit\"), if(and(empty(this.value), empty(this.literalValue)), error(\"value\", \"must_have_value_or_literal_value\"), if(and(not(empty(this.isAboutQuality)), and(equal(this.isAboutQuality.hasKind.hierarchy.name, \"Nutrient\"), not(empty(this.isAboutQuality.inheresIn.beginsToExistDuring)))), if(not(equal(this.status, \"derived\")), error(\"status\", \"cooking_output_nutrient_content_must_be_derived\"), if(or(equal(this.status, \"observed\"), equal(this.status, \"imputed\")), if(gt(size(filter(this.isAboutQuality.measurements, and(equal(data.status, this.status), equal(data.hasTime, this.hasTime)))), 1), error(\"status\", \"duplicate_observed_or_imputed_measurement_at_same_time\"), null), null)), if(or(equal(this.status, \"observed\"), equal(this.status, \"imputed\")), if(gt(size(filter(this.isAboutQuality.measurements, and(equal(data.status, this.status), equal(data.hasTime, this.hasTime)))), 1), error(\"status\", \"duplicate_observed_or_imputed_measurement_at_same_time\"), null), null)))))"
+ },
+ "@schema | method PlanningConstraint.onCreate": {
+  "isStatic": false,
+  "returnRawResult": false,
+  "source": "if(equal(this.strictness, \"soft\"), if(empty(this.weight), error(\"weight\", \"soft_constraint_requires_a_weight\"), null), null)"
+ },
+ "@schema | method QuantitySpecification.onCreate": {
+  "isStatic": false,
+  "returnRawResult": false,
+  "source": "if(and(not(empty(this.value)), lt(this.value, 0)), error(\"value\", \"must_not_be_negative\"), if(and(not(empty(this.minValue)), lt(this.minValue, 0)), error(\"minValue\", \"must_not_be_negative\"), if(and(not(empty(this.maxValue)), lt(this.maxValue, 0)), error(\"maxValue\", \"must_not_be_negative\"), if(and(or(not(empty(this.value)), or(not(empty(this.minValue)), not(empty(this.maxValue)))), empty(this.unit)), error(\"unit\", \"quantity_needs_a_unit\"), if(and(not(empty(this.value)), or(not(empty(this.minValue)), not(empty(this.maxValue)))), error(\"value\", \"must_not_have_both_scalar_value_and_range\"), if(and(empty(this.value), and(empty(this.minValue), empty(this.maxValue))), error(\"value\", \"must_have_either_value_or_range\"), if(and(not(empty(this.minValue)), not(empty(this.maxValue))), if(gt(this.minValue, this.maxValue), error(\"minValue\", \"min_must_not_exceed_max\"), null), null)))))))"
+ },
+ "@schema | method Role.onCreate": {
+  "isStatic": false,
+  "returnRawResult": false,
+  "source": "if(and(equal(this.hasKind.name, \"Reservation\"), not(empty(this.targetsEntry))), if(and(not(empty(this.inheresIn.beginsToExistDuring)), gt(size(this.inheresIn.beginsToExistDuring.fulfillsMealPlanEntries), 0)), if(empty(this.targetsEntry.consumesLeftoverFrom), error(\"targetsEntry\", \"target_entry_must_itself_consume_a_leftover\"), if(not(equal(this.targetsEntry.consumesLeftoverFrom.id, first(this.inheresIn.beginsToExistDuring.fulfillsMealPlanEntries).id)), error(\"targetsEntry\", \"reservation_role_target_disagrees_with_leftover_source\"), null)), null), null)"
+ },
+ "@schema | method Specification.onCreate": {
+  "isStatic": false,
+  "returnRawResult": false,
+  "source": "if(and(equal(this.hasParticipationRole, \"instrument\"), not(empty(this.hasSpecifiedQuantity))), error(\"hasSpecifiedQuantity\", \"instrument_role_must_not_have_quantity\"), null)"
+ },
+ "@schema | method StockPolicy.onCreate": {
+  "isStatic": false,
+  "returnRawResult": false,
+  "source": "if(and(not(empty(this.hasTargetLevel)), not(empty(this.hasReorderThreshold))), if(not(equal(this.hasTargetLevel.unit, this.hasReorderThreshold.unit)), error(\"hasTargetLevel\", \"target_and_reorder_threshold_must_share_a_unit\"), if(lt(this.hasTargetLevel.value, this.hasReorderThreshold.value), error(\"hasTargetLevel\", \"target_level_must_be_at_least_reorder_threshold\"), null)), null)"
+ },
+ "@schema | property Allocation.hasParticipationRole": {
+  "format": "input,output,instrument",
+  "indexed": false,
+  "notNull": true,
+  "propertyType": "Enum",
+  "unique": false
+ },
+ "@schema | property ConceptScheme.name": {
+  "format": null,
+  "indexed": true,
+  "notNull": true,
+  "propertyType": "String",
+  "unique": true
+ },
+ "@schema | property DomainType.isLookupBearing": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Boolean",
+  "unique": false
+ },
+ "@schema | property DomainType.name": {
+  "format": null,
+  "indexed": true,
+  "notNull": true,
+  "propertyType": "String",
+  "unique": true
+ },
+ "@schema | property MealPlan.stockWeight": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Double",
+  "unique": false
+ },
+ "@schema | property MealPlan.timeBudgetMinutes": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Double",
+  "unique": false
+ },
+ "@schema | property MealPlan.timeBudgetWeight": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Double",
+  "unique": false
+ },
+ "@schema | property MealPlan.varietyWeight": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Double",
+  "unique": false
+ },
+ "@schema | property MealPlan.wasteWeight": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Double",
+  "unique": false
+ },
+ "@schema | property MealPlanEntry.hasPlannedServings": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Double",
+  "unique": false
+ },
+ "@schema | property MealPlanEntry.isSkipped": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Boolean",
+  "unique": false
+ },
+ "@schema | property Measurement.hasTime": {
+  "format": "yyyy-MM-dd'T'HH:mm:ssZ",
+  "indexed": false,
+  "notNull": true,
+  "propertyType": "Date",
+  "unique": false
+ },
+ "@schema | property Measurement.literalValue": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "String",
+  "unique": false
+ },
+ "@schema | property Measurement.status": {
+  "format": "observed,imputed,derived,estimated",
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Enum",
+  "unique": false
+ },
+ "@schema | property Measurement.unit": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "String",
+  "unique": false
+ },
+ "@schema | property Measurement.value": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Double",
+  "unique": false
+ },
+ "@schema | property NutrientProfile.amount": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Double",
+  "unique": false
+ },
+ "@schema | property NutrientProfile.basis": {
+  "format": "per_100g,per_unit",
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Enum",
+  "unique": false
+ },
+ "@schema | property NutritionTarget.dayBoundaryRule": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "String",
+  "unique": false
+ },
+ "@schema | property NutritionTarget.hasTimeScope": {
+  "format": "daily,weekly,per_meal",
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Enum",
+  "unique": false
+ },
+ "@schema | property Plan.difficultyRating": {
+  "format": "easy,medium,hard",
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Enum",
+  "unique": false
+ },
+ "@schema | property Plan.estimatedDurationMinutes": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Double",
+  "unique": false
+ },
+ "@schema | property PlanningConstraint.strictness": {
+  "format": "hard,soft",
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Enum",
+  "unique": false
+ },
+ "@schema | property PlanningConstraint.weight": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Double",
+  "unique": false
+ },
+ "@schema | property QuantitySpecification.maxValue": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Double",
+  "unique": false
+ },
+ "@schema | property QuantitySpecification.minValue": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Double",
+  "unique": false
+ },
+ "@schema | property QuantitySpecification.status": {
+  "format": "specified,default",
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Enum",
+  "unique": false
+ },
+ "@schema | property QuantitySpecification.unit": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "String",
+  "unique": false
+ },
+ "@schema | property QuantitySpecification.value": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Double",
+  "unique": false
+ },
+ "@schema | property RecipeIdentity.isRetired": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Boolean",
+  "unique": false
+ },
+ "@schema | property RelationKind.name": {
+  "format": null,
+  "indexed": true,
+  "notNull": true,
+  "propertyType": "String",
+  "unique": true
+ },
+ "@schema | property Specification.hasParticipationRole": {
+  "format": "input,output,instrument",
+  "indexed": false,
+  "notNull": true,
+  "propertyType": "Enum",
+  "unique": false
+ },
+ "@schema | property Specification.isOptional": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Boolean",
+  "unique": false
+ },
+ "@schema | property StateRequirement.expectedValueLiteral": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "String",
+  "unique": false
+ },
+ "@schema | property StockPolicy.eligibleWhenOpened": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Boolean",
+  "unique": false
+ },
+ "@schema | property StockPolicy.eligibleWhenSealed": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Boolean",
+  "unique": false
+ },
+ "@schema | property StockPolicy.includesSubtypes": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Boolean",
+  "unique": false
+ },
+ "@schema | property TemporalRegion.hasBeginning": {
+  "format": "yyyy-MM-dd'T'HH:mm:ssZ",
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Date",
+  "unique": false
+ },
+ "@schema | property TemporalRegion.hasEnd": {
+  "format": "yyyy-MM-dd'T'HH:mm:ssZ",
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Date",
+  "unique": false
+ },
+ "@schema | property TypeHierarchy.name": {
+  "format": null,
+  "indexed": true,
+  "notNull": true,
+  "propertyType": "String",
+  "unique": true
+ },
+ "@schema | property TypeHierarchy.singleParent": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Boolean",
+  "unique": false
+ },
+ "@schema | relationship AcquisitionList -[FOR_MEAL_PLAN]-> MealPlan": {
+  "sourceJsonName": "acquisitionLists",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "forMealPlan",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Allocation -[ABOUT]-> Entity": {
+  "sourceJsonName": "allocationsAbout",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "isAbout",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Allocation -[FULFILLS]-> Specification": {
+  "sourceJsonName": "allocations",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "fulfills",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Allocation -[HAS_ACTUAL_QUANTITY]-> Measurement": {
+  "sourceJsonName": "actualQuantityOfAllocations",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasActualQuantity",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Concept -[IN_SCHEME]-> ConceptScheme": {
+  "sourceJsonName": "concepts",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "inScheme",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship ContainerObject -[HAS_OPENED_STATUS]-> DomainType": {
+  "sourceJsonName": "containersWithThisOpenedStatus",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasOpenedStatus",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship ContainerObject -[HAS_STORAGE_CONDITION]-> DomainType": {
+  "sourceJsonName": "containersWithThisStorageCondition",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasStorageCondition",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship ContainerObject -[INSTANCE_OF]-> DomainType": {
+  "sourceJsonName": "containerInstances",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "instanceOf",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship DefaultSpecification -[FOR_TYPE]-> DomainType": {
+  "sourceJsonName": "defaultSpecifications",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "forType",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship DefaultSpecification -[HAS_KIND]-> DomainType": {
+  "sourceJsonName": "defaultSpecsByKind",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasKind",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship DefaultSpecification -[HAS_VALUE]-> QuantitySpecification": {
+  "sourceJsonName": "defaultSpecification",
+  "sourceMultiplicity": "1",
+  "targetJsonName": "hasValue",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship DefaultSpecification -[KEYED_BY]-> DomainType": {
+  "sourceJsonName": "defaultSpecsKeyedBy",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "keyedBy",
+  "targetMultiplicity": "*"
+ },
+ "@schema | relationship DefaultSpecification -[TARGET_TYPE]-> DomainType": {
+  "sourceJsonName": "yieldTargetOf",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "targetType",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship DomainType -[HAS_BIOLOGICAL_ORIGIN]-> DomainType": {
+  "sourceJsonName": "foodsOfThisOrigin",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasBiologicalOrigin",
+  "targetMultiplicity": "*"
+ },
+ "@schema | relationship DomainType -[IN_HIERARCHY]-> TypeHierarchy": {
+  "sourceJsonName": "domainTypes",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hierarchy",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship DomainType -[MAY_BEAR_ROLE]-> DomainType": {
+  "sourceJsonName": "canBeBorneBy",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "mayBearRole",
+  "targetMultiplicity": "*"
+ },
+ "@schema | relationship DomainType -[SUBCLASS_OF]-> DomainType": {
+  "sourceJsonName": "children",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "parent",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship EquipmentObject -[INSTANCE_OF]-> DomainType": {
+  "sourceJsonName": "equipmentInstances",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "instanceOf",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship ExclusionConstraint -[APPLIES_TO]-> DomainType": {
+  "sourceJsonName": "exclusionConstraintsApplying",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "appliesTo",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship FoodObject -[BEGINS_TO_EXIST_DURING]-> Process": {
+  "sourceJsonName": "thingsBegunDuring",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "beginsToExistDuring",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship FoodObject -[HAS_PERISHABILITY_TYPE]-> DomainType": {
+  "sourceJsonName": "perishabilityInstances",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasPerishabilityType",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship FoodObject -[INSTANCE_OF]-> DomainType": {
+  "sourceJsonName": "foodInstances",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "instanceOf",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship FoodObject -[LOCATED_IN]-> ContainerObject": {
+  "sourceJsonName": "contents",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "locatedIn",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship MealPlan -[ABOUT]-> TemporalRegion": {
+  "sourceJsonName": "mealPlansAbout",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "isAbout",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship MealPlan -[HAS_CONSTRAINT]-> PlanningConstraint": {
+  "sourceJsonName": "constrainedPlans",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasConstraint",
+  "targetMultiplicity": "*"
+ },
+ "@schema | relationship MealPlan -[HAS_ENTRY]-> MealPlanEntry": {
+  "sourceJsonName": "memberOf",
+  "sourceMultiplicity": "1",
+  "targetJsonName": "hasEntry",
+  "targetMultiplicity": "*"
+ },
+ "@schema | relationship MealPlanEntry -[ABOUT]-> TemporalRegion": {
+  "sourceJsonName": "mealPlanEntriesAbout",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "isAbout",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship MealPlanEntry -[CONSUMES_LEFTOVER_FROM]-> MealPlanEntry": {
+  "sourceJsonName": "sourceForLeftoverEntries",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "consumesLeftoverFrom",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship MealPlanEntry -[FULFILLED_BY]-> Process": {
+  "sourceJsonName": "fulfillsMealPlanEntries",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "fulfilledBy",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship MealPlanEntry -[HAS_PLANNED_CONSUMPTION]-> QuantitySpecification": {
+  "sourceJsonName": "plannedConsumptionOfEntries",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasPlannedConsumption",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship MealPlanEntry -[REFERENCES]-> Plan": {
+  "sourceJsonName": "referencedByEntries",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "references",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Measurement -[IS_ABOUT_QUALITY]-> Quality": {
+  "sourceJsonName": "measurements",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "isAboutQuality",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship NutrientProfile -[ABOUT]-> DomainType": {
+  "sourceJsonName": "nutrientProfilesAbout",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "isAbout",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship NutrientProfile -[FOR_NUTRIENT]-> DomainType": {
+  "sourceJsonName": "nutrientProfilesForNutrient",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "forNutrient",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship NutritionTarget -[FOR_NUTRIENT]-> DomainType": {
+  "sourceJsonName": "nutritionTargetsForNutrient",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "forNutrient",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship NutritionTarget -[HAS_TARGET_RANGE]-> QuantitySpecification": {
+  "sourceJsonName": "targetRangeOfNutritionTargets",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasTargetRange",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Plan -[HAS_RECIPE_YIELD]-> QuantitySpecification": {
+  "sourceJsonName": "recipeYieldOfPlans",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasRecipeYield",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Plan -[HAS_STEP]-> Step": {
+  "sourceJsonName": "plan",
+  "sourceMultiplicity": "1",
+  "targetJsonName": "steps",
+  "targetMultiplicity": "*"
+ },
+ "@schema | relationship Plan -[SPECIALIZATION_OF]-> RecipeIdentity": {
+  "sourceJsonName": "planVersions",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "specializationOf",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Process -[CONCRETIZES]-> Plan": {
+  "sourceJsonName": "executions",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "concretizes",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Process -[HAS_INPUT]-> Entity": {
+  "sourceJsonName": "processesUsingAsInput",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasInput",
+  "targetMultiplicity": "*"
+ },
+ "@schema | relationship Process -[HAS_KIND]-> DomainType": {
+  "sourceJsonName": "processInstances",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasKind",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Process -[HAS_PARTICIPANT]-> Entity": {
+  "sourceJsonName": "processesWithParticipant",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasParticipant",
+  "targetMultiplicity": "*"
+ },
+ "@schema | relationship Process -[OCCUPIES_TEMPORAL_REGION]-> TemporalRegion": {
+  "sourceJsonName": "processes",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "occupiesTemporalRegion",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Process -[QUALIFIED_GENERATION]-> Allocation": {
+  "sourceJsonName": "generatingProcess",
+  "sourceMultiplicity": "1",
+  "targetJsonName": "qualifiedGeneration",
+  "targetMultiplicity": "*"
+ },
+ "@schema | relationship Process -[QUALIFIED_USAGE]-> Allocation": {
+  "sourceJsonName": "process",
+  "sourceMultiplicity": "1",
+  "targetJsonName": "qualifiedUsage",
+  "targetMultiplicity": "*"
+ },
+ "@schema | relationship Process -[REALIZES]-> RealizableEntity": {
+  "sourceJsonName": "realizedByProcesses",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "realizes",
+  "targetMultiplicity": "*"
+ },
+ "@schema | relationship RecipeIdentity -[HAS_MEAL_TYPE]-> Concept": {
+  "sourceJsonName": "taggedRecipes",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasMealType",
+  "targetMultiplicity": "*"
+ },
+ "@schema | relationship RelationKind -[SUBCLASS_OF]-> RelationKind": {
+  "sourceJsonName": "children",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "parent",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Role -[TARGETS_ENTRY]-> MealPlanEntry": {
+  "sourceJsonName": "reservationRole",
+  "sourceMultiplicity": "1",
+  "targetJsonName": "targetsEntry",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship SpecificallyDependentContinuant -[HAS_KIND]-> DomainType": {
+  "sourceJsonName": "sdcInstances",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasKind",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship SpecificallyDependentContinuant -[INHERES_IN]-> IndependentContinuant": {
+  "sourceJsonName": "bearerOf",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "inheresIn",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Specification -[HAS_SPECIFIED_QUANTITY]-> QuantitySpecification": {
+  "sourceJsonName": "specificationsWithThisQuantity",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasSpecifiedQuantity",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Specification -[HAS_STATE_REQUIREMENT]-> StateRequirement": {
+  "sourceJsonName": "specification",
+  "sourceMultiplicity": "1",
+  "targetJsonName": "hasStateRequirement",
+  "targetMultiplicity": "*"
+ },
+ "@schema | relationship Specification -[SPECIFIES]-> DomainType": {
+  "sourceJsonName": "specifiedBySpecs",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "specifies",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship StateRequirement -[EXPECTED_VALUE_QTY]-> QuantitySpecification": {
+  "sourceJsonName": "expectedValueOfStateReqs",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "expectedValueQty",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship StateRequirement -[TARGETS_PROPERTY]-> DomainType": {
+  "sourceJsonName": "targetedByStateReqs",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "targetsProperty",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Step -[HAS_SPECIFICATION]-> Specification": {
+  "sourceJsonName": "step",
+  "sourceMultiplicity": "1",
+  "targetJsonName": "hasSpecification",
+  "targetMultiplicity": "*"
+ },
+ "@schema | relationship Step -[INSTANCE_OF]-> DomainType": {
+  "sourceJsonName": "stepInstances",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "instanceOf",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship StockPolicy -[APPLIES_TO]-> DomainType": {
+  "sourceJsonName": "stockPoliciesApplying",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "appliesTo",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship StockPolicy -[ELIGIBLE_STORAGE_CONDITIONS]-> DomainType": {
+  "sourceJsonName": "eligibleForStockPolicies",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "eligibleStorageConditions",
+  "targetMultiplicity": "*"
+ },
+ "@schema | relationship StockPolicy -[HAS_REORDER_THRESHOLD]-> QuantitySpecification": {
+  "sourceJsonName": "reorderThresholdOfPolicies",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasReorderThreshold",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship StockPolicy -[HAS_TARGET_LEVEL]-> QuantitySpecification": {
+  "sourceJsonName": "targetLevelOfPolicies",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasTargetLevel",
+  "targetMultiplicity": "1"
+ },
+ "@schema | type AcquisitionList": {
+  "inheritedTraits": [
+   "DirectiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type Allocation": {
+  "inheritedTraits": [
+   "DescriptiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type BfoObject": {
+  "inheritedTraits": [
+   "MaterialEntity"
+  ],
+  "isAbstract": true
+ },
+ "@schema | type Concept": {
+  "inheritedTraits": [
+   "DesignativeICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type ConceptScheme": {
+  "inheritedTraits": [],
+  "isAbstract": false
+ },
+ "@schema | type ContainerObject": {
+  "inheritedTraits": [
+   "BfoObject"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type Continuant": {
+  "inheritedTraits": [
+   "Entity"
+  ],
+  "isAbstract": true
+ },
+ "@schema | type DefaultSpecification": {
+  "inheritedTraits": [
+   "DirectiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type DescriptiveICE": {
+  "inheritedTraits": [
+   "InformationContentEntity"
+  ],
+  "isAbstract": true
+ },
+ "@schema | type DesignativeICE": {
+  "inheritedTraits": [
+   "InformationContentEntity"
+  ],
+  "isAbstract": true
+ },
+ "@schema | type DirectiveICE": {
+  "inheritedTraits": [
+   "InformationContentEntity"
+  ],
+  "isAbstract": true
+ },
+ "@schema | type DiscreteWholeItem": {
+  "inheritedTraits": [
+   "FoodObject"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type Disposition": {
+  "inheritedTraits": [
+   "RealizableEntity"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type DomainType": {
+  "inheritedTraits": [],
+  "isAbstract": false
+ },
+ "@schema | type Entity": {
+  "inheritedTraits": [],
+  "isAbstract": true
+ },
+ "@schema | type EquipmentObject": {
+  "inheritedTraits": [
+   "BfoObject"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type ExclusionConstraint": {
+  "inheritedTraits": [
+   "PlanningConstraint"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type ExtensionPropertyDefinition": {
+  "inheritedTraits": [
+   "DirectiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type ExtensionPropertyValue": {
+  "inheritedTraits": [
+   "DescriptiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type FoodAggregate": {
+  "inheritedTraits": [
+   "ObjectAggregate"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type FoodObject": {
+  "inheritedTraits": [
+   "BfoObject"
+  ],
+  "isAbstract": true
+ },
+ "@schema | type Function": {
+  "inheritedTraits": [
+   "Disposition"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type GenericallyDependentContinuant": {
+  "inheritedTraits": [
+   "Continuant"
+  ],
+  "isAbstract": true
+ },
+ "@schema | type Identifier": {
+  "inheritedTraits": [
+   "DesignativeICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type IndependentContinuant": {
+  "inheritedTraits": [
+   "Continuant"
+  ],
+  "isAbstract": true
+ },
+ "@schema | type InformationContentEntity": {
+  "inheritedTraits": [
+   "GenericallyDependentContinuant"
+  ],
+  "isAbstract": true
+ },
+ "@schema | type InstantiationPattern": {
+  "inheritedTraits": [
+   "DirectiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type MaterialEntity": {
+  "inheritedTraits": [
+   "IndependentContinuant"
+  ],
+  "isAbstract": true
+ },
+ "@schema | type MealPlan": {
+  "inheritedTraits": [
+   "DirectiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type MealPlanEntry": {
+  "inheritedTraits": [
+   "DirectiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type Measurement": {
+  "inheritedTraits": [
+   "DescriptiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type NutrientProfile": {
+  "inheritedTraits": [
+   "DescriptiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type NutritionTarget": {
+  "inheritedTraits": [
+   "PlanningConstraint"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type ObjectAggregate": {
+  "inheritedTraits": [
+   "MaterialEntity"
+  ],
+  "isAbstract": true
+ },
+ "@schema | type Occurrent": {
+  "inheritedTraits": [
+   "Entity"
+  ],
+  "isAbstract": true
+ },
+ "@schema | type Plan": {
+  "inheritedTraits": [
+   "DirectiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type PlanningConstraint": {
+  "inheritedTraits": [
+   "DirectiveICE"
+  ],
+  "isAbstract": true
+ },
+ "@schema | type PortionOfSubstance": {
+  "inheritedTraits": [
+   "FoodObject"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type PriceObservation": {
+  "inheritedTraits": [
+   "DescriptiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type Process": {
+  "inheritedTraits": [
+   "Occurrent"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type Quality": {
+  "inheritedTraits": [
+   "SpecificallyDependentContinuant"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type QuantitySpecification": {
+  "inheritedTraits": [
+   "DirectiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type RealizableEntity": {
+  "inheritedTraits": [
+   "SpecificallyDependentContinuant"
+  ],
+  "isAbstract": true
+ },
+ "@schema | type RecipeIdentity": {
+  "inheritedTraits": [
+   "DirectiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type RelationKind": {
+  "inheritedTraits": [],
+  "isAbstract": false
+ },
+ "@schema | type Role": {
+  "inheritedTraits": [
+   "RealizableEntity"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type SpecificallyDependentContinuant": {
+  "inheritedTraits": [
+   "Continuant"
+  ],
+  "isAbstract": true
+ },
+ "@schema | type Specification": {
+  "inheritedTraits": [
+   "DirectiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type StateRequirement": {
+  "inheritedTraits": [
+   "DirectiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type Step": {
+  "inheritedTraits": [
+   "DirectiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type StockPolicy": {
+  "inheritedTraits": [
+   "PlanningConstraint"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type SubstitutionRule": {
+  "inheritedTraits": [
+   "DirectiveICE"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type TemporalRegion": {
+  "inheritedTraits": [
+   "Occurrent"
+  ],
+  "isAbstract": false
+ },
+ "@schema | type TypeHierarchy": {
+  "inheritedTraits": [],
+  "isAbstract": false
+ },
+ "@schema | type UtensilSet": {
+  "inheritedTraits": [
+   "ObjectAggregate"
+  ],
+  "isAbstract": false
+ },
  "Allocation | TEST -- Beef and Broccoli Stir-Fry allocation input -- Beef (raw)": {
   "fulfills": "<Specification:TEST -- stirfry S1 input beef>",
   "hasActualQuantity": "<Measurement:TEST -- Beef and Broccoli Stir-Fry input Beef (raw) mass observation>",

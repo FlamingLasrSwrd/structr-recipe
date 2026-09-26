@@ -11,7 +11,13 @@ values no script produced; a from-scratch rebuild diffed against it is what
 found that. Now the claim is something a reviewer can test.
 
 What is compared: every named entity, keyed "Type | name", with its
-properties and its relationships (shown as <Type:name>). What is not: ids,
+properties and its relationships (shown as <Type:name>); and the schema itself,
+keyed "@schema | ...": every type (abstractness and traits), property (type,
+uniqueness, index, not-null, format), relationship (multiplicities and JSON
+names) and method (its full source). The schema is included because a
+validator is a method and can be silently replaced: script 04 once overwrote
+07's full Measurement validator with its own simpler one, and only a test that
+happened to probe it noticed. What is not compared: ids,
 creation/modification stamps, ownership and visibility, and any value that
 looks like a timestamp, because test data is built relative to the moment a
 script ran.
@@ -46,10 +52,28 @@ def normalize(value):
     return value
 
 
+def snapshot_schema(client) -> dict:
+    nodes = {n["id"]: n["name"] for n in client.get("/structr/rest/SchemaNode")["result"]}
+    out = {}
+    for n in client.get("/structr/rest/SchemaNode")["result"]:
+        out[f"@schema | type {n['name']}"] = {"isAbstract": bool(n.get("isAbstract")), "inheritedTraits": sorted(n.get("inheritedTraits") or [])}
+    for p in client.get("/structr/rest/SchemaProperty")["result"]:
+        owner = nodes.get((p.get("schemaNode") or {}).get("id"), "?")
+        out[f"@schema | property {owner}.{p['name']}"] = {
+            k: p.get(k) for k in ("propertyType", "unique", "indexed", "notNull", "format")}
+    for r in client.get("/structr/rest/SchemaRelationshipNode")["result"]:
+        key = f"@schema | relationship {nodes.get(r.get('sourceId'), '?')} -[{r['relationshipType']}]-> {nodes.get(r.get('targetId'), '?')}"
+        out[key] = {k: r.get(k) for k in ("sourceMultiplicity", "targetMultiplicity", "sourceJsonName", "targetJsonName")}
+    for m in client.get("/structr/rest/SchemaMethod")["result"]:
+        owner = nodes.get((m.get("schemaNode") or {}).get("id"), "(global)")
+        out[f"@schema | method {owner}.{m['name']}"] = {"source": m.get("source"), "returnRawResult": bool(m.get("returnRawResult")), "isStatic": bool(m.get("isStatic"))}
+    return out
+
+
 def main():
     client = StructrClient(BASE_URL, "superadmin", os.environ["STRUCTR_SUPERUSER_PASSWORD"])
     client.wait_until_ready()
-    entities = {}
+    entities = snapshot_schema(client)
     for type_name in sorted(n["name"] for n in client.get("/structr/rest/SchemaNode")["result"]):
         try:
             rows = client.get_all(type_name)["result"]

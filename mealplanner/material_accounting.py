@@ -20,83 +20,63 @@ given transformation (butter, parmesan -- they don't meaningfully
 transform) correctly default to 1.0 (mass-conserving), exactly as
 Sec 5.1 already specifies for the single-input case.
 
-This means expected_combination_output() is really just
-resolveDefault(Yield) applied per input and summed -- no new relations,
-no schema change, just the existing mechanism used correctly for N
-inputs instead of assumed to only ever see one.
+This means expected_combination_output() is really just the Yield
+default (mealplanner/defaults.py, resolved by kind and keyedBy) applied per
+input and summed -- no new relations, no schema change, just the existing
+mechanism used correctly for N inputs instead of assumed to only ever see one.
 """
 
 from __future__ import annotations
 
-from mealplanner.unit_conversion import convert_to_grams
+from mealplanner.defaults import resolve_default
+from mealplanner.unit_conversion import QuantityError, convert_to_grams
 
 
 def dt(client, name: str) -> str:
     return client.get("/structr/rest/DomainType", params={"name": name})["result"][0]["id"]
 
 
-def resolve_yield_or_default(client, input_type_id: str, transformation_kind_id: str) -> float:
-    """resolveDefault(Yield) for one input type; 1.0 (mass-conserving)
-    if none resolves, matching Sec 5.1's explicit fallback rule."""
-    yield_kind = dt(client, "Yield")
-    result = client.call_method("DomainType", input_type_id, "resolveDefault", {"kindId": yield_kind})
-    if not isinstance(result, dict) or "id" not in result:
+def resolve_yield_or_default(client, input_type_id: str, transformation_kind_id: str | None) -> float:
+    """The Yield default for one input Type under one transformation, or 1.0
+    (mass-conserving) if none applies, matching Sec 5.1's explicit fallback.
+
+    Resolved by (kind, keyedBy) via mealplanner/defaults.py. The StructrScript
+    resolveDefault this used to call ignored keyedBy, so a Type with Yield
+    defaults for two transformations got whichever came back first, and the
+    key check afterwards could not recover the right one."""
+    keys = {transformation_kind_id} if transformation_kind_id else set()
+    resolved = resolve_default(client, input_type_id, dt(client, "Yield"), keys)
+    if resolved is None:
         return 1.0
-    qty = client.get_all("QuantitySpecification", result["id"])["result"]
-    # A resolved default with no keyedBy restriction would incorrectly
-    # apply to every transformation; DefaultSpecification.keyedBy is
-    # checked here explicitly rather than trusting resolveDefault alone,
-    # since resolveDefault's own kind-matching doesn't currently
-    # consider keyedBy (a limitation noted, not silently assumed away --
-    # see the module docstring's caveat below).
-    default_spec_ref = qty.get("defaultSpecification")
-    if default_spec_ref:
-        spec = client.get_all("DefaultSpecification", default_spec_ref["id"])["result"]
-        keyed_by_ids = {k["id"] for k in spec.get("keyedBy", [])}
-        if keyed_by_ids and transformation_kind_id not in keyed_by_ids:
-            return 1.0
-    return qty.get("value") or 1.0
+    value, unit = resolved.quantity.get("value"), resolved.quantity.get("unit")
+    if value is None or unit != "ratio":
+        raise ValueError(f"Yield default {resolved.default_name!r} must be a ratio; got {value!r} {unit!r}")
+    return value
 
 
 def expected_combination_output(client, plan: dict) -> float:
-    """Sum of each input's (quantity x its own resolved yield for its
-    OWN step's transformation), across every Step of the Plan, matching
-    Sec 5.1 applied per-input.
+    """Expected output mass in grams: the sum, over every input Specification
+    of every Step, of (its quantity in grams x that input's own Yield default
+    for ITS Step's transformation), matching Sec 5.1 applied per input.
 
-    BUG FIXED (found by external review): an earlier version put
-    `return total` inside the outer per-Step loop, so a multi-Step Plan
-    only ever computed the first Step's inputs. Not caught by this
-    project's own data because every recipe built so far uses exactly
-    one Step per Plan (a "combination recipe" here means one Step with
-    several input Specifications, e.g. pasta + butter + parmesan all
-    input to one "Combining" transformation) -- and because this
-    function isn't wired into any script yet (dead code). Fixed to
-    accumulate across all Steps and look up each Step's own
-    instanceOf transformation independently, rather than leaking the
-    previous Step's transformation kind forward.
+    Called by scripts/15c to compute the combination recipes' outputs rather
+    than hand-typing them. (An earlier docstring called this dead code, which
+    stopped being true when 15c started using it.)
 
-    OPEN QUESTION, not resolved here: for a genuinely chained multi-Step
-    Plan (Step 1 boils raw pasta into "boiled pasta"; Step 2 combines
-    that intermediate output with butter/parmesan), summing every
-    Step's raw inputs would double-count material that flows from one
-    Step's output into the next Step's input. This project has no such
-    recipe yet, so the fix above doesn't attempt to solve that case --
-    flagging it rather than silently assuming multi-Step Plans are
-    always "flat" (independent ingredient lists sharing one final
-    output).
+    Two bugs fixed along the way, both found by external review: `return
+    total` sat inside the per-Step loop so a multi-Step Plan counted only its
+    first Step, and each input's quantity was read as a bare number, ignoring
+    its unit. An input whose quantity has no value or won't convert to grams
+    raises QuantityError: an expected output that silently omitted an
+    ingredient would just be a wrong number.
 
-    CAVEAT: resolveDefault() walks a single DomainType's own
-    SUBCLASS_OF* chain; it does not itself filter by keyedBy (this
-    module does that filtering afterward, once, on the single resolved
-    result). If TWO DefaultSpecifications existed for the same input
-    type under different keyedBy transformations, resolveDefault would
-    only ever surface whichever one it happens to find first walking
-    upward -- not necessarily the one matching THIS Plan's
-    transformation. Not hit by this project's data (no input type has
-    more than one Yield default yet), but a real limitation worth
-    fixing in resolveDefault itself before this pattern is trusted at
-    scale.
-    """
+    STILL OPEN, not solved here: a genuinely CHAINED Plan (Step 1 boils raw
+    pasta into boiled pasta; Step 2 takes the boiled pasta plus butter) would
+    count material twice, once as Step 1's raw input and again through Step
+    2's. Every recipe built so far is one Step with several inputs, so this
+    never happens yet. The right model is a material-flow graph over the
+    Steps (each transformation's yield applied along its edge), not a sum over
+    the whole Plan; see REVIEW.md."""
     total = 0.0
     for step_ref in plan.get("steps", []):
         step = client.get_all("Step", step_ref["id"])["result"]
@@ -113,9 +93,14 @@ def expected_combination_output(client, plan: dict) -> float:
             qty_ref = spec.get("hasSpecifiedQuantity")
             if not specifies or not qty_ref:
                 continue
-            qty = client.get_all("QuantitySpecification", qty_ref["id"])["result"].get("value") or 0.0
-            yield_factor = resolve_yield_or_default(client, specifies["id"], xform_kind_id) if xform_kind_id else 1.0
-            total += qty * yield_factor
+            qty = client.get_all("QuantitySpecification", qty_ref["id"])["result"]
+            grams = None if qty.get("value") is None else convert_to_grams(client, specifies["id"], qty["value"], qty.get("unit"))
+            if grams is None:
+                raise QuantityError(
+                    f"input Specification {spec.get('name')!r}: {qty.get('value')} {qty.get('unit')!r} "
+                    f"cannot be converted to grams, so the expected output cannot be computed"
+                )
+            total += grams * resolve_yield_or_default(client, specifies["id"], xform_kind_id)
     return total
 
 
@@ -135,8 +120,8 @@ def recipe_servings(client, plan: dict) -> float:
     yield_ref = plan.get("hasRecipeYield")
     if not yield_ref:
         return 1.0
-    qty = client.get_all("QuantitySpecification", yield_ref["id"])["result"]
-    return qty.get("value") or 1.0
+    value = client.get_all("QuantitySpecification", yield_ref["id"])["result"].get("value")
+    return 1.0 if value is None else value
 
 
 def plan_specifications(client, plan: dict) -> list[dict]:

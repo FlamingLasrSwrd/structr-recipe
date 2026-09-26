@@ -84,12 +84,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from structr_client import StructrClient
 from mealplanner.inventory import eligible_on_hand_with_urgency, subtypes_of
-from mealplanner.material_accounting import candidate_input_requirements
+from mealplanner.material_accounting import candidate_input_requirements, plan_specifications
 from mealplanner.nutrition_scope import (
     DEFAULT_SERVINGS_EATEN, scope_total, serving_nutrient_amount, target_scope_problem,
 )
 from mealplanner.reservation import (
-    committed_requirements, available_for_planning, policy_eligibility_kwargs, resolve_stock_policy,
+    Reserved, available_for_planning, policy_eligibility_kwargs, resolve_stock_policy,
 )
 
 BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
@@ -99,8 +99,8 @@ VARIETY_CAP_DAYS = 14.0
 WASTE_URGENCY_WINDOW_DAYS = 5.0
 
 
-def excluded_domain_type_ids(client) -> set[str]:
-    """Every DomainType a hard ExclusionConstraint bans.
+def _banned_by(client, target_id: str) -> set[str]:
+    """Every DomainType an exclusion of `target_id` bans.
 
     Transitive in both hierarchies. For an excluded type T:
       1. T and every DESCENDANT of T are banned (excluding Tree Nut bans
@@ -118,19 +118,43 @@ def excluded_domain_type_ids(client) -> set[str]:
     generic "Poultry" while only chicken is excluded can be made with
     something else, so it isn't a hard violation; a recipe that names the
     excluded type itself is."""
+    banned_roots = subtypes_of(client, target_id)
+    banned = set(banned_roots)
+    for root_id in banned_roots:
+        for food in client.get_all("DomainType", root_id)["result"].get("foodsOfThisOrigin", []):
+            banned |= subtypes_of(client, food["id"])
+    return banned
+
+
+def excluded_domain_type_ids(client) -> set[str]:
+    """Every DomainType a HARD ExclusionConstraint bans."""
     excluded: set[str] = set()
     for ec in client.get_all("ExclusionConstraint")["result"]:
-        if ec.get("strictness") != "hard":
-            continue
-        applies_to = ec.get("appliesTo")
-        if not applies_to:
-            continue
-        banned_roots = subtypes_of(client, applies_to["id"])
-        excluded |= banned_roots
-        for root_id in banned_roots:
-            for food in client.get_all("DomainType", root_id)["result"].get("foodsOfThisOrigin", []):
-                excluded |= subtypes_of(client, food["id"])
+        if ec.get("strictness") == "hard" and ec.get("appliesTo"):
+            excluded |= _banned_by(client, ec["appliesTo"]["id"])
     return excluded
+
+
+def soft_exclusions(client) -> list[tuple[str, float, set[str]]]:
+    """(constraint name, weight, banned type ids) for every SOFT
+    ExclusionConstraint. These used to do nothing at all: ExclusionConstraint
+    inherits strictness and weight from PlanningConstraint, but only "hard"
+    was ever read, so a soft exclusion was silently inert (found by external
+    review). A soft exclusion is a preference against, not a ban: a candidate
+    that needs a banned type loses `weight` from its score."""
+    out = []
+    for ec in client.get_all("ExclusionConstraint")["result"]:
+        if ec.get("strictness") == "soft" and ec.get("appliesTo"):
+            out.append((ec["name"], _number(ec.get("weight"), 0.0), _banned_by(client, ec["appliesTo"]["id"])))
+    return out
+
+
+def _number(value, default: float) -> float:
+    """`default` only when the value is MISSING. `value or default` also
+    replaced a legitimate 0 -- a zero weight (ignore this term) became 0.5,
+    and a zero time budget became 60 -- which is domain data being overwritten
+    by a fallback (found by external review)."""
+    return default if value is None else value
 
 
 def candidate_meal_types(client, plan: dict) -> set[str]:
@@ -148,18 +172,34 @@ def candidate_meal_types(client, plan: dict) -> set[str]:
     return {c["name"] for c in recipe.get("hasMealType", [])}
 
 
-def candidate_required_types(client, plan: dict) -> set[str]:
-    """Every DomainType a Plan's Specifications `specifies`, across all
-    its Steps."""
-    required = set()
-    for step_ref in plan.get("steps", []):
-        step = client.get_all("Step", step_ref["id"])["result"]
-        for spec_ref in step.get("hasSpecification", []):
-            spec = client.get_all("Specification", spec_ref["id"])["result"]
-            specifies = spec.get("specifies")
-            if specifies:
-                required.add(specifies["id"])
-    return required
+def candidate_consumed_types(client, plan: dict) -> set[str]:
+    """The DomainTypes a cook would actually use or eat, for exclusion
+    purposes: the types named by INPUT and OUTPUT Specifications that are not
+    optional.
+
+    It used to be every Specification's type regardless of role. That
+    rejected a recipe for an excluded INSTRUMENT (equipment isn't eaten) and
+    for an OPTIONAL ingredient (it can simply be omitted), which are wrong
+    the other way from the allergy bug. Outputs count because the finished
+    dish is what is eaten: a recipe whose output is an excluded type makes
+    it. Intermediates are included as outputs too, conservatively."""
+    consumed = set()
+    for spec in plan_specifications(client, plan):
+        if spec.get("hasParticipationRole") == "instrument" or spec.get("isOptional"):
+            continue
+        if spec.get("specifies"):
+            consumed.add(spec["specifies"]["id"])
+    return consumed
+
+
+def candidate_optional_types(client, plan: dict) -> set[str]:
+    """Types the recipe lists only as optional input, for a note: a recipe
+    with an excluded OPTIONAL ingredient isn't rejected, but the user should
+    be told to leave it out."""
+    return {
+        spec["specifies"]["id"] for spec in plan_specifications(client, plan)
+        if spec.get("isOptional") and spec.get("hasParticipationRole") == "input" and spec.get("specifies")
+    }
 
 
 def active_nutrition_targets(client, meal_plan: dict) -> list[dict]:
@@ -179,13 +219,13 @@ def nutrition_fit_score(actual: float, min_val: float | None, max_val: float | N
 
 
 def stock_and_waste_scores(
-    client, plan: dict, now: datetime, reserved: dict[str, float]
+    client, plan: dict, now: datetime, reserved: Reserved
 ) -> tuple[float | None, float, list[str]]:
     """(stock_coverage in [0,1] or None if no comparable inputs,
     waste_urgency in [0,1], notes).
 
-    `reserved`: mealplanner/reservation.py's committed_requirements()
-    for the MealPlan being scored FOR, computed once by select() and
+    `reserved`: mealplanner/reservation.py's Reserved (what this MealPlan's
+    committed entries claim, exactly and per subtree), computed once by select() and
     passed in here rather than recomputed per candidate. Subtracted
     from eligibleOnHand before scoring coverage -- fixes a gap found by
     external review: two candidates scored in the same run used to both
@@ -212,7 +252,9 @@ def stock_and_waste_scores(
         eligible, soonest_days = eligible_on_hand_with_urgency(
             client, domain_type_id, now, **policy_eligibility_kwargs(policy),
         )
-        available = available_for_planning(eligible, domain_type_id, reserved)
+        available = available_for_planning(
+            client, domain_type_id, eligible, now, reserved, **policy_eligibility_kwargs(policy),
+        )
         coverage = min(1.0, available / required_qty) if required_qty else 0.0
         coverages.append(coverage)
         type_name = client.get_all("DomainType", domain_type_id)["result"].get("name")
@@ -233,6 +275,8 @@ def time_fit_score(duration_minutes: float | None, budget_minutes: float) -> flo
         return 0.5  # unknown duration -- neutral, not a penalty or a reward
     if duration_minutes <= budget_minutes:
         return 1.0
+    if budget_minutes <= 0:
+        return 0.0  # any time at all overshoots a zero budget; don't divide by it
     overage = duration_minutes - budget_minutes
     return max(0.0, 1.0 - overage / budget_minutes)
 
@@ -326,7 +370,7 @@ def nutrition_terms(
             notes.append(f"{label} outside HARD range [{min_val},{max_val}]")
         else:
             fit = nutrition_fit_score(actual, min_val, max_val)
-            term += (target.get("weight") or 0.0) * fit
+            term += _number(target.get("weight"), 0.0) * fit
             notes.append(f"{label} fit={fit:.2f}")
             if hard and under_min:
                 notes.append(f"{nutrient['name']}: HARD {scope} minimum {min_val} can only be judged once the scope is filled (nutrition_report)")
@@ -350,13 +394,14 @@ def select(
     servings_eaten: how many servings the candidate contributes to
     intake (default: one person, one serving)."""
     meal_plan = client.get_all("MealPlan", meal_plan_id)["result"]
-    time_budget = meal_plan.get("timeBudgetMinutes") or 60.0
-    time_weight = meal_plan.get("timeBudgetWeight") or 0.5
-    variety_weight = meal_plan.get("varietyWeight") or 0.5
-    stock_weight = meal_plan.get("stockWeight") or 0.0
-    waste_weight = meal_plan.get("wasteWeight") or 0.0
+    time_budget = _number(meal_plan.get("timeBudgetMinutes"), 60.0)
+    time_weight = _number(meal_plan.get("timeBudgetWeight"), 0.5)
+    variety_weight = _number(meal_plan.get("varietyWeight"), 0.5)
+    stock_weight = _number(meal_plan.get("stockWeight"), 0.0)
+    waste_weight = _number(meal_plan.get("wasteWeight"), 0.0)
 
     excluded = excluded_domain_type_ids(client)
+    soft = soft_exclusions(client)
     nutrition_targets = active_nutrition_targets(client, meal_plan)
     all_plans = client.get_all("Plan")["result"]
     # Computed once per select() call, not once per candidate -- what
@@ -364,7 +409,7 @@ def select(
     # candidate scored in this run sees the same, correctly-reduced
     # on-hand picture instead of each seeing the full amount as if the
     # others didn't exist.
-    reserved = committed_requirements(client, meal_plan_id)
+    reserved = Reserved.for_meal_plan(client, meal_plan_id)
     planned_cache: dict = {}
 
     results = []
@@ -374,7 +419,7 @@ def select(
                              "reason": f"not tagged for meal type {meal_type!r}"})
             continue
 
-        required = candidate_required_types(client, plan)
+        required = candidate_consumed_types(client, plan)
         hit = required & excluded
         if hit:
             results.append({"plan": plan, "score": None, "disqualified": True,
@@ -395,15 +440,25 @@ def select(
         stock_coverage, waste_urgency, stock_notes = stock_and_waste_scores(client, plan, now, reserved)
         stock_term = stock_weight * (stock_coverage or 0.0)
         waste_term = waste_weight * waste_urgency
-        score = time_weight * tf + variety_weight * vs + nutrition_term + stock_term + waste_term
+        soft_hits = [(name, weight) for name, weight, banned in soft if required & banned]
+        soft_penalty = sum(weight for _, weight in soft_hits)
+        score = time_weight * tf + variety_weight * vs + nutrition_term + stock_term + waste_term - soft_penalty
         reason = f"time_fit={tf:.2f} variety={vs:.2f}"
+        if soft_hits:
+            reason += " " + "; ".join(f"soft exclusion {name!r} costs {weight:g}" for name, weight in soft_hits)
+        optional_banned = candidate_optional_types(client, plan) & excluded
+        if optional_banned:
+            names = sorted(client.get_all("DomainType", i)["result"]["name"] for i in optional_banned)
+            reason += f" [leave out the optional excluded ingredient(s): {', '.join(names)}]"
         if nutrition_notes:
             reason += " " + "; ".join(nutrition_notes)
         if stock_notes:
             reason += " " + "; ".join(stock_notes)
         results.append({"plan": plan, "score": score, "disqualified": False, "reason": reason})
 
-    results.sort(key=lambda r: (r["disqualified"], -(r["score"] or -1)))
+    # `score or -1` treated a score of exactly 0 as worse than a negative one,
+    # which soft exclusions can now produce; compare against None explicitly.
+    results.sort(key=lambda r: (r["disqualified"], -(r["score"] if r["score"] is not None else 0.0)))
     return results
 
 

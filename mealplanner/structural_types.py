@@ -12,10 +12,13 @@ Order is top-down (a parent always appears before its children) so a
 setup script can walk the list in order and every `inheritedTraits`
 reference names an already-known type.
 
-Note: the build sketch's prose says "~35 types, of which ~15 are
-abstract scaffolding." Counting the actual tree below gives 16 abstract
-+ 34 concrete = 50. Recorded as a finding, not silently corrected -- the
-tree itself (not the rough prose count) is what this transcribes.
+Note: the build sketch's prose originally said "~35 types, of which ~15 are
+abstract scaffolding." The tree below has 16 abstract + 35 concrete = 51 (it
+was 50 until ExclusionConstraint was added after the original build sketch).
+The tree itself is what this transcribes and what the documents now quote;
+tests/test_docs.py fails if the documents and len(STRUCTURAL_TYPES) disagree.
+This comment once said 50 and was copied into two documents, which the same
+test caught: do not write the count into prose without that test.
 """
 
 STRUCTURAL_TYPES: list[tuple[str, bool, str | None]] = [
