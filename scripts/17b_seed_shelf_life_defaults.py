@@ -17,21 +17,14 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from structr_client import StructrClient
+from mealplanner.connection import connect
+from mealplanner.typetree import dt
 from mealplanner.inventory import shelf_life_days
 from mealplanner.seed_vocabulary import FRESH_MEAT_SHELF_LIFE, PLACEHOLDER_NOTE
 
-BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
-USERNAME = "superadmin"
-PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
-
-
-def dt(client, name):
-    return client.get("/structr/rest/DomainType", params={"name": name})["result"][0]["id"]
-
 
 def main():
-    client = StructrClient(BASE_URL, USERNAME, PASSWORD)
+    client = connect()
     client.wait_until_ready()
 
     print("[1] Compound-key ShelfLife defaults for Fresh Meat...")

@@ -43,9 +43,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from mealplanner.inventory import eligible_on_hand_with_urgency
+from mealplanner.material_accounting import candidate_input_requirements, recipe_servings_strict
 from mealplanner.typetree import ancestors_or_self
-from mealplanner.material_accounting import recipe_servings, candidate_input_requirements
-from mealplanner.unit_conversion import convert_to_grams
+from mealplanner.unit_conversion import QuantityError, convert_to_grams
+from structr_client import ReadCache
 
 MAX_POLICY_ANCESTORS = 12
 
@@ -63,7 +64,9 @@ def committed_requirements(client, meal_plan_id: str) -> dict[str, float]:
 
     Only fresh-cooking entries claim raw-ingredient stock this way (see
     module docstring for why leftover-consuming entries are out of
-    scope here)."""
+    scope here).
+
+    Raises QuantityError for an entry whose recipe has no yield in servings."""
     meal_plan = client.get_all("MealPlan", meal_plan_id)["result"]
     requirements: dict[str, float] = {}
     for entry_ref in meal_plan.get("hasEntry", []):
@@ -77,9 +80,18 @@ def committed_requirements(client, meal_plan_id: str) -> dict[str, float]:
         if not plan_ref or planned_servings is None:
             continue  # a consumes_leftover_from entry (invariant 7) -- see module docstring
         plan = client.get_all("Plan", plan_ref["id"])["result"]
-        servings = recipe_servings(client, plan)
-        if not servings:
-            continue
+        # AcquisitionList scales by planned servings / recipe yield (Sec 7). An
+        # unset yield used to count as 1, so a recipe written for four and
+        # planned for two reserved twice its ingredients as if the yield were
+        # unknown-means-one. A recipe with no yield in servings can't be scaled
+        # at all: raise, naming the entry, so the yield gets stated.
+        servings = recipe_servings_strict(client, plan)
+        if servings is None:
+            raise QuantityError(
+                f"MealPlanEntry {entry.get('name')!r} plans recipe {plan.get('name')!r}, which has no yield "
+                f"stated as a positive number of servings, so its ingredient amounts cannot be scaled to the "
+                f"{planned_servings:g} planned"
+            )
         scale = planned_servings / servings
         for domain_type_id, qty_grams in candidate_input_requirements(client, plan):
             requirements[domain_type_id] = requirements.get(domain_type_id, 0.0) + qty_grams * scale
@@ -321,6 +333,7 @@ def net_requirements(client, meal_plan_id: str, now: datetime) -> dict[str, floa
     vocabulary yet distinguishing a Type's purchased form from its
     as-required form, so that division isn't applied; amounts are in the
     recipe's own required form. Flagged, not silently assumed away."""
+    client = ReadCache(client)      # read-only: each node is fetched once for the whole computation
     pools: dict[str, dict] = {}
 
     def pool_for(type_id: str) -> dict:

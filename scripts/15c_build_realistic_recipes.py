@@ -30,18 +30,12 @@ from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from structr_client import StructrClient
+from mealplanner.connection import connect
+from mealplanner.typetree import dt
 from mealplanner.material_accounting import expected_combination_output
 
-BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
-USERNAME = "superadmin"
-PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 P = "TEST -- "
 FMT = "%Y-%m-%dT%H:%M:%S+0000"
-
-
-def dt(client, name: str) -> str:
-    return client.get("/structr/rest/DomainType", params={"name": name})["result"][0]["id"]
 
 
 def concept(client, name: str) -> str:
@@ -164,7 +158,7 @@ def cook(client, *, recipe_name, plan_id, xform_kind, input_specs, output_spec_i
 
 
 def main():
-    client = StructrClient(BASE_URL, USERNAME, PASSWORD)
+    client = connect()
     client.wait_until_ready()
     now = datetime.now(timezone.utc)
 

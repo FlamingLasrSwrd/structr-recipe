@@ -6,7 +6,10 @@ import unittest
 from unittest import mock
 
 from mealplanner import reservation
-from mealplanner.reservation import Reserved, available_for_planning, combine_policy_fields, net_requirements
+from mealplanner.reservation import (
+    Reserved, available_for_planning, combine_policy_fields, committed_requirements, net_requirements,
+)
+from mealplanner.unit_conversion import QuantityError
 from mealplanner.typetree import subtypes_of
 from tests.fakegraph import FakeGraph, Ref, type_tree, when
 
@@ -117,6 +120,53 @@ class RestrictiveCombination(unittest.TestCase):
         combined = combine_policy_fields([self.A, other])
         self.assertEqual(combined["storage"], set())
         self.assertFalse(combined["includesSubtypes"])
+
+
+class CommittedRequirementsScaleByServings(unittest.TestCase):
+    """planned servings / recipe yield, Sec 7. Recipe: 400 g chicken for a yield of 4 servings."""
+
+    def build(self, yield_value=4.0, yield_unit="servings", entries=None):
+        g = FakeGraph()
+        type_tree(g, {"Chicken": {}})
+        g.add("QuantitySpecification", "q_chicken", value=400.0, unit="g")
+        g.add("Specification", "spec", hasParticipationRole="input", specifies=Ref("Chicken"), hasSpecifiedQuantity=Ref("q_chicken"))
+        g.add("Step", "step", hasSpecification=[Ref("spec")])
+        plan = dict(steps=[Ref("step")])
+        if yield_value is not None:
+            g.add("QuantitySpecification", "q_yield", value=yield_value, unit=yield_unit)
+            plan["hasRecipeYield"] = Ref("q_yield")
+        g.add("Plan", "plan", "Chicken dinner", **plan)
+        entries = entries or [dict(hasPlannedServings=2.0)]
+        for i, props in enumerate(entries):
+            g.add("MealPlanEntry", f"e{i}", f"entry {i}", references=Ref("plan"), **props)
+        g.add("MealPlan", "week", hasEntry=[Ref(f"e{i}") for i in range(len(entries))])
+        return g
+
+    def test_planning_half_the_recipe_claims_half_the_ingredients(self):
+        # 2 servings planned of a recipe for 4: 400 x 2 / 4 = 200 g
+        self.assertEqual(committed_requirements(self.build(), "week"), {"Chicken": 200.0})
+
+    def test_two_entries_add(self):
+        g = self.build(entries=[dict(hasPlannedServings=2.0), dict(hasPlannedServings=6.0)])
+        self.assertEqual(committed_requirements(g, "week"), {"Chicken": 200.0 + 600.0})
+
+    def test_skipped_and_fulfilled_entries_claim_nothing(self):
+        g = self.build(entries=[dict(hasPlannedServings=2.0, isSkipped=True), dict(hasPlannedServings=2.0, fulfilledBy=Ref("done"))])
+        g.add("Process", "done")
+        self.assertEqual(committed_requirements(g, "week"), {})
+
+    def test_an_unstated_yield_is_an_error_not_one_serving(self):
+        # the old code took the yield as 1 and claimed 400 x 2 / 1 = 800 g
+        with self.assertRaisesRegex(QuantityError, "entry 0"):
+            committed_requirements(self.build(yield_value=None), "week")
+
+    def test_a_yield_that_is_not_in_servings_is_an_error(self):
+        with self.assertRaises(QuantityError):
+            committed_requirements(self.build(yield_unit="batch"), "week")
+
+    def test_a_zero_yield_is_an_error_not_silently_skipped(self):
+        with self.assertRaises(QuantityError):
+            committed_requirements(self.build(yield_value=0.0), "week")
 
 
 if __name__ == "__main__":

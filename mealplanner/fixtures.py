@@ -14,12 +14,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from mealplanner.inventory import current_magnitude, instance_expiration
+from mealplanner.typetree import dt  # noqa: F401 (re-exported for the scripts)
 
 FMT = "%Y-%m-%dT%H:%M:%S+0000"
-
-
-def dt(client, name: str) -> str:
-    return client.get("/structr/rest/DomainType", params={"name": name})["result"][0]["id"]
 
 
 def make_container(client, name: str, *, opened: str | None = None, storage: str | None = None,

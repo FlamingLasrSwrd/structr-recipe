@@ -21,19 +21,16 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from structr_client import StructrClient
+from mealplanner.connection import connect
 from mealplanner.fixtures import dt, make_container, make_portion, usable_grams_in_containers
 from mealplanner.inventory import eligible_on_hand_with_urgency, instance_expiration
 from mealplanner.seed_vocabulary import FRESH_MEAT_SHELF_LIFE
 
-BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
-USERNAME = "superadmin"
-PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 P = "TEST -- "
 
 
 def main():
-    client = StructrClient(BASE_URL, USERNAME, PASSWORD)
+    client = connect()
     client.wait_until_ready()
     now = datetime.now(timezone.utc)
     days = {(storage, opened): d for storage, opened, d in FRESH_MEAT_SHELF_LIFE}

@@ -31,7 +31,7 @@ from datetime import datetime, timedelta, timezone
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(SCRIPTS_DIR))
 
-from structr_client import StructrClient
+from mealplanner.connection import connect
 from mealplanner.nutrition_scope import nutrition_report, serving_nutrient_amount
 
 _spec = importlib.util.spec_from_file_location("selector_11c", os.path.join(SCRIPTS_DIR, "11c_simple_selector.py"))
@@ -39,9 +39,6 @@ _selector = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_selector)
 select = _selector.select
 
-BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
-USERNAME = "superadmin"
-PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 P = "TEST -- NutriScope "
 FMT = "%Y-%m-%dT%H:%M:%S+0000"
 MONDAY = datetime(2026, 9, 28, tzinfo=timezone.utc)
@@ -71,7 +68,7 @@ def plan_id(client, short):
 
 
 def main():
-    client = StructrClient(BASE_URL, USERNAME, PASSWORD)
+    client = connect()
     client.wait_until_ready()
     now = datetime.now(timezone.utc)
     all_ok = True

@@ -17,17 +17,13 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from structr_client import StructrClient
+from mealplanner.connection import connect
 from mealplanner.seed_vocabulary import (
     UNIT_CONVERSION_DOMAIN_TYPES,
     DENSITY_DEFAULT,
     MASS_PER_UNIT_DEFAULT,
 )
 from mealplanner.unit_conversion import convert_to_grams
-
-BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
-USERNAME = "superadmin"
-PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 
 
 def build_default_spec(client, spec: dict, hierarchy_id: str) -> tuple[str, str]:
@@ -48,7 +44,7 @@ def build_default_spec(client, spec: dict, hierarchy_id: str) -> tuple[str, str]
 
 
 def main():
-    client = StructrClient(BASE_URL, USERNAME, PASSWORD)
+    client = connect()
     client.wait_until_ready()
 
     food_identity_id = client.get(

@@ -34,7 +34,7 @@ from datetime import datetime, timedelta, timezone
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(SCRIPTS_DIR))
 
-from structr_client import StructrClient
+from mealplanner.connection import connect
 from mealplanner.material_accounting import candidate_input_requirements, candidate_outputs
 from mealplanner.nutrition_scope import nutrient_profile_amount, serving_nutrient_amount
 from mealplanner.fixtures import make_portion
@@ -50,9 +50,6 @@ excluded_domain_type_ids = _selector.excluded_domain_type_ids
 candidate_consumed_types = _selector.candidate_consumed_types
 candidate_optional_types = _selector.candidate_optional_types
 
-BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
-USERNAME = "superadmin"
-PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 P = "TEST -- Z22 "
 FMT = "%Y-%m-%dT%H:%M:%S+0000"
 
@@ -79,7 +76,7 @@ def sweep(client):
 
 
 def main():
-    client = StructrClient(BASE_URL, USERNAME, PASSWORD)
+    client = connect()
     client.wait_until_ready()
     now = datetime.now(timezone.utc)
     failures = []

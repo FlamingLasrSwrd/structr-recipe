@@ -21,16 +21,12 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from structr_client import StructrClient
+from mealplanner.connection import connect
 from mealplanner.breadth_test import P, CULINARY_ROLE_HIERARCHY
-
-BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
-USERNAME = "superadmin"
-PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 
 
 def main():
-    client = StructrClient(BASE_URL, USERNAME, PASSWORD)
+    client = connect()
     client.wait_until_ready()
 
     print("[1] Culinary Role hierarchy + Baking Fat type...")

@@ -15,12 +15,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from structr_client import StructrClient
+from mealplanner.connection import connect
 from mealplanner.structural_types import STRUCTURAL_TYPES
 
-BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
-USERNAME = "superadmin"
-PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 
 # A real 7-level concrete chain from the tree, deliberately including
 # the BfoObject rename point and ending at a concrete leaf that step 2
@@ -37,7 +34,7 @@ CHAIN_TO_VERIFY = [
 
 
 def main():
-    client = StructrClient(BASE_URL, USERNAME, PASSWORD)
+    client = connect()
     client.wait_until_ready()
 
     print(f"[1] Creating {len(STRUCTURAL_TYPES)} structural types (idempotent)...")

@@ -16,11 +16,9 @@ from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from structr_client import StructrClient
+from mealplanner.connection import connect
+from mealplanner.typetree import dt
 
-BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
-USERNAME = "superadmin"
-PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 P = "TEST -- "
 FMT = "%Y-%m-%dT%H:%M:%S+0000"
 
@@ -29,12 +27,8 @@ WEEK_START = datetime(2026, 9, 7, 0, 0, 0, tzinfo=timezone.utc)  # a Monday
 WEEK_END = WEEK_START + timedelta(days=7)
 
 
-def dt(client, name: str) -> str:
-    return client.get("/structr/rest/DomainType", params={"name": name})["result"][0]["id"]
-
-
 def main():
-    client = StructrClient(BASE_URL, USERNAME, PASSWORD)
+    client = connect()
     client.wait_until_ready()
 
     print("[1] MealPlan for the week, with its TemporalRegion...")

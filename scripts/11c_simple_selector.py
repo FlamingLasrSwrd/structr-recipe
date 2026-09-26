@@ -24,8 +24,10 @@ Scoring dimensions for v1 (per the design conversation):
     disqualifies -- same hard/soft mechanism, same code path.
   - SOFT, time fit: 1.0 if within the week's time budget, degrading
     linearly past it.
-  - SOFT, variety: bonus for not having been planned recently (capped
-    at a 14-day window; never-used gets the max bonus).
+  - SOFT, variety: bonus for being far from the nearest use of the same
+    recipe, past or planned, in any MealPlan, measured from the slot being
+    chosen (capped at a 14-day window; never-used gets the max bonus;
+    skipped entries don't count).
   - SOFT, nutrition fit: how well the candidate's output NutrientProfile
     fits each active (MealPlan.hasConstraint-attached) NutritionTarget's
     range, weighted by that NutritionTarget's own `weight`.
@@ -82,7 +84,8 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from structr_client import StructrClient
+from structr_client import ReadCache
+from mealplanner.connection import connect
 from mealplanner.inventory import eligible_on_hand_with_urgency, subtypes_of
 from mealplanner.material_accounting import candidate_input_requirements, plan_specifications
 from mealplanner.nutrition_scope import (
@@ -92,9 +95,6 @@ from mealplanner.reservation import (
     Reserved, available_for_planning, policy_eligibility_kwargs, resolve_stock_policy,
 )
 
-BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
-USERNAME = "superadmin"
-PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 VARIETY_CAP_DAYS = 14.0
 WASTE_URGENCY_WINDOW_DAYS = 5.0
 
@@ -281,27 +281,37 @@ def time_fit_score(duration_minutes: float | None, budget_minutes: float) -> flo
     return max(0.0, 1.0 - overage / budget_minutes)
 
 
-def variety_score(client, plan_id: str, now: datetime) -> float:
+def variety_score(client, plan_id: str, reference: datetime) -> float:
+    """1.0 for a recipe not used within VARIETY_CAP_DAYS of `reference`,
+    falling linearly to 0.0 for one used at that very moment: the days between
+    the reference time and the NEAREST use of this recipe, over the cap.
+
+    `reference` is the slot being chosen (select() passes slot_start, else
+    now). The distance is symmetric: a use planned for next week is as near as
+    one eaten last week. The old code measured only "days since", so a future
+    use read as a negative number of days ago and was clamped to zero, "just
+    used", however far ahead it was. A skipped entry never happened and is not
+    a use. History is deliberately global across MealPlans: variety is about
+    what the eater has had, not which plan recorded it."""
     entries = client.get_all("Plan", plan_id)["result"].get("referencedByEntries", [])
-    if not entries:
-        return 1.0  # never used -- maximum variety bonus
-    most_recent_days_ago = None
+    nearest_days = None
     for entry_ref in entries:
         entry = client.get_all("MealPlanEntry", entry_ref["id"])["result"]
+        if entry.get("isSkipped"):
+            continue
         about = entry.get("isAbout")
         if not about:
             continue
-        region = client.get_all("TemporalRegion", about["id"])["result"]
-        beginning = region.get("hasBeginning")
+        beginning = client.get_all("TemporalRegion", about["id"])["result"].get("hasBeginning")
         if not beginning:
             continue
         when = datetime.strptime(beginning, "%Y-%m-%dT%H:%M:%S%z")
-        days_ago = (now - when).total_seconds() / 86400.0
-        if most_recent_days_ago is None or days_ago < most_recent_days_ago:
-            most_recent_days_ago = days_ago
-    if most_recent_days_ago is None:
-        return 1.0
-    return max(0.0, min(1.0, most_recent_days_ago / VARIETY_CAP_DAYS))
+        days_apart = abs((reference - when).total_seconds()) / 86400.0
+        if nearest_days is None or days_apart < nearest_days:
+            nearest_days = days_apart
+    if nearest_days is None:
+        return 1.0      # never used -- maximum variety bonus
+    return min(1.0, nearest_days / VARIETY_CAP_DAYS)
 
 
 def nutrition_terms(
@@ -393,6 +403,10 @@ def select(
     the result) rather than judged against one meal in isolation.
     servings_eaten: how many servings the candidate contributes to
     intake (default: one person, one serving)."""
+    # select() only reads, so every node it touches is fetched once for the whole
+    # run (structr_client.ReadCache): a run over four recipes made 260 requests,
+    # 112 of them distinct.
+    client = ReadCache(client)
     meal_plan = client.get_all("MealPlan", meal_plan_id)["result"]
     time_budget = _number(meal_plan.get("timeBudgetMinutes"), 60.0)
     time_weight = _number(meal_plan.get("timeBudgetWeight"), 0.5)
@@ -436,7 +450,7 @@ def select(
             continue
 
         tf = time_fit_score(plan.get("estimatedDurationMinutes"), time_budget)
-        vs = variety_score(client, plan["id"], now)
+        vs = variety_score(client, plan["id"], slot_start or now)
         stock_coverage, waste_urgency, stock_notes = stock_and_waste_scores(client, plan, now, reserved)
         stock_term = stock_weight * (stock_coverage or 0.0)
         waste_term = waste_weight * waste_urgency
@@ -463,7 +477,7 @@ def select(
 
 
 def main():
-    client = StructrClient(BASE_URL, USERNAME, PASSWORD)
+    client = connect()
     client.wait_until_ready()
     now = datetime.now(timezone.utc)
 

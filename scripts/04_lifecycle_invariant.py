@@ -19,11 +19,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from structr_client import StructrClient, StructrError
+from structr_client import StructrError
+from mealplanner.connection import connect
 
-BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
-USERNAME = "superadmin"
-PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 
 # and(not(empty(this.value)), ...) guards against categorical
 # Measurements that carry only `literalValue` and no numeric `value` --
@@ -42,7 +40,7 @@ OBSERVED_AT = "2026-01-01T00:00:00+0000"
 
 
 def main():
-    client = StructrClient(BASE_URL, USERNAME, PASSWORD)
+    client = connect()
     client.wait_until_ready()
 
     measurement = client.get("/structr/rest/SchemaNode", params={"name": "Measurement"})["result"][0]

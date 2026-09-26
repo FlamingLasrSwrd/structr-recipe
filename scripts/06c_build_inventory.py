@@ -18,17 +18,11 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from structr_client import StructrClient
+from mealplanner.connection import connect
+from mealplanner.typetree import dt
 
-BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
-USERNAME = "superadmin"
-PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 
 NOW = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+0000")
-
-
-def dt(client, name: str) -> str:
-    return client.get("/structr/rest/DomainType", params={"name": name})["result"][0]["id"]
 
 
 def make_quality(client, kind_name: str, bearer_id: str, name: str) -> str:
@@ -48,7 +42,7 @@ def make_measurement(client, name: str, *, value=None, literal_value=None, unit=
 
 
 def main():
-    client = StructrClient(BASE_URL, USERNAME, PASSWORD)
+    client = connect()
     client.wait_until_ready()
 
     print("[1] ContainerObject #T4 (Tray, opened)...")

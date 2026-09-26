@@ -1,8 +1,8 @@
-"""Edge-case exploration: insufficient stock (invariant 15, never
-tested before this) and leftover consumption (consumes_leftover_from,
-schema built two sessions ago, never actually exercised with real
-data). Both are genuine probes -- some things here are EXPECTED to
-reveal gaps, not just confirm success.
+"""Edge-case exploration: insufficient stock (invariant 15, found by the
+overdraws() audit rather than refused at write time) and leftover
+consumption (consumes_leftover_from, schema built two sessions ago, never
+actually exercised with real data). Both are genuine probes -- some things
+here are EXPECTED to reveal gaps, not just confirm success.
 
 Run with: python3 scripts/15e_edge_cases.py
 """
@@ -13,34 +13,32 @@ from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from structr_client import StructrClient, StructrError
-from mealplanner.inventory import current_magnitude, physical_on_hand
+from structr_client import StructrError
+from mealplanner.connection import connect
+from mealplanner.typetree import dt
+from mealplanner.inventory import current_magnitude, overdraws
 
-BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
-USERNAME = "superadmin"
-PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 P = "TEST -- "
 FMT = "%Y-%m-%dT%H:%M:%S+0000"
 
 
-def dt(client, name):
-    return client.get("/structr/rest/DomainType", params={"name": name})["result"][0]["id"]
-
-
 def main():
-    client = StructrClient(BASE_URL, USERNAME, PASSWORD)
+    client = connect()
     client.wait_until_ready()
     now = datetime.now(timezone.utc)
 
     print("=" * 70)
-    print("EDGE CASE 1: insufficient stock (invariant 15) -- never tested")
+    print("EDGE CASE 1: insufficient stock (invariant 15)")
     print("=" * 70)
     print("Invariant 15: 'Summed input quantities per bearer cannot exceed "
           "that bearer's physical on-hand at the time of the Process.'")
-    print("No onCreate check for this exists anywhere in the build. Probing "
-          "to see what actually happens when an Allocation's actual "
-          "quantity exceeds the bearer's on-hand mass.\n")
+    print("Not a write-time check (a validator would have to compute on-hand "
+          "inside StructrScript, which cannot): recording an oversized "
+          "Allocation is accepted, and mealplanner.inventory.overdraws() is "
+          "how it is found. Probing both halves.\n")
 
+    baseline_time = now - timedelta(hours=2)
+    used_time = now - timedelta(hours=1)
     beef_portion = client.upsert("PortionOfSubstance", "name", f"{P}edge-case beef portion (only 200g on hand)", {
         "instanceOf": dt(client, "Beef (raw)"),
     })
@@ -48,33 +46,57 @@ def main():
         "hasKind": dt(client, "Mass"), "inheresIn": beef_portion,
     })
     beef_measurement = client.upsert("Measurement", "name", f"{P}edge-case beef portion mass observation", {
-        "value": 200.0, "unit": "g", "status": "observed", "hasTime": now.strftime(FMT), "isAboutQuality": beef_quality,
+        "value": 200.0, "unit": "g", "status": "observed", "hasTime": baseline_time.strftime(FMT), "isAboutQuality": beef_quality,
     })
+    use_region = client.upsert("TemporalRegion", "name", f"{P}edge-case use region", {"hasBeginning": used_time.strftime(FMT)})
+    use_process = client.upsert("Process", "name", f"{P}edge-case process using 500 g", {"occupiesTemporalRegion": use_region})
     print(f"Created a real 200g beef portion. current_magnitude confirms: "
           f"{current_magnitude(client, beef_quality, now)}g")
 
     oversized_measurement = client.post("/structr/rest/Measurement", {
         "name": f"{P}edge-case oversized allocation quantity", "value": 500.0, "unit": "g",
-        "status": "observed", "hasTime": now.strftime(FMT), "visibleToAuthenticatedUsers": True,
+        "status": "observed", "hasTime": used_time.strftime(FMT), "visibleToAuthenticatedUsers": True,
     })["result"][0]
+    failures = []
+    alloc_id = None
     try:
         alloc_id = client.post("/structr/rest/Allocation", {
             "name": f"{P}edge-case allocation exceeding on-hand mass",
-            "isAbout": beef_portion, "hasParticipationRole": "input",
+            "isAbout": beef_portion, "process": use_process, "hasParticipationRole": "input",
             "hasActualQuantity": oversized_measurement, "visibleToAuthenticatedUsers": True,
         })["result"][0]
-        print(f"\n*** GAP CONFIRMED: allocating 500g from a 200g on-hand portion "
-              f"was ACCEPTED (id={alloc_id}). Invariant 15 is not enforced anywhere "
-              f"in this build. ***")
-        client.delete(f"/structr/rest/Allocation/{alloc_id}")
+        print(f"Allocating 500g from the 200g portion was accepted (id={alloc_id}), as designed: "
+              f"the check is an audit, not a write-time rule.")
     except StructrError as e:
-        print(f"\nRejected: {e.body} -- invariant 15 IS enforced somewhere (unexpected, investigate).")
+        failures.append("the oversized Allocation was rejected at write time (unexpected)")
+        print(f"Rejected: {e.body} -- unexpected, invariant 15 was meant to be an audit.")
 
+    if alloc_id:
+        portion = client.get_all("PortionOfSubstance", beef_portion)["result"]
+        found = overdraws(client, portion)
+        # 200 g on hand, 500 g used: short by 300, and the baseline is observed so it is a real violation
+        ok = len(found) == 1 and abs(found[0].shortfall_grams - 300.0) < 1e-6 and found[0].fatal
+        print(f"  [{'OK' if ok else 'FAIL'}] overdraws() reports one violation, 300 g short, against an "
+              f"observed baseline (got {[(o.shortfall_grams, o.baseline_status) for o in found]})")
+        if not ok:
+            failures.append("overdraws() did not report the 300 g overdraw")
+        level = current_magnitude(client, beef_quality, now)
+        ok = level is not None and abs(level - (-300.0)) < 1e-6
+        print(f"  [{'OK' if ok else 'FAIL'}] current_magnitude is now -300 g (got {level})")
+        if not ok:
+            failures.append("current_magnitude did not go to -300 g")
+        client.delete(f"/structr/rest/Allocation/{alloc_id}")
+
+    client.delete(f"/structr/rest/Process/{use_process}")
+    client.delete(f"/structr/rest/TemporalRegion/{use_region}")
     client.delete(f"/structr/rest/PortionOfSubstance/{beef_portion}")
     client.delete(f"/structr/rest/Quality/{beef_quality}")
     client.delete(f"/structr/rest/Measurement/{beef_measurement}")
     client.delete(f"/structr/rest/Measurement/{oversized_measurement}")
     print("(probe data cleaned up)")
+    if failures:
+        print(f"\nFAILED ({len(failures)}): " + "; ".join(failures))
+        sys.exit(1)
 
     print("\n" + "=" * 70)
     print("EDGE CASE 2: leftover consumption lifecycle -- consumes_leftover_from")

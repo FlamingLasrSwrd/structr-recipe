@@ -7,6 +7,16 @@ them without importing each other in a cycle.
 from __future__ import annotations
 
 
+def dt(client, name: str) -> str:
+    """The id of the DomainType with this name. Vocabulary names are unique, so
+    no match or several is an error rather than an IndexError or a silently
+    chosen first one."""
+    matches = client.get("/structr/rest/DomainType", params={"name": name})["result"]
+    if len(matches) != 1:
+        raise LookupError(f"expected exactly one DomainType named {name!r}, found {len(matches)}")
+    return matches[0]["id"]
+
+
 def subtypes_of(client, domain_type_id: str) -> set[str]:
     """domain_type_id and every descendant, walking SUBCLASS_OF downward."""
     result = {domain_type_id}

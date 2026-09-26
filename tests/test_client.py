@@ -6,7 +6,7 @@ import unittest
 
 import requests
 
-from structr_client import DuplicateMatchError, StructrClient, StructrError, validate_exact_match_value
+from structr_client import DuplicateMatchError, ReadCache, StructrClient, StructrError, validate_exact_match_value
 
 
 class Recording(StructrClient):
@@ -139,6 +139,88 @@ class RequestTimeout(unittest.TestCase):
 
     def test_there_is_a_default(self):
         self.assertEqual(len(StructrClient("http://unused", "u", "p").timeout), 2)
+
+
+class ServerWithASmallDefaultPage(StructrClient):
+    """Structr returns at most its default page size unless asked for more, and says how many pages there are."""
+
+    def __init__(self, rows, default_page_size=2):
+        super().__init__("http://unused", "u", "p")
+        self.rows, self.default, self.requests = rows, default_page_size, []
+
+    def get(self, path, params=None):
+        self.requests.append((path, dict(params or {})))
+        size = (params or {}).get("_pageSize", self.default)
+        page = (params or {}).get("_page", 1)
+        chunk = self.rows[(page - 1) * size: page * size]
+        return {"result": chunk, "result_count": len(self.rows), "page_count": -(-len(self.rows) // size), "page": page}
+
+
+class CollectionReadsAreComplete(unittest.TestCase):
+    def test_every_row_comes_back_even_past_the_servers_default_page(self):
+        rows = [{"id": str(i)} for i in range(7)]
+        got = ServerWithASmallDefaultPage(rows).get_all("Portion", page_size=3)
+        self.assertEqual([r["id"] for r in got["result"]], [str(i) for i in range(7)])   # 3 pages: 3 + 3 + 1
+
+    def test_a_single_page_collection_costs_one_request(self):
+        server = ServerWithASmallDefaultPage([{"id": "a"}, {"id": "b"}])
+        server.get_all("Portion", page_size=500)
+        self.assertEqual(len(server.requests), 1)
+
+    def test_one_node_is_still_a_single_unpaged_read(self):
+        server = ServerWithASmallDefaultPage([{"id": "a"}])
+        server.get_all("Portion", "a")
+        self.assertEqual(server.requests, [("/structr/rest/Portion/a/all", {})])
+
+
+class CountingReader:
+    """Stands in for a client and counts what reaches it."""
+
+    def __init__(self, rows_by_type):
+        self.rows, self.calls = rows_by_type, []
+
+    def get_all(self, type_name, node_id=None):
+        self.calls.append(("get_all", type_name, node_id))
+        rows = self.rows[type_name]
+        if node_id is None:
+            return {"result": [dict(r) for r in rows]}
+        return {"result": dict(next(r for r in rows if r["id"] == node_id))}
+
+    def get(self, path, params=None):
+        self.calls.append(("get", path, tuple(sorted((params or {}).items()))))
+        return {"result": [{"id": "x", "name": (params or {}).get("name")}]}
+
+
+class ReadCaching(unittest.TestCase):
+    def setUp(self):
+        self.source = CountingReader({"Quality": [{"id": "q1", "name": "one"}, {"id": "q2", "name": "two"}]})
+        self.cache = ReadCache(self.source)
+
+    def test_the_same_node_is_fetched_once(self):
+        for _ in range(3):
+            self.assertEqual(self.cache.get_all("Quality", "q1")["result"]["name"], "one")
+        self.assertEqual(len(self.source.calls), 1)
+
+    def test_a_listing_also_answers_later_lookups_by_id(self):
+        self.cache.get_all("Quality")
+        self.assertEqual(self.cache.get_all("Quality", "q2")["result"]["name"], "two")
+        self.assertEqual(len(self.source.calls), 1)
+
+    def test_the_same_query_is_asked_once(self):
+        self.cache.get("/structr/rest/DomainType", params={"name": "Mass"})
+        self.cache.get("/structr/rest/DomainType", params={"name": "Mass"})
+        self.cache.get("/structr/rest/DomainType", params={"name": "Yield"})
+        self.assertEqual(len(self.source.calls), 2)
+
+    def test_what_a_caller_does_to_a_result_does_not_reach_the_cache(self):
+        self.cache.get_all("Quality", "q1")["result"]["name"] = "changed"
+        self.cache.get_all("Quality")["result"].clear()
+        self.assertEqual(self.cache.get_all("Quality", "q1")["result"]["name"], "one")
+        self.assertEqual(len(self.cache.get_all("Quality")["result"]), 2)
+
+    def test_it_is_read_only(self):
+        for write in ("post", "patch", "delete", "upsert"):
+            self.assertFalse(hasattr(self.cache, write), write)
 
 
 if __name__ == "__main__":

@@ -29,11 +29,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from structr_client import StructrClient
+from mealplanner.connection import connect
 
-BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
-USERNAME = "superadmin"
-PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 
 MAX_DEPTH = 6  # see docstring -- a real, documented bound, not unbounded recursion
 
@@ -54,7 +51,7 @@ def _build(level: int) -> str:
 
 
 def main():
-    client = StructrClient(BASE_URL, USERNAME, PASSWORD)
+    client = connect()
     client.wait_until_ready()
 
     domain_type = client.get("/structr/rest/SchemaNode", params={"name": "DomainType"})["result"][0]

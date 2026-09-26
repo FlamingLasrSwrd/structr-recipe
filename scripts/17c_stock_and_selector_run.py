@@ -18,18 +18,12 @@ from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from structr_client import StructrClient
-from mealplanner.inventory import eligible_on_hand_with_urgency, physical_on_hand
+from mealplanner.connection import connect
+from mealplanner.typetree import dt
+from mealplanner.inventory import current_magnitude, eligible_on_hand_with_urgency, instance_expiration, physical_on_hand
 
-BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
-USERNAME = "superadmin"
-PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 P = "TEST -- "
 FMT = "%Y-%m-%dT%H:%M:%S+0000"
-
-
-def dt(client, name):
-    return client.get("/structr/rest/DomainType", params={"name": name})["result"][0]["id"]
 
 
 def build_portion(client, food_type, label, value_g, observed_days_ago, now, perishability=None):
@@ -48,28 +42,46 @@ def build_portion(client, food_type, label, value_g, observed_days_ago, now, per
 
 
 def main():
-    client = StructrClient(BASE_URL, USERNAME, PASSWORD)
+    client = connect()
     client.wait_until_ready()
     now = datetime.now(timezone.utc)
 
     print("[1] Real on-hand inventory (near-expiry, already-expired, sufficient)...")
-    build_portion(client, "Chicken Breast (raw)", "on-hand chicken -- near expiry", 600.0, 4, now, "Fresh Meat")  # 5-day shelf life, 1 day left
-    build_portion(client, "Chicken Breast (raw)", "on-hand chicken -- already expired", 150.0, 8, now, "Fresh Meat")  # past 5-day shelf life
+    near = build_portion(client, "Chicken Breast (raw)", "on-hand chicken -- near expiry", 600.0, 4, now, "Fresh Meat")  # 5-day shelf life, 1 day left
+    stale = build_portion(client, "Chicken Breast (raw)", "on-hand chicken -- already expired", 150.0, 8, now, "Fresh Meat")  # past 5-day shelf life
     build_portion(client, "Beef (raw)", "on-hand beef -- sufficient", 450.0, 1, now, "Fresh Meat")
     build_portion(client, "Broccoli", "on-hand broccoli -- sufficient", 350.0, 1, now)
     print("    built 4 on-hand portions")
 
     print("\n[2] Expiry verification...")
+    # Each portion is checked on its own against values worked out from the
+    # constants above (Fresh Meat keeps 5 days). Totals for the whole type can't
+    # be asserted exactly: other demos (17d, 18b) leave chicken in stock too, and
+    # this used to hard-code 750 g / 600 g and fail on any instance holding
+    # more chicken than this script's own.
+    failures = []
+    for label, portion_id, grams, days_left in (("near expiry", near, 600.0, 1.0), ("already expired", stale, 150.0, -3.0)):
+        portion = client.get_all("PortionOfSubstance", portion_id)["result"]
+        quality = next(q for q in portion["bearerOf"] if q["type"] == "Quality")
+        magnitude = current_magnitude(client, quality["id"], now)
+        expired, left = instance_expiration(client, portion, now)
+        ok = (magnitude is not None and abs(magnitude - grams) < 0.01 and left is not None
+              and abs(left - days_left) < 0.01 and expired == (days_left < 0))
+        print(f"    [{'OK' if ok else 'FAIL'}] {label}: {grams:g} g with {days_left:g} d left "
+              f"(engine: {magnitude} g, {left} d, expired={expired})")
+        if not ok:
+            failures.append(label)
     cbr = dt(client, "Chicken Breast (raw)")
     eligible, urgency = eligible_on_hand_with_urgency(client, cbr, now)
     physical = physical_on_hand(client, cbr, now)
-    print(f"    Chicken Breast (raw): physical={physical}g (should include both, 750g), "
-          f"eligible={eligible}g (should exclude the expired 150g, ~600g), "
-          f"soonest expiry={urgency:.2f}d")
-    ok = abs(physical - 750.0) < 1 and abs(eligible - 600.0) < 1
-    print(f"    [{'OK' if ok else 'FAIL'}]")
+    ok = physical >= 750.0 and eligible >= 600.0 and physical - eligible >= 150.0 - 0.01 and urgency is not None and urgency <= 1.01
+    print(f"    [{'OK' if ok else 'FAIL'}] whole type: physical {physical:g} g includes both portions (>= 750), "
+          f"eligible {eligible:g} g includes the near-expiry one and not the expired one (>= 600, at least 150 g less), "
+          f"soonest expiry {urgency:.2f} d (<= 1)")
     if not ok:
-        print("\nFAILED.")
+        failures.append("totals")
+    if failures:
+        print(f"\nFAILED ({len(failures)}): {', '.join(failures)}")
         sys.exit(1)
 
     print("\n[3] Real StockPolicy + NutritionTarget...")

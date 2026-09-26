@@ -382,9 +382,22 @@ class StructrClient:
         created = self.post(f"/structr/rest/{type_name}", payload)
         return created["result"][0]
 
-    def get_all(self, type_name: str, node_id: str | None = None) -> dict:
+    def get_all(self, type_name: str, node_id: str | None = None, page_size: int = 500) -> dict:
         """GET with the /all view suffix - the default view omits custom
         properties and relationship collections.
+
+        A whole collection is read page by page until every row is in. A bare
+        collection GET returns only Structr's default page and says nothing
+        about the rest, so on a type with more rows than that (a year of
+        Measurements) it returned an incomplete list with no error. The result
+        is the first page's response with `result` holding every row.
         """
-        path = f"/structr/rest/{type_name}/{node_id}/all" if node_id else f"/structr/rest/{type_name}/all"
-        return self.get(path)
+        if node_id:
+            return self.get(f"/structr/rest/{type_name}/{node_id}/all")
+        path = f"/structr/rest/{type_name}/all"
+        first = self.get(path, params={"_page": 1, "_pageSize": page_size})
+        rows = list(first["result"])
+        for page in range(2, int(first.get("page_count") or 1) + 1):
+            rows.extend(self.get(path, params={"_page": page, "_pageSize": page_size})["result"])
+        first["result"] = rows
+        return first

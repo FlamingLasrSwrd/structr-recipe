@@ -18,39 +18,39 @@ Sec 4.1.1's formula, implemented literally:
     Allocation about its bearer whose Process occurred AFTER that
     Measurement's time.
 
-Sec 9's eligibility filter is SIMPLIFIED here to "not expired" only --
-storage-condition and opened-status filtering (the full
-StockPolicy.eligibleStorageConditions/eligibleWhenOpened/eligibleWhenSealed
-match) is NOT implemented. That's a real, deliberate scope cut: this
-project's test inventory doesn't yet track which container/storage
-condition a given portion actually sits in, and building that out is
-a separate piece of curation work. Flagged, not silently assumed.
+Sec 9's eligibility filter is: not expired, and (when a StockPolicy's
+flags are passed) passing its opened-status and storage-condition filters and
+its includesSubtypes setting -- eligible_on_hand_with_urgency(). Food in no
+container is outside the container-based filters (Sec 9), which round 2 #18
+in REVIEW.md questions.
 
-Expiration is computed as (the bearer's latest observed/imputed mass
-Measurement's hasTime) + (resolveDefault(ShelfLife) on the bearer's
-Perishability type, in days) -- Sec 5.5's "original expiration is
-purchase time + shelf-life default" is approximated using the mass
-Measurement's own timestamp rather than a real Purchase Process's
-temporal region, since Purchase Process modeling itself isn't built.
+Invariant 15 (no more used than there was) is an audit over the same
+quantities, overdraws()/find_overdraws(), not a write-time check.
+
+Expiration is (when the food began to exist) + (the ShelfLife default for
+its Perishability type, in days), per Sec 5.5. "When it began to exist" is
+the start of the Process the portion `beginsToExistDuring` (a purchase, or
+the cook that made a leftover), and where none is recorded, its EARLIEST
+observed/imputed mass Measurement. It used to be the LATEST weighing, so
+every reweighing restarted the clock and food could be kept fresh forever by
+weighing it again (found by external review).
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import datetime
 
 from mealplanner.defaults import resolve_default
-from mealplanner.typetree import ancestors_or_self, subtypes_of  # noqa: F401 (re-exported)
+from mealplanner.typetree import ancestors_or_self, dt, subtypes_of  # noqa: F401 (re-exported)
 from mealplanner.unit_conversion import QuantityError, convert_to_grams
+from structr_client import ReadCache
 
 FMT = "%Y-%m-%dT%H:%M:%S%z"
 
 
 def _parse(dt_str: str) -> datetime:
     return datetime.strptime(dt_str, FMT)
-
-
-def dt(client, name: str) -> str:
-    return client.get("/structr/rest/DomainType", params={"name": name})["result"][0]["id"]
 
 
 def _grams(client, food_type_id: str | None, measurement: dict, what: str) -> float:
@@ -66,6 +66,106 @@ def _grams(client, food_type_id: str | None, measurement: dict, what: str) -> fl
             f"(unrecognised unit, or it needs a Density/MassPerUnit default the food doesn't have)"
         )
     return grams
+
+
+@dataclass
+class Draw:
+    """One input Allocation about a portion, placed in time. `grams` is None
+    and `problem` says why when the quantity is unusable; the problem only
+    raises if the draw falls inside a window that is actually being computed."""
+
+    began: datetime
+    grams: float | None
+    label: str
+    problem: str | None = None
+
+
+def mass_quality(client, portion: dict) -> dict | None:
+    """The portion's Mass Quality, fully loaded, or None."""
+    for ref in portion.get("bearerOf", []):
+        if ref["type"] != "Quality":
+            continue
+        quality = client.get_all("Quality", ref["id"])["result"]
+        if (quality.get("hasKind") or {}).get("name") == "Mass":
+            return quality
+    return None
+
+
+def _baselines(client, quality: dict) -> list[tuple[datetime, dict]]:
+    """(time, Measurement) for every observed-or-imputed Measurement of the
+    Quality that has a time, oldest first."""
+    found = []
+    for ref in quality.get("measurements", []):
+        m = client.get_all("Measurement", ref["id"])["result"]
+        if m.get("status") in ("observed", "imputed") and m.get("hasTime"):
+            found.append((_parse(m["hasTime"]), m))
+    return sorted(found, key=lambda pair: pair[0])
+
+
+def _draws(client, bearer: dict, food_type_id: str | None) -> list[Draw]:
+    """Every input Allocation about the bearer. A Process with no start time
+    raises here: its consumption could not be placed against any baseline."""
+    draws = []
+    for alloc_ref in bearer.get("allocationsAbout", []):
+        alloc = client.get_all("Allocation", alloc_ref["id"])["result"]
+        if alloc.get("hasParticipationRole") != "input":
+            continue
+        process_ref = alloc.get("process")
+        if not process_ref:
+            continue
+        process = client.get_all("Process", process_ref["id"])["result"]
+        region_ref = process.get("occupiesTemporalRegion")
+        beginning = client.get_all("TemporalRegion", region_ref["id"])["result"].get("hasBeginning") if region_ref else None
+        if not beginning:
+            raise QuantityError(
+                f"input Allocation {alloc.get('name')!r} belongs to a Process with no start time, "
+                f"so its consumption cannot be placed relative to the baseline"
+            )
+        qty_ref = alloc.get("hasActualQuantity")
+        if not qty_ref:
+            draws.append(Draw(_parse(beginning), None, alloc.get("name"), f"input Allocation {alloc.get('name')!r} has no actual quantity"))
+            continue
+        try:
+            grams = _grams(client, food_type_id, client.get_all("Measurement", qty_ref["id"])["result"], "input Allocation quantity")
+            draws.append(Draw(_parse(beginning), grams, alloc.get("name")))
+        except QuantityError as problem:
+            draws.append(Draw(_parse(beginning), None, alloc.get("name"), str(problem)))
+    return draws
+
+
+def _level_at(client, food_type_id, baselines, draws, at: datetime) -> tuple[float, dict] | None:
+    """(grams on hand at `at`, the baseline Measurement used), or None if no
+    Measurement had been made by then. Sec 4.1.1, literally: the latest
+    baseline at or before `at`, minus every input draw from that baseline's
+    instant up to and including `at`.
+
+    The lower bound is inclusive, on purpose: a Process at the EXACT instant
+    of the baseline counts as consumption. Nothing recorded says which came
+    first, so this is a stated convention, not an accident: a weighing at the
+    same instant as a use is read as taken BEFORE it. Overstating stock
+    (planning a meal around food already used) is the costlier error, while
+    the opposite reading costs a slightly conservative count. Data-model.md
+    Sec 4.1.1 says "after", so this deviates from it on purpose (Sec 18 J8).
+    A strict reading would need the model to carry the order, which it does
+    not."""
+    known = [(t, m) for t, m in baselines if t <= at]
+    if not known:
+        return None
+    baseline_time, baseline = known[-1]
+    level = _grams(client, food_type_id, baseline, "baseline mass Measurement")
+    for draw in draws:
+        if draw.began < baseline_time or draw.began > at:
+            continue
+        if draw.problem:
+            raise QuantityError(draw.problem)
+        level -= draw.grams
+    return level, baseline
+
+
+def _portion_context(client, quality: dict) -> tuple[dict, str | None]:
+    bearer = quality.get("inheresIn")
+    bearer_full = client.get_all(bearer["type"], bearer["id"])["result"] if bearer else {}
+    return bearer_full, (bearer_full.get("instanceOf") or {}).get("id")
 
 
 def current_magnitude(client, quality_id: str, now: datetime) -> float | None:
@@ -86,60 +186,73 @@ def current_magnitude(client, quality_id: str, now: datetime) -> float | None:
     start time) raises QuantityError. Only Mass Qualities are supported; that
     is all physical_on_hand tracks, and converting to grams is meaningless for
     any other kind."""
-    quality = client.get_all("Quality", quality_id)["result"]
+    return _magnitude(client, client.get_all("Quality", quality_id)["result"], now)
+
+
+def _magnitude(client, quality: dict, now: datetime) -> float | None:
+    """current_magnitude for a Quality that is already loaded."""
     kind = (quality.get("hasKind") or {}).get("name")
     if kind != "Mass":
         raise QuantityError(f"current_magnitude supports Mass Qualities only; {quality.get('name')!r} is {kind!r}")
-    bearer = quality.get("inheresIn")
-    bearer_full = client.get_all(bearer["type"], bearer["id"])["result"] if bearer else {}
-    food_type_id = (bearer_full.get("instanceOf") or {}).get("id")
+    bearer, food_type_id = _portion_context(client, quality)
+    level = _level_at(client, food_type_id, _baselines(client, quality), _draws(client, bearer, food_type_id), now)
+    return None if level is None else level[0]
 
-    measurements = [
-        client.get_all("Measurement", m["id"])["result"]
-        for m in quality.get("measurements", [])
-    ]
-    baseline = [
-        m for m in measurements
-        if m.get("status") in ("observed", "imputed") and m.get("hasTime") and _parse(m["hasTime"]) <= now
-    ]
-    if not baseline:
-        return None
-    latest = max(baseline, key=lambda m: _parse(m["hasTime"]))
-    latest_time = _parse(latest["hasTime"])
-    on_hand = _grams(client, food_type_id, latest, "baseline mass Measurement")
 
-    consumed = 0.0
-    for alloc_ref in bearer_full.get("allocationsAbout", []):
-        alloc = client.get_all("Allocation", alloc_ref["id"])["result"]
-        if alloc.get("hasParticipationRole") != "input":
-            continue
-        process_ref = alloc.get("process")
-        if not process_ref:
-            continue
-        process = client.get_all("Process", process_ref["id"])["result"]
-        region_ref = process.get("occupiesTemporalRegion")
-        beginning = client.get_all("TemporalRegion", region_ref["id"])["result"].get("hasBeginning") if region_ref else None
-        if not beginning:
-            raise QuantityError(
-                f"input Allocation {alloc.get('name')!r} belongs to a Process with no start time, "
-                f"so its consumption cannot be placed relative to the baseline"
-            )
-        began = _parse(beginning)
-        # ">=" on the lower bound, not ">": a Process at the EXACT instant of
-        # the baseline Measurement still counts as consumption. Test data
-        # built from one `NOW` ties exactly, and a strict comparison read a
-        # portion whose whole 454 g was used by a same-instant Process as
-        # still holding all of it. That leaves "measurement before or after
-        # consumption at the same instant" undecidable; it is a known open
-        # question (REVIEW.md #18), not a settled rule.
-        if began < latest_time or began > now:
-            continue
-        qty_ref = alloc.get("hasActualQuantity")
-        if not qty_ref:
-            raise QuantityError(f"input Allocation {alloc.get('name')!r} has no actual quantity")
-        consumed += _grams(client, food_type_id, client.get_all("Measurement", qty_ref["id"])["result"], "input Allocation quantity")
+@dataclass
+class Overdraw:
+    """More was used than there was, at the time of one Process (invariant 15)."""
 
-    return on_hand - consumed
+    portion: str
+    at: datetime
+    shortfall_grams: float
+    baseline_status: str            # "observed" is a real violation; "imputed" is informative
+
+    @property
+    def fatal(self) -> bool:
+        return self.baseline_status == "observed"
+
+
+def overdraws(client, portion: dict, tolerance_grams: float = 1e-6) -> list[Overdraw]:
+    """Invariant 15 for one portion: at the time of each Process that drew on
+    it, the summed input quantities so far (since the applicable baseline)
+    must not exceed what was on hand. Checked at every draw's own time, not
+    only now, so a later weighing that resets the level cannot hide an
+    earlier overdraw.
+
+    Data-model.md Sec 11: a violation against an `imputed` baseline is
+    informative rather than fatal (the Type default was wrong for this
+    instance; the fix is an `observed` Measurement), hence Overdraw.fatal.
+    Draws before the first Measurement can't be judged (nothing to compare
+    with) and aren't reported. Raises QuantityError on an unusable quantity,
+    as current_magnitude does.
+
+    This is an audit, not a write-time check: a validator would have to
+    compute on-hand inside StructrScript, which cannot (see this module's
+    docstring). Recording an oversized Allocation is therefore still accepted;
+    this is how it gets found."""
+    quality = mass_quality(client, portion)
+    if quality is None:
+        return []
+    bearer, food_type_id = _portion_context(client, quality)
+    baselines = _baselines(client, quality)
+    draws = _draws(client, bearer, food_type_id)
+    found = []
+    for at in sorted({d.began for d in draws}):
+        level = _level_at(client, food_type_id, baselines, draws, at)
+        if level is not None and level[0] < -tolerance_grams:
+            found.append(Overdraw(portion.get("name") or portion["id"], at, -level[0], level[1].get("status")))
+    return found
+
+
+def find_overdraws(client) -> list[Overdraw]:
+    """overdraws() over every portion in the graph."""
+    client = ReadCache(client)
+    found = []
+    for type_name in ("PortionOfSubstance", "DiscreteWholeItem"):
+        for portion in client.get_all(type_name)["result"]:
+            found.extend(overdraws(client, portion))
+    return found
 
 
 def shelf_life_days(
@@ -201,52 +314,60 @@ def container_storage_condition(client, portion: dict) -> str | None:
     return condition["name"] if condition else None
 
 
+def origin_time(client, portion: dict) -> datetime | None:
+    """When the portion began to exist: the start of the Process it
+    `beginsToExistDuring` (data-model.md Sec 5.5, "purchase date is the
+    Process's temporal region"), or None if no such Process is recorded.
+
+    A Process that is recorded but has no start time raises QuantityError
+    rather than being ignored, like an input Allocation's Process in
+    current_magnitude: a stated origin with no date is malformed, and falling
+    back to a weighing would quietly hide it.
+
+    Known limit: a portion divided off a larger one (a Portioning Process)
+    begins to exist at the division, so if that is recorded as its origin the
+    shelf-life clock restarts there. The model has no parent link to trace it
+    back to the purchase."""
+    process_ref = portion.get("beginsToExistDuring")
+    if not process_ref:
+        return None
+    process = client.get_all("Process", process_ref["id"])["result"]
+    region_ref = process.get("occupiesTemporalRegion")
+    beginning = client.get_all("TemporalRegion", region_ref["id"])["result"].get("hasBeginning") if region_ref else None
+    if not beginning:
+        raise QuantityError(
+            f"{portion.get('name')!r} begins to exist during Process {process.get('name')!r}, "
+            f"which has no start time, so its expiry cannot be dated"
+        )
+    return _parse(beginning)
+
+
 def instance_expiration(client, portion: dict, now: datetime) -> tuple[bool, float | None]:
     """(is_expired, days_until_expiry) for one PortionOfSubstance/
     DiscreteWholeItem. days_until_expiry is negative if already expired.
-    (None, None) if there isn't enough data to compute (no mass
-    Measurement, or no ShelfLife default resolves for its Perishability
-    type)."""
-    mass_quality = next(
-        (q for q in portion.get("bearerOf", []) if q["type"] == "Quality"), None
-    )
-    perishability = portion.get("hasPerishabilityType")
-    if not mass_quality or not perishability:
-        return False, None
-    quality_full = client.get_all("Quality", mass_quality["id"])["result"]
-    if (quality_full.get("hasKind") or {}).get("name") != "Mass":
-        # bearerOf may hold several Qualities -- find the mass one specifically
-        mass_quality = next(
-            (
-                q for q in portion.get("bearerOf", [])
-                if q["type"] == "Quality"
-                and (client.get_all("Quality", q["id"])["result"].get("hasKind") or {}).get("name") == "Mass"
-            ),
-            None,
-        )
-        if not mass_quality:
-            return False, None
-        quality_full = client.get_all("Quality", mass_quality["id"])["result"]
+    (False, None) if there isn't enough data to compute (no mass
+    Measurement made by `now`, or no ShelfLife default resolves for its
+    Perishability type).
 
-    baseline = [
-        client.get_all("Measurement", m["id"])["result"]
-        for m in quality_full.get("measurements", [])
-    ]
-    # Bounded by `now` like current_magnitude: a Measurement dated in the
-    # future must not push an expiry date out.
-    baseline = [
-        m for m in baseline
-        if m.get("status") in ("observed", "imputed") and m.get("hasTime") and _parse(m["hasTime"]) <= now
-    ]
-    if not baseline:
+    The clock starts at origin_time() (purchase or the cook that made it), else
+    at the earliest observed/imputed mass Measurement made by `now`. A
+    Measurement counts only if it is made by `now`, like current_magnitude, and
+    at least one is needed: expiry is only reported for food we know exists."""
+    perishability = portion.get("hasPerishabilityType")
+    quality_full = mass_quality(client, portion) if perishability else None
+    if quality_full is None:
         return False, None
-    latest = max(baseline, key=lambda m: _parse(m["hasTime"]))
+
+    weighed = [t for t, _ in _baselines(client, quality_full) if t <= now]
+    if not weighed:
+        return False, None
+    started = origin_time(client, portion) or weighed[0]
     opened_status = container_opened_status(client, portion) or "Sealed"
     storage_condition = container_storage_condition(client, portion) or "Fridge"
     days = shelf_life_days(client, perishability["id"], opened_status, storage_condition)
     if days is None:
         return False, None
-    expiry = _parse(latest["hasTime"]).timestamp() + days * 86400.0
+    expiry = started.timestamp() + days * 86400.0
     days_until = (expiry - now.timestamp()) / 86400.0
     return days_until < 0, days_until
 
@@ -261,17 +382,10 @@ def physical_on_hand(client, domain_type_id: str, now: datetime) -> float:
             instance_of = instance.get("instanceOf")
             if not instance_of or instance_of["id"] not in types:
                 continue
-            mass_quality = next(
-                (
-                    q for q in instance.get("bearerOf", [])
-                    if q["type"] == "Quality"
-                    and (client.get_all("Quality", q["id"])["result"].get("hasKind") or {}).get("name") == "Mass"
-                ),
-                None,
-            )
-            if not mass_quality:
+            quality = mass_quality(client, instance)
+            if quality is None:
                 continue
-            magnitude = current_magnitude(client, mass_quality["id"], now)
+            magnitude = _magnitude(client, quality, now)
             if magnitude is not None:
                 total += magnitude
     return total
@@ -329,17 +443,10 @@ def eligible_on_hand_with_urgency(
             instance_of = instance.get("instanceOf")
             if not instance_of or instance_of["id"] not in types:
                 continue
-            mass_quality = next(
-                (
-                    q for q in instance.get("bearerOf", [])
-                    if q["type"] == "Quality"
-                    and (client.get_all("Quality", q["id"])["result"].get("hasKind") or {}).get("name") == "Mass"
-                ),
-                None,
-            )
-            if not mass_quality:
+            quality = mass_quality(client, instance)
+            if quality is None:
                 continue
-            magnitude = current_magnitude(client, mass_quality["id"], now)
+            magnitude = _magnitude(client, quality, now)
             if not magnitude or magnitude <= 0:
                 continue
             is_expired, days_until = instance_expiration(client, instance, now)

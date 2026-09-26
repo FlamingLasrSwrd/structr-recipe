@@ -13,21 +13,15 @@ from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from structr_client import StructrClient
+from mealplanner.connection import connect
+from mealplanner.typetree import dt
 from mealplanner.breadth_test import (
     P, PASTA_YIELD, PASTA_INPUT_MASS_G, PASTA_EXPECTED_OUTPUT_G, PASTA_ACTUAL_OUTPUT_G,
     ONION_MASS_PER_UNIT, ONION_YIELD, ONION_ACTUAL_OUTPUT_G,
 )
 
-BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
-USERNAME = "superadmin"
-PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 NOW = datetime.now(timezone.utc)
 FMT = "%Y-%m-%dT%H:%M:%S+0000"
-
-
-def dt(client, name: str) -> str:
-    return client.get("/structr/rest/DomainType", params={"name": name})["result"][0]["id"]
 
 
 def by_name(client, type_name: str, name: str) -> str:
@@ -260,7 +254,7 @@ def build_onion_recipe(client):
 
 
 def main():
-    client = StructrClient(BASE_URL, USERNAME, PASSWORD)
+    client = connect()
     client.wait_until_ready()
     build_pasta_recipe(client)
     build_onion_recipe(client)

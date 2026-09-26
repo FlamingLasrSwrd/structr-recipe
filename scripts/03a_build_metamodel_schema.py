@@ -14,18 +14,15 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from structr_client import StructrClient
+from mealplanner.connection import connect
 from mealplanner.metamodel_types import PROPERTIES, RELATIONSHIPS
 
-BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
-USERNAME = "superadmin"
-PASSWORD = os.environ["STRUCTR_SUPERUSER_PASSWORD"]
 
 NEW_TYPES = ["DomainType", "TypeHierarchy", "RelationKind"]
 
 
 def main():
-    client = StructrClient(BASE_URL, USERNAME, PASSWORD)
+    client = connect()
     client.wait_until_ready()
 
     print("[1] Creating new metamodel SchemaNodes (DomainType, TypeHierarchy, "

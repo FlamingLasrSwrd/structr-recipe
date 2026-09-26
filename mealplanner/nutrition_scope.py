@@ -61,6 +61,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 
 from mealplanner.material_accounting import candidate_outputs, recipe_servings_strict
+from structr_client import ReadCache
 
 FMT = "%Y-%m-%dT%H:%M:%S%z"
 DEFAULT_SERVINGS_EATEN = 1.0
@@ -242,6 +243,7 @@ def nutrition_report(client, meal_plan_id: str) -> list[dict]:
     Status: ok / below_min / above_max / indeterminate (some entry has no
     nutrient data, so the total is a lower bound and a shortfall can't be
     concluded). Totals cover PLANNED meals only."""
+    client = ReadCache(client)      # read-only: each node is fetched once for the whole report
     meal_plan = client.get_all("MealPlan", meal_plan_id)["result"]
     targets = [
         client.get_all("NutritionTarget", c["id"])["result"]

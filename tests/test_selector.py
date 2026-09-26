@@ -4,6 +4,7 @@ that are legitimately zero, exclusions by role, soft exclusions, and ordering.""
 import importlib.util
 import os
 import unittest
+from datetime import timedelta
 
 os.environ.setdefault("STRUCTR_SUPERUSER_PASSWORD", "unused-in-tests")
 _spec = importlib.util.spec_from_file_location(
@@ -115,6 +116,51 @@ class SoftExclusionsCost(unittest.TestCase):
         recipe(g, "unaffected", [("input", "Flour", False)])
         names = [r["plan"]["name"] for r in sel.select(g, "week", when(25))]
         self.assertEqual(names, ["unaffected", "penalised"])     # `score or -1` put the zero last
+
+
+class VarietyIsDistanceToTheNearestUse(unittest.TestCase):
+    """A recipe used (or planned) within the 14-day cap of the slot scores distance / 14, in either direction.
+    The old code measured only "days since", so a use planned for next week counted as "just used" (days
+    ago went negative and was clamped to 0), and a skipped entry counted as a use."""
+
+    TODAY = when(25)
+
+    def score(self, entries, reference=None):
+        """entries: [(days from today, skipped)] for one recipe (negative = in the past)."""
+        g = kitchen()
+        recipe(g, "stew", [("input", "Flour", False)])
+        refs = []
+        for i, (offset, skipped) in enumerate(entries):
+            start = (self.TODAY + timedelta(days=offset)).strftime("%Y-%m-%dT%H:%M:%S%z")
+            g.add("TemporalRegion", f"r{i}", hasBeginning=start)
+            g.add("MealPlanEntry", f"e{i}", isAbout=Ref(f"r{i}"), isSkipped=skipped)
+            refs.append(Ref(f"e{i}"))
+        g.nodes["stew"]["referencedByEntries"] = refs
+        return sel.variety_score(g, "stew", reference or self.TODAY)
+
+    def test_never_used_is_the_maximum(self):
+        self.assertEqual(self.score([]), 1.0)
+
+    def test_a_week_ago_is_half(self):
+        self.assertAlmostEqual(self.score([(-7, False)]), 0.5)
+
+    def test_a_use_planned_for_next_week_counts_the_same_as_last_week(self):
+        # was 0.0: 7 days ahead read as -7 days ago and was clamped to zero
+        self.assertAlmostEqual(self.score([(7, False)]), 0.5)
+
+    def test_the_nearest_of_several_uses_decides(self):
+        # yesterday and ten days ahead: the nearer, 1 day, scores 1/14
+        self.assertAlmostEqual(self.score([(-1, False), (10, False)]), 1 / 14)
+
+    def test_beyond_the_cap_is_the_maximum(self):
+        self.assertEqual(self.score([(-24, False), (20, False)]), 1.0)
+
+    def test_a_skipped_entry_is_not_a_use(self):
+        self.assertEqual(self.score([(-1, True)]), 1.0)          # yesterday, but it never happened
+
+    def test_the_reference_time_is_the_slot_not_today(self):
+        # used today; the meal being chosen is three days from now
+        self.assertAlmostEqual(self.score([(0, False)], reference=self.TODAY + timedelta(days=3)), 3 / 14)
 
 
 if __name__ == "__main__":

@@ -22,18 +22,21 @@ Sec 5.1 already specifies for the single-input case.
 
 This means expected_combination_output() is really just the Yield
 default (mealplanner/defaults.py, resolved by kind and keyedBy) applied per
-input and summed -- no new relations, no schema change, just the existing
-mechanism used correctly for N inputs instead of assumed to only ever see one.
+input -- no new relations, no schema change, just the existing mechanism used
+correctly for N inputs instead of assumed to only ever see one. For a Plan
+whose Steps chain, each input's yielded mass is routed through the Steps
+(total_output_grams, data-model.md Sec 18 J11) rather than summed over the
+whole Plan, which would count an intermediate twice.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Callable
+
 from mealplanner.defaults import resolve_default
+from mealplanner.typetree import dt
 from mealplanner.unit_conversion import QuantityError, convert_to_grams
-
-
-def dt(client, name: str) -> str:
-    return client.get("/structr/rest/DomainType", params={"name": name})["result"][0]["id"]
 
 
 def resolve_yield_or_default(client, input_type_id: str, transformation_kind_id: str | None) -> float:
@@ -54,44 +57,139 @@ def resolve_yield_or_default(client, input_type_id: str, transformation_kind_id:
     return value
 
 
+@dataclass
+class FlowStep:
+    """One Step as far as material flow is concerned. `inputs` holds
+    (type id, grams or None when the recipe states no amount); `outputs` the
+    type ids the Step produces."""
+
+    name: str
+    kind_id: str | None
+    inputs: list[tuple[str, float | None]]
+    outputs: list[str]
+
+
+def total_output_grams(steps: list[FlowStep], yield_of: Callable[[str, str | None], float]) -> float:
+    """Expected mass, in grams, leaving a Plan: material flowed through its
+    Steps, with each input's own yield applied at the Step that takes it.
+
+    A Step's flow is the sum over its inputs of (amount x yield of that input
+    under that Step's transformation). An input's amount is
+      - its stated quantity, if it has one;
+      - otherwise, if a DIFFERENT Step of the Plan produces its type (an
+        intermediate: step 1 boils pasta, step 2 tosses the boiled pasta with
+        butter), that producing Step's flow;
+      - otherwise nothing (a raw input with no stated amount, such as salt
+        "to taste", contributes zero).
+    The Plan's output is the summed flow of its terminal Steps, those whose
+    output no other Step consumes. Because an intermediate is taken up by the
+    Step that consumes it, and only terminal Steps are summed, nothing is
+    counted twice; summing over every input of every Step (which this used to
+    do) counted boiled pasta once as raw pasta and again as boiled pasta.
+
+    Where the flow cannot be traced without guessing, this raises
+    QuantityError rather than choosing: an intermediate consumed by several
+    Steps with no stated amounts (how is it divided?), a Step producing both
+    an intermediate and a final output (how much goes where?), a cycle.
+
+    Two assumptions, inherited from candidate_outputs(): a type is identified
+    by its DomainType, so a Plan that both consumes and produces one type in
+    different roles reads as a chain; and the stated amount of an intermediate
+    is taken as authoritative even when it disagrees with what the producing
+    Step's own flow works out to (a recipe that says "use 250 g of the boiled
+    pasta" means 250 g)."""
+    producers: dict[str, list[int]] = {}
+    consumers: dict[str, list[int]] = {}
+    for i, step in enumerate(steps):
+        for type_id in step.outputs:
+            producers.setdefault(type_id, []).append(i)
+        for type_id, _ in step.inputs:
+            consumers.setdefault(type_id, []).append(i)
+
+    def consumed_outputs(i: int) -> list[str]:
+        return [t for t in steps[i].outputs if any(c != i for c in consumers.get(t, []))]
+
+    for i, step in enumerate(steps):
+        taken = consumed_outputs(i)
+        if taken and len(taken) < len(set(step.outputs)):
+            raise QuantityError(
+                f"step {step.name!r} produces both an intermediate that a later step consumes and a final output; "
+                f"how its material divides between them is not stated"
+            )
+
+    flows: dict[int, float] = {}
+    in_progress: set[int] = set()
+
+    def flow(i: int) -> float:
+        if i in flows:
+            return flows[i]
+        if i in in_progress:
+            raise QuantityError(f"step {steps[i].name!r} is part of a cycle: its material flows back into itself")
+        in_progress.add(i)
+        step = steps[i]
+        total = 0.0
+        for type_id, grams in step.inputs:
+            if grams is None:
+                others = [p for p in producers.get(type_id, []) if p != i]
+                if not others:
+                    continue                      # raw, no stated amount: contributes nothing
+                if len(consumers[type_id]) > 1:
+                    raise QuantityError(
+                        f"an intermediate consumed by {len(consumers[type_id])} steps (including {step.name!r}) "
+                        f"states no amount, so how it divides between them is undecided"
+                    )
+                if len(others) > 1:
+                    raise QuantityError(f"an intermediate produced by {len(others)} steps states no amount")
+                grams = flow(others[0])
+            total += grams * yield_of(type_id, step.kind_id)
+        in_progress.discard(i)
+        flows[i] = total
+        return total
+
+    # Every Step is traced, not only the terminal ones, so a cycle or an
+    # ambiguity anywhere in the Plan raises instead of being ignored: two Steps
+    # feeding each other have no terminal Step at all and would otherwise
+    # sum to a silent 0.
+    all_flows = [flow(i) for i in range(len(steps))]
+    return sum(all_flows[i] for i in range(len(steps)) if not consumed_outputs(i))
+
+
 def expected_combination_output(client, plan: dict) -> float:
-    """Expected output mass in grams: the sum, over every input Specification
-    of every Step, of (its quantity in grams x that input's own Yield default
-    for ITS Step's transformation), matching Sec 5.1 applied per input.
+    """Expected output mass in grams of a Plan (Sec 5.1 applied per input,
+    routed through the Plan's Steps by total_output_grams()).
 
     Called by scripts/15c to compute the combination recipes' outputs rather
-    than hand-typing them. (An earlier docstring called this dead code, which
-    stopped being true when 15c started using it.)
-
-    Two bugs fixed along the way, both found by external review: `return
-    total` sat inside the per-Step loop so a multi-Step Plan counted only its
-    first Step, and each input's quantity was read as a bare number, ignoring
-    its unit. An input whose quantity has no value or won't convert to grams
-    raises QuantityError: an expected output that silently omitted an
-    ingredient would just be a wrong number.
-
-    STILL OPEN, not solved here: a genuinely CHAINED Plan (Step 1 boils raw
-    pasta into boiled pasta; Step 2 takes the boiled pasta plus butter) would
-    count material twice, once as Step 1's raw input and again through Step
-    2's. Every recipe built so far is one Step with several inputs, so this
-    never happens yet. The right model is a material-flow graph over the
-    Steps (each transformation's yield applied along its edge), not a sum over
-    the whole Plan; see REVIEW.md."""
-    total = 0.0
+    than hand-typing them. Bugs fixed along the way, all found by external
+    review: `return total` sat inside the per-Step loop so a multi-Step Plan
+    counted only its first Step; each input's quantity was read as a bare
+    number, ignoring its unit; and a chained Plan (one Step's output consumed
+    by the next) counted the same material twice. An input whose quantity has
+    a value but won't convert to grams raises QuantityError: an expected
+    output that silently omitted an ingredient would just be a wrong number.
+    An input with no quantity at all is a raw ingredient stated without an
+    amount and contributes nothing."""
+    steps = []
     for step_ref in plan.get("steps", []):
         step = client.get_all("Step", step_ref["id"])["result"]
-        # Each step's transformation kind is looked up fresh (not carried
-        # over from a previous step) -- a step's inputs are yielded
-        # against THAT step's own transformation, per Sec 5.1.
+        # Each Step's transformation kind is looked up fresh (not carried
+        # over from a previous Step) -- a Step's inputs are yielded
+        # against THAT Step's own transformation, per Sec 5.1.
         instance_of = step.get("instanceOf")
-        xform_kind_id = instance_of["id"] if instance_of else None
+        inputs, outputs = [], []
         for spec_ref in step.get("hasSpecification", []):
             spec = client.get_all("Specification", spec_ref["id"])["result"]
-            if spec.get("hasParticipationRole") != "input":
-                continue
             specifies = spec.get("specifies")
+            if not specifies:
+                continue
+            role = spec.get("hasParticipationRole")
+            if role == "output":
+                outputs.append(specifies["id"])
+                continue
+            if role != "input":
+                continue
             qty_ref = spec.get("hasSpecifiedQuantity")
-            if not specifies or not qty_ref:
+            if not qty_ref:
+                inputs.append((specifies["id"], None))
                 continue
             qty = client.get_all("QuantitySpecification", qty_ref["id"])["result"]
             grams = None if qty.get("value") is None else convert_to_grams(client, specifies["id"], qty["value"], qty.get("unit"))
@@ -100,28 +198,9 @@ def expected_combination_output(client, plan: dict) -> float:
                     f"input Specification {spec.get('name')!r}: {qty.get('value')} {qty.get('unit')!r} "
                     f"cannot be converted to grams, so the expected output cannot be computed"
                 )
-            total += grams * resolve_yield_or_default(client, specifies["id"], xform_kind_id)
-    return total
-
-
-def recipe_servings(client, plan: dict) -> float:
-    """Plan.hasRecipeYield, in servings -- data-model.md's AcquisitionList
-    formula ("planned-servings / recipe-yield") only makes sense if
-    recipe-yield is denominated in servings, which settles what was
-    previously an unresolved unit ambiguity (see data-model.md Rev 4.3).
-    Defaults to 1.0 if unset, same neutral-fallback convention as
-    duration/nutrition elsewhere in this project.
-
-    Moved here from scripts/11c_simple_selector.py so
-    mealplanner/reservation.py can share it without a script importing
-    another script -- this and candidate_input_requirements() below are
-    both about walking a Plan's own structure, the same job
-    expected_combination_output() does above."""
-    yield_ref = plan.get("hasRecipeYield")
-    if not yield_ref:
-        return 1.0
-    value = client.get_all("QuantitySpecification", yield_ref["id"])["result"].get("value")
-    return 1.0 if value is None else value
+            inputs.append((specifies["id"], grams))
+        steps.append(FlowStep(step.get("name") or step["id"], instance_of["id"] if instance_of else None, inputs, outputs))
+    return total_output_grams(steps, lambda type_id, kind_id: resolve_yield_or_default(client, type_id, kind_id))
 
 
 def plan_specifications(client, plan: dict) -> list[dict]:
@@ -180,12 +259,13 @@ def candidate_input_requirements(client, plan: dict) -> list[tuple[str, float]]:
 
 def recipe_servings_strict(client, plan: dict) -> float | None:
     """Plan.hasRecipeYield in servings, or None if it isn't stated as a
-    positive number of servings. Unlike recipe_servings() this never
-    falls back to 1.0: for nutrition, "1 serving" is a factual claim
-    about how much one person eats, and an unset or non-serving yield
-    (e.g. a "batch") must make the per-serving amount unknown rather
-    than a guess. Found by external review (missing information turning
-    into a plausible-looking default)."""
+    positive number of servings. It never falls back to 1.0: "1 serving" is a
+    factual claim, and an unset or non-serving yield (e.g. a "batch") must
+    make the answer unknown rather than a guess. Both users of a yield rely on
+    that: nutrition (the amount per serving) and reservation (planned servings
+    / recipe yield, data-model.md Sec 7). A lenient reader that returned 1.0
+    used to serve reservation and has been removed. Found by external review
+    (missing information turning into a plausible-looking default)."""
     yield_ref = plan.get("hasRecipeYield")
     if not yield_ref:
         return None

@@ -73,9 +73,20 @@ STATUS KEY:
 #   regardless of its declared unit). Unlike most entries in this
 #   IMPLEMENTED section, this isn't an onCreate write-time check --
 #   there's nothing to reject at write time, only a computation that
-#   must not silently guess. Same category as invariant 15 in that
-#   sense, except this one IS wired into the one place that currently
-#   consumes it, where invariant 15 is not.
+#   must not silently guess.
+#
+# 15 (as an audit, not a validator): "Summed input quantities per bearer
+#   cannot exceed that bearer's physical on-hand at the time of the
+#   Process." mealplanner/inventory.py's overdraws() checks it at every
+#   draw's own time (so a later weighing cannot hide an earlier overdraw)
+#   and find_overdraws() scans every portion; an `imputed` baseline gives an
+#   informative Overdraw (fatal=False), an `observed` one a real violation,
+#   as the invariant says. It is NOT a write-time check: a validator would
+#   have to compute on-hand inside StructrScript, which cannot (the
+#   recursive/multi-entity ceiling found while building resolveDefault), so
+#   an oversized Allocation is still accepted when written and is found
+#   afterwards. Proven against real Structr by scripts/15e, and offline by
+#   tests/test_inventory.py.
 #
 # 28 (as a computation, not a validator): "AcquisitionList counts only
 #   entries not yet fulfilledBy a completed Process."
@@ -269,9 +280,6 @@ STOCK_POLICY_ONCREATE = (
 #
 # 2b, 9 (wasRevisionOf part), 11 (Identifier): need wasRevisionOf /
 #   Identifier's denotes+scheme relations, not built.
-# 15: needs currentMagnitude()/physicalOnHand() (compute-don't-store
-#   magnitude-over-time, data-model.md Sec 4.1.1) -- real, substantial
-#   unbuilt machinery, not a validator.
 # 16: "No Allocation target both input and output of the same Process."
 #   Genuinely awkward as a per-Allocation onCreate check: an
 #   Allocation's Process link may be set before OR after the Allocation
