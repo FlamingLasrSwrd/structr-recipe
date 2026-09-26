@@ -267,6 +267,31 @@ STOCK_POLICY_ONCREATE = (
 #   (expected_combination_output()'s estimate, material_accounting.py),
 #   which is real, separate work. mealplanner/reservation.py's own
 #   module docstring states this scope cut explicitly.
+# --- Not tracked here until the self-audit before the second external
+# review (they were simply missing, not judged and skipped): -------------
+#
+# 2 (first half): "Every Measurement is about exactly one Quality or
+#   Disposition and has exactly one hasTime." isAboutQuality is a single-
+#   valued relationship, which covers "exactly one Quality". hasTime is an
+#   OPTIONAL Date (mealplanner/recipe_schema.py notes the invariant but
+#   doesn't make the property notNull), so a Measurement with no time is
+#   accepted -- and mealplanner/inventory.py then silently ignores it
+#   when choosing a baseline (`and m.get("hasTime")`), so an observation
+#   without a time simply doesn't count. Not enforced.
+# 10: a modelling rule about has-member-part vs has-continuant-part vs
+#   located-in. A convention for how to model, not a property of stored
+#   data that anything could check; nothing enforces it and nothing could.
+# 14a: "unaccounted is a derived diagnostic, never a validity condition."
+#   Satisfied vacuously: no code rejects a Process on it. The diagnostic
+#   itself is only computed in scripts/06d's sanity check, not as a
+#   reusable function.
+# 25: equipment exclusivity per Equipment Type -- needs an exclusivity
+#   flag on Equipment Types and an overlap check across Processes'
+#   temporal regions; neither is built.
+# 27: a leftover-consuming entry can't be scheduled before its source
+#   Process completes, nor after the leftover's effective expiration --
+#   needs the same source-surplus and expiry machinery as 23/24; not built.
+#
 # 30 (partial): "A NutritionTarget and its rollup must share nutrient and
 #   quantity kind; bounds state inclusive/exclusive; daily scope states
 #   its day-boundary rule." mealplanner/nutrition_scope.py applies the

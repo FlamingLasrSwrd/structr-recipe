@@ -1,66 +1,104 @@
-# Review notes
+# Review guide
 
-You're looking at a solo, AI-assisted build of a BFO-grounded meal-planning data model, implemented on Structr 6.x/Neo4j. This document orients a reviewer coming in cold: what to read first, what's already been self-reported as a gap or a finding, and what would be most useful to check independently.
+A solo, AI-assisted build of a BFO-grounded meal-planning data model on Structr 6.x/Neo4j. This is the second external code review. The first reviewed the repository as it stood at commit `0cc20f1`; this guide says what became of each of its findings, what a pre-review self-audit found on top, and what is still open.
 
-Nothing here is asking you to trust the claims below — the opposite. Where a claim is made ("this invariant is enforced," "this bug exists"), the code and commit history should let you verify or refute it directly.
+Nothing here asks you to trust a claim. Every "fixed" below names a commit and a script you can run, and every "open" says why it is open. Where a claim was found smaller or wrong, that is stated too.
 
-## Where to start
+## What is being reviewed
 
-1. **`docs/CLAUDE.md`** — read this first. It has a document-authority table (`data-model.md` and `structr-build-sketch.md` are authoritative; the two `design-review-document*.md` files are historical and explicitly should not be followed as current guidance — they record pre-fix state and would reintroduce solved problems if read as-is), a list of hard rules that came from real data-loss incidents, and the deliberately-out-of-scope list.
-2. **`docs/data-model.md`** — the actual model. BFO-grounded (with IAO/CCO/RO/PROV-O/OWL-Time/SKOS/QUDT companions), four major revisions plus a fifth (§17, "Rev 4.3") added during this build when implementation contact surfaced real gaps. §11 has the 30 domain invariants; §14–17 are dated changelogs explaining *why* each revision happened, not just what changed.
-3. **`docs/structr-build-sketch.md`** — how the model maps onto Structr specifically (the three-layer split: frozen structural traits / metamodel-as-data / instance data). §5 has an addendum documenting where the implementation deviates from what this doc originally planned (StructrScript → Python for several algorithms) and why.
-4. **`docs/structr-cheatsheet.md`** — empirically-verified Structr mechanics, unrelated to this project's domain. Large; skim unless you're checking a specific implementation claim.
-5. **The commit history** (`git log`) — every commit message explains the *why*, not just the diff. This was a deliberate practice throughout, not written after the fact for this review.
+- **Correctness of the computations** (`mealplanner/`): inventory and expiry, unit conversion, reservation and the shopping list, nutrition scoping, stock-policy resolution, exclusions.
+- **The Structr client and schema helpers** (`structr_client/`), including how they behave against a schema that has drifted.
+- **The model itself** (`docs/data-model.md`), especially Rev 4.3 (§17) and Rev 4.4 (§18), which record resolutions chosen under implementation pressure.
+- **Whether the repo is honest about itself:** does a fresh build reproduce what it claims, do the tests test what they say, does the invariant tracker match reality.
 
-## Repo structure
+Start with `docs/CLAUDE.md` for the document-authority table and the hard rules, then this file. The two `docs/design-review-document*.md` files are historical and describe the model *before* their own fixes; do not review the current model against them.
 
-- `mealplanner/` — Python modules: schema definitions (`*_schema.py`), the domain-invariant validators (`domain_invariants.py`), the compute-don't-store inventory engine (`inventory.py`), material accounting (`material_accounting.py`), seed vocabulary.
-- `structr_client/` — a generic Structr REST client, no project-specific knowledge (deliberately kept separate — see `docs/CLAUDE.md`'s repo conventions).
-- `scripts/` — numbered in build order (`01_...` through `18_...`); each is independently re-runnable (idempotent) and most end with their own inline verification. Roughly: `01`–`04` are the structural spike, `05` seeds vocabulary, `06` builds the first real recipe end to end, `07` on is domain invariants and the meal-planning layer, `08`–`09` are breadth tests, `10`–`14` build out meal planning/nutrition/stock scoring, `15` is a full data reset plus a realistic full-lifecycle stress test, `16`–`18` are targeted fixes from a holes-and-gaps analysis (see below).
-- Everything is graph state in a local Structr/Neo4j instance (not committed) — the scripts are the reproducible source of truth for what's *in* that graph. There's no need to stand up Structr to review the model or the Python logic; you'd only need it to actually re-run and re-verify a script's claims live.
+## Deliberately out of scope
 
-## Test-data hygiene — worth spot-checking
+`docs/CLAUDE.md` lists things considered and declined (single-user by design, no per-serving customization, no freeze/thaw state transitions, no non-linear scaling, free-text shelf location, no OWL reasoning). Flagging their absence is not useful. **There is also no optimizer:** selection is a filter plus a weighted scorer, built as a first step, and no numeric definition of a good week exists.
 
-Convention throughout: any exploratory/illustrative/test instance data is name-prefixed `TEST -- `; real, curated vocabulary is not. This was applied consistently by intent, but it's exactly the kind of thing worth an independent grep — search for entity creation calls without the prefix and sanity-check that everything unprefixed is genuinely meant to be permanent vocabulary, not something that slipped through.
+## Running it
 
-## Self-reported findings — a checklist, not a victory lap
+```bash
+cp .env.example .env && docker compose up -d
+set -a && source .env && set +a
+python3 scripts/23a_schema_drift_test.py                    # offline, no Structr needed
+for f in $(ls scripts/*.py | sort -V); do python3 "$f" || break; done   # full build
+python3 tools/snapshot_state.py | diff - tools/expected_state.json && echo identical
+```
 
-These are things *I* found and, in most cases, fixed. Independent confirmation (or refutation) of any of these would be the most valuable thing a reviewer could do, since they're exactly the kind of claim that's easy to get subtly wrong when the same author who wrote the code also "verified" it.
+**Verified from scratch.** On an empty instance (fresh containers and volumes), the loop above ran all 44 scripts to completion in about six minutes on a warm machine; it stops at the first failure, so none failed. The snapshot check then reports no difference, and a snapshot of the maintainer's working instance is byte-identical to it: 214 named entities on each side. Only the maintainer's environment has been tested (Linux, Docker, Structr 6.0.0, Neo4j 2025.12.1); a first boot on a cold machine takes several times longer.
 
-### A. Data-modeling / BFO correctness
+This was not always true, and the check is why it is now. Before this pass the same rebuild failed two scripts and left about 40 entities and 40 property values unreproduced (item 1 of the self-audit below). `tools/expected_state.json` is a golden file: if you change what a script creates, regenerate it and read the diff.
 
-- **`data-model.md` §17 (Rev 4.3)** is the changelog for fixes made *during* this build, after the model was supposedly finalized (Rev 4.2). Each entry (H1–H5) is a claim that something in the original model was wrong or underspecified. Worth checking each on its merits:
-  - H1: the yield/material-accounting formula (§5.1) was single-input shaped; the fix applies a yield factor per input before summing, for combination recipes. Is this the right fix, or should combination yield be modeled differently entirely?
-  - H2: three relations (`for_type`, `for_meal_plan`, `targets_entry`) were used in the model's own prose but never formally named in §7. This is the *third* independent occurrence of that failure mode (after the original `E9` finding recorded in `docs/design-review-document-round2.md`). A systematic pass checking all 30 invariants against §7 was recommended but never done — genuinely open work, not just a suggestion.
-  - H3: `has_recipe_yield`'s unit (servings vs. batches vs. something else) was never specified in the model; resolved by inference from the `AcquisitionList` formula. Is that inference sound?
-  - H4/H5: `ContainerObject` gained `has_opened_status` and `has_storage_condition` to make §8's compound `ShelfLife` key actually usable. Reasonable, or should opened/sealed and storage condition be modeled some other way (e.g., as literal values rather than `DomainType` entries)?
-- **The "Reading A" resolution** (a food's Perishability classification is an independent instance-level fact, not a second parent of the same `DomainType` node — see `data-model.md` §1 and the multi-hierarchy discussion) — this was a genuine ambiguity in the model that got resolved via judgment call, not derivation. Worth an ontologist's second opinion.
-- **`ExclusionConstraint`** (a new concrete `PlanningConstraint` subtype, added for allergy/dietary-restriction handling — not in the original model at all) — was this the right structural choice versus, say, reusing `StockPolicy` with a convention, or modeling exclusions entirely differently?
+## Round 1: what became of each finding
 
-### B. Structr implementation
+The first review made 25 numbered points. Each was checked against the code and the live instance before anything was changed.
 
-- **`resolveDefault` doesn't honor its own documented signature.** `data-model.md` §8 says a `DefaultSpecification` resolves by its `(hasKind, keyedBy)` signature; the live StructrScript implementation only ever filters by `hasKind`. Documented in `docs/structr-build-sketch.md` §5's addendum. Two places work around it rather than fix it (`mealplanner/material_accounting.py`, `mealplanner/inventory.py`'s `shelf_life_days`) — worth checking whether the workarounds are actually sufficient for the cases that currently exist, and what would break if a `DomainType` ever carried two same-`hasKind` defaults with different `keyedBy` sets in a case the workarounds don't cover.
-- **A literal comma in any Structr property value silently breaks exact-match REST queries** (`docs/structr-cheatsheet.md` §4) — confirmed empirically, and a guard was added to `structr_client/client.py`'s `upsert()` to reject commas outright. It caught real bugs during this build (several are visible in the commit history). Question worth checking: are there *other* characters with the same problem (the cheatsheet documents semicolon as a reserved OR-match separator, for instance) that aren't guarded against?
-- **The StructrScript-vs-Python split** — `resolveDefault` and all `onCreate`/`onSave` invariant validators are StructrScript; `currentMagnitude()`, `physicalOnHand()`, `eligibleOnHand()`, `material_accounting.py`, and the selector itself are plain Python over REST. The stated reason (`mealplanner/inventory.py`'s module docstring) is that StructrScript hit a real ceiling on multi-hop/multi-entity control flow. Worth a skeptical read: is this actually a hard limitation, or could more of this reasonably live in Structr?
+| # | Finding | Status |
+|---|---|---|
+| 1 | `ensure_type` violated the project's own "never change a populated type's traits" rule | **Fixed** (`e767abd`, `cc92fb0`). Drift now raises `SchemaDriftError`; `isAbstract` is compared too |
+| 2 | `ensure_property` / `ensure_relationship` accepted a live schema that differed from the code | **Fixed** (`cc92fb0`), and the strict helpers immediately found a real drift (below). Tested offline by `23a`, and against every schema script on a live schema |
+| 3 | `expected_combination_output` returned after the first Step | **Fixed** (`e767abd`). It was uncalled dead code, so nothing was corrupted; it is now used to compute the combination recipes' outputs. The chained-Step double-count is an open modeling question |
+| 4 | Stock scoring ignored units | **Fixed** (`e767abd`, `unit_conversion.py`, invariant 13). Limits: only density and mass-per-unit conversions, only two placeholder defaults exist, and the unit table is hard-coded rather than the SKOS scheme the model describes |
+| 5 | Daily/weekly nutrition targets judged per meal | **Fixed** (`54b5538`, `nutrition_scope.py`; model §18 J3/J4) |
+| 6 | The selector isn't plan-level | **By design, unchanged.** Still greedy per slot; stock and nutrition now see already-planned entries, but nothing optimizes jointly |
+| 7 | No reservation layer | **Partly fixed** (`e767abd`). Raw-ingredient reservation for fresh-cook entries and `net_requirements()` exist. Leftover surplus (invariants 23/24) is not built |
+| 8 | Expiry anchored to the latest mass measurement | **Open.** Known and documented in `inventory.py`; needs a shelf-life start timestamp or a Purchase Process |
+| 9 | "No container" means two different things | **Open, needs a decision.** Expiry assumes Sealed and Fridge; eligibility filters treat it as "filter doesn't apply". Both documented |
+| 10 | First applicable StockPolicy wins | **Fixed** (`e47bc30`, `resolve_stock_policy`; model §18 J2) |
+| 11 | Exclusions one hop deep | **Fixed** (`e47bc30`; §18 J6). A type *above* an excluded one is not banned, which for allergies is a choice worth challenging |
+| 12 | Required-type set loses multiplicity | **No change.** It feeds only the set-membership exclusion check, where multiplicity is irrelevant; quantities have their own function |
+| 13 | Only the first output considered | **Fixed** (`e47bc30`, `candidate_outputs`; §18 J5) |
+| 14 | Missing yield defaults to 1 serving | **Partly fixed.** Nutrition is strict (`54b5538`). **Reservation still uses the lenient `recipe_servings` and defaults to 1.** Open |
+| 15 | Difficulty authored or derived? | **Open.** It is an authored enum today; the model leans toward derived |
+| 16 | `Function` is unused | **Open** |
+| 17 | Numeric truthiness (`or 1.0`) | **Checked, mostly not live.** Invariant 14 already rejects a zero yield, and the other sites treat 0 and None identically. Unchanged; the pattern remains fragile |
+| 18 | Tied timestamps can't be ordered | **Open.** `current_magnitude` treats a Process at the same instant as a measurement as after it; documented |
+| 19, 20 | REST N+1 traversal | **Open, now measured:** one selector run over 4 recipes and 17 stock portions makes 256 HTTP requests and takes about 18 s. It scales with recipes x ingredients x portions and is not usable beyond toy size |
+| 21 | Docs and code can drift | **Partly fixed.** `docs/` verified identical to the working copies; §18 records the semantics that had lived only in code comments. No machine-checkable schema manifest exists, and `docs/CLAUDE.md`'s status table still says Rev 4.2 |
+| 22 | Invariant tracker needs three states | **Partly.** The tracker now separates structural / write-time / computation / partial / deferred, and covers all 30 (below). It does not use the reviewer's exact vocabulary |
+| 23 | Test scripts leave state behind | **Partly fixed.** `16b`, `20a`, `21a`, `22a` remove what they create. `15e` removes its probe allocation but leaves its "Leftover test week" plan and entries in place on purpose, because `16b` builds on them; the older breadth scripts (`08`, `09`) leave everything until `15a` wipes it |
+| 24 | Placeholder nutrient data can satisfy hard constraints | **Open.** Profiles are labelled PLACEHOLDER by name, but nothing stops them deciding a hard constraint |
+| 25 | Several meanings of "is a kind of X" | **Partly.** `subtypes_of` is shared by exclusions, stock and policy resolution; `resolveDefault` (StructrScript) remains a separate traversal |
 
-### C. Domain invariant coverage
+Findings that turned out smaller than reported: #3 (dead code), #8 (already self-documented), #17 (guarded by an invariant). They were still worth reading, and #8 in particular is independently confirmed.
 
-`mealplanner/domain_invariants.py` is the single source of truth for which of the model's 30 invariants are enforced, which are structurally free, and which are deliberately deferred (with reasons). Roughly 12 of 30 are implemented; the rest are either genuinely blocked on unbuilt structural pieces (documented) or — in one case — confirmed *not* enforced at all despite the underlying computation existing:
+## Found by the pre-review self-audit
 
-- **Invariant 15** ("summed input quantities cannot exceed physical on-hand") has zero enforcement anywhere. Confirmed by direct probe (see `scripts/15e_edge_cases.py`): allocating 500g from a 200g on-hand portion was accepted outright. The compute-don't-store machinery to check this (`currentMagnitude()`) already exists; nothing calls it at write time.
-- **Invariant 27a**'s consistency check (`ROLE_ONCREATE` in `domain_invariants.py`) only checks when both sides of the comparison are already resolvable, and silently passes otherwise — same reasoning used to defer invariant 16 entirely. Is "check when possible" actually safe here, or does it create a window where a bad state can be written and never caught?
+These were not in the first review.
 
-### D. Selector / scoring design
+1. **The live instance disagreed with the committed scripts.** Rebuilding from scratch and diffing against the working instance showed about 40 entities and 40 property values that no script produced: three yield defaults, four compound shelf-life defaults, servings-denominated yields, computed recipe outputs, and the opened-status, storage-condition and leftover-reservation fixtures. They came from ad-hoc verification code in earlier sessions, so this file's earlier claim that "the scripts are the reproducible source of truth" was false. All of it is now captured in scripts (`15b`, `15c`, `15d`, `16b`, `17b`, `17c`, `17d`, `18b`; commit `1675630`), and a from-scratch build is compared with the working instance (see the reproduction result above).
+2. **Script order was not dependency order.** `15f` needs the `Sealed` type and compound shelf-life defaults that `17a`/`17b` create, so on a fresh build it crashed. It is now `17c`.
+3. **Invariant 27a had no committed test.** A commit claimed it was "verified against a correct case and a deliberately wrong one" by ad-hoc code. `16b` is that check: one accepted case and two rejected, each with the right error token.
+4. **The invariant tracker omitted four of the thirty** (2, 10, 25, 27). Invariant 2's `hasTime` is an optional Date, so a Measurement without a time is accepted and `inventory.py` then silently ignores it.
+5. **`net_requirements()` ignored a StockPolicy's eligibility filters** while the selector applied them, so the shopping list disagreed with the selector about the same stock. Found by re-running a demo weeks later, after test inventory had aged out. Fixed in `54b5538`.
+6. **Guards could be bypassed.** The comma-in-name guard covered `upsert()` only; a Role and three Measurements were created with commas through direct `POST`s. The guard now lives in `post()` (`1675630`).
+7. **A schema drift the old helpers hid:** `06a` declared `hasParticipationRole` as nullable while `07_domain_invariants.py` later patched it to `notNull` directly. Fixed in `cc92fb0`.
+8. **README bug:** it told readers to copy `.env.example` but never to load it into the shell, so every script raised `KeyError`.
+9. **Reproducibility hygiene:** Neo4j was `latest` (now pinned to the running version), the compose port was fixed (now `STRUCTR_PORT`), and `structr/license.key` is an intentionally empty placeholder for a bind mount, now commented as such.
 
-`scripts/11c_simple_selector.py` is a weighted-sum scorer (not a real optimizer — see `docs/CLAUDE.md`'s explicit note that no optimizer has ever been designed for this project; this is deliberately the "simple path" discussed and agreed on before it was built). One finding from testing, not yet acted on:
+## Open items
 
-- A real run showed a near-expiring ingredient (waste urgency scored 0.80/1.0) still losing to a faster recipe, because the time-budget term dominated the linear sum. Nothing in the current design escalates urgency non-linearly as expiry approaches — a soft constraint stays uniformly "soft" regardless of how close to a hard failure it is. Is a linear weighted sum the wrong shape for this, and if so, what should replace it?
+Beyond the open rows above:
 
-## What would be most useful
+- **Variety scoring** treats an entry planned for the future as "just used" (days-ago goes negative, clamped to zero), so already-planned recipes are penalized. It is also global across MealPlans. Neither was examined.
+- **Reservation scaling** defaults an unset recipe yield to 1 (see #14).
+- **Invariants:** 12 deferred (9, 11, 15-24) plus 2b and 9a. Invariant 15 has **no enforcement at all**: an allocation of 500 g against 200 g on hand is accepted. `scripts/15e` demonstrates it.
+- **Duplication:** 14 scripts define their own `dt()`, and 39 define the same URL/user/password constants. A `StructrClient.from_env()` and a shared lookup helper would remove most of it.
+- **No automated suite** beyond `23a` and the demo scripts. The 30 invariants were meant to be the test suite; about a third have a check.
+- `docs/CLAUDE.md`'s document-status table names Rev 4.2; the model is at 4.4.
 
-Roughly in order of leverage:
+## Where a review would help most
 
-1. **An ontologist's read of `data-model.md`**, especially the Rev 4.3 additions (§17) and the "Reading A" multi-hierarchy resolution — these were judgment calls made under implementation pressure, exactly where a second opinion is worth the most.
-2. **A skeptical pass over `mealplanner/domain_invariants.py`** against `data-model.md` §11 — confirm the coverage claims, and specifically try to break invariant 27a's "check when possible" logic.
-3. **A Structr-specific technical review** of `structr_client/client.py` and the `onCreate` validators in `mealplanner/domain_invariants.py` for correctness (the StructrScript is string-concatenated Python — easy to get subtly wrong in ways that only show up at write time).
-4. **A general code-quality pass** — this was built by one AI-assisted developer across several sessions; consistency drift, dead code, and over-elaborate abstractions in places that didn't need them are all plausible and haven't had a dedicated look.
+1. **The model, §17 and §18.** These are judgment calls made while implementing, not derivations. The ones most worth an ontologist's challenge: J1 (reading `AcquisitionList` as one shared pool), J2 (nearest-policy-wins and restrictive ties), J5 (deriving "final output" from Plan structure), J6 (exclusion not extending upward).
+2. **Try to break the computations** with data the fixtures don't contain: a recipe whose output is also an input, two policies at different depths, a stock portion with a measurement but no time, a container with no state, a target in an odd unit. Several scripts show how to build isolated throwaway fixtures (`22a` builds and removes its own).
+3. **The schema helpers.** `SchemaDriftError` refuses to reconcile; is there a legitimate migration path it makes too hard, and is every attribute that matters compared?
+4. **Test quality.** Which scripts assert against the engine's own output rather than independently worked-out values? `22a`, `21a`, `17d`, `18b` were written to avoid that; the older ones (`08`, `09`, `15e`) may not.
+5. **General code quality:** the duplication above, the script/module boundary (`11c` is both a library and a demo), and error handling.
+
+## Test-data convention
+
+Illustrative and test instance data is name-prefixed `TEST -- `; curated vocabulary is not, and placeholder vocabulary values carry `[PLACEHOLDER -- not sourced from USDA/FDC yet]` in their names.
+
+**Audited at the end of a from-scratch build:** 214 named entities, 128 `TEST`-marked and 86 unmarked. All 86 are vocabulary: `DomainType` (45), `TypeHierarchy` (13), `DefaultSpecification` (10) with the `QuantitySpecification` values they point at (10), `NutrientProfile` (3), and the meal-type `Concept`s and scheme (5). No instance data (recipes, portions, processes, measurements, meal plans) is unmarked, and every default value and profile carries the placeholder marker in its name. The step-6 worked example (`06b`-`06d`) does create unmarked instance data, but `15a` deletes it and `15c` rebuilds it as `TEST` data, so it exists unmarked only between those scripts.
