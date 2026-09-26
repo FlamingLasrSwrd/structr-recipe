@@ -23,7 +23,7 @@ from mealplanner.planning.evaluate import (
     Evaluation, Violation, basic_reason, group_states, group_violation, initial_partial, resolve,
 )
 from mealplanner.planning.model import PlanningProblem
-from mealplanner.planning.search import exact
+from mealplanner.planning.search import auto
 
 
 @dataclass
@@ -113,12 +113,12 @@ def _remedies(problem: PlanningProblem, violations: list[Violation]) -> list[str
     return out
 
 
-def diagnose(problem: PlanningProblem, *, node_limit: int = 200_000, time_limit_s: float | None = None) -> Diagnosis:
-    strict = exact(problem, node_limit=node_limit, time_limit_s=time_limit_s)
+def diagnose(problem: PlanningProblem, *, node_limit: int = 200_000, time_limit_s: float = 10.0) -> Diagnosis:
+    strict = auto(problem, node_limit=node_limit, time_limit_s=time_limit_s)
     unusable = {c.name: basic_reason(problem, c) for c in problem.candidates.values() if basic_reason(problem, c)}
     if strict.best is not None:
         return Diagnosis(True, strict.best, strict.proven, [], [], [], unusable)
-    relaxed = exact(problem, relaxed=True, node_limit=node_limit, time_limit_s=time_limit_s)
+    relaxed = auto(problem, relaxed=True, node_limit=node_limit, time_limit_s=time_limit_s)
     violations = relaxed.best.violations if relaxed.best else []
     return Diagnosis(
         False, relaxed.best, strict.proven, violations, _impossible_alone(problem),

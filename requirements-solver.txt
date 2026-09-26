@@ -1,0 +1,5 @@
+# Optional: the CP-SAT solver behind mealplanner/planning/cpsat.py. Everything else
+# in this repo needs only `requests` (see the README). Install into a virtualenv:
+#   python3 -m venv .venv && .venv/bin/pip install -r requirements-solver.txt
+ortools==9.15.6755
+requests>=2.31

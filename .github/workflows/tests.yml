@@ -23,3 +23,15 @@ jobs:
       - run: python -m unittest discover -s tests -t . -v
       - run: python scripts/23a_schema_drift_test.py
       - run: python tools/check_names.py
+
+  # The same tests with the optional CP-SAT solver installed, so the adapter's
+  # agreement with the brute-force oracle is exercised (the job above skips it).
+  with-solver:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-solver.txt
+      - run: python -m unittest discover -s tests -t . -v

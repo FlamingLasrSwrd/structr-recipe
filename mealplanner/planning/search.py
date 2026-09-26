@@ -45,6 +45,7 @@ class SearchResult:
     method: str
     feasible_count: int | None = None     # the oracle only
     total_count: int | None = None
+    upper_bound: float | None = None      # the CP-SAT model's ceiling on the score, when it has one
 
 
 def _key(ev: Evaluation, relaxed: bool) -> tuple[float, float]:
@@ -179,28 +180,54 @@ def beam(problem: PlanningProblem, *, relaxed: bool = False, width: int = 40) ->
     return SearchResult(best, False, nodes, "beam")
 
 
+SHORT_EXACT_S = 2.0
+
+
 def auto(
     problem: PlanningProblem, *, relaxed: bool = False, time_limit_s: float = 10.0, node_limit: int = 200_000,
     beam_width: int = 40,
 ) -> SearchResult:
-    """Exact search under a time limit; if it does not finish, the better of what it
-    found and a beam search. A finished exact search is proven optimal; otherwise the
-    result says it is not. This is what plan_week uses: a small week gets a proof, a
-    full week gets a good plan in seconds and an honest label."""
-    first = exact(problem, relaxed=relaxed, node_limit=node_limit, time_limit_s=time_limit_s)
+    """The best plan available within a time limit, labelled honestly.
+
+    A portfolio, because measured on synthetic weeks neither solver dominates
+    (docs/optimizer-design.md Sec 12): the dependency-free exact search proves some
+    weeks in a fraction of a second that CP-SAT takes many seconds over, and
+    CP-SAT proves others the exact search cannot. So: a short exact search first;
+    then, if OR-tools is installed, CP-SAT under the time limit; then a beam search;
+    and the best plan found by any of them. A proof from either solver is returned
+    as soon as it exists; an unfinished result says it is not proven, and carries
+    CP-SAT's ceiling when it has one. This is what plan_week uses."""
+    from mealplanner.planning import cpsat
+
+    def keyed(result):
+        return None if result is None or result.best is None else _key(result.best, relaxed)
+
+    first = exact(problem, relaxed=relaxed, node_limit=node_limit, time_limit_s=min(SHORT_EXACT_S, time_limit_s))
     if first.proven:
         return SearchResult(first.best, True, first.nodes, "exact")
+    found, nodes, ceiling, label = first, first.nodes, None, ["exact"]
+    if cpsat.available():
+        solved = cpsat.solve(problem, relaxed=relaxed, time_limit_s=time_limit_s)
+        if solved.proven:
+            return solved
+        nodes, ceiling = nodes + solved.nodes, solved.upper_bound
+        label.append("cpsat")
+        if solved.best is not None and _beats(keyed(solved), keyed(found)):
+            found = solved
     second = beam(problem, relaxed=relaxed, width=beam_width)
-    best, best_key = first.best, None if first.best is None else _key(first.best, relaxed)
-    if second.best is not None and _beats(_key(second.best, relaxed), best_key):
-        best = second.best
-    return SearchResult(best, False, first.nodes + second.nodes, "exact+beam")
+    label.append("beam")
+    if second.best is not None and _beats(keyed(second), keyed(found)):
+        found = second
+    return SearchResult(found.best, False, nodes + second.nodes, "+".join(label), upper_bound=ceiling)
 
 
 def solve(problem: PlanningProblem, method: str = "auto", **kwargs) -> SearchResult:
-    """method: "auto" (default), "exact", "beam" or "oracle"."""
+    """method: "auto" (default), "cpsat" (needs OR-tools), "exact", "beam" or "oracle"."""
     if method == "auto":
         return auto(problem, **kwargs)
+    if method == "cpsat":
+        from mealplanner.planning import cpsat
+        return cpsat.solve(problem, **kwargs)
     if method == "exact":
         return exact(problem, **kwargs)
     if method == "beam":

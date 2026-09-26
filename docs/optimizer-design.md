@@ -205,7 +205,7 @@ Everything `CLAUDE.md` lists as declined stays declined: no person or agent, no 
 
 
 - **Solver performance.** Measured for the dependency-free search only (§12); a library solver has not been run.
-- **OR-tools availability** on the target machine and in CI. Not installed here; installing it needs a decision (D8).
+- **OR-tools in CI.** CI installs only `requests`, so the solver's tests are skipped there; they run with the virtualenv's interpreter.
 - **Whether one score suits the owner.** The objective is a proposal (§4.5). The way to test it is to generate weeks from real recipes and look at them.
 - **The single-slot continuity claim** rests on the plan-level terms reducing exactly to the selector's. It is the first thing Phase 2 must show, not something assumed.
 - The worked example in §2 used the real `time_fit_score` and `nutrition_fit_score`; its variety, stock and waste terms were zero by construction, so it shows the minimum problem in isolation, not a full week.
@@ -219,7 +219,7 @@ The first version follows Sec 7's four phases and lives in `mealplanner/planning
 | # | What was built |
 |---|---|
 | D1 | Slots are a call-time `SlotSpec` list; entries already in the MealPlan become fixed slots |
-| D2, D8 | An exact branch and bound and a beam search, **dependency-free**, plus a brute-force oracle used only by tests. No library solver was installed: that is a download, and needs permission. It would slot in behind `search.solve` |
+| D2, D8 | An exact branch and bound and a beam search, **dependency-free**, plus a brute-force oracle used only by tests. Later, with the owner's permission, OR-tools (CP-SAT, pinned in `requirements-solver.txt`, installed in an isolated `.venv`) was added as an **optional** adapter, `mealplanner/planning/cpsat.py`: nothing else imports it, and everything works without it |
 | D3 | The weighted sum of §4.5, each scoped target judged once |
 | D4 | Stock is soft only (coverage and waste terms); the "cook only from what I have" option is not built |
 | D5 | Per-meal time budget only |
@@ -238,16 +238,23 @@ The first version follows Sec 7's four phases and lives in `mealplanner/planning
 - 108 offline tests over the planner and the engine changes it rests on (`tests/test_planning_*.py`): hand-worked values, including the §2 case (63 of 125 menus feasible; best score 1.7); the exact search against the brute-force oracle on 80 seeded random problems (61 feasible, 19 infeasible, 39 with hard targets, 16 with leftovers in the best plan), strict and relaxed; the partial-assignment bound checked against every prefix of sampled completions (five deliberate breakages of the bounds were each caught); and **continuity**: on a shared graph with variety, a soft and a hard-maximum target, a soft exclusion, stock coverage and expiry urgency all active, the planner's score for each recipe equals the selector's to nine places.
 - `scripts/26a_planner_demo.py` against real Structr, self-cleaning, with every expected score worked out by an independent enumeration in the script: eligibility under a hard target, the best feasible day with and without leftovers (1.7 and 1.9), commit, `nutrition_report()` (which predates the planner) judging the committed day `ok` at 72 g, re-reading the entries as fixed slots, an unreachable minimum giving a proven diagnosis with the exact 5 g shortfall and writing nothing, a figure switched to placeholder being left out, an existing entry counting towards the day, and a leftover entry accepted by the write-time validators.
 
-**Measured limits** (synthetic weeks, random recipes, hard daily protein and sodium targets, stock in ten pools; one machine)
+**The CP-SAT adapter** (`cpsat.py`, optional). The model has one boolean per (slot, recipe) for a fresh cook and one per (slot, source slot, recipe) for leftovers; nutrient totals, hard targets, time and soft exclusion are linear in them, the piecewise nutrition fit is a capped variable with one clamp switch, and the variety bonus is a variable capped by one implication per pair of slots that could repeat a recipe. Amounts and scores are scaled by 10^6, and `evaluate()` stays the single source of truth: the plan is re-scored by it and `proven` is claimed only when the two agree to 1e-4. Stock and waste depend on how cooks share lots by expiry, which is not linear, so the model uses their ceiling; the result then carries that ceiling and is not proven. Relaxed mode (the closest plan when none is feasible) is two solves: minimise the normalised violation, then maximise the score among plans that achieve it. `workers=1` by default, because with several the solver may return a different equally good plan from run to run.
 
-| slots x recipes | exact search | beam, width 30 |
-|---|---|---|
-| 6 x 10 | proven optimal in 1.3 s | same score, 0.1 s |
-| 9 x 20 | 15 s limit reached, not proven; 89,000 nodes | 0.4 s, 2.4% below the exact's best |
-| 21 x 30 | 15 s limit reached, not proven | 2.3 s, 2.3% below |
-| 21 x 30, leftovers | 15 s limit reached, not proven | 4.4 s, 2.3% below |
-| 21 x 60, leftovers | 15 s limit reached, not proven | 6.8 s, equal to the best exact found |
+Verified against the oracle on the same 80 random problems as the exact search (strict and relaxed: the feasibility verdict, the optimum where the model is exact, the ceiling never below the optimum, the closest plan's violation), on the worked day (1.7, proven; 140 g unreachable, proven, closest plan 135 g), and by six deliberate breakages of the model (a loosened minimum, dropped variety, ignored keeping time, dropped fit piece, missing leftover time credit, a flipped sign), each caught. `scripts/26a` passes with and without it.
 
-So the dependency-free exact search proves a small week and cannot prove a full one: its bounds are loose (every unplaced slot is assumed to earn its full weight) and it recomputes them at each node. `plan_week` therefore defaults to `auto`: exact search under a time limit, then beam search, returning the better and **labelling the result "not proven optimal"** when it did not finish. Hard constraints are never relaxed by this: a plan that is returned meets them. What a full week does not get without a library solver is a proof of optimality or of infeasibility. The synthetic weeks are not the owner's recipe book, so these are orders of magnitude, not a promise.
+**Measured limits** (synthetic weeks: random recipes, hard daily protein and sodium targets, variety weight 0.5; the last row adds stock in ten pools with weight 0.2 on stock and waste; one 4-core machine)
 
-**Not built:** a library solver adapter (D8); hard stock ("only cook from what I have"); a per-day time budget; a penalty for unused near-expiry stock; a soft difficulty term; a persistent "locked" flag on entries beyond what an existing entry already is; the parent link that would carry a leftover's purchase date through a division (J12).
+| slots x recipes | dependency-free exact (15 s) | beam, width 30 | CP-SAT (20 s, 1 worker) | `auto` |
+|---|---|---|---|---|
+| 6 x 10 | proven 6.100, 0.0 s | 6.100, 0.1 s | proven 6.100, 0.7 s | exact, proven, 0.0 s |
+| 9 x 20 | proven 9.400, 3.0 s | 9.400, 0.3 s | proven 9.400, 0.1 s | cpsat, proven, 2.8 s |
+| 21 x 30 | not proven 19.600 | 19.600, 1.9 s | not proven 19.600 (ceiling 23.100) | not proven 19.600, 14.9 s |
+| 21 x 30, leftovers | not proven 19.600 | 19.600, 2.9 s | not proven 19.600 (ceiling 23.100) | not proven 19.600, 16.1 s |
+| 21 x 60, leftovers | **proven 23.100, 0.2 s** | 23.100, 5.1 s | proven 23.100, 14.6 s | exact, proven, 0.2 s |
+| 21 x 60, leftovers, stock | not proven 28.020 | 28.020, 5.3 s | not proven 28.003 (ceiling 31.500) | not proven 28.020, 18.7 s |
+
+**What this shows, which is not what was expected.** I recommended a library solver as "the real fix" for proving a full week. On these weeks it is not: CP-SAT and the dependency-free search each prove some weeks the other cannot (the exact search proves the 21 x 60 week in 0.2 s where CP-SAT takes 14.6 s; CP-SAT proves the 9 x 20 week in 0.1 s where the exact search takes 3 s), and **neither proves the 21 x 30 week**. In every unproven row the best plan found is the same for all three methods, so it is probably optimal and the proof is what is missing. CP-SAT's ceiling there is 23.100, the trivial one: relaxed to fractions, no slot ever "repeats" a recipe, so the variety term never bites, and stronger relaxation settings (`linearization_level`, probing, symmetry) did not move it. With stock, the model uses an optimistic ceiling and its own optimum scored 28.003 against the beam search's 28.020, which is why `auto` keeps the best plan any method found. A tighter variety formulation and stock as flows would be the next things to try; that is research, not integration.
+
+So `plan_week` defaults to `auto`, a portfolio: a short exact search, then CP-SAT if OR-tools is installed, then a beam search, returning a proof from either solver as soon as one exists and otherwise the best plan found, **labelled "not proven optimal"** with CP-SAT's ceiling when it has one. Hard constraints are never relaxed by any of it: a plan that is returned meets them; what a full week may not get is a proof of optimality. The synthetic weeks are not the owner's recipe book, so these are orders of magnitude, not a promise.
+
+**Not built:** a tighter variety formulation or stock as flows for the solver; hard stock ("only cook from what I have"); a per-day time budget; a penalty for unused near-expiry stock; a soft difficulty term; a persistent "locked" flag on entries beyond what an existing entry already is; the parent link that would carry a leftover's purchase date through a division (J12).

@@ -9,6 +9,7 @@ never promise less than a completion delivers.
 
 import random
 import unittest
+from unittest import mock
 
 from mealplanner.planning.evaluate import evaluate, initial_partial, prefix_bound
 from mealplanner.planning.model import Fixed, Lot, Pick, Weights
@@ -139,23 +140,27 @@ class Facade(unittest.TestCase):
 
 
 class Auto(unittest.TestCase):
+    """auto() behaves the same in outline with or without OR-tools; these pin the parts that do not depend on it."""
+
     def test_a_small_week_is_proven_optimal(self):
         p = day_of_three([protein_target(70, 140, weight=0.2)])
         result = auto(p)
         self.assertTrue(result.proven)
-        self.assertEqual(result.method, "exact")
+        self.assertEqual(result.method, "exact")             # the short exact search proves a week this small
         self.assertAlmostEqual(result.best.objective, oracle(p).best.objective)
 
-    def test_when_exact_runs_out_of_room_it_falls_back_and_says_it_is_not_proven(self):
+    def test_without_ortools_it_falls_back_and_says_it_is_not_proven(self):
         p = day_of_three([protein_target(70, 140, weight=0.2)])
-        result = auto(p, node_limit=5)
+        with mock.patch("mealplanner.planning.cpsat.available", return_value=False):
+            result = auto(p, node_limit=5)
         self.assertFalse(result.proven)
         self.assertEqual(result.method, "exact+beam")
         self.assertTrue(result.best is not None and result.best.feasible)
+        self.assertIsNone(result.upper_bound)
 
     def test_the_default_method_is_auto(self):
         p = day_of_three([protein_target(70, 140, weight=0.2)])
-        self.assertEqual(solve(p).method, "exact")               # small enough to finish
+        self.assertEqual(solve(p).method, "exact")
         self.assertTrue(solve(p).proven)
 
     def test_an_infeasible_problem_is_still_proven_infeasible(self):
