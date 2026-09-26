@@ -45,11 +45,20 @@ fi
 if [ "$env_only" = "1" ]; then exit 0; fi
 
 command -v docker >/dev/null 2>&1 || { echo "docker is not installed" >&2; exit 1; }
-if ! docker info >/dev/null 2>&1; then
+docker_up() {
+  for _ in $(seq 1 "$1"); do docker info >/dev/null 2>&1 && return 0; sleep 1; done
+  return 1
+}
+if ! docker_up 1; then
   echo "the Docker daemon is not answering; trying to start it" >&2
   (service docker start >/dev/null 2>&1 || true)
-  sleep 5
-  docker info >/dev/null 2>&1 || { echo "Docker daemon still not answering" >&2; exit 1; }
+  # In a Claude cloud VM the init script fails (its `ulimit` is not permitted): run the daemon directly.
+  if ! docker_up 10 && command -v dockerd >/dev/null 2>&1; then
+    dlog="${TMPDIR:-/tmp}/dockerd.log"
+    echo "service docker start did not work; running dockerd directly (log: $dlog)" >&2
+    nohup dockerd >"$dlog" 2>&1 &
+  fi
+  docker_up 30 || { echo "Docker daemon still not answering" >&2; exit 1; }
 fi
 
 echo "starting the stack (first start pulls images and boots Structr: a minute or two)"
