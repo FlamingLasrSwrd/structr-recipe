@@ -56,7 +56,8 @@ if ! docker_up 1; then
   if ! docker_up 10 && command -v dockerd >/dev/null 2>&1; then
     dlog="${TMPDIR:-/tmp}/dockerd.log"
     echo "service docker start did not work; running dockerd directly (log: $dlog)" >&2
-    nohup dockerd >"$dlog" 2>&1 &
+    # setsid: the daemon must outlive the shell that ran this script
+    setsid nohup dockerd >"$dlog" 2>&1 </dev/null &
   fi
   docker_up 30 || { echo "Docker daemon still not answering" >&2; exit 1; }
 fi

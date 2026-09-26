@@ -36,7 +36,7 @@ if command -v docker >/dev/null 2>&1; then
   if ! docker_up 1; then
     service docker start >/dev/null 2>&1 || true
     if ! docker_up 10 && command -v dockerd >/dev/null 2>&1; then
-      nohup dockerd >/var/log/dockerd.log 2>&1 &
+      setsid nohup dockerd >/var/log/dockerd.log 2>&1 </dev/null &  # outlives this script
       docker_up 30 || true
     fi
   fi

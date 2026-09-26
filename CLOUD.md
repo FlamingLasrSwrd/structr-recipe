@@ -1,12 +1,13 @@
 # Working on this project in Claude Code's cloud
 
 Why: the stack (Structr and Neo4j, two JVMs) plus the desktop app do not fit comfortably in 8 GB
-of laptop RAM. A cloud session runs on an Anthropic-managed VM (about 4 vCPUs, 16 GB RAM, 30 GB
-disk, x86 Ubuntu 24.04, Docker and `docker compose` installed), keeps running when you close the
-laptop, and costs nothing beyond your plan's usage limits. This guide is written from the
+of laptop RAM. A cloud session runs on an Anthropic-managed VM (about 4 vCPUs, 16 GB RAM, x86
+Ubuntu 24.04, Docker and `docker compose` installed; the writable disk behaves as roughly 30 GB
+free, not the whole disk `df` reports), keeps running when you close the laptop, and costs nothing
+beyond your plan's usage limits. This guide is written from the
 [cloud docs](https://code.claude.com/docs/en/claude-code-on-the-web) and
-[environment docs](https://code.claude.com/docs/en/cloud-environments). **Nothing here has been run
-in a cloud session yet**: the last section lists exactly what the first session must confirm.
+[environment docs](https://code.claude.com/docs/en/cloud-environments). **The smoke test below has
+now been run once** (2026-09-26); its section says what held and what needed a fix.
 
 ## What this repository already gives a cloud session
 
@@ -52,8 +53,9 @@ cloud database fine: nothing in it is precious.
 > (I expect `SNAPSHOT IDENTICAL`); (4) list anything that did not match CLOUD.md. Do not commit or
 > push anything.
 
-What to expect, from measurements on a busy 8 GB laptop (a 16 GB VM should not be slower): the offline
-suite takes well under half a minute; the first Structr boot about a minute; the rebuild of all 48 scripts 4-8 minutes.
+What to expect, now measured in an actual cloud VM (2026-09-26): the offline suite takes 14-17 s per
+interpreter; a Structr boot takes 24-74 s (faster once the images are pulled); the rebuild of all 48
+scripts took 209 s. All comfortably inside the laptop-derived estimates this file used to give.
 
 ## Day to day
 
@@ -89,26 +91,39 @@ such as its in-app browser tools.
 ## Limits
 
 - Cloud sessions share your account's rate limits; several in parallel use them up faster.
-- The VM's ceilings are approximate (4 vCPUs, 16 GB, 30 GB); the images and a built instance are a
-  few GB, so there is room.
+- The VM's ceilings are approximate (4 vCPUs, 16 GB RAM, ~30 GB of writable disk); the images and a
+  built instance are a few GB, so there is room.
 - The setup script's result is cached only if it finishes in about five minutes, and the cache is
   rebuilt when the script or the network settings change and after roughly a week.
 - A command Claude runs waits two minutes by default (up to ten if asked) before moving to the background.
 
-## First-run checklist: not verified from here
+## First-run checklist: verified 2026-09-26
 
-I could test the scripts against a fake Structr and against your real one, but not inside a cloud VM.
-The smoke test above settles each of these; anything that fails is a fix to a script, not to the plan:
+The smoke test above has now run in an actual cloud VM. Results against the original checklist:
 
-1. The Docker daemon is running (or `service docker start` starts it) and `docker compose up -d` works.
-2. `cloud/setup.sh` finishes within five minutes, exits 0, and the two images are on disk afterwards.
-3. `python3 -m pip install --break-system-packages requests` and the venv creation work in the VM; the
-   solver venv ends up at `/opt/solver-venv` and passes the 9 solver tests.
-4. Structr boots in the VM's memory and answers within the wait (`WAIT_S`, default 300 seconds).
-5. `tools/rebuild.sh` prints `SNAPSHOT IDENTICAL`.
-6. Whether the session can push a branch, and whether it can push to `main` directly (this file
-   assumes a branch).
-7. The environment variables are visible to Claude's commands (`bootstrap.sh` reads them).
+1. **`service docker start` does not work here.** Its init script calls `ulimit`, which the sandbox
+   refuses ("Operation not permitted"), so it exits without starting the daemon. Both `cloud/setup.sh`
+   and `cloud/bootstrap.sh` now fall back to running `dockerd` directly, waiting up to 30 s for it to
+   answer. **The fallback must detach with `setsid` and closed stdin** (`setsid nohup dockerd
+   >"$dlog" 2>&1 </dev/null &`); a plain `nohup dockerd & ` was killed as soon as the shell that
+   started it ended, which in this harness is after every command. With `setsid` the daemon survived
+   across separate tool calls and `docker compose up -d` worked. `docker compose` itself needed no
+   fallback.
+2. **Not confirmed — the environment's Setup script field was empty for this session.** `setup.sh`
+   was instead run by hand and finished in 17 s (well inside five minutes) and exited 0. Paste it
+   into the environment's Setup script field so a fresh session gets it automatically; until then,
+   run it by hand once per session before `bootstrap.sh`.
+3. **Confirmed.** `requests` installs, `/opt/solver-venv` builds (`python3 -m venv` worked; the
+   `--without-pip` fallback was not needed), and all 9 solver-only tests pass under it.
+4. **Confirmed.** Structr answered well inside the 300 s default (24-74 s measured).
+5. **Confirmed.** `tools/rebuild.sh` printed `SNAPSHOT IDENTICAL`, and the data survived multiple
+   Docker daemon restarts within the same session (item 1's testing restarted it three times).
+6. **Not exercised.** This session was told not to push; branch-push and `main`-push permissions
+   are still unconfirmed.
+7. **Not confirmed — `NEO4J_PASSWORD` and `STRUCTR_SUPERUSER_PASSWORD` were not set** in this
+   session's environment, so `bootstrap.sh` took its documented fallback and generated throwaway
+   passwords instead. Set the two variables in the environment (step 3 of one-time setup) if you want
+   the same passwords every session; unset is safe, just not what this file originally assumed.
 
 ## If cloud sessions do not suit
 
