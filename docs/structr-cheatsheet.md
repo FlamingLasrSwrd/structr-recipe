@@ -1021,14 +1021,43 @@ POST /structr/rest/Content         {"pageId": page_id, "parent": h1_id, "content
 Rendered at `/structr/html/<page name>`, **not** the bare root path
 (`GET /<name>` 404s — verified).
 
-- ✅ **Tag-specific HTML attributes need the tag-specific REST type.**
+🛑 **On this project's pinned image (`structr/structr:6.0.0`), the tag-specific
+REST types in the example just above DO NOT RENDER — the whole tree from
+that node down.** POSTing to `/structr/rest/Html`, `/structr/rest/Body`,
+`/structr/rest/H1`, `/structr/rest/A`, etc. creates a perfectly good graph
+node — correct `parent`/`pageId`, readable back via GET, shows up in the
+parent's `children` — but `GET /structr/html/<page>` renders nothing for it
+or anything nested under it: the response is the bare `<!DOCTYPE html>` line
+and nothing else, no error anywhere (server log or response). Confirmed
+after a clean `docker compose restart structr`, so not a stale-process
+fluke; confirmed as both the page's root element and as a leaf several
+levels deep with otherwise-generic ancestors. **What does render:** the
+generic `/structr/rest/DOMElement` with an explicit `"tag"` property, for
+every element, all the way down (`scripts/27_public_pages.py` does this).
+This directly contradicts the next bullet's advice below for rendering
+purposes — that bullet's claim about *attributes* still holds (see the
+workaround it now describes).
+
+- ✅ **Tag-specific HTML attributes need the tag-specific REST type — which
+  is exactly why they can't be used for rendering (see above).**
   `_html_action`/`_html_method` (on `Form`), `_html_type`/`_html_name`/
-  `_html_placeholder`/`_html_required` (on `Input`), etc. only exist on
-  that tag's own schema type. POSTing to the generic
-  `/structr/rest/DOMElement` with a `tag: "form"` property and those
-  attributes **silently drops them** — no error, the attribute just
-  doesn't render. Always POST to `/structr/rest/{Tag.capitalize()}`
-  (`Form`, `Input`, `Button`, `Div`, `Ul`, `Li`, `A`, `Script`, ...).
+  `_html_placeholder`/`_html_required` (on `Input`), `_html_href` (on `A`),
+  etc. only exist on that tag's own schema type. POSTing to the generic
+  `/structr/rest/DOMElement` with a `tag: "form"` (or `"a"`, ...) property
+  and those attributes **silently drops them** — no error, the attribute
+  just doesn't render (confirmed for `_html_href` on `A`). Since the
+  dedicated type that *would* keep the attribute doesn't render at all,
+  the practical fix for something like a link is to skip attributed
+  elements entirely and write the literal tag as markup inside a `Content`
+  node instead — `'<a href="/some/path">label</a>'` — which needs the next
+  bullet's `contentType` fix to come out unescaped.
+- 🛑 **A `Content` node's text is HTML-escaped by default.** Literal markup
+  written into `content` (e.g. that `<a href=...>` workaround, or a
+  hand-built `<li>` from StructrScript's `print()`) comes back as visible
+  `&lt;a href=...&gt;` text, not a real tag, unless `contentType` is set to
+  `"text/html"` explicitly — confirmed both for a literal string and for a
+  `${each(..., print(...))}` expression's output. The next bullet's
+  `text/javascript` case is the same underlying rule, one contentType over.
 - ✅ **A `<script>` tag's `Content` node needs
   `"contentType": "text/javascript"` explicitly.** The default plain-
   text content type converts newlines to literal `<br>` tags — silently
@@ -1037,6 +1066,18 @@ Rendered at `/structr/html/<page name>`, **not** the bare root path
 - Every element defaults to `visibleToAuthenticatedUsers=True` unless
   you pass `visibleToPublicUsers=True` — same trap as §2, one level up.
   An invisible element just renders as nothing.
+
+### Deleting a `Page` does not cascade-delete its element tree
+
+✅ `DELETE /structr/rest/Page/<id>` removes the `Page` node but leaves every
+`DOMElement`/`Content` that was under it, orphaned with `pageId` (and
+`parent`) wiped to `null` — confirmed by re-querying `/structr/rest/DOMElement`
+and `/structr/rest/Content` after deleting a page and finding the old counts
+unchanged. They render nothing (no `pageId`) but stay in the graph. Delete a
+page's elements explicitly before or after deleting the page itself; a script
+that rebuilds a page tree by name (matched on `pageId`+`name`, as
+`scripts/27_public_pages.py` does) never creates this problem because it
+patches existing elements in place rather than deleting the page.
 
 ### Detail pages: URI object resolution
 
