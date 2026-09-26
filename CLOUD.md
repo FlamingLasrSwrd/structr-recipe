@@ -94,10 +94,31 @@ such as its in-app browser tools.
 
 ## Public access via Cloudflare Tunnel
 
-For visual testing from outside the VM, without a bare open port. `tools/tunnel.sh` starts/stops
+🛑 **Verified 2026-09-26: `cloudflared` cannot actually connect from inside a Claude Code cloud
+session, no matter what the network policy allows.** It installs and starts fine, and reaches
+`api.cloudflare.com` over ordinary HTTPS fine, but its tunnel/edge connection (both the QUIC and
+the HTTP/2 fallback) needs outbound access to `region1.v2.argotunnel.com`/`region2.v2.argotunnel.com`
+on **port 7844**, and it dials that directly rather than through this session's HTTP CONNECT proxy —
+confirmed by `curl`'s own CONNECT to the same host:port succeeding while `cloudflared` still times
+out with "no recent network activity" / "HTTP/2 connection is blocked or unreachable". None of
+`cloudflared`'s `--proxy-*` flags apply here; every one of them is documented as configuring the
+*origin* side (how it reaches Structr locally), not how it reaches Cloudflare. This is a structural
+property of the sandbox (an HTTP CONNECT-only egress proxy, no direct internet route for a
+hand-rolled Go dialer to fall back to), not something a network-policy change or a cloudflared flag
+fixes.
+
+**What this means in practice:** the account-side setup below (the tunnel, its Public Hostname, its
+Access policy) is real, reusable configuration — do it once, and it works unchanged from anywhere
+with ordinary internet access: a Hetzner box (see "If cloud sessions do not suit"), your laptop, any
+machine that isn't behind a CONNECT-only proxy. It just can't be the *cloud session itself* running
+`cloudflared`. For visual testing from inside a cloud session today, take a screenshot with headless
+Chromium against `localhost` instead (it's pre-installed; `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`)
+and have the session send you the image — no outbound connection needed at all.
+
+`tools/tunnel.sh` starts/stops
 [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/),
-which makes an *outbound* connection from the VM to Cloudflare — nothing ever listens on a public
-port here, so there's no port to forget to close. Put an
+which makes an *outbound* connection to Cloudflare — nothing ever listens on a public port on
+whatever host runs it, so there's no port to forget to close. Put an
 [Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) policy in front of it
 (a login, e.g. an email one-time code) and it's safe to leave configured between sessions even
 though the tunnel process itself is started/stopped manually, same as the stack.
@@ -129,9 +150,13 @@ tools/tunnel.sh status    # running or not, tail of its log
 tools/tunnel.sh stop      # when you're done -- the public hostname goes with it
 ```
 
-The environment's own network policy has to allow the Cloudflare hosts (`*.cloudflare.com`,
-`*.cfargotunnel.com`, `*.argotunnel.com`) for `cloudflared` to install and connect — edit Network
-access in the environment's settings if `tools/tunnel.sh start` can't reach them.
+The environment's own network policy has to allow `pkg.cloudflare.com` (installing `cloudflared`
+itself) at minimum, and ideally `*.cloudflare.com`/`*.cfargotunnel.com`/`*.argotunnel.com` for the
+rest — edit Network access in the environment's settings if `tools/tunnel.sh start` can't reach
+them. That alone is not sufficient for the tunnel to actually connect *from a cloud session*, per
+the finding above; it's still worth doing so `tools/tunnel.sh status` gives an accurate error
+instead of a generic timeout, and so the same environment variables carry over cleanly if you ever
+run this project somewhere the tunnel can connect.
 
 **Later, opening it to anyone** (not needed yet): remove the Access policy from step 3. The
 tunnel and hostname don't change.

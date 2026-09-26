@@ -72,7 +72,15 @@ case "$cmd" in
     # --no-autoupdate is a `tunnel` flag, not a `run` one -- `tunnel run --no-autoupdate`
     # fails with "flag provided but not defined" (confirmed against 2026.9.3); it must
     # come before `run`. Skips needing update.cloudflareclient.com reachable too.
-    setsid nohup cloudflared tunnel --no-autoupdate run --token "$CLOUDFLARE_TUNNEL_TOKEN" \
+    #
+    # `env -u CLOUDFLARE_TUNNEL_TOKEN`: cloudflared's own startup diagnostics log every
+    # environment variable whose NAME contains "tunnel" (confirmed: it appeared in the log
+    # as "Environmental variables map[CLOUDFLARE_TUNNEL_TOKEN:<the real token, unmasked>]",
+    # right below a properly-redacted "Settings: map[...token:*****]" line for the --token
+    # flag itself). The token only needs to reach cloudflared via --token, which IS masked;
+    # stripping it from the child's environment first keeps it out of that unmasked dump
+    # regardless of log level.
+    setsid env -u CLOUDFLARE_TUNNEL_TOKEN nohup cloudflared tunnel --no-autoupdate run --token "$CLOUDFLARE_TUNNEL_TOKEN" \
       >"$log_file" 2>&1 </dev/null &
     echo "$!" > "$pid_file"
     sleep 3
