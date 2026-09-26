@@ -1058,6 +1058,11 @@ workaround it now describes).
   `"text/html"` explicitly — confirmed both for a literal string and for a
   `${each(..., print(...))}` expression's output. The next bullet's
   `text/javascript` case is the same underlying rule, one contentType over.
+  The other side of the same rule: once `contentType` is `text/html`, whatever a StructrScript
+  expression prints is inserted **raw**. Wrap any value someone could control (a recipe's `name`)
+  in `escape_html()`, or a name like `<script>...</script>` runs in every visitor's browser.
+  `scripts/27_public_pages.py` does, and its step [5] checks it against a public recipe with a
+  markup name.
 - ✅ **A `<script>` tag's `Content` node needs
   `"contentType": "text/javascript"` explicitly.** The default plain-
   text content type converts newlines to literal `<br>` tags — silently

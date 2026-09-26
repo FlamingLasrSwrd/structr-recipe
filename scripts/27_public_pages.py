@@ -40,6 +40,12 @@ structr_client.StructrClient.upsert), so an anonymous visitor correctly sees
 "0 recipe(s)" -- that is the data's own visibility working as designed, not a
 bug in this page. An authenticated request sees the real count.
 
+Recipe names are escaped. The recipe list is markup (contentType "text/html") built
+from a StructrScript expression, and whatever such an expression prints is inserted
+RAW: a public recipe named "<script>...</script>" would have run in every visitor's
+browser. The name is wrapped in escape_html(), and step [5] below proves it by
+creating a public recipe whose name is markup and reading the page anonymously.
+
 Idempotent: each Page/element is matched by (pageId, name) and patched in place
 if found, so editing this script and re-running it updates the live pages
 instead of duplicating them. NOTE: deleting a Page does NOT cascade-delete its
@@ -58,6 +64,8 @@ Run with: python3 scripts/27_public_pages.py
 
 import os
 import sys
+
+import requests
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -161,10 +169,34 @@ def build_recipes_page(client):
     ul_id, _ = ensure_element(client, "ul", page_id, body_id, "recipe-list")
     ensure_content(
         client, page_id, ul_id, "recipe-list-items",
-        '${each(find("RecipeIdentity", "isRetired", false), print("<li>", data.name, "</li>"))}',
+        '${each(find("RecipeIdentity", "isRetired", false), print("<li>", escape_html(data.name), "</li>"))}',
         html=True,
     )
     return page_id, created
+
+
+TEST_PREFIX = "TEST -- Z27 "
+MARKUP_NAME = TEST_PREFIX + "<b>bold</b> <script>alert(1)</script>"      # no commas or semicolons: the exact-match guard refuses them
+
+
+def names_are_escaped(client, base):
+    """(ok, detail): does the PUBLIC recipes page show a recipe name that is markup as text?
+
+    Creates one public recipe with a markup name, reads the page with no credentials, and
+    deletes the recipe again (also sweeping one left by an interrupted earlier run)."""
+    for recipe in client.get_all("RecipeIdentity")["result"]:
+        if recipe["name"].startswith(TEST_PREFIX):
+            client.delete(f"/structr/rest/RecipeIdentity/{recipe['id']}")
+    recipe_id = client.post("/structr/rest/RecipeIdentity", {
+        "name": MARKUP_NAME, "isRetired": False, "visibleToPublicUsers": True, "visibleToAuthenticatedUsers": True,
+    })["result"][0]
+    try:
+        text = requests.get(f"{base}/structr/html/recipes", timeout=10).text
+    finally:
+        client.delete(f"/structr/rest/RecipeIdentity/{recipe_id}")
+    raw = "<script>alert(1)</script>" in text or "<b>bold</b>" in text
+    shown = "&lt;script&gt;alert(1)&lt;/script&gt;" in text
+    return (not raw) and shown, f"raw markup in the page: {raw}; the name shown as text: {shown}"
 
 
 def main():
@@ -180,8 +212,6 @@ def main():
     print(f"    id={recipes_id} created={recipes_created}")
 
     print("\n[3] Verification: render both pages over plain HTTP, no auth...")
-    import requests
-
     base = os.environ.get("STRUCTR_URL", "http://localhost:8083")
     for name, must_contain in (("home", "Structr Recipe"), ("recipes", "<h1>Recipes</h1>")):
         resp = requests.get(f"{base}/structr/html/{name}", timeout=10)
@@ -198,6 +228,11 @@ def main():
     li_count = resp.text.count("<li>")
     print(f"    authenticated /structr/html/recipes: {li_count} <li> item(s)")
     assert li_count >= 1, "expected at least one recipe when authenticated"
+
+    print("\n[5] Verification: a recipe whose name is markup is shown as text, not run...")
+    ok, detail = names_are_escaped(client, base)
+    print(f"    {detail}")
+    assert ok, "recipe names must be HTML-escaped on the public page"
 
 
 if __name__ == "__main__":
