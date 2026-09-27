@@ -82,6 +82,13 @@ makes go in a comment at the top of the file. The conventions so far (`docs/data
 - **A size stated as a can or a package** ("3 cans of beans, drained") is written as `each` of a
   food whose weight per item is that can's (drained) weight, with its source.
 - **A side "for serving"** with no amount is `optional`.
+- **An amount the page sends but does not use** ("we sent more", "use the rest as you like") is not
+  counted: the file takes what the steps use. An amount "to taste" or "as much as you like" that the
+  page does list is counted.
+- **Pantry items a meal kit leaves to the cook** ("a drizzle of oil") are split over the steps from the
+  page's total; where it gives no total, a drizzle is 1 tsp and a large drizzle 2 tsp, an estimate.
+- **A kit's "unit"** (a packet of jam, a container of corn) is written in grams or a household measure,
+  with the estimate in the file's comment, unless the vocabulary gives the food a weight per item.
 - Every food must be in `data/vocabulary.toml`, matched to a USDA food (`tools/import_vocabulary.py`).
 
 ## What it becomes

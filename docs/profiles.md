@@ -101,8 +101,8 @@ as intakes with their source. These are population guidelines, not personal advi
 
 ## The kitchen profiles (`data/profiles/kitchen.toml`)
 
-Four tiers, each the one before plus more (15, 27, 42 and 52 kinds of tool): `Minimal kitchen` (someone
-who rarely cooks: one nonstick skillet, a saucepan, a chef's knife, the microwave),
+Four tiers, each the one before plus more (16, 29, 44 and 54 kinds of tool): `Minimal kitchen` (someone
+who rarely cooks: one nonstick skillet, a saucepan, a chef's knife, the oven and microwave),
 `Everyday home kitchen` (a Dutch oven, cast iron, a thermometer, the usual hand tools),
 `Enthusiast kitchen` (a wok, a food processor, a scale, a mandoline) and `Prosumer kitchen`
 (stand mixer, pressure cooker, sous vide, vacuum sealer, pasta machine). Drawn from America's
@@ -125,7 +125,7 @@ hierarchy plus instantiation into a type that already exists, unless marked othe
 | **Week shape** | "Busy weeknights", "Batch cook on Sunday", "Three meals at home" | meal type × day | the slot template and `MealPlan.timeBudgetMinutes` | **Owner decision.** The optimizer design keeps slots as a call-time template on purpose (D1). A profile would store the template's defaults, not the slots, which keeps D1, but it is a design choice to make, not a default to add |
 | **Planner priorities** | "Nutrition first", "Use what's expiring", "Fast" | objective term | the optimizer's weights | **Owner decision.** The objective's weights are an unreviewed proposal (optimizer-design §4.5). Presets would make retuning explicit instead of silent, but what each preset means has to come from the owner |
 | **Skill** | "Beginner", "Confident", "Ambitious" | transformation method, difficulty | a difficulty limit and soft exclusions of methods (deep frying, tempering) | Difficulty is already a planning input; methods are Types, so a soft exclusion of a method would need J10 to count a Step's method, which it does not today |
-| **Equipment feasibility** | (uses the kitchen already instantiated) | | a check, not new data | With the owner's kitchen a `UtensilSet`, a recipe whose instrument Specification names a tool the kitchen lacks can be flagged or excluded; a need for `Skillet` is met by any skillet, since each is a subtype. Not built. Of the three recipes loaded, the Everyday tier lacks the wok, fine-mesh sieve and meat pounder they use; the Enthusiast tier has everything |
+| **Equipment feasibility** | (uses the kitchen already instantiated) | | a check, not new data | With the owner's kitchen a `UtensilSet`, a recipe whose instrument Specification names a tool the kitchen lacks can be flagged or excluded; a need for `Skillet` is met by any skillet, since each is a subtype. Not built. Of the 20 recipes loaded (2026-09-27), the Minimal tier can cook 6, the Everyday tier 13 (it lacks a wok, fine-mesh sieve, meat pounder and Microplane) and the Enthusiast tier all 20 |
 
 The pattern does not fit where the right value is a measurement of this household (what is in
 the fridge now, what a portion weighed). Those are observations, and a profile must never stand

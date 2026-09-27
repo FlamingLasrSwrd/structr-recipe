@@ -30,6 +30,7 @@ equipment = [
   { item = "Can opener" },
   { item = "Sheet pan" },
   { item = "Oven mitts" },
+  { item = "Oven" },
   { item = "Microwave" },
 ]
 
@@ -44,6 +45,7 @@ equipment = [
   { item = "Paring knife" },
   { item = "Fish spatula" },
   { item = "Tongs" },
+  { item = "Skewers" },
   { item = "Whisk" },
   { item = "Ladle" },
   { item = "Vegetable peeler" },

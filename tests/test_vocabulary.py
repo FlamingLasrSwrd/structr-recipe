@@ -171,10 +171,12 @@ def fdc_subset():
                         "2047": {"name": "Energy (Atwater General Factors)", "unit": "KCAL"},
                         "2033": {"name": "Total dietary fiber (AOAC 2011.25)", "unit": "G"},
                         "1051": {"name": "Water", "unit": "G"}, "2000": {"name": "Sugars, Total", "unit": "G"},
-                        "1079": {"name": "Fiber, total dietary", "unit": "G"}},
+                        "1079": {"name": "Fiber, total dietary", "unit": "G"}, "1063": {"name": "Sugars, Total", "unit": "G"}},
           "foods": {"20": {"description": "Beans, drained", "data_type": "foundation_food",
                            "nutrients": {"2048": 113.7, "2047": 116.8, "2033": 6.9, "1051": 71.2, "1003": 7.0},
                            "portions": []},
+                    "22": {"description": "Onions, red, raw", "data_type": "foundation_food",
+                           "nutrients": {"2047": 44.0, "1063": 4.0, "1051": 88.5}, "portions": []},
                     "21": {"description": "White beans, from canned", "data_type": "survey_fndds_food",
                            "nutrients": {"1008": 168.0, "2000": 2.07, "1079": 7.2, "1051": 55.7}, "portions": []},
                     "2": {"description": "Garlic, raw", "data_type": "sr_legacy_food",
@@ -264,6 +266,21 @@ class Parse(unittest.TestCase):
     def test_an_older_id_the_record_has_is_kept(self):
         self.assertEqual(_with_equivalents({"1008": 100.0, "2048": 110.0, "2047": 112.0})["1008"], 100.0)
         self.assertEqual(_with_equivalents({"2047": 112.0, "2048": 110.0})["1008"], 110.0)   # Atwater specific first
+
+    def test_an_id_repeated_in_a_mean_counts_twice(self):
+        data = vocabulary_data()
+        data["food"].append({"name": "Blend", "sources": [{"mean": [2, 2, 12], "status": "calculated", "note": "2:1"}]})
+        v = parse_vocabulary(data, fdc_subset())
+        blend = composition(fdc_subset(), next(f for f in v.foods if f.name == "Blend"))
+        self.assertAlmostEqual(blend["1008"][0], (149.0 * 2 + 380.0) / 3)      # garlic twice, brown sugar once
+
+    def test_foundations_total_sugars_are_read_as_total_sugars(self):
+        data = vocabulary_data()
+        data["food"].append({"name": "Red onion", "fdc": 22})
+        v = parse_vocabulary(data, fdc_subset())      # 1063 and 2000 share FDC's name: 1063 is not loaded as its own
+        onion = composition(fdc_subset(), next(f for f in v.foods if f.name == "Red onion"))
+        self.assertEqual((onion["2000"][0], onion["1008"][0]), (4.0, 44.0))
+        self.assertNotIn("1063", onion)
 
     def test_a_newer_id_is_the_records_own_figure_and_a_fill_is_moisture_adjusted(self):
         data = vocabulary_data()

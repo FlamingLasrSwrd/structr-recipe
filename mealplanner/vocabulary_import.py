@@ -53,17 +53,20 @@ EQUIPMENT_HIERARCHY = "Equipment Type"
 STATUSES = ("sourced", "estimated", "calculated")
 # FDC reports energy twice. The kJ figure is the kcal figure converted, and two
 # nutrients with one name cannot both exist, so it is left out.
-SKIPPED_NUTRIENTS = {"1062": "Energy in kJ, the same energy as 1008 in kcal"}
+SKIPPED_NUTRIENTS = {"1062": "Energy in kJ, the same energy as 1008 in kcal",
+                     "1063": "Sugars, Total by Foundation's newer method: read as 2000 (EQUIVALENT_IDS)"}
 FDC_UNITS = {"G": "g", "MG": "mg", "UG": "ug", "KCAL": "kcal", "KJ": "kJ", "IU": "IU"}
 VOLUME_WORDS = {"cup": "cup", "tbsp": "tbsp", "tsp": "tsp", "fl oz": "fl_oz", "liter": "l", "tablespoon": "tbsp"}
 DATASETS = {"sr_legacy_food": "SR Legacy", "foundation_food": "Foundation", "survey_fndds_food": "FNDDS",
             "branded_food": "Branded"}
 # The same quantity under a newer FDC nutrient id. Foundation foods report energy
 # as Atwater General (2047) or Specific (2048) factors, not 1008, and fiber by the
-# AOAC 2011.25 method (2033), not 1079. A record's own figure under the newer id is
+# AOAC 2011.25 method (2033), not 1079, and some report total sugars as 1063, not
+# 2000; FDC names 1063 and 2000 alike, so 1063 is not loaded as a nutrient of its
+# own (SKIPPED_NUTRIENTS). A record's own figure under the newer id is
 # its figure: taking 1008 from another food instead once gave drained beans the
 # energy of a drier food (168 kcal per 100 g against their own 114).
-EQUIVALENT_IDS = {"1008": ("2048", "2047"), "1079": ("2033",)}
+EQUIVALENT_IDS = {"1008": ("2048", "2047"), "1079": ("2033",), "2000": ("1063",)}
 WATER = "1051"
 # The Nutrition Facts figures. Every food should have them; --check lists the gaps.
 CORE_NUTRIENTS = {"1008": "Energy", "1003": "Protein", "1004": "Total fat", "1258": "Saturated fat",
@@ -202,7 +205,8 @@ def measure_source(fdc: dict, measure: Measure) -> str:
 def composition(fdc: dict, food: Food) -> dict[str, tuple[float, str, str]]:
     """nutrient id -> (amount per 100 g, provenance, source) for a food: each
     nutrient from the first source that reports it, averaged over that source's
-    foods that report it."""
+    foods that report it. An id repeated in a mean counts as often as it is
+    listed, which is how a blend states its parts (2:1 is [a, a, b])."""
     out: dict[str, tuple[float, str, str]] = {}
     own_water = None
     if food.sources:
@@ -214,7 +218,7 @@ def composition(fdc: dict, food: Food) -> dict[str, tuple[float, str, str]]:
         for nid in reported:
             if nid in out or nid in SKIPPED_NUTRIENTS or (source.only is not None and nid not in source.only):
                 continue
-            having = [fid for fid, r in records.items() if nid in r]
+            having = [fid for fid in source.ids if nid in records[fid]]
             values = [records[fid][nid] * _moisture_factor(source, records[fid], own_water, food) for fid in having]
             amount = sum(values) / len(values)
             text = "; ".join(_describe(fdc, fid) for fid in having)
