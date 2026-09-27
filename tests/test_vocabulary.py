@@ -267,6 +267,10 @@ class Parse(unittest.TestCase):
         self.assertEqual(_with_equivalents({"1008": 100.0, "2048": 110.0, "2047": 112.0})["1008"], 100.0)
         self.assertEqual(_with_equivalents({"2047": 112.0, "2048": 110.0})["1008"], 110.0)   # Atwater specific first
 
+    def test_vitamin_d_in_iu_is_40_times_its_micrograms_when_only_those_are_given(self):
+        self.assertEqual(_with_equivalents({"1114": 2.5})["1110"], 100.0)
+        self.assertEqual(_with_equivalents({"1114": 2.5, "1110": 90.0})["1110"], 90.0)   # a record's own IU figure wins
+
     def test_an_id_repeated_in_a_mean_counts_twice(self):
         data = vocabulary_data()
         data["food"].append({"name": "Blend", "sources": [{"mean": [2, 2, 12], "status": "calculated", "note": "2:1"}]})

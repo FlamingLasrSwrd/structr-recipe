@@ -469,6 +469,7 @@ each = 'fruit (2" dia)'
 name = "Beef top sirloin (raw)"
 parent = "Beef (raw)"
 fdc = 168726                    # SR: Beef, top sirloin, steak, separable lean and fat, trimmed to 1/8" fat, all grades, raw
+sources = [{ fdc = 2705824, status = "estimated", moisture = true, only = [1110, 1114], note = "FNDDS Beef steak NFS: vitamin D, which SR does not report for this cut" }]
 
 [[food]]
 name = "AP Flour"
@@ -640,6 +641,7 @@ each = { grams = 30, per = "each", source = "a medium shallot weighs about 30 g 
 [[food]]
 name = "Broccoli florets"
 fdc = 169330                    # SR: Broccoli, flower clusters, raw
+sources = [{ fdc = 170379, status = "estimated", note = "SR Broccoli raw: what the flower-cluster record does not report" }]
 
 [[food]]
 name = "Lemon"
@@ -649,7 +651,7 @@ each = 'fruit (2-1/8" dia)'
 [[food]]
 name = "Rosemary"
 fdc = 173473                    # SR: Rosemary, fresh
-sources = [{ fdc = 172232, status = "estimated", only = [2000], note = "SR Basil fresh: FDC reports no sugars for rosemary, fresh or dried; a fresh herb's, for the gram a recipe uses" }]
+sources = [{ fdc = 172232, status = "estimated", note = "SR Basil fresh: FDC reports no sugars for rosemary, fresh or dried; a fresh herb's, for the gram a recipe uses" }]
 volume = "tsp"
 
 [[food]]
@@ -669,13 +671,13 @@ volume = "tsp"
 [[food]]
 name = "Red onion"
 fdc = 790577                    # Foundation: Onions, red, raw
-sources = [{ fdc = 170000, status = "estimated", only = [1258, 1253], note = "SR Onions raw: for what the Foundation record does not report" }]
+sources = [{ fdc = 170000, status = "estimated", note = "SR Onions raw: for what the Foundation record does not report" }]
 each = { fdc = 170000, portion = 'medium (2-1/2" dia)' }      # SR Onions raw: FDC's red onion has only a 197 g one
 
 [[food]]
 name = "Grape tomatoes"
 fdc = 321360                    # Foundation: Tomatoes, grape, raw
-sources = [{ fdc = 170457, status = "estimated", only = [1258, 1253, 2000], note = "SR Tomatoes red ripe raw: for what the Foundation record does not report" }]
+sources = [{ fdc = 170457, status = "estimated", note = "SR Tomatoes red ripe raw: for what the Foundation record does not report" }]
 
 [[food]]
 name = "Tomato"
@@ -700,7 +702,7 @@ each = 'medium (approx 2-3/4" long, 2-1/2" dia)'
 [[food]]
 name = "Poblano pepper"
 fdc = 2747662                   # Foundation: Peppers, poblano, seeded, raw
-sources = [{ fdc = 2709798, status = "estimated", only = [1258, 1253], note = "FNDDS Peppers hot raw: for what the Foundation record does not report" }]
+sources = [{ fdc = 2709798, status = "estimated", moisture = true, note = "FNDDS Peppers hot raw: for what the Foundation record does not report" }]
 each = { grams = 113, per = "each", source = "about four to a pound, a medium one 3-4 oz (happyspicyhour.com, How Many Poblano Peppers Are in a Pound)" }
 
 [[food]]
@@ -768,7 +770,7 @@ fdc = 168286                    # SR: Pork, fresh, loin, center loin (chops), bo
 [[food]]
 name = "Ground pork (raw)"
 fdc = 167902                    # SR: Pork, fresh, ground, raw
-sources = [{ fdc = 2705863, status = "estimated", only = [2000], note = "FNDDS Pork ground: sugars (0)" }]
+sources = [{ fdc = 2705863, status = "estimated", moisture = true, note = "FNDDS Pork ground (cooked, scaled to raw dry matter): what SR does not report" }]
 
 [[food]]
 name = "Chicken thighs (raw)"
@@ -789,17 +791,19 @@ fdc = 172850                    # SR: Turkey, ground, 93% lean, 7% fat, raw
 name = "Ranch steak (raw)"
 parent = "Beef (raw)"
 fdc = 172132                    # SR: Beef, chuck, shoulder clod, shoulder top and center steaks (ranch steak), lean and fat, 0" fat, all grades, raw
+sources = [{ fdc = 2705824, status = "estimated", moisture = true, only = [1110, 1114], note = "FNDDS Beef steak NFS: vitamin D, which SR does not report for this cut" }]
 
 [[food]]
 name = "Bavette steak (raw)"
 parent = "Beef (raw)"
 fdc = 169563                    # SR: Beef, flank, steak, separable lean and fat, trimmed to 0" fat, all grades, raw
+sources = [{ fdc = 2705824, status = "estimated", moisture = true, only = [1110, 1114], note = "FNDDS Beef steak NFS: vitamin D, which SR does not report for this cut" }]
 proxy = true                    # bavette is flap meat, which FDC does not have; flank is the nearest cut
 
 [[food]]
 name = "Shrimp (raw)"
 fdc = 175179                    # SR: Crustaceans, shrimp, raw
-sources = [{ fdc = 174210, status = "estimated", only = [1079, 2000, 1162], note = "SR shrimp mixed species raw: fiber, sugars and vitamin C (all 0)" }]
+sources = [{ fdc = 174210, status = "estimated", note = "SR shrimp mixed species raw: what 175179 does not report" }]
 
 [[food]]
 name = "Bacon (raw)"
@@ -833,7 +837,10 @@ volume = "tbsp"
 
 [[food]]
 name = "Creme fraiche"
-sources = [{ mean = [2148943, 2468125, 2276524], note = "Russell McCall's, Snowville and Sierra Nevada creme fraiche labels" }]
+sources = [
+  { mean = [2148943, 2468125, 2276524], note = "Russell McCall's, Snowville and Sierra Nevada creme fraiche labels" },
+  { fdc = 2705597, status = "estimated", note = "FNDDS Cream heavy: what the labels do not report" },
+]
 volume = { grams = 15, per = "tbsp", source = "Snowville and Sierra Nevada labels: 2 Tbsp = 30 g" }
 
 [[food]]
@@ -870,7 +877,10 @@ fdc = 169736                    # SR: Pasta, dry, enriched
 [[food]]
 name = "Ramen noodles (dry)"
 fdc = 168908                    # SR: Noodles, japanese, somen, dry
-sources = [{ fdc = 169736, status = "estimated", only = [2000], note = "SR Pasta dry enriched: sugars" }]
+sources = [
+  { fdc = 169736, status = "estimated", note = "SR Pasta dry enriched: what SR somen does not report" },
+  { fdc = 2708352, status = "estimated", moisture = true, note = "FNDDS Noodles cooked (scaled to dry): what SR does not report" },
+]
 proxy = true                    # HelloFresh's are unfried wheat noodles; FDC's ramen is the fried instant kind
 
 [[food]]
@@ -880,7 +890,10 @@ volume = { grams = 81, per = "cup", source = "SR 173904: 1 cup = 81 g (its 0.33 
 
 [[food]]
 name = "Panko"
-sources = [{ mean = [2661608, 2112787, 1862715], note = "Target (Good & Gather), DeLallo and Kingston panko labels" }]
+sources = [
+  { mean = [2661608, 2112787, 1862715], note = "Target (Good & Gather), DeLallo and Kingston panko labels" },
+  { fdc = 174928, status = "estimated", note = "SR Bread crumbs dry plain: what the labels do not report" },
+]
 volume = { grams = 84, per = "cup", source = "Target and DeLallo labels: 1/3 cup = 28 g" }
 
 [[food]]
@@ -892,13 +905,16 @@ each = "piece"
 name = "Potato bun"
 sources = [
   { mean = [2476728, 2503567], note = "Big Y and United States Bakery potato hamburger roll labels" },
-  { fdc = 167943, status = "estimated", only = [1162], note = "SR Bread potato: vitamin C (0)" },
+  { fdc = 167943, status = "estimated", note = "SR Bread potato: what the labels do not report" },
 ]
 each = { grams = 55, per = "each", source = "the two labels: 1 roll = 53 g and 57 g" }
 
 [[food]]
 name = "Ciabatta roll"
-sources = [{ mean = [2550797, 2624055], note = "New French Bakery and Walmart ciabatta roll labels" }]
+sources = [
+  { mean = [2550797, 2624055], note = "New French Bakery and Walmart ciabatta roll labels" },
+  { fdc = 2707610, status = "estimated", note = "FNDDS Bread French or Vienna: what the labels do not report" },
+]
 each = { grams = 85, per = "each", source = "both labels: 1 roll = 85 g" }
 
 [[food]]
@@ -929,13 +945,13 @@ proxy = true                    # FDC has no blue corn chip
 [[food]]
 name = "Balsamic vinegar"
 fdc = 172241                    # SR: Vinegar, balsamic
-sources = [{ fdc = 2709351, status = "estimated", only = [1253, 1079], note = "FNDDS Vinegar: cholesterol and fiber (0)" }]
+sources = [{ fdc = 2709351, status = "estimated", note = "FNDDS Vinegar: what SR does not report" }]
 volume = "tbsp"
 
 [[food]]
 name = "White wine vinegar"
 fdc = 172240                    # SR: Vinegar, red wine
-sources = [{ fdc = 2709351, status = "estimated", only = [1253], note = "FNDDS Vinegar: cholesterol (0)" }]
+sources = [{ fdc = 2709351, status = "estimated", note = "FNDDS Vinegar: what SR does not report" }]
 proxy = true                    # FDC has no white wine vinegar
 volume = "tbsp"
 
@@ -972,12 +988,13 @@ volume = "tbsp"
 [[food]]
 name = "Sriracha"
 fdc = 171186                    # SR: Sauce, hot chile, sriracha
-sources = [{ fdc = 2710093, status = "estimated", only = [1258, 1253], note = "FNDDS Hot pepper sauce: saturated fat and cholesterol" }]
+sources = [{ fdc = 2710093, status = "estimated", note = "FNDDS Hot pepper sauce: what SR does not report" }]
 volume = "tsp"
 
 [[food]]
 name = "Hot sauce"
 fdc = 174527                    # SR: Sauce, ready-to-serve, pepper or hot
+sources = [{ fdc = 2710093, status = "estimated", note = "FNDDS Hot pepper sauce: what SR does not report" }]
 volume = { grams = 4.7, per = "tsp", source = "SR 174527: 1 tsp = 4.7 g" }
 
 [[food]]
@@ -1010,7 +1027,7 @@ volume = "tbsp"
 name = "Sweet chili sauce"
 sources = [
   { mean = [2616781, 2542455, 2093921, 2010822], note = "Allied Old English, House of Tsang, Schlotterbeck & Foss and Greystar sweet chili sauce labels" },
-  { fdc = 2710296, status = "estimated", only = [1092], note = "FNDDS Sweet and sour sauce: potassium" },
+  { fdc = 2710296, status = "estimated", note = "FNDDS Sweet and sour sauce: what the labels do not report" },
 ]
 
 [[food]]
@@ -1021,18 +1038,24 @@ volume = "tbsp"
 
 [[food]]
 name = "Chipotle adobo sauce"
-sources = [{ mean = [2673773, 559011], note = "Goya and B&G chipotle peppers in adobo sauce labels" }]
+sources = [
+  { mean = [2673773, 559011], note = "Goya and B&G chipotle peppers in adobo sauce labels" },
+  { fdc = 2709798, status = "estimated", note = "FNDDS Peppers hot raw: what the labels do not report" },
+]
 volume = { grams = 15, per = "tbsp", source = "B&G label: 2 Tbsp = 30 g" }
 
 [[food]]
 name = "Tex-Mex paste"          # HelloFresh's: a chipotle-tomato paste with no published label
-sources = [{ mean = [2673773, 559011], status = "estimated", note = "chipotle peppers in adobo labels (Goya, B&G), the nearest labelled food" }]
+sources = [
+  { mean = [2673773, 559011], status = "estimated", note = "chipotle peppers in adobo labels (Goya, B&G), the nearest labelled food" },
+  { fdc = 2709798, status = "estimated", note = "FNDDS Peppers hot raw: what the labels do not report" },
+]
 
 [[food]]
 name = "Chicken stock concentrate"   # HelloFresh's packet
 sources = [
   { mean = [2434787, 2029037], status = "estimated", note = "Del Monte and Meto chicken broth concentrate labels (a 12 g pouch makes a cup of broth), taken for HelloFresh's packet" },
-  { fdc = 171562, status = "estimated", only = [1162], note = "SR chicken bouillon dry: vitamin C" },
+  { fdc = 171562, status = "estimated", note = "SR chicken bouillon dry: everything the labels do not report" },
 ]
 each = { grams = 12, per = "each", source = "both labels: 1 pouch = 12 g, taken as HelloFresh's packet size" }
 
@@ -1040,7 +1063,7 @@ each = { grams = 12, per = "each", source = "both labels: 1 pouch = 12 g, taken 
 name = "Beef stock concentrate"
 sources = [
   { mean = [2434787, 2029037], status = "estimated", note = "the chicken broth concentrate labels: no beef concentrate label was found" },
-  { fdc = 171562, status = "estimated", only = [1162], note = "SR chicken bouillon dry: vitamin C" },
+  { fdc = 171562, status = "estimated", note = "SR chicken bouillon dry: everything the labels do not report" },
 ]
 each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
 
@@ -1048,7 +1071,7 @@ each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
 name = "Vegetable stock concentrate"
 sources = [
   { mean = [2434787, 2029037], status = "estimated", note = "the chicken broth concentrate labels: no vegetable concentrate label was found" },
-  { fdc = 171562, status = "estimated", only = [1162], note = "SR chicken bouillon dry: vitamin C" },
+  { fdc = 171562, status = "estimated", note = "SR chicken bouillon dry: everything the labels do not report" },
 ]
 each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
 
@@ -1056,7 +1079,7 @@ each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
 name = "Pork ramen stock concentrate"
 sources = [
   { mean = [2434787, 2029037], status = "estimated", note = "the chicken broth concentrate labels: no pork ramen concentrate label was found" },
-  { fdc = 171562, status = "estimated", only = [1162], note = "SR chicken bouillon dry: vitamin C" },
+  { fdc = 171562, status = "estimated", note = "SR chicken bouillon dry: everything the labels do not report" },
 ]
 each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
 
@@ -1064,14 +1087,14 @@ each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
 name = "Vegetable pho stock concentrate"
 sources = [
   { mean = [2434787, 2029037], status = "estimated", note = "the chicken broth concentrate labels: no pho concentrate label was found" },
-  { fdc = 171562, status = "estimated", only = [1162], note = "SR chicken bouillon dry: vitamin C" },
+  { fdc = 171562, status = "estimated", note = "SR chicken bouillon dry: everything the labels do not report" },
 ]
 each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
 
 [[food]]
 name = "Coconut milk (canned)"
 fdc = 170173                    # SR: Nuts, coconut milk, canned
-sources = [{ fdc = 2707568, status = "estimated", moisture = true, only = [1079, 2000], note = "FNDDS Coconut milk used in cooking: fiber and sugars" }]
+sources = [{ fdc = 2707568, status = "estimated", moisture = true, note = "FNDDS Coconut milk used in cooking: what SR does not report" }]
 volume = "cup"
 
 [[food]]
