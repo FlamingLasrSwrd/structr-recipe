@@ -32,14 +32,13 @@ Scoring dimensions for v1 (per the design conversation):
     fits each active (MealPlan.hasConstraint-attached) NutritionTarget's
     range, weighted by that NutritionTarget's own `weight`.
 
-Nutrition data source: Sec 8 rule 7(a) only -- the output Food-Identity
-Type's OWN NutrientProfile (analytically measured, or here, a flagged
-placeholder). Rule 7(b) (yield/retention-factor-derived from raw
-ingredients) is NOT implemented -- it needs RetentionFactor
-DefaultSpecifications wired up per-ingredient-per-transformation, real
-curation work, deferred rather than faked. A candidate with no
-NutrientProfile for a given target's nutrient is neither penalized nor
-rewarded (neutral, same convention as unknown duration).
+Nutrition data source: Sec 8 rule 7(a), the output Food-Identity Type's
+OWN NutrientProfile (analytically measured, or here, a flagged
+placeholder), and where the dish has none, rule 7(b), the sum over its
+ingredients with their retention factors (nutrition_scope, J18). Figures
+are read in the unit of the target's range (J17). A candidate with no
+figure for a given target's nutrient is neither penalized nor rewarded
+(neutral, same convention as unknown duration).
 
 Per-serving, not whole-batch, and judged at each target's own scope
 (mealplanner/nutrition_scope.py): a per_meal target compares one
@@ -215,7 +214,8 @@ def nutrition_terms(
         if problem:
             notes.append(f"{nutrient['name']}: target not evaluated -- {problem}")
             continue
-        per_serving = serving_nutrient_amount(client, plan, nutrient["id"])
+        unit = rng["unit"]
+        per_serving = serving_nutrient_amount(client, plan, nutrient["id"], unit)
         if per_serving is None:
             continue
         intake = per_serving * servings_eaten
@@ -225,14 +225,14 @@ def nutrition_terms(
         if scope == "daily" and slot_start is None:
             if hard and max_val is not None and intake > max_val:
                 disqualified = True
-                notes.append(f"{nutrient['name']}={intake:.1f}g in one meal already exceeds HARD daily max {max_val}")
+                notes.append(f"{nutrient['name']}={intake:.1f}{unit} in one meal already exceeds HARD daily max {max_val}")
             else:
                 notes.append(f"{nutrient['name']}: daily target not scored (no slot_start given)")
             continue
         if scope in ("daily", "weekly"):
-            key = (nutrient["id"], scope, slot_start.astimezone(timezone.utc).date() if scope == "daily" else None)
+            key = (nutrient["id"], unit, scope, slot_start.astimezone(timezone.utc).date() if scope == "daily" else None)
             if key not in planned_cache:
-                planned_cache[key] = scope_total(client, meal_plan, nutrient["id"], scope, slot_start)
+                planned_cache[key] = scope_total(client, meal_plan, nutrient["id"], scope, slot_start, unit)
             planned = planned_cache[key]
             planned_total = planned.total
             if planned.unknown:
@@ -244,7 +244,7 @@ def nutrition_terms(
         over_max = max_val is not None and actual > max_val
         under_min = min_val is not None and actual < min_val
         violated = (over_max or under_min) if scope == "per_meal" else over_max
-        label = f"{nutrient['name']}={actual:.1f}g {scope}"
+        label = f"{nutrient['name']}={actual:.1f}{unit} {scope}"
         if scope != "per_meal":
             label += f" (planned {planned_total:.1f} + this {intake:.1f})"
         if caveats:

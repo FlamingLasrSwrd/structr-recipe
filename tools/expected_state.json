@@ -182,6 +182,13 @@
   "propertyType": "Enum",
   "unique": false
  },
+ "@schema | property NutrientProfile.unit": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "String",
+  "unique": false
+ },
  "@schema | property NutritionTarget.dayBoundaryRule": {
   "format": null,
   "indexed": false,
@@ -1979,7 +1986,8 @@
   "forNutrient": "<DomainType:Protein>",
   "isAbout": "<DomainType:Beef and Broccoli Stir-Fry>",
   "name": "Beef and Broccoli Stir-Fry protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]",
-  "provenance": "placeholder"
+  "provenance": "placeholder",
+  "unit": "g"
  },
  "NutrientProfile | Buttered Pasta with Parmesan protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
   "amount": 9.0,
@@ -1987,7 +1995,8 @@
   "forNutrient": "<DomainType:Protein>",
   "isAbout": "<DomainType:Buttered Pasta with Parmesan>",
   "name": "Buttered Pasta with Parmesan protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]",
-  "provenance": "placeholder"
+  "provenance": "placeholder",
+  "unit": "g"
  },
  "NutrientProfile | Chicken Breast (braised) protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
   "amount": 31.0,
@@ -1995,14 +2004,16 @@
   "forNutrient": "<DomainType:Protein>",
   "isAbout": "<DomainType:Chicken Breast (braised)>",
   "name": "Chicken Breast (braised) protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]",
-  "provenance": "placeholder"
+  "provenance": "placeholder",
+  "unit": "g"
  },
  "NutrientProfile | TEST -- Pasta (cooked) protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]": {
   "amount": 5.0,
   "basis": "per_100g",
   "forNutrient": "<DomainType:Protein>",
   "name": "TEST -- Pasta (cooked) protein profile [PLACEHOLDER -- not sourced from USDA/FDC yet]",
-  "provenance": "placeholder"
+  "provenance": "placeholder",
+  "unit": "g"
  },
  "NutritionTarget | TEST -- Daily protein target": {
   "constrainedPlans": [

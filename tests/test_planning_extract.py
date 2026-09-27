@@ -52,12 +52,36 @@ class Targets(unittest.TestCase):
         self.assertEqual((t.name, t.scope, t.minimum, t.maximum, t.hard, t.weight, t.nutrient_name),
                          ("protein floor", "daily", 70, 140, True, 0.3, "Protein"))
 
-    def test_a_target_not_stated_in_grams_is_noted_and_left_out(self):
+    def test_a_target_not_stated_in_a_nutrient_unit_is_noted_and_left_out(self):
         g = kitchen()
-        add_target(g, "odd", 1, 2, unit="mg")
+        add_target(g, "odd", 1, 2, unit="cup")
         p = build_problem(g, "week", DINNERS, NOW)
         self.assertEqual(p.targets, ())
-        self.assertTrue(any("odd" in n and "isn't grams" in n for n in p.notes))
+        self.assertTrue(any("odd" in n and "isn't a nutrient unit" in n for n in p.notes))
+
+    def test_a_target_in_milligrams_reads_the_figures_in_milligrams(self):
+        g = kitchen()
+        add_target(g, "protein in mg", 20_000, None, unit="mg")
+        p = build_problem(g, "week", DINNERS, NOW)
+        self.assertEqual(p.targets[0].minimum, 20_000)
+        self.assertAlmostEqual(p.candidates["omelette"].nutrients["Protein"], 24_000.0)   # 24 g per serving
+
+    def test_a_second_target_on_one_nutrient_is_converted_to_the_first_ones_unit(self):
+        g = kitchen()
+        add_target(g, "protein floor", 40, None)                      # grams: the unit the figures are read in
+        add_target(g, "protein cap", None, 150_000, unit="mg")
+        p = build_problem(g, "week", DINNERS, NOW)
+        self.assertEqual([(t.name, t.minimum, t.maximum) for t in p.targets],
+                         [("protein floor", 40, None), ("protein cap", None, 150.0)])
+        self.assertAlmostEqual(p.candidates["omelette"].nutrients["Protein"], 24.0)
+
+    def test_a_second_target_in_another_dimension_is_noted_and_left_out(self):
+        g = kitchen()
+        add_target(g, "protein floor", 40, None)
+        add_target(g, "protein in kcal", 100, None, unit="kcal")
+        p = build_problem(g, "week", DINNERS, NOW)
+        self.assertEqual([t.name for t in p.targets], ["protein floor"])
+        self.assertTrue(any("protein in kcal" in n and "does not convert" in n for n in p.notes))
 
 
 class Candidates(unittest.TestCase):

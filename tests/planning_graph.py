@@ -32,7 +32,7 @@ def add_recipe(g, name, *, output_grams, protein_per_100g, provenance, yield_ser
     that carries a protein profile of `protein_per_100g` per 100 g."""
     out = add_type(g, f"{name} (dish)")
     profile_id = f"profile {name}"
-    g.add("NutrientProfile", profile_id, forNutrient=Ref("Protein"), basis="per_100g", amount=protein_per_100g,
+    g.add("NutrientProfile", profile_id, forNutrient=Ref("Protein"), basis="per_100g", unit="g", amount=protein_per_100g,
           provenance=provenance)
     g.nodes[out]["nutrientProfilesAbout"].append(Ref(profile_id))
     for meal in meal_types:

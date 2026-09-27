@@ -42,7 +42,7 @@ class Provenance(unittest.TestCase):
     def test_two_outputs_are_trusted_only_if_both_profiles_are(self):
         g = self.kitchen("sourced")
         add_type(g, "broth (dish)")
-        g.add("NutrientProfile", "profile broth", forNutrient=Ref("Protein"), basis="per_100g", amount=2.0, provenance="placeholder")
+        g.add("NutrientProfile", "profile broth", forNutrient=Ref("Protein"), basis="per_100g", unit="g", amount=2.0, provenance="placeholder")
         g.nodes["broth (dish)"]["nutrientProfilesAbout"].append(Ref("profile broth"))
         g.add("QuantitySpecification", "q broth", value=500.0, unit="g")
         g.add("Specification", "out broth", hasParticipationRole="output", specifies=Ref("broth (dish)"),

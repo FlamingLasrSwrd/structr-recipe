@@ -135,7 +135,7 @@ def main():
         for name, (grams, minutes) in RECIPES.items():
             dish = client.upsert("DomainType", "name", f"{P}{name} dish", {"hierarchy": hierarchy, "isLookupBearing": True})
             profiles[name] = client.upsert("NutrientProfile", "name", f"{P}{name} protein profile", {
-                "isAbout": dish, "forNutrient": protein, "amount": grams, "basis": "per_100g", "provenance": "sourced"})
+                "isAbout": dish, "forNutrient": protein, "amount": grams, "basis": "per_100g", "unit": "g", "provenance": "sourced"})
             recipe = client.upsert("RecipeIdentity", "name", f"{P}{name} recipe", {"isRetired": False})
             plan = client.upsert("Plan", "name", P + name, {
                 "specializationOf": recipe, "estimatedDurationMinutes": minutes,

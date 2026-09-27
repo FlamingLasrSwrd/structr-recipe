@@ -21,9 +21,11 @@ What "eaten" means here. Nutrient intake at a MealPlanEntry is
     fact about the data, so every entry that used it is reported back to
     the caller rather than absorbed silently.
   - per serving: the output type's own NutrientProfile (Sec 8 rule 7(a))
-    x the recipe's output mass / its yield in servings. A leftover-
-    consuming entry (consumesLeftoverFrom) takes its food from the
-    source entry's recipe, followed up to MAX_LEFTOVER_HOPS.
+    x the recipe's output mass / its yield in servings; or, when the dish
+    has no profile of its own, the sum over its ingredients (rule 7(b),
+    serving_nutrient_figure). A leftover-consuming entry
+    (consumesLeftoverFrom) takes its food from the source entry's recipe,
+    followed up to MAX_LEFTOVER_HOPS.
   - unknown stays unknown: an entry with no profile, no output mass, or
     no yield in servings contributes nothing and is listed as unknown,
     so a total is either complete or explicitly a lower bound.
@@ -50,9 +52,13 @@ Skipped entries never count. Fulfilled (already cooked) entries DO count:
 they were eaten, unlike reservation where a fulfilled entry's stock is
 already gone from inventory.
 
-NutrientProfile has no unit field (grams per 100 g is implicit in its
-basis), so a target whose range isn't stated in grams is reported as
-unsupported rather than compared.
+Units (J17). A NutrientProfile states the unit of its amount (g, mg, ug,
+kcal, kJ or IU). Every figure is asked for in a unit, normally the unit of
+the target's range, and converted within its dimension (mass, energy, or
+IU, which is nutrient-specific and never converts to a mass); a figure in
+another dimension is unknown for that question. A profile with no unit or
+an unrecognised one raises NutrientUnitError: it used to be grams by
+convention, and a bad record should be visibly broken, not quietly wrong.
 """
 
 from __future__ import annotations
@@ -60,27 +66,91 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 
+from mealplanner.defaults import resolve_default
 from mealplanner.material_accounting import candidate_outputs, recipe_servings_strict
+from mealplanner.unit_conversion import QuantityError, convert_to_grams
 from structr_client import ReadCache
 
 FMT = "%Y-%m-%dT%H:%M:%S%z"
 DEFAULT_SERVINGS_EATEN = 1.0
 SUPPORTED_DAY_BOUNDARY = "midnight"
 MAX_LEFTOVER_HOPS = 5
+RETENTION_KIND = "RetentionFactor"
+
+# unit (lowercased) -> (dimension, factor to the dimension's base unit: g, kcal, IU).
+# 1 kcal = 4.184 kJ, the thermochemical calorie FoodData Central uses.
+NUTRIENT_UNITS: dict[str, tuple[str, float]] = {
+    "g": ("mass", 1.0),
+    "mg": ("mass", 1e-3),
+    "ug": ("mass", 1e-6),
+    "µg": ("mass", 1e-6),
+    "kcal": ("energy", 1.0),
+    "kj": ("energy", 1.0 / 4.184),
+    "iu": ("iu", 1.0),
+}
+
+
+class NutrientUnitError(QuantityError):
+    """A nutrient amount whose unit is missing or not one of NUTRIENT_UNITS."""
+
+
+class AmbiguousProfileError(RuntimeError):
+    """One Type with two per-100 g profiles for the same nutrient."""
+
+
+def nutrient_unit(unit: str | None, what: str = "nutrient amount") -> tuple[str, float]:
+    """(dimension, factor to its base unit) for a nutrient unit, or NutrientUnitError."""
+    entry = NUTRIENT_UNITS.get(unit.strip().lower()) if isinstance(unit, str) else None
+    if entry is None:
+        raise NutrientUnitError(f"{what}: unit {unit!r} is not a nutrient unit ({', '.join(NUTRIENT_UNITS)})")
+    return entry
+
+
+def convert_nutrient(amount: float, from_unit: str, to_unit: str) -> float | None:
+    """`amount` in from_unit expressed in to_unit, or None if the two are
+    different dimensions (grams cannot become kcal or IU)."""
+    from_dim, from_factor = nutrient_unit(from_unit)
+    to_dim, to_factor = nutrient_unit(to_unit)
+    if from_dim != to_dim:
+        return None
+    return amount * from_factor / to_factor
+
+
+@dataclass(frozen=True)
+class ProfileFigure:
+    amount: float              # per 100 g, in `unit`
+    unit: str
+    provenance: str | None     # "placeholder", "sourced", or None if never set
+
+
+def profile_figure(client, type_id: str, nutrient_id: str) -> ProfileFigure | None:
+    """A Type's OWN per-100 g NutrientProfile for this nutrient, or None if it
+    has none. Profiles are not inherited down the hierarchy: a parent's figure
+    is not a measurement of its child. Two profiles for one nutrient on one
+    Type raise rather than one being picked."""
+    node = client.get_all("DomainType", type_id)["result"]
+    found = []
+    for profile_ref in node.get("nutrientProfilesAbout", []):
+        profile = client.get_all("NutrientProfile", profile_ref["id"])["result"]
+        if (profile.get("forNutrient") or {}).get("id") == nutrient_id and profile.get("basis") == "per_100g":
+            found.append(profile)
+    if not found:
+        return None
+    if len(found) > 1:
+        raise AmbiguousProfileError(f"{node.get('name')!r} has {len(found)} per-100 g profiles for one nutrient: "
+                                    f"{sorted(p['name'] for p in found)}")
+    profile = found[0]
+    if profile.get("amount") is None:
+        return None
+    nutrient_unit(profile.get("unit"), f"NutrientProfile {profile['name']!r}")
+    return ProfileFigure(profile["amount"], profile["unit"], profile.get("provenance"))
 
 
 def nutrient_profile_record(client, output_type_id: str, nutrient_id: str) -> tuple[float | None, str | None]:
-    """(per-100g amount, provenance) from the output type's own NutrientProfile
-    for this nutrient (Sec 8 rule 7(a) only -- rule 7(b), deriving it from raw
-    ingredients via retention factors, is not implemented). (None, None) if
-    there is no per_100g profile. Provenance is "placeholder", "sourced", or
-    None when it was never set."""
-    output_type = client.get_all("DomainType", output_type_id)["result"]
-    for profile_ref in output_type.get("nutrientProfilesAbout", []):
-        profile = client.get_all("NutrientProfile", profile_ref["id"])["result"]
-        if (profile.get("forNutrient") or {}).get("id") == nutrient_id and profile.get("basis") == "per_100g":
-            return profile.get("amount"), profile.get("provenance")
-    return None, None
+    """(per-100 g amount in the profile's own unit, provenance), or (None, None)
+    if the Type has no per-100 g profile for this nutrient (profile_figure)."""
+    figure = profile_figure(client, output_type_id, nutrient_id)
+    return (None, None) if figure is None else (figure.amount, figure.provenance)
 
 
 def nutrient_profile_amount(client, output_type_id: str, nutrient_id: str) -> float | None:
@@ -89,45 +159,176 @@ def nutrient_profile_amount(client, output_type_id: str, nutrient_id: str) -> fl
     return nutrient_profile_record(client, output_type_id, nutrient_id)[0]
 
 
-def serving_nutrient(client, plan: dict, nutrient_id: str) -> tuple[float | None, bool]:
-    """(grams of the nutrient in ONE serving of a Plan's output or None if it
-    can't be established, whether every profile behind that figure is
-    `sourced`). The Plan's amount is the sum over EVERY final output
-    (material_accounting.candidate_outputs), so a recipe with two outputs
-    counts both.
+@dataclass(frozen=True)
+class ServingFigure:
+    """One serving's worth of a nutrient, and how it was established."""
 
-    Unknown propagates: if any final output lacks a mass or a NutrientProfile
-    for this nutrient, or the yield isn't stated in servings, the whole answer
-    is None rather than a partial sum. That is deliberately cautious -- an
-    inedible byproduct with no profile will make a recipe's nutrition unknown
-    until the model can say which outputs are eaten, which it can't today.
+    amount: float | None           # in the unit asked for; None if unknown
+    trusted: bool                  # may a hard target be decided on it (J15, J18)
+    method: str | None = None      # "dish" (rule 7(a)) or "ingredients" (rule 7(b))
+    reason: str | None = None      # why it is unknown or untrusted
+    unadjusted: tuple[str, ...] = ()   # ingredients no retention factor resolved for
 
-    The second value is what the planner uses to keep a hard target from being
-    decided on placeholder data: a figure counts as trusted only if every
-    profile contributing to it says `sourced`, so one placeholder or unmarked
-    profile makes the whole figure untrusted."""
+
+def _unknown(reason: str, method: str | None = None) -> ServingFigure:
+    return ServingFigure(None, False, method, reason)
+
+
+def serving_nutrient_figure(client, plan: dict, nutrient_id: str, unit: str = "g") -> ServingFigure:
+    """The nutrient in ONE serving of a Plan's output, in `unit`.
+
+    Rule 7(a), the dish's own profiles: used when every final output
+    (material_accounting.candidate_outputs) has a per-100 g profile for this
+    nutrient AND a mass, and the Plan's amount is the sum over all of them.
+
+    Rule 7(b), from the ingredients: otherwise, when the Plan has exactly one
+    final output, it is the sum over the raw, non-optional inputs of
+    grams x per-100 g x retention factor, divided by the servings
+    (_from_ingredients). With several final outputs and no profiles of their
+    own, which ingredients went into which output is not modeled, so the answer
+    is unknown.
+
+    Unknown propagates: a missing piece makes the whole figure None rather than
+    a partial sum. A figure is trusted only if every profile behind it is
+    `sourced` and, from ingredients, a retention factor resolved for every
+    ingredient."""
     outputs = candidate_outputs(client, plan)
     if not outputs:
-        return None, False
+        return _unknown("the recipe has no final output")
     servings = recipe_servings_strict(client, plan)
     if servings is None:
-        return None, False
-    total, trusted = 0.0, True
-    for output_type_id, output_grams in outputs:
-        if output_grams is None:
-            return None, False
-        per_100g, provenance = nutrient_profile_record(client, output_type_id, nutrient_id)
-        if per_100g is None:
-            return None, False
-        trusted = trusted and provenance == "sourced"
-        total += output_grams * per_100g / 100.0
-    return total / servings, trusted
+        return _unknown("the recipe's yield is not stated in servings")
+    figures = [profile_figure(client, type_id, nutrient_id) for type_id, _ in outputs]
+    if all(f is not None for f in figures) and all(grams is not None for _, grams in outputs):
+        total, trusted = 0.0, True
+        for (_, grams), figure in zip(outputs, figures):
+            per_100g = convert_nutrient(figure.amount, figure.unit, unit)
+            if per_100g is None:
+                return _unknown(f"the dish's profile is in {figure.unit}, not comparable with {unit}", "dish")
+            trusted = trusted and figure.provenance == "sourced"
+            total += grams * per_100g / 100.0
+        return ServingFigure(total / servings, trusted, "dish", None if trusted else "a profile is not sourced")
+    if len(outputs) != 1:
+        return _unknown("several final outputs without profiles of their own: which ingredients went into "
+                        "which is not modeled")
+    return _from_ingredients(client, plan, nutrient_id, unit, servings)
 
 
-def serving_nutrient_amount(client, plan: dict, nutrient_id: str) -> float | None:
-    """Grams of the nutrient in ONE serving of a Plan's output, or None if it
-    can't be established (see serving_nutrient)."""
-    return serving_nutrient(client, plan, nutrient_id)[0]
+def _input_grams(client, spec: dict, type_id: str) -> float | None:
+    qty_ref = spec.get("hasSpecifiedQuantity")
+    if not qty_ref:
+        return None
+    qty = client.get_all("QuantitySpecification", qty_ref["id"])["result"]
+    if qty.get("value") is None:
+        return None
+    return convert_to_grams(client, type_id, qty["value"], qty.get("unit"))
+
+
+def _retention_kind(client) -> str | None:
+    matches = client.get("/structr/rest/DomainType", params={"name": RETENTION_KIND})["result"]
+    if len(matches) > 1:
+        raise LookupError(f"expected at most one DomainType named {RETENTION_KIND!r}, found {len(matches)}")
+    return matches[0]["id"] if matches else None
+
+
+def retention_factor(client, type_id: str, method_id: str | None, nutrient_id: str) -> float | None:
+    """The share of this nutrient left in this food after this transformation:
+    a RetentionFactor default (Sec 8) keyed by the nutrient and, optionally, the
+    transformation, resolved up the food's hierarchy like any default. None if
+    none resolves. One not keyed by the nutrient, or not a ratio, is malformed
+    and raises."""
+    kind_id = _retention_kind(client)
+    if kind_id is None:
+        return None
+    keys = {nutrient_id} | ({method_id} if method_id else set())
+    resolved = resolve_default(client, type_id, kind_id, keys)
+    if resolved is None:
+        return None
+    value, unit = resolved.quantity.get("value"), resolved.quantity.get("unit")
+    if nutrient_id not in resolved.keyed_by or unit != "ratio" or value is None or value < 0:
+        raise ValueError(f"RetentionFactor {resolved.default_name!r} must be keyed by its nutrient and be a "
+                         f"non-negative ratio; got {value!r} {unit!r}")
+    return value
+
+
+def _from_ingredients(client, plan: dict, nutrient_id: str, unit: str, servings: float) -> ServingFigure:
+    """Rule 7(b). The dish holds what its ingredients held, less what cooking
+    destroys: water loss changes a figure per 100 g, not per serving, so no
+    yield factor is needed for an amount per serving. Each ingredient's share is
+    multiplied by its retention factor for the Step that takes it; where none
+    resolves it is counted whole and named in `unadjusted`, which makes the
+    figure untrusted (an upper bound for a nutrient that cooking destroys).
+
+    Only RAW inputs count (a type no Step of the Plan produces, J5), so an
+    intermediate is not counted twice, and an intermediate's own profile is not
+    used. Optional inputs are left out: the dish is complete without them. An
+    ingredient with no stated or convertible quantity makes the figure unknown,
+    unless its profile says it has none of this nutrient; such an ingredient
+    needs no quantity and no retention factor, since none stays none."""
+    steps = [client.get_all("Step", ref["id"])["result"] for ref in plan.get("steps", [])]
+    specs_by_step = [
+        (step, [client.get_all("Specification", ref["id"])["result"] for ref in step.get("hasSpecification", [])])
+        for step in steps
+    ]
+    produced = {
+        s["specifies"]["id"] for _, specs in specs_by_step for s in specs
+        if s.get("hasParticipationRole") == "output" and s.get("specifies")
+    }
+    total, all_sourced, unadjusted, counted = 0.0, True, [], 0
+    for step, specs in specs_by_step:
+        method_id = (step.get("instanceOf") or {}).get("id")
+        for spec in specs:
+            specifies = spec.get("specifies")
+            if spec.get("hasParticipationRole") != "input" or not specifies or specifies["id"] in produced:
+                continue
+            if spec.get("isOptional"):
+                continue
+            counted += 1
+            name = specifies.get("name") or specifies["id"]
+            figure = profile_figure(client, specifies["id"], nutrient_id)
+            if figure is None:
+                return _unknown(f"ingredient {name!r} has no profile for this nutrient", "ingredients")
+            per_100g = convert_nutrient(figure.amount, figure.unit, unit)
+            if per_100g is None:
+                return _unknown(f"ingredient {name!r}'s profile is in {figure.unit}, not comparable with {unit}",
+                                "ingredients")
+            all_sourced = all_sourced and figure.provenance == "sourced"
+            if per_100g == 0:
+                continue          # none of it, whatever the quantity or the cooking
+            grams = _input_grams(client, spec, specifies["id"])
+            if grams is None:
+                return _unknown(f"ingredient {name!r} has no quantity that converts to grams", "ingredients")
+            factor = retention_factor(client, specifies["id"], method_id, nutrient_id)
+            if factor is None:
+                factor = 1.0
+                unadjusted.append(name)
+            total += grams * per_100g / 100.0 * factor
+    if counted == 0:
+        return _unknown("the recipe lists no ingredients", "ingredients")
+    trusted = all_sourced and not unadjusted
+    reason = None
+    if not all_sourced:
+        reason = "an ingredient's profile is not sourced"
+    elif unadjusted:
+        reason = f"no retention factor for {', '.join(unadjusted)}"
+    return ServingFigure(total / servings, trusted, "ingredients", reason, tuple(unadjusted))
+
+
+def serving_nutrient(client, plan: dict, nutrient_id: str, unit: str = "g") -> tuple[float | None, bool]:
+    """(the nutrient in ONE serving of a Plan's output, in `unit`, or None if it
+    can't be established; whether it is trusted). See serving_nutrient_figure.
+
+    The second value is what the planner uses to keep a hard target from being
+    decided on placeholder data (J15) or on a figure not adjusted for cooking
+    losses (J18)."""
+    figure = serving_nutrient_figure(client, plan, nutrient_id, unit)
+    return figure.amount, figure.trusted
+
+
+def serving_nutrient_amount(client, plan: dict, nutrient_id: str, unit: str = "g") -> float | None:
+    """The nutrient in ONE serving of a Plan's output, in `unit`, or None if it
+    can't be established (see serving_nutrient_figure)."""
+    return serving_nutrient(client, plan, nutrient_id, unit)[0]
 
 
 def _source_plan(client, entry: dict) -> dict | None:
@@ -158,13 +359,13 @@ def entry_servings_eaten(client, entry: dict) -> tuple[float, bool]:
     return DEFAULT_SERVINGS_EATEN, True
 
 
-def entry_nutrient_intake(client, entry: dict, nutrient_id: str) -> tuple[float | None, bool]:
-    """(grams of the nutrient eaten at this entry or None if unknown,
+def entry_nutrient_intake(client, entry: dict, nutrient_id: str, unit: str = "g") -> tuple[float | None, bool]:
+    """(the nutrient eaten at this entry, in `unit`, or None if unknown,
     whether the default servings was assumed)."""
     plan = _source_plan(client, entry)
     if plan is None:
         return None, False
-    per_serving = serving_nutrient_amount(client, plan, nutrient_id)
+    per_serving = serving_nutrient_amount(client, plan, nutrient_id, unit)
     if per_serving is None:
         return None, False
     servings, assumed = entry_servings_eaten(client, entry)
@@ -200,9 +401,9 @@ def active_entries(client, meal_plan: dict) -> list[dict]:
 
 
 def scope_total(
-    client, meal_plan: dict, nutrient_id: str, scope: str, when: datetime | None = None,
+    client, meal_plan: dict, nutrient_id: str, scope: str, when: datetime | None = None, unit: str = "g",
 ) -> ScopeTotal:
-    """Nutrient already planned inside one scope of a MealPlan.
+    """Nutrient already planned inside one scope of a MealPlan, in `unit`.
 
     scope "weekly": every active entry. scope "daily": entries on the
     same calendar day as `when` (required); entries with no start time
@@ -218,7 +419,7 @@ def scope_total(
                 continue
             if calendar_day(start) != calendar_day(when):
                 continue
-        intake, assumed = entry_nutrient_intake(client, entry, nutrient_id)
+        intake, assumed = entry_nutrient_intake(client, entry, nutrient_id, unit)
         if intake is None:
             result.unknown.append(entry["name"])
             continue
@@ -237,8 +438,8 @@ def target_scope_problem(target: dict, range_unit: str | None) -> str | None:
         return f"no usable hasTimeScope ({scope!r})"
     if scope == "daily" and target.get("dayBoundaryRule") != SUPPORTED_DAY_BOUNDARY:
         return f"unsupported dayBoundaryRule {target.get('dayBoundaryRule')!r} (only {SUPPORTED_DAY_BOUNDARY!r})"
-    if range_unit != "g":
-        return f"target range unit {range_unit!r} isn't grams (NutrientProfile amounts are grams per 100 g)"
+    if not (isinstance(range_unit, str) and range_unit.strip().lower() in NUTRIENT_UNITS):
+        return f"target range unit {range_unit!r} isn't a nutrient unit ({', '.join(NUTRIENT_UNITS)})"
     return None
 
 
@@ -278,7 +479,7 @@ def nutrition_report(client, meal_plan_id: str) -> list[dict]:
         rng = client.get_all("QuantitySpecification", range_ref["id"])["result"]
         min_val, max_val = rng.get("minValue"), rng.get("maxValue")
         base = {"target": target["name"], "nutrient": nutrient["name"], "scope": target.get("hasTimeScope"),
-                "strictness": target.get("strictness"), "min": min_val, "max": max_val}
+                "strictness": target.get("strictness"), "min": min_val, "max": max_val, "unit": rng.get("unit")}
         problem = target_scope_problem(target, rng.get("unit"))
         if problem:
             rows.append({**base, "group": None, "status": "unsupported", "detail": problem})
@@ -301,7 +502,7 @@ def nutrition_report(client, meal_plan_id: str) -> list[dict]:
         for key in sorted(groups):
             total, unknown, assumed = 0.0, [], []
             for entry in groups[key]:
-                intake, was_assumed = entry_nutrient_intake(client, entry, nutrient["id"])
+                intake, was_assumed = entry_nutrient_intake(client, entry, nutrient["id"], rng["unit"])
                 if intake is None:
                     unknown.append(entry["name"])
                     continue

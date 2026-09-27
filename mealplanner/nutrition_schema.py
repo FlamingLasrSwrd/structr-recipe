@@ -14,10 +14,14 @@ Sec 8 rule 7 gives two ways to get a cooked output's nutrition:
       measured values) -- preferred.
   (b) apply yield + retention factors to the raw ingredient's profile.
 
-Only (a) is implemented here. (b) needs RetentionFactor
-DefaultSpecifications wired up per-ingredient-per-transformation, which
-is real additional curation work, not implemented -- noted as a
-deferred v2 path, not silently skipped.
+Both are read by mealplanner/nutrition_scope.py: (a) when the dish has a
+profile of its own, (b) from its ingredients' profiles otherwise
+(data-model.md Sec 18 J18).
+
+`unit` is the unit of `amount` (per 100 g for basis per_100g): "g", "mg",
+"ug", "kcal", "kJ" or "IU". Before it existed every amount was grams by
+convention (J4), which could not hold an energy, a milligram mineral or a
+microgram vitamin; J17 records the change.
 """
 
 PROPERTIES: dict[str, list[dict]] = {
@@ -29,6 +33,9 @@ PROPERTIES: dict[str, list[dict]] = {
         # on data that is placeholder or of unknown origin (REVIEW.md round 1
         # #24; data-model.md Sec 18 J15).
         {"name": "provenance", "propertyType": "Enum", "format": "placeholder,sourced"},
+        # The unit of `amount`. A profile without one cannot be read
+        # (nutrition_scope.NutrientUnitError) rather than being assumed grams.
+        {"name": "unit", "propertyType": "String"},
     ],
 }
 

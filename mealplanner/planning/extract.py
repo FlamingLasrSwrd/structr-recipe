@@ -27,7 +27,7 @@ from mealplanner.candidates import (
 from mealplanner.inventory import shelf_life_days
 from mealplanner.material_accounting import candidate_input_requirements, recipe_servings_strict
 from mealplanner.nutrition_scope import (
-    active_entries, entry_servings_eaten, entry_start, serving_nutrient, target_scope_problem,
+    active_entries, convert_nutrient, entry_servings_eaten, entry_start, serving_nutrient, target_scope_problem,
 )
 from mealplanner.planning.model import Candidate, Fixed, Lot, PlanningProblem, Slot, Target, Weights
 from mealplanner.reservation import stock_pools
@@ -80,7 +80,10 @@ def build_problem(
         time_budget_minutes=number(meal_plan.get("timeBudgetMinutes"), 60.0),
     )
 
-    targets = []
+    # Every figure for one nutrient is read in one unit, the unit of the first target
+    # on it; a later target on the same nutrient in another unit of the same dimension
+    # has its range converted to that unit (J17).
+    targets, unit_of = [], {}
     for raw in active_nutrition_targets(client, meal_plan):
         nutrient, range_ref = raw.get("forNutrient"), raw.get("hasTargetRange")
         if not nutrient or not range_ref:
@@ -91,9 +94,16 @@ def build_problem(
         if problem_text:
             notes.append(f"target {raw.get('name')!r} is not evaluated: {problem_text}")
             continue
+        unit = unit_of.setdefault(nutrient["id"], rng["unit"])
+        factor = convert_nutrient(1.0, rng["unit"], unit)
+        if factor is None:
+            notes.append(f"target {raw.get('name')!r} is not evaluated: its unit {rng['unit']!r} does not convert to "
+                         f"{unit!r}, the unit of another target on {nutrient['name']}")
+            continue
+        scaled = [None if v is None else v * factor for v in (rng.get("minValue"), rng.get("maxValue"))]
         targets.append(Target(
-            name=raw["name"], nutrient=nutrient["id"], scope=raw["hasTimeScope"], minimum=rng.get("minValue"),
-            maximum=rng.get("maxValue"), hard=raw.get("strictness") == "hard", weight=number(raw.get("weight"), 0.0),
+            name=raw["name"], nutrient=nutrient["id"], scope=raw["hasTimeScope"], minimum=scaled[0],
+            maximum=scaled[1], hard=raw.get("strictness") == "hard", weight=number(raw.get("weight"), 0.0),
             nutrient_name=nutrient["name"],
         ))
 
@@ -154,11 +164,11 @@ def build_problem(
             notes.append(f"recipe {plan['name']!r} has no yield in servings; its fixed entry is kept but uses no stock")
             servings, requirements = 1.0, []
         nutrients, untrusted = {}, set()
-        for target in targets:
-            amount, trusted = serving_nutrient(client, plan, target.nutrient)
-            nutrients[target.nutrient] = amount
+        for nutrient_id, unit in unit_of.items():
+            amount, trusted = serving_nutrient(client, plan, nutrient_id, unit)
+            nutrients[nutrient_id] = amount
             if amount is not None and not trusted:
-                untrusted.add(target.nutrient)
+                untrusted.add(nutrient_id)
         demand: dict[str, float] = {}
         for type_id, grams in requirements:
             demand[pool_of[type_id]] = demand.get(pool_of[type_id], 0.0) + grams
