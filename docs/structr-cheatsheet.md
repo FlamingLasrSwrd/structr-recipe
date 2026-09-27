@@ -634,6 +634,13 @@ workaround actively dangerous rather than just slow:
   enough to exceed it. Paginate explicitly (`_page`/`_pageSize`, see
   above) and keep fetching until a page comes back short, don't trust one
   request to mean "everything."
+  ✅ **Don't trust `page_count` to be there either** (verified 2026-09-27): on a
+  collection of 13,000 NutrientProfiles read with `_pageSize=500`, the
+  response had no `result_count` and no `page_count` at all, while the same
+  read with `_pageSize=40000` did. A client that took a missing count to
+  mean one page read 500 rows, and an importer built on it created all
+  13,000 again. `StructrClient.get_all` now reads on until a short page
+  whenever the count is absent.
 - **The bare collection endpoint also only returns the default view** —
   same trap as the `/all`-view section below, but easy to miss here
   specifically because a property close enough to a built-in one (e.g. a

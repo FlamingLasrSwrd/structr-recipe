@@ -391,13 +391,27 @@ class StructrClient:
         about the rest, so on a type with more rows than that (a year of
         Measurements) it returned an incomplete list with no error. The result
         is the first page's response with `result` holding every row.
+
+        On a large collection Structr leaves out result_count and page_count
+        (seen at 13,000 rows; it stops counting past a limit), so without a
+        page_count reading goes on until a page comes back short. Taking a
+        missing count to mean one page once returned 500 of 13,000 profiles,
+        and an importer that found nothing created every one again.
         """
         if node_id:
             return self.get(f"/structr/rest/{type_name}/{node_id}/all")
         path = f"/structr/rest/{type_name}/all"
         first = self.get(path, params={"_page": 1, "_pageSize": page_size})
         rows = list(first["result"])
-        for page in range(2, int(first.get("page_count") or 1) + 1):
-            rows.extend(self.get(path, params={"_page": page, "_pageSize": page_size})["result"])
+        if first.get("page_count") is not None:
+            for page in range(2, int(first["page_count"]) + 1):
+                rows.extend(self.get(path, params={"_page": page, "_pageSize": page_size})["result"])
+        else:
+            page, last = 1, len(first["result"])
+            while last == page_size:
+                page += 1
+                chunk = self.get(path, params={"_page": page, "_pageSize": page_size})["result"]
+                rows.extend(chunk)
+                last = len(chunk)
         first["result"] = rows
         return first

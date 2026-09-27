@@ -156,7 +156,26 @@ class ServerWithASmallDefaultPage(StructrClient):
         return {"result": chunk, "result_count": len(self.rows), "page_count": -(-len(self.rows) // size), "page": page}
 
 
+class ServerThatStopsCounting(ServerWithASmallDefaultPage):
+    """A large collection: Structr sends the page but no result_count or page_count."""
+
+    def get(self, path, params=None):
+        response = super().get(path, params)
+        return {"result": response["result"], "page": response["page"]}
+
+
 class CollectionReadsAreComplete(unittest.TestCase):
+    def test_every_row_comes_back_when_the_server_gives_no_counts(self):
+        rows = [{"id": str(i)} for i in range(7)]
+        server = ServerThatStopsCounting(rows)
+        self.assertEqual([r["id"] for r in server.get_all("Profile", page_size=3)["result"]], [str(i) for i in range(7)])
+        self.assertEqual(len(server.requests), 3)                     # 3 + 3 + 1: the short page ends it
+
+    def test_an_exact_multiple_ends_on_an_empty_page(self):
+        server = ServerThatStopsCounting([{"id": str(i)} for i in range(6)])
+        self.assertEqual(len(server.get_all("Profile", page_size=3)["result"]), 6)
+        self.assertEqual(len(server.requests), 3)
+
     def test_every_row_comes_back_even_past_the_servers_default_page(self):
         rows = [{"id": str(i)} for i in range(7)]
         got = ServerWithASmallDefaultPage(rows).get_all("Portion", page_size=3)
