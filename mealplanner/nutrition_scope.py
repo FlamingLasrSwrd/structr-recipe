@@ -120,7 +120,7 @@ def convert_nutrient(amount: float, from_unit: str, to_unit: str) -> float | Non
 class ProfileFigure:
     amount: float              # per 100 g, in `unit`
     unit: str
-    provenance: str | None     # "placeholder", "sourced", or None if never set
+    provenance: str | None     # "placeholder", "sourced", "estimated", "calculated", or None if never set
 
 
 def profile_figure(client, type_id: str, nutrient_id: str) -> ProfileFigure | None:
@@ -164,10 +164,11 @@ class ServingFigure:
     """One serving's worth of a nutrient, and how it was established."""
 
     amount: float | None           # in the unit asked for; None if unknown
-    trusted: bool                  # may a hard target be decided on it (J15, J18)
+    trusted: bool                  # may a hard target be decided on it (J15, J21)
     method: str | None = None      # "dish" (rule 7(a)) or "ingredients" (rule 7(b))
-    reason: str | None = None      # why it is unknown or untrusted
+    reason: str | None = None      # why it is unknown, untrusted or estimated
     unadjusted: tuple[str, ...] = ()   # ingredients no retention factor resolved for
+    estimated: bool = False        # usable, but rests on an estimate somewhere (J21)
 
 
 def _unknown(reason: str, method: str | None = None) -> ServingFigure:
@@ -189,9 +190,11 @@ def serving_nutrient_figure(client, plan: dict, nutrient_id: str, unit: str = "g
     is unknown.
 
     Unknown propagates: a missing piece makes the whole figure None rather than
-    a partial sum. A figure is trusted only if every profile behind it is
-    `sourced` and, from ingredients, a retention factor resolved for every
-    ingredient."""
+    a partial sum. A figure is trusted (usable for a hard target) when every
+    profile behind it is sourced, estimated or calculated (J21, the owner's
+    decision: a placeholder or unmarked profile is not); it is `estimated` when
+    any of them is not sourced or, from ingredients, an ingredient had no
+    retention factor."""
     outputs = candidate_outputs(client, plan)
     if not outputs:
         return _unknown("the recipe has no final output")
@@ -200,14 +203,15 @@ def serving_nutrient_figure(client, plan: dict, nutrient_id: str, unit: str = "g
         return _unknown("the recipe's yield is not stated in servings")
     figures = [profile_figure(client, type_id, nutrient_id) for type_id, _ in outputs]
     if all(f is not None for f in figures) and all(grams is not None for _, grams in outputs):
-        total, trusted = 0.0, True
+        total, provenances = 0.0, set()
         for (_, grams), figure in zip(outputs, figures):
             per_100g = convert_nutrient(figure.amount, figure.unit, unit)
             if per_100g is None:
                 return _unknown(f"the dish's profile is in {figure.unit}, not comparable with {unit}", "dish")
-            trusted = trusted and figure.provenance == "sourced"
+            provenances.add(figure.provenance)
             total += grams * per_100g / 100.0
-        return ServingFigure(total / servings, trusted, "dish", None if trusted else "a profile is not sourced")
+        trusted, estimated, reason = _judge(provenances, [])
+        return ServingFigure(total / servings, trusted, "dish", reason, (), estimated)
     if len(outputs) != 1:
         return _unknown("several final outputs without profiles of their own: which ingredients went into "
                         "which is not modeled")
@@ -257,7 +261,7 @@ def _from_ingredients(client, plan: dict, nutrient_id: str, unit: str, servings:
     yield factor is needed for an amount per serving. Each ingredient's share is
     multiplied by its retention factor for the Step that takes it; where none
     resolves it is counted whole and named in `unadjusted`, which makes the
-    figure untrusted (an upper bound for a nutrient that cooking destroys).
+    figure an estimate (an upper bound for a nutrient that cooking destroys).
 
     Only RAW inputs count (a type no Step of the Plan produces, J5), so an
     intermediate is not counted twice, and an intermediate's own profile is not
@@ -274,7 +278,7 @@ def _from_ingredients(client, plan: dict, nutrient_id: str, unit: str, servings:
         s["specifies"]["id"] for _, specs in specs_by_step for s in specs
         if s.get("hasParticipationRole") == "output" and s.get("specifies")
     }
-    total, all_sourced, unadjusted, counted = 0.0, True, [], 0
+    total, provenances, unadjusted, counted = 0.0, set(), [], 0
     for step, specs in specs_by_step:
         method_id = (step.get("instanceOf") or {}).get("id")
         for spec in specs:
@@ -292,7 +296,7 @@ def _from_ingredients(client, plan: dict, nutrient_id: str, unit: str, servings:
             if per_100g is None:
                 return _unknown(f"ingredient {name!r}'s profile is in {figure.unit}, not comparable with {unit}",
                                 "ingredients")
-            all_sourced = all_sourced and figure.provenance == "sourced"
+            provenances.add(figure.provenance)
             if per_100g == 0:
                 continue          # none of it, whatever the quantity or the cooking
             grams = _input_grams(client, spec, specifies["id"])
@@ -301,17 +305,32 @@ def _from_ingredients(client, plan: dict, nutrient_id: str, unit: str, servings:
             factor = retention_factor(client, specifies["id"], method_id, nutrient_id)
             if factor is None:
                 factor = 1.0
-                unadjusted.append(name)
+                if name not in unadjusted:        # an ingredient used in two Steps is named once
+                    unadjusted.append(name)
             total += grams * per_100g / 100.0 * factor
     if counted == 0:
         return _unknown("the recipe lists no ingredients", "ingredients")
-    trusted = all_sourced and not unadjusted
-    reason = None
-    if not all_sourced:
-        reason = "an ingredient's profile is not sourced"
-    elif unadjusted:
-        reason = f"no retention factor for {', '.join(unadjusted)}"
-    return ServingFigure(total / servings, trusted, "ingredients", reason, tuple(unadjusted))
+    trusted, estimated, reason = _judge(provenances, unadjusted)
+    return ServingFigure(total / servings, trusted, "ingredients", reason, tuple(unadjusted), estimated)
+
+
+USABLE = frozenset({"sourced", "estimated", "calculated"})
+
+
+def _judge(provenances: set, unadjusted: list[str]) -> tuple[bool, bool, str | None]:
+    """(trusted, estimated, reason) for a figure built on profiles of these
+    provenances. J21, the owner's decision: an estimate is good enough to plan
+    with (calorie figures are +-30% anyway) and is reported as one; a placeholder
+    or a profile of unknown origin is not."""
+    if not provenances <= USABLE:
+        return False, False, "a profile is placeholder or unmarked"
+    estimated = bool(provenances - {"sourced"}) or bool(unadjusted)
+    notes = []
+    if provenances - {"sourced"}:
+        notes.append("a profile is " + " or ".join(sorted(provenances - {"sourced"})))
+    if unadjusted:
+        notes.append(f"no retention factor for {', '.join(unadjusted)}")
+    return True, estimated, "; ".join(notes) or None
 
 
 def serving_nutrient(client, plan: dict, nutrient_id: str, unit: str = "g") -> tuple[float | None, bool]:

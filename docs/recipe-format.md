@@ -33,6 +33,7 @@ inputs = [{ food = "Noodles (dry)", amount = 400, unit = "g" }]
 
 [[steps]]                                 # the last step makes the dish
 name = "toss"
+equipment = ["Wok"]                       # optional: the tools the step needs
 inputs = [
   { food = "Noodles (cooked)" },          # made by the step above: no amount needed
   { food = "Butter", amount = 3, unit = "tbsp" },
@@ -48,10 +49,13 @@ inputs = [
   names. A name that does not resolve stops the file before anything is written, and every such
   name is listed, so a typo never becomes a new food. The dish and anything a step `makes` are
   food types too: an existing one is reused, a new one is created.
-- **Units** are `g`, `kg`, `mg`, `oz`, `lb`, `ml`, `l`, `cup`, `tbsp`, `tsp`, `fl_oz`, `each`,
-  `whole` and `count`. A volume or a count converts to grams only if the food has a `Density` or
+- **Units** are `g`, `kg`, `mg`, `oz`, `lb`, `ml`, `l`, `cup`, `tbsp`, `tsp`, `fl_oz`, `dash`
+  (1/8 tsp), `pinch` (1/16 tsp), `each`, `whole` and `count`. A volume or a count converts to grams only if the food has a `Density` or
   `MassPerUnit` default; the loader names any quantity that does not, since that ingredient's
   nutrition stays unknown until it does.
+- **Equipment** names must be in the vocabulary too (the Equipment Type hierarchy). Each becomes an
+  instrument-role Specification of its Step: the model's place for a tool a process needs, with no
+  quantity.
 - **One dish per recipe.** Every step but the last must make something a later step uses, and
   nothing may be used before it is made.
 - **Names** cannot contain a comma or a semicolon (Structr's exact-match lookup cannot find them).
@@ -71,15 +75,22 @@ makes go in a comment at the top of the file. The conventions so far (`docs/data
 - **A discarded marinade** is counted as eaten, and the file says so: the model cannot yet say an
   output is thrown away.
 - **An ingredient with no known weight for its measure** keeps the recipe's unit; the loader names
-  it, and its figures stay unknown until it is weighed.
+  it. Find a weight (another USDA dataset, a brand's label, the web) and add it to the vocabulary
+  with its source, `estimated` if it is not a published figure for that food.
+- **A size stated as a can or a package** ("3 cans of beans, drained") is written as `each` of a
+  food whose weight per item is that can's (drained) weight, with its source.
 - **A side "for serving"** with no amount is `optional`.
 - Every food must be in `data/vocabulary.toml`, matched to a USDA food (`tools/import_vocabulary.py`).
 
 ## What it becomes
 
 A `RecipeIdentity` (meal types; an `Identifier` for the source page), a `Plan` named
-`<name> v<version>` (yield in servings, minutes, difficulty), and for each step a `Step` with one
-input `Specification` per ingredient and an output `Specification` for what it makes. The dish's
+`<name> v<version>` (yield in servings, minutes, difficulty), and for each step a `Step` (its
+transformation method) with one input `Specification` per ingredient, an output `Specification`
+for what it makes, and an instrument `Specification` per piece of equipment. The page's prose is
+not stored: a Step records what goes in, what comes out, how and with what, in order. An actual
+cook is a separate thing, a `Process` that concretizes the Plan with the quantities really used
+(`scripts/15c` shows one); there is no tool to record a cook yet. The dish's
 mass is not stored: nutrition per serving is worked out from the ingredients
 (`docs/data-model.md` §18 J18).
 

@@ -105,10 +105,26 @@ class FromIngredients(unittest.TestCase):
         self.assertAlmostEqual(figure.amount, 25.5)
         self.assertEqual(figure.method, "ingredients")
 
-    def test_without_retention_factors_it_is_counted_whole_but_untrusted(self):
+    def test_without_retention_factors_it_is_counted_whole_as_an_estimate(self):
         figure = serving_nutrient_figure(kitchen(), stew(kitchen()), "Protein")
-        self.assertFalse(figure.trusted)
+        self.assertTrue(figure.trusted and figure.estimated)             # J21: usable, and said to be an estimate
         self.assertEqual(figure.unadjusted, ("Beef", "Carrot"))
+        self.assertIn("no retention factor", figure.reason)
+
+    def test_a_conserved_nutrient_from_sourced_profiles_is_not_an_estimate(self):
+        g = kitchen()
+        conserved(g, "Protein")
+        figure = serving_nutrient_figure(g, stew(g), "Protein")
+        self.assertEqual((figure.trusted, figure.estimated, figure.reason), (True, False, None))
+
+    def test_an_estimated_or_calculated_profile_is_usable_and_flagged(self):
+        for provenance in ("estimated", "calculated"):
+            g = kitchen()
+            conserved(g, "Protein")
+            g.nodes["profile Carrot Protein"]["provenance"] = provenance
+            figure = serving_nutrient_figure(g, stew(g), "Protein")
+            self.assertEqual((figure.trusted, figure.estimated), (True, True), provenance)
+            self.assertIn(provenance, figure.reason)
 
     def test_a_conserved_nutrient_from_sourced_profiles_is_trusted(self):
         g = kitchen()

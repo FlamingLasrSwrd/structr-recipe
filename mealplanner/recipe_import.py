@@ -15,6 +15,7 @@ What a file becomes (data-model.md Sec 5, the same shapes scripts/15c builds):
     Step <plan> step <i> -- <label>     instanceOf a Transformation Method
       Specification ... input <j> <food>   specifies a Food-Identity Type; quantity if stated
       Specification ... output <type>      the Step's product
+      Specification ... equipment <k> <x>  instrument role: a tool the Step needs
 
 The dish and every intermediate are Food-Identity Types: an existing one is
 reused (a known cooked food keeps its own profiles, Sec 8 rule 7(a)), a new one
@@ -44,9 +45,10 @@ from structr_client.client import UNSAFE_EXACT_MATCH_CHARS
 DIFFICULTIES = ("easy", "medium", "hard")
 FOOD_HIERARCHY = "Food Identity"
 METHOD_HIERARCHY = "Transformation Method"
+EQUIPMENT_HIERARCHY = "Equipment Type"
 MEAL_TYPE_SCHEME = "Meal Type"
 TOP_KEYS = {"name", "version", "source", "servings", "minutes", "difficulty", "meal_types", "dish", "steps"}
-STEP_KEYS = {"name", "method", "makes", "inputs"}
+STEP_KEYS = {"name", "method", "makes", "inputs", "equipment"}
 INPUT_KEYS = {"food", "amount", "unit", "optional"}
 
 
@@ -84,6 +86,7 @@ class StepDoc:
     method: str | None
     inputs: tuple[Ingredient, ...]
     makes: str
+    equipment: tuple[str, ...] = ()   # the tools the step needs: instrument Specifications
 
 
 @dataclass(frozen=True)
@@ -206,7 +209,15 @@ def parse_recipe(data: dict) -> RecipeDoc:
             if not isinstance(optional, bool):
                 problems.append(f"{iw}: optional must be true or false")
             inputs.append(Ingredient(food, None if amount is None else float(amount), unit, optional))
-        steps.append(StepDoc(label, method, tuple(inputs), makes))
+        equipment = raw.get("equipment", [])
+        if not isinstance(equipment, list):
+            problems.append(f"{where}: equipment must be a list of names")
+            equipment = []
+        for k, tool in enumerate(equipment, 1):
+            _safe_name(f"{where} equipment {k}", tool, problems)
+        if len(set(equipment)) != len(equipment):
+            problems.append(f"{where}: a piece of equipment is listed twice")
+        steps.append(StepDoc(label, method, tuple(inputs), makes, tuple(equipment)))
 
     made = [s.makes for s in steps]
     if len(set(made)) != len(made):
@@ -242,6 +253,7 @@ class Resolved:
     products: dict[str, str | None]    # dish and intermediates -> existing DomainType id, or None to create
     food_hierarchy: str
     web_page: str | None               # the "Web page" identifier scheme, if the file has a source
+    equipment: dict[str, str] = field(default_factory=dict)   # -> Equipment Type id
 
 
 def _one(client, path: str, name: str) -> list[dict]:
@@ -254,9 +266,11 @@ def resolve(client, doc: RecipeDoc) -> Resolved:
     problems: list[str] = []
     food_h = _one(client, "/structr/rest/TypeHierarchy", FOOD_HIERARCHY)
     method_h = _one(client, "/structr/rest/TypeHierarchy", METHOD_HIERARCHY)
-    if len(food_h) != 1 or len(method_h) != 1:
-        raise RecipeResolutionError([f"the {FOOD_HIERARCHY!r} and {METHOD_HIERARCHY!r} hierarchies must each exist once"])
-    food_h, method_h = food_h[0]["id"], method_h[0]["id"]
+    equipment_h = _one(client, "/structr/rest/TypeHierarchy", EQUIPMENT_HIERARCHY)
+    if len(food_h) != 1 or len(method_h) != 1 or len(equipment_h) != 1:
+        raise RecipeResolutionError([f"the {FOOD_HIERARCHY!r}, {METHOD_HIERARCHY!r} and {EQUIPMENT_HIERARCHY!r} "
+                                     f"hierarchies must each exist once"])
+    food_h, method_h, equipment_h = food_h[0]["id"], method_h[0]["id"], equipment_h[0]["id"]
 
     def domain_type(name: str, hierarchy: str, what: str, may_be_missing=False) -> str | None:
         matches = _one(client, "/structr/rest/DomainType", name)
@@ -280,6 +294,7 @@ def resolve(client, doc: RecipeDoc) -> Resolved:
             if ing.food not in products and ing.food not in foods:
                 foods[ing.food] = domain_type(ing.food, food_h, "ingredient")
     methods = {s.method: domain_type(s.method, method_h, "method") for s in doc.steps if s.method}
+    equipment = {tool: domain_type(tool, equipment_h, "equipment") for s in doc.steps for tool in s.equipment}
     meal_types = {}
     for meal in doc.meal_types:
         matches = [c for c in _one(client, "/structr/rest/Concept", meal)
@@ -297,7 +312,7 @@ def resolve(client, doc: RecipeDoc) -> Resolved:
             web_page = concepts[0]["id"]
     if problems:
         raise RecipeResolutionError(problems)
-    return Resolved(foods, methods, meal_types, products, food_h, web_page)
+    return Resolved(foods, methods, meal_types, products, food_h, web_page, equipment)
 
 
 # -- reading a Plan back ---------------------------------------------------
@@ -312,11 +327,14 @@ def export_plan(client, plan_id: str) -> tuple:
     steps = []
     for index, ref in sorted((_step_index(r["name"], plan["name"]), r) for r in plan.get("steps", [])):
         step = client.get_all("Step", ref["id"])["result"]
-        inputs, makes = [], None
+        inputs, makes, tools = [], None, []
         specs = [client.get_all("Specification", s["id"])["result"] for s in step.get("hasSpecification", [])]
         for spec in sorted(specs, key=lambda s: s["name"]):
             if spec.get("hasParticipationRole") == "output":
                 makes = spec["specifies"]["name"]
+                continue
+            if spec.get("hasParticipationRole") == "instrument":
+                tools.append((int(spec["name"].rsplit(" equipment ", 1)[1].split(" ", 1)[0]), spec["specifies"]["name"]))
                 continue
             amount = unit = None
             if spec.get("hasSpecifiedQuantity"):
@@ -326,7 +344,8 @@ def export_plan(client, plan_id: str) -> tuple:
                                                                   bool(spec.get("isOptional")))))
         label = step["name"][len(f"{plan['name']} step {index} -- "):]
         method = (step.get("instanceOf") or {}).get("name")
-        steps.append(StepDoc(label, method, tuple(ing for _, ing in sorted(inputs, key=lambda p: p[0])), makes))
+        steps.append(StepDoc(label, method, tuple(ing for _, ing in sorted(inputs, key=lambda p: p[0])), makes,
+                             tuple(tool for _, tool in sorted(tools))))
     return (servings, plan.get("estimatedDurationMinutes"), plan.get("difficultyRating"), tuple(steps))
 
 
@@ -423,6 +442,10 @@ def import_recipe(client, doc: RecipeDoc, *, check_only: bool = False) -> Import
                 _delete_orphan_quantity(client, f"{spec_name} quantity")
         keep_specs.add(client.upsert("Specification", "name", output_name(doc, i, step), {
             "step": step_id, "hasParticipationRole": "output", "specifies": type_of[step.makes], "isOptional": False}))
+        for k, tool in enumerate(step.equipment, 1):     # instrument role: never a quantity (invariant 6)
+            keep_specs.add(client.upsert("Specification", "name", f"{doc.plan_name} step {i} equipment {k} {tool}", {
+                "step": step_id, "hasParticipationRole": "instrument", "specifies": names.equipment[tool],
+                "isOptional": False}))
 
     removed = _remove_stale(client, plan_id, keep_steps, keep_specs)
     report = ImportReport(recipe_id, plan_id, plan_unchanged=before == doc.plan_part() and not removed,

@@ -156,16 +156,17 @@ def main():
         check(close(serving_nutrient_figure(client, plan, nutrients["Energy"], "kJ").amount,
                     (RICE_G * 3.6 + 400 * 1.39) / 4 * 4.184), "the same energy in kJ")
         check(close(sodium.amount, (RICE_G * 0.05 + 400 * 2.5 + 6 * 387.58) / 4), f"sodium {sodium.amount} mg")
-        check(not protein.trusted and protein.unadjusted == (RICE, CHICKPEAS),
-              "with no retention factors the figure is untrusted, naming the ingredients (salt has no protein)")
+        check(protein.trusted and protein.estimated and protein.unadjusted == (RICE, CHICKPEAS),
+              "with no retention factors the figure is a usable estimate (J21), naming the ingredients (salt has no protein)")
         for food in (RICE, CHICKPEAS):
             factor = client.upsert("QuantitySpecification", "name", f"{food} protein retention", {
                 "value": 1.0, "unit": "ratio", "status": "default"})
             client.upsert("DefaultSpecification", "name", f"{food} protein retention default", {
                 "forType": foods[food], "hasKind": dt(client, "RetentionFactor"), "hasValue": factor,
                 "keyedBy": [nutrients["Protein"]]})
-        check(serving_nutrient_figure(client, plan, nutrients["Protein"], "g").trusted,
-              "with a protein retention factor on each ingredient it is trusted (resolved through real Structr)")
+        adjusted = serving_nutrient_figure(client, plan, nutrients["Protein"], "g")
+        check(adjusted.trusted and not adjusted.estimated,
+              "with a protein retention factor on each ingredient it is no longer an estimate (resolved through real Structr)")
 
         print("\n[3] Load it again, then an edited file...")
         again = import_recipe(client, doc)

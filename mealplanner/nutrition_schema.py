@@ -24,6 +24,9 @@ convention (J4), which could not hold an energy, a milligram mineral or a
 microgram vitamin; J17 records the change.
 """
 
+PROVENANCE_FORMAT = "placeholder,sourced,estimated,calculated"
+OLD_PROVENANCE_FORMAT = "placeholder,sourced"
+
 PROPERTIES: dict[str, list[dict]] = {
     "NutrientProfile": [
         {"name": "amount", "propertyType": "Double"},
@@ -32,10 +35,15 @@ PROPERTIES: dict[str, list[dict]] = {
         # untrusted: the planner will not let a hard NutritionTarget be decided
         # on data that is placeholder or of unknown origin (REVIEW.md round 1
         # #24; data-model.md Sec 18 J15).
-        {"name": "provenance", "propertyType": "Enum", "format": "placeholder,sourced"},
+        # "estimated" and "calculated" were added by the owner's decision of
+        # 2026-09-27 (J21); scripts/30a migrates an instance built before it.
+        {"name": "provenance", "propertyType": "Enum", "format": PROVENANCE_FORMAT},
         # The unit of `amount`. A profile without one cannot be read
         # (nutrition_scope.NutrientUnitError) rather than being assumed grams.
         {"name": "unit", "propertyType": "String"},
+        # Where the figure comes from, for checking it later: a dataset and its
+        # food id, a label, a web page (J21).
+        {"name": "source", "propertyType": "String"},
     ],
 }
 

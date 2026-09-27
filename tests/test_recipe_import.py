@@ -26,6 +26,7 @@ inputs = [{ food = "Noodles (dry)", amount = 400, unit = "g" }]
 
 [[steps]]
 name = "toss"
+equipment = ["Wok", "Tongs"]
 inputs = [
   { food = "Noodles (cooked)" },
   { food = "Butter", amount = 3, unit = "tbsp" },
@@ -51,7 +52,7 @@ class Parse(unittest.TestCase):
         self.assertEqual(doc.plan_name, "Garlic Butter Noodles v1")
         first, second = doc.steps
         self.assertEqual((first.label, first.method, first.makes), ("boil the noodles", "Boiling", "Noodles (cooked)"))
-        self.assertEqual(second.method, None)
+        self.assertEqual((second.method, second.equipment, first.equipment), (None, ("Wok", "Tongs"), ()))
         self.assertEqual(second.inputs[0], Ingredient("Noodles (cooked)"))
         self.assertEqual(second.inputs[1], Ingredient("Butter", 3.0, "tbsp"))
         self.assertEqual(second.inputs[4], Ingredient("Parsley", 5.0, "g", True))
@@ -98,6 +99,11 @@ class Parse(unittest.TestCase):
         data["steps"][0]["inputs"].append({"food": "Garlic Butter Noodles"})
         self.assertTrue(any("made at or after it" in p for p in self.problems(data)))
 
+    def test_a_tool_listed_twice(self):
+        data = good()
+        data["steps"][1]["equipment"] = ["Wok", "Wok"]
+        self.assertTrue(any("listed twice" in p for p in self.problems(data)))
+
     def test_the_last_step_makes_the_dish(self):
         data = good(dish="Noodle Bowl")
         data["steps"][1]["makes"] = "Something Else"
@@ -106,8 +112,10 @@ class Parse(unittest.TestCase):
 
 def vocabulary():
     g = FakeGraph()
-    for hid in ("Food Identity", "Transformation Method", "Nutrient"):
+    for hid in ("Food Identity", "Transformation Method", "Nutrient", "Equipment Type"):
         g.add("TypeHierarchy", hid, hid)
+    for tool in ("Wok", "Tongs"):
+        g.add("DomainType", tool, tool, hierarchy=Ref("Equipment Type"))
     for food in ("Noodles (dry)", "Butter", "Garlic", "Salt", "Parsley"):
         g.add("DomainType", food, food, hierarchy=Ref("Food Identity"), nutrientProfilesAbout=[])
     g.add("DomainType", "Boiling", "Boiling", hierarchy=Ref("Transformation Method"))
@@ -126,15 +134,16 @@ class Resolve(unittest.TestCase):
         self.assertEqual(set(names.foods), {"Noodles (dry)", "Butter", "Garlic", "Salt", "Parsley"})
         self.assertEqual(names.products, {"Noodles (cooked)": None, "Garlic Butter Noodles": None})
         self.assertEqual((names.methods, names.web_page), ({"Boiling": "Boiling"}, "Web page"))
+        self.assertEqual(names.equipment, {"Wok": "Wok", "Tongs": "Tongs"})
 
     def test_every_missing_name_is_listed_before_anything_is_written(self):
         g = vocabulary()
-        del g.nodes["Garlic"], g.nodes["Boiling"], g.nodes["Lunch"]
+        del g.nodes["Garlic"], g.nodes["Boiling"], g.nodes["Lunch"], g.nodes["Tongs"]
         with self.assertRaises(RecipeResolutionError) as caught:
             resolve(g, parse_recipe(good()))
         problems = caught.exception.problems
-        self.assertEqual(len(problems), 3, problems)
-        for fragment in ("ingredient 'Garlic'", "method 'Boiling'", "meal type 'Lunch'"):
+        self.assertEqual(len(problems), 4, problems)
+        for fragment in ("ingredient 'Garlic'", "method 'Boiling'", "meal type 'Lunch'", "equipment 'Tongs'"):
             self.assertTrue(any(fragment in p for p in problems), fragment)
 
     def test_a_food_must_be_a_food(self):
@@ -184,7 +193,14 @@ class ReadBack(unittest.TestCase):
               specifies=Ref("Rice"), hasSpecifiedQuantity=Ref("q"), isOptional=False)
         g.add("Specification", "s1o", f"{plan_name} step 1 output Rice (cooked)", hasParticipationRole="output",
               specifies=Ref("Rice (cooked)"), isOptional=False)
-        g.add("Step", "st2", f"{plan_name} step 2 -- serve", hasSpecification=[Ref("s2o"), Ref("s2i1")])
+        g.add("DomainType", "Bowl rack", "Bowl rack")
+        g.add("DomainType", "Ladle", "Ladle")
+        g.add("Specification", "s2e2", f"{plan_name} step 2 equipment 2 Bowl rack", hasParticipationRole="instrument",
+              specifies=Ref("Bowl rack"), isOptional=False)
+        g.add("Specification", "s2e1", f"{plan_name} step 2 equipment 1 Ladle", hasParticipationRole="instrument",
+              specifies=Ref("Ladle"), isOptional=False)
+        g.add("Step", "st2", f"{plan_name} step 2 -- serve",
+              hasSpecification=[Ref("s2e2"), Ref("s2o"), Ref("s2i1"), Ref("s2e1")])
         g.add("Step", "st1", f"{plan_name} step 1 -- boil -- well", instanceOf=Ref("Boiling"),
               hasSpecification=[Ref("s1o"), Ref("s1i1")])
         g.add("Plan", "plan", plan_name, steps=[Ref("st2"), Ref("st1")], hasRecipeYield=Ref("yield"),
@@ -195,7 +211,7 @@ class ReadBack(unittest.TestCase):
         for plan_name in ("Bowl v1", "TEST -- Bowl v1"):
             self.assertEqual(export_plan(self.build(plan_name), "plan"), (2.0, None, "easy", (
                 StepDoc("boil -- well", "Boiling", (Ingredient("Rice", 1.5, "cup"),), "Rice (cooked)"),
-                StepDoc("serve", None, (Ingredient("Rice (cooked)"),), "Bowl"),
+                StepDoc("serve", None, (Ingredient("Rice (cooked)"),), "Bowl", ("Ladle", "Bowl rack")),
             )))
 
 

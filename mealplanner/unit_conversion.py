@@ -59,6 +59,10 @@ UNIT_TABLE: dict[str, tuple[str, float]] = {
     "tbsp": ("volume", 14.7868),
     "tsp": ("volume", 4.92892),
     "fl_oz": ("volume", 29.5735),
+    # Not physical constants but the sizes US measuring-spoon sets engrave: a
+    # dash is 1/8 tsp and a pinch 1/16 tsp. Recipes use them for small amounts.
+    "dash": ("volume", 4.92892 / 8),
+    "pinch": ("volume", 4.92892 / 16),
     # count -- "how many discrete items", not a physical unit at all
     "each": ("count", 1.0),
     "whole": ("count", 1.0),

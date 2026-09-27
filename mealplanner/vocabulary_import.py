@@ -1,26 +1,34 @@
 """The curated vocabulary, from data/vocabulary.toml into the graph.
 
-The file names every food, cooking method and nutrient this project knows, and
-maps each food to a USDA FoodData Central food (mealplanner/fdc.py). Loading it
+The file names every food, cooking method, piece of equipment and nutrient this
+project knows, and says where each food's figures come from: USDA FoodData
+Central foods (mealplanner/fdc.py) or a stated source. Loading it
 (tools/import_vocabulary.py) writes, idempotently:
 
-  Nutrient types       one per FDC nutrient the mapped foods report, each with an
+  Nutrient types       one per FDC nutrient the foods report, each with an
                        Identifier holding its FDC nutrient id (the real key: the
                        names are rewritten, since FDC's contain commas, which a
                        Structr name cannot hold)
   Food types           under the root "Food", or the parent the file names, each
-                       with an Identifier holding its FDC id
-  NutrientProfiles     every nutrient FDC reports for the food, per 100 g, in
-                       FDC's unit; `sourced` for a direct match, `placeholder`
-                       for a stand-in (`proxy = true`: the closest food FDC has)
-  Density, MassPerUnit from the FDC household portion the file names
+                       with an Identifier holding the FDC id of its first source
+  NutrientProfiles     per 100 g, in FDC's unit, each carrying its provenance and
+                       its source, so any figure can be checked later (J21)
+  Density, MassPerUnit from an FDC household portion, several averaged, or a
+                       stated weight with its source; with provenance and source
   RetentionFactor 1.0  on "Food" for each nutrient the owner decided is kept
                        through cooking (data-model.md Sec 18 J18)
-  Transformation methods, with their parents
+  Transformation methods and Equipment Types, with their parents
+
+Where a food's figures come from. A food lists its sources in order; each
+nutrient comes from the first source that reports it, so a later source fills
+the gaps of an earlier one. A source is one FDC food, or several averaged
+(brands, say). Its provenance: `sourced` for a published figure for this very
+food, `estimated` for anything nearer or rougher (a similar food, an average of
+labels, a web figure), `calculated` for a composition worked out from parts.
 
 Existing nodes are matched by name and changed only where they differ. A
-food's profiles that its FDC food no longer reports are deleted. A name that
-already exists in another hierarchy is an error, not a rename.
+food's profiles for nutrients no source reports any longer are deleted. A name
+that already exists in another hierarchy is an error, not a rename.
 """
 
 from __future__ import annotations
@@ -41,11 +49,19 @@ ROOT_FOOD = "Food"
 FOOD_HIERARCHY = "Food Identity"
 METHOD_HIERARCHY = "Transformation Method"
 NUTRIENT_HIERARCHY = "Nutrient"
+EQUIPMENT_HIERARCHY = "Equipment Type"
+STATUSES = ("sourced", "estimated", "calculated")
 # FDC reports energy twice. The kJ figure is the kcal figure converted, and two
 # nutrients with one name cannot both exist, so it is left out.
 SKIPPED_NUTRIENTS = {"1062": "Energy in kJ, the same energy as 1008 in kcal"}
 FDC_UNITS = {"G": "g", "MG": "mg", "UG": "ug", "KCAL": "kcal", "KJ": "kJ", "IU": "IU"}
-VOLUME_WORDS = {"cup": "cup", "tbsp": "tbsp", "tsp": "tsp", "fl oz": "fl_oz", "liter": "l"}
+VOLUME_WORDS = {"cup": "cup", "tbsp": "tbsp", "tsp": "tsp", "fl oz": "fl_oz", "liter": "l", "tablespoon": "tbsp"}
+DATASETS = {"sr_legacy_food": "SR Legacy", "foundation_food": "Foundation", "survey_fndds_food": "FNDDS",
+            "branded_food": "Branded"}
+# The Nutrition Facts figures. Every food should have them; --check lists the gaps.
+CORE_NUTRIENTS = {"1008": "Energy", "1003": "Protein", "1004": "Total fat", "1258": "Saturated fat",
+                  "1253": "Cholesterol", "1005": "Carbohydrate", "1079": "Fiber", "2000": "Sugars",
+                  "1093": "Sodium", "1087": "Calcium", "1089": "Iron", "1092": "Potassium", "1162": "Vitamin C"}
 
 
 class VocabularyError(ValueError):
@@ -55,29 +71,60 @@ class VocabularyError(ValueError):
 
 
 @dataclass(frozen=True)
-class Food:
-    name: str
-    parent: str
-    fdc: int | None = None
-    proxy: bool = False
-    each: str | None = None           # FDC portion label giving the mass of one
-    volume: str | None = None         # FDC portion label giving a density
-    density_from: int | None = None   # another FDC food whose portion gives the density (same food, other entry)
+class Source:
+    ids: tuple[int, ...]                  # one FDC food, or several to average
+    status: str                           # sourced, estimated or calculated
+    only: frozenset | None = None         # the FDC nutrient ids it may supply; None: all it reports
+    note: str = ""
 
 
 @dataclass(frozen=True)
-class Method:
+class Measure:
+    """A Density (per a volume unit) or a MassPerUnit (per "each")."""
+    portions: tuple[tuple[int, str], ...] = ()    # FDC (food id, portion label) pairs, averaged
+    grams: float | None = None                    # or a stated weight...
+    per: str | None = None                        # ...of this much: a volume unit, or "each"
+    status: str = "sourced"
+    source: str = ""                              # where a stated weight comes from
+
+
+@dataclass(frozen=True)
+class Food:
+    name: str
+    parent: str
+    sources: tuple[Source, ...] = ()
+    each: Measure | None = None
+    volume: Measure | None = None
+
+    @property
+    def fdc(self) -> int | None:
+        """The first source's FDC food, when it is a single one: the food's FDC ID."""
+        return self.sources[0].ids[0] if self.sources and len(self.sources[0].ids) == 1 else None
+
+
+@dataclass(frozen=True)
+class Named:
     name: str
     parent: str | None = None
 
 
 @dataclass(frozen=True)
 class Vocabulary:
-    subset: str
+    subsets: tuple[str, ...]
     foods: tuple[Food, ...]
-    methods: tuple[Method, ...]
+    methods: tuple[Named, ...]
+    equipment: tuple[Named, ...]
     kept_in_cooking: tuple[str, ...]      # FDC nutrient ids
-    fdc: dict | None = None               # the pinned subset, once read
+    fdc: dict | None = None               # the pinned subsets merged: {"nutrients": ..., "foods": ...}
+
+    def ids(self) -> set[int]:
+        """Every FDC food the file refers to."""
+        found = {i for f in self.foods for s in f.sources for i in s.ids}
+        for f in self.foods:
+            for m in (f.each, f.volume):
+                if m:
+                    found |= {i for i, _ in m.portions}
+        return found
 
 
 def nutrient_name(fdc_name: str) -> str:
@@ -94,29 +141,142 @@ def volume_unit(label: str) -> str | None:
     return None
 
 
+def merge(subsets: list[dict]) -> dict:
+    """Several pinned subsets as one index. A nutrient's name comes from the
+    first subset that defines it (list SR Legacy first); units must agree."""
+    nutrients, foods = {}, {}
+    for subset in subsets:
+        for nid, n in subset["nutrients"].items():
+            if nid in nutrients and nutrients[nid]["unit"].upper() != n["unit"].upper():
+                raise VocabularyError([f"FDC nutrient {nid} is in {nutrients[nid]['unit']} in one dataset and "
+                                       f"{n['unit']} in another"])
+            nutrients.setdefault(nid, n)
+        for fid, food in subset["foods"].items():
+            foods[fid] = food
+    return {"nutrients": nutrients, "foods": foods}
+
+
 def _portion(fdc: dict, fdc_id: int, label: str) -> dict | None:
     matches = [p for p in fdc["foods"][str(fdc_id)]["portions"] if p["label"] == label]
     return matches[0] if len(matches) == 1 else None
 
 
-def density(fdc: dict, food: Food) -> float | None:
-    """Grams per mL from the named volume portion: grams / (amount x mL of the unit)."""
-    if not food.volume:
-        return None
-    portion = _portion(fdc, food.density_from or food.fdc, food.volume)
-    return portion["grams"] / (portion["amount"] * UNIT_TABLE[volume_unit(food.volume)][1])
+def measure_value(fdc: dict, measure: Measure) -> float:
+    """Grams per mL (a density) or grams per item: stated, or the mean over the named portions."""
+    if measure.grams is not None:
+        return measure.grams / (1.0 if measure.per == "each" else UNIT_TABLE[measure.per][1])
+    values = []
+    for fid, label in measure.portions:
+        portion = _portion(fdc, fid, label)
+        unit = volume_unit(label)
+        values.append(portion["grams"] / (portion["amount"] * (UNIT_TABLE[unit][1] if unit else 1.0)))
+    return sum(values) / len(values)
 
 
-def mass_per_each(fdc: dict, food: Food) -> float | None:
-    if not food.each:
+def _describe(fdc: dict, fid: int) -> str:
+    food = fdc["foods"][str(fid)]
+    label = food.get("brand", "")
+    label = f"{label} {food['description']}".strip()
+    return f"{DATASETS.get(food['data_type'], food['data_type'])} {fid} ({label})"
+
+
+def measure_source(fdc: dict, measure: Measure) -> str:
+    if measure.grams is not None:
+        return f"{measure.grams:g} g per {measure.per}: {measure.source}"
+    parts = []
+    for fid, label in measure.portions:
+        portion = _portion(fdc, fid, label)
+        parts.append(f"{_describe(fdc, fid)}: {portion['amount']:g} {label} = {portion['grams']:g} g")
+    prefix = "mean of " if len(parts) > 1 else ""
+    return f"{prefix}USDA FoodData Central " + "; ".join(parts)
+
+
+def composition(fdc: dict, food: Food) -> dict[str, tuple[float, str, str]]:
+    """nutrient id -> (amount per 100 g, provenance, source) for a food: each
+    nutrient from the first source that reports it, averaged over that source's
+    foods that report it."""
+    out: dict[str, tuple[float, str, str]] = {}
+    for source in food.sources:
+        records = {fid: fdc["foods"][str(fid)] for fid in source.ids}
+        reported = sorted({n for r in records.values() for n in r["nutrients"]}, key=int)
+        for nid in reported:
+            if nid in out or nid in SKIPPED_NUTRIENTS or (source.only is not None and nid not in source.only):
+                continue
+            having = [fid for fid, r in records.items() if nid in r["nutrients"]]
+            amount = sum(records[fid]["nutrients"][nid] for fid in having) / len(having)
+            text = "; ".join(_describe(fdc, fid) for fid in having)
+            prefix = "mean of " if len(having) > 1 else ""
+            kind = f" ({source.status}: {source.note})" if source.note else ""
+            out[nid] = (amount, source.status, f"{prefix}USDA FoodData Central {text}{kind}")
+    return out
+
+
+def core_gaps(fdc: dict, food: Food) -> list[str]:
+    have = composition(fdc, food) if food.sources else {}
+    return [label for nid, label in CORE_NUTRIENTS.items() if nid not in have]
+
+
+# -- parsing ---------------------------------------------------------------
+
+def _source(raw, where: str, problems: list[str]) -> Source | None:
+    if not isinstance(raw, dict):
+        problems.append(f"{where}: a source is a table")
         return None
-    portion = _portion(fdc, food.fdc, food.each)
-    return portion["grams"] / portion["amount"]
+    unknown = set(raw) - {"fdc", "mean", "status", "only", "note"}
+    if unknown:
+        problems.append(f"{where}: unknown key(s) {sorted(unknown)}")
+    if ("fdc" in raw) == ("mean" in raw):
+        problems.append(f"{where}: give exactly one of fdc or mean")
+        return None
+    ids = (raw["fdc"],) if "fdc" in raw else tuple(raw["mean"])
+    if not ids or not all(isinstance(i, int) for i in ids):
+        problems.append(f"{where}: FDC ids are whole numbers")
+        return None
+    status = raw.get("status", "sourced" if "fdc" in raw else "estimated")
+    if status not in STATUSES:
+        problems.append(f"{where}: status must be one of {', '.join(STATUSES)}, not {status!r}")
+    only = frozenset(str(n) for n in raw["only"]) if "only" in raw else None
+    return Source(ids, status, only, raw.get("note", ""))
+
+
+def _measure(raw, first: Source | None, where: str, want_volume: bool, problems: list[str]) -> Measure | None:
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        raw = {"portion": raw}
+    if not isinstance(raw, dict):
+        problems.append(f"{where}: a portion label or a table")
+        return None
+    unknown = set(raw) - {"portion", "fdc", "portions", "grams", "per", "source", "status"}
+    if unknown:
+        problems.append(f"{where}: unknown key(s) {sorted(unknown)}")
+    if "grams" in raw:
+        per = raw.get("per")
+        ok_per = (per in UNIT_TABLE and UNIT_TABLE[per][0] == "volume") if want_volume else per == "each"
+        if not ok_per:
+            problems.append(f"{where}: a stated weight is per {'a volume unit' if want_volume else 'each'}, not {per!r}")
+        if not raw.get("source"):
+            problems.append(f"{where}: a stated weight needs its source")
+        return Measure(grams=float(raw["grams"]), per=per, status=raw.get("status", "estimated"),
+                       source=raw.get("source", ""))
+    if "portions" in raw:
+        pairs = tuple((int(p[0]), str(p[1])) for p in raw["portions"])
+        return Measure(portions=pairs, status=raw.get("status", "estimated"))
+    fid = raw.get("fdc")
+    if fid is None:
+        if first is None or len(first.ids) != 1:
+            problems.append(f"{where}: name the FDC food whose portion to use")
+            return None
+        fid = first.ids[0]
+        default = first.status
+    else:
+        default = "estimated"
+    return Measure(portions=((fid, raw.get("portion", "")),), status=raw.get("status", default))
 
 
 def parse_vocabulary(data: dict, fdc: dict | None) -> Vocabulary:
     """A Vocabulary, or VocabularyError naming every problem. With `fdc` (the
-    pinned subset), every FDC id and portion label is checked against it."""
+    pinned subsets merged), every FDC id and portion label is checked against it."""
     problems: list[str] = []
 
     def name_ok(where, value) -> bool:
@@ -128,20 +288,27 @@ def parse_vocabulary(data: dict, fdc: dict | None) -> Vocabulary:
             return False
         return True
 
-    subset = (data.get("source") or {}).get("subset")
-    if not isinstance(subset, str):
-        problems.append("[source] subset must name the pinned FDC file")
-    methods = []
-    for i, raw in enumerate(data.get("method", []), 1):
-        if name_ok(f"method {i}", raw.get("name")):
-            methods.append(Method(raw["name"], raw.get("parent")))
-    method_names = {m.name for m in methods}
-    for m in methods:
-        if m.parent is not None and m.parent not in method_names:
-            problems.append(f"method {m.name!r}: parent {m.parent!r} is not a method in the file")
+    source_cfg = data.get("source") or {}
+    subsets = source_cfg.get("subsets", [source_cfg["subset"]] if "subset" in source_cfg else None)
+    if not subsets or not all(isinstance(s, str) for s in subsets):
+        problems.append("[source] subsets must list the pinned FDC files")
+        subsets = []
+
+    def named(key: str) -> tuple[Named, ...]:
+        items = []
+        for i, raw in enumerate(data.get(key, []), 1):
+            if name_ok(f"{key} {i}", raw.get("name")):
+                items.append(Named(raw["name"], raw.get("parent")))
+        names = {m.name for m in items}
+        for m in items:
+            if m.parent is not None and m.parent not in names:
+                problems.append(f"{key} {m.name!r}: parent {m.parent!r} is not in the file")
+        return tuple(items)
+
+    methods, equipment = named("method"), named("equipment")
 
     foods = []
-    allowed = {"name", "parent", "fdc", "proxy", "each", "volume", "density_from", "note"}
+    allowed = {"name", "parent", "fdc", "proxy", "sources", "each", "volume", "note"}
     for i, raw in enumerate(data.get("food", []), 1):
         where = f"food {i}"
         for key in sorted(set(raw) - allowed):
@@ -149,24 +316,29 @@ def parse_vocabulary(data: dict, fdc: dict | None) -> Vocabulary:
         if not name_ok(where, raw.get("name")):
             continue
         where = f"food {raw['name']!r}"
-        food = Food(raw["name"], raw.get("parent", ROOT_FOOD), raw.get("fdc"), raw.get("proxy", False),
-                    raw.get("each"), raw.get("volume"), raw.get("density_from"))
-        if food.proxy and not food.fdc:
+        sources = []
+        if "fdc" in raw:
+            sources.append(Source((raw["fdc"],), "estimated" if raw.get("proxy") else "sourced"))
+        elif raw.get("proxy"):
             problems.append(f"{where}: a proxy needs an fdc id")
-        if (food.each or food.volume) and not food.fdc:
-            problems.append(f"{where}: portions need an fdc id")
-        if food.volume and volume_unit(food.volume) is None:
-            problems.append(f"{where}: portion {food.volume!r} does not start with a volume unit")
-        if fdc is not None and food.fdc:
-            for fid in filter(None, (food.fdc, food.density_from)):
+        for j, s in enumerate(raw.get("sources", []), 1):
+            parsed = _source(s, f"{where} source {j}", problems)
+            if parsed:
+                sources.append(parsed)
+        first = sources[0] if sources else None
+        each = _measure(raw.get("each"), first, f"{where} each", False, problems)
+        volume = _measure(raw.get("volume"), first, f"{where} volume", True, problems)
+        food = Food(raw["name"], raw.get("parent", ROOT_FOOD), tuple(sources), each, volume)
+        if fdc is not None:
+            for fid in sorted(Vocabulary((), (food,), (), (), ()).ids()):
                 if str(fid) not in fdc["foods"]:
-                    problems.append(f"{where}: FDC {fid} is not in the pinned subset (run tools/fdc_extract.py)")
-            if str(food.fdc) in fdc["foods"]:
-                if food.each and _portion(fdc, food.fdc, food.each) is None:
-                    problems.append(f"{where}: FDC {food.fdc} has no single portion {food.each!r}")
-                if food.volume and str(food.density_from or food.fdc) in fdc["foods"] \
-                        and _portion(fdc, food.density_from or food.fdc, food.volume) is None:
-                    problems.append(f"{where}: FDC {food.density_from or food.fdc} has no single portion {food.volume!r}")
+                    problems.append(f"{where}: FDC {fid} is not in the pinned subsets (run tools/fdc_extract.py)")
+            for label, m in (("each", each), ("volume", volume)):
+                for fid, portion in (m.portions if m else ()):
+                    if str(fid) in fdc["foods"] and _portion(fdc, fid, portion) is None:
+                        problems.append(f"{where} {label}: FDC {fid} has no single portion {portion!r}")
+                    if label == "volume" and volume_unit(portion) is None:
+                        problems.append(f"{where}: portion {portion!r} does not start with a volume unit")
         foods.append(food)
     names = [f.name for f in foods]
     for dup in sorted({n for n in names if names.count(n) > 1}):
@@ -178,22 +350,24 @@ def parse_vocabulary(data: dict, fdc: dict | None) -> Vocabulary:
     if fdc is not None:
         for nid in kept:
             if nid not in fdc["nutrients"]:
-                problems.append(f"kept_in_cooking: FDC nutrient {nid} is not in the pinned subset")
+                problems.append(f"kept_in_cooking: FDC nutrient {nid} is not in the pinned subsets")
         seen: dict[str, str] = {}
+        taken = set(names) | {m.name for m in methods} | {e.name for e in equipment}
         for nid, n in fdc["nutrients"].items():
             if nid in SKIPPED_NUTRIENTS:
                 continue
-            if FDC_UNITS.get(n["unit"].upper()) is None or FDC_UNITS[n["unit"].upper()].lower() not in NUTRIENT_UNITS:
+            unit = FDC_UNITS.get(n["unit"].upper())
+            if unit is None or unit.lower() not in NUTRIENT_UNITS:
                 problems.append(f"FDC nutrient {nid} {n['name']!r} is in {n['unit']!r}, not a nutrient unit")
             name = nutrient_name(n["name"])
             if name in seen:
                 problems.append(f"FDC nutrients {seen[name]} and {nid} would both be named {name!r}")
             seen[name] = nid
-            if name in names:
-                problems.append(f"nutrient {name!r} has the same name as a food; a Structr name is unique")
+            if name in taken:
+                problems.append(f"nutrient {name!r} has the same name as a food, method or equipment")
     if problems:
         raise VocabularyError(problems)
-    return Vocabulary(subset, tuple(foods), tuple(methods), tuple(kept), fdc)
+    return Vocabulary(tuple(subsets), tuple(foods), methods, equipment, tuple(kept), fdc)
 
 
 def read_vocabulary(path: str, *, check_subset: bool = True) -> Vocabulary:
@@ -201,9 +375,13 @@ def read_vocabulary(path: str, *, check_subset: bool = True) -> Vocabulary:
         data = tomllib.load(fh)
     fdc = None
     if check_subset:
-        subset = (data.get("source") or {}).get("subset", "")
-        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(path))), subset)) as fh:
-            fdc = json.load(fh)
+        root = os.path.dirname(os.path.dirname(os.path.abspath(path)))
+        cfg = data.get("source") or {}
+        subsets = []
+        for rel in cfg.get("subsets", [cfg.get("subset", "")]):
+            with open(os.path.join(root, rel)) as fh:
+                subsets.append(json.load(fh))
+        fdc = merge(subsets)
     return parse_vocabulary(data, fdc)
 
 
@@ -270,22 +448,33 @@ def _hierarchy(client, name: str) -> str:
     return rows[0]["id"]
 
 
+def _tree(sync: Sync, items, hierarchy_id: str) -> dict[str, str]:
+    """Methods or equipment, parents first (the file lists parents before children)."""
+    ids: dict[str, str] = {}
+    for item in items:
+        ids[item.name] = sync.ensure("DomainType", item.name, {
+            "hierarchy": hierarchy_id, "isLookupBearing": True,
+            "parent": ids.get(item.parent) if item.parent else None})
+    return ids
+
+
 def import_vocabulary(client, vocabulary: Vocabulary) -> dict[str, int]:
-    """Write `vocabulary` (read with its pinned subset). Returns what was done."""
+    """Write `vocabulary` (read with its pinned subsets). Returns what was done."""
     fdc = vocabulary.fdc
     sync = Sync(client)
-    hierarchies = {h: _hierarchy(client, h) for h in (FOOD_HIERARCHY, METHOD_HIERARCHY, NUTRIENT_HIERARCHY)}
+    names = (FOOD_HIERARCHY, METHOD_HIERARCHY, NUTRIENT_HIERARCHY, EQUIPMENT_HIERARCHY)
+    hierarchies = {h: _hierarchy(client, h) for h in names}
 
     problems = []
     for name, hierarchy in ([(f.name, FOOD_HIERARCHY) for f in vocabulary.foods] + [(ROOT_FOOD, FOOD_HIERARCHY)]
-                            + [(m.name, METHOD_HIERARCHY) for m in vocabulary.methods]):
+                            + [(m.name, METHOD_HIERARCHY) for m in vocabulary.methods]
+                            + [(e.name, EQUIPMENT_HIERARCHY) for e in vocabulary.equipment]):
         row = sync.rows("DomainType").get(name)
         if row and (row.get("hierarchy") or {}).get("id") != hierarchies[hierarchy]:
             problems.append(f"{name!r} already exists outside the {hierarchy!r} hierarchy")
     in_file = {f.name for f in vocabulary.foods} | {ROOT_FOOD}
     for food in vocabulary.foods:
-        parent = sync.rows("DomainType").get(food.parent)
-        if food.parent not in in_file and not parent:
+        if food.parent not in in_file and not sync.rows("DomainType").get(food.parent):
             problems.append(f"food {food.name!r}: parent {food.parent!r} is neither in the file nor in the graph")
     if problems:
         raise VocabularyError(problems)
@@ -307,11 +496,8 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> dict[str, int]:
         sync.ensure("Identifier", f"{name} FDC nutrient id", {
             "identifierValue": nid, "identifierScheme": nutrient_scheme, "denotesType": nutrient_ids[nid]})
 
-    method_ids: dict[str, str] = {}
-    for method in vocabulary.methods:      # parents before children: the file lists them so
-        method_ids[method.name] = sync.ensure("DomainType", method.name, {
-            "hierarchy": hierarchies[METHOD_HIERARCHY], "isLookupBearing": True,
-            "parent": method_ids.get(method.parent) if method.parent else None})
+    _tree(sync, vocabulary.methods, hierarchies[METHOD_HIERARCHY])
+    _tree(sync, vocabulary.equipment, hierarchies[EQUIPMENT_HIERARCHY])
 
     food_ids = {ROOT_FOOD: sync.ensure("DomainType", ROOT_FOOD, {"hierarchy": hierarchies[FOOD_HIERARCHY],
                                                                 "isLookupBearing": True, "parent": None})}
@@ -329,35 +515,29 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> dict[str, int]:
     kinds = {k: sync.rows("DomainType")[k]["id"] for k in ("Density", "MassPerUnit", "RetentionFactor")}
     wanted_profiles: set[str] = set()
     for food in vocabulary.foods:
-        if not food.fdc:
-            continue
         fid = food_ids[food.name]
-        sync.ensure("Identifier", f"{food.name} FDC ID", {
-            "identifierValue": str(food.fdc), "identifierScheme": fdc_id_scheme, "denotesType": fid})
-        record = fdc["foods"][str(food.fdc)]
-        for nid, amount in record["nutrients"].items():
-            if nid in SKIPPED_NUTRIENTS:
-                continue
+        if food.fdc:
+            sync.ensure("Identifier", f"{food.name} FDC ID", {
+                "identifierValue": str(food.fdc), "identifierScheme": fdc_id_scheme, "denotesType": fid})
+        for nid, (amount, status, source) in composition(fdc, food).items():
             nutrient = nutrient_name(fdc["nutrients"][nid]["name"])
             profile = f"{food.name} -- {nutrient} per 100 g"
             wanted_profiles.add(profile)
             sync.ensure("NutrientProfile", profile, {
-                "isAbout": fid, "forNutrient": nutrient_ids[nid], "amount": amount, "basis": "per_100g",
-                "unit": FDC_UNITS[fdc["nutrients"][nid]["unit"].upper()],
-                "provenance": "placeholder" if food.proxy else "sourced"})
-        for kind, value, unit in (("Density", density(fdc, food), "g_per_mL"),
-                                  ("MassPerUnit", mass_per_each(fdc, food), "g_per_each")):
-            if value is None:
+                "isAbout": fid, "forNutrient": nutrient_ids[nid], "amount": round(amount, 6), "basis": "per_100g",
+                "unit": FDC_UNITS[fdc["nutrients"][nid]["unit"].upper()], "provenance": status, "source": source})
+        for kind, measure, unit, label in (("Density", food.volume, "g_per_mL", "density"),
+                                           ("MassPerUnit", food.each, "g_per_each", "mass per each")):
+            if measure is None:
                 continue
-            label = "density" if kind == "Density" else "mass per each"
             qty = sync.ensure("QuantitySpecification", f"{food.name} {label} value", {
-                "value": round(value, 6), "unit": unit, "status": "default"})
+                "value": round(measure_value(fdc, measure), 6), "unit": unit, "status": "default"})
             sync.ensure("DefaultSpecification", f"{food.name} {label}", {
-                "forType": fid, "hasKind": kinds[kind], "hasValue": qty})
+                "forType": fid, "hasKind": kinds[kind], "hasValue": qty, "provenance": measure.status,
+                "source": measure_source(fdc, measure)})
+    mapped = {f.name for f in vocabulary.foods if f.sources}
     for profile in list(sync.rows("NutrientProfile").values()):
-        about = (profile.get("isAbout") or {}).get("name")
-        mapped = {f.name for f in vocabulary.foods if f.fdc}
-        if about in mapped and profile["name"] not in wanted_profiles:
+        if (profile.get("isAbout") or {}).get("name") in mapped and profile["name"] not in wanted_profiles:
             sync.delete("NutrientProfile", profile)
 
     for nid in vocabulary.kept_in_cooking:
@@ -366,5 +546,6 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> dict[str, int]:
             "value": 1.0, "unit": "ratio", "status": "default"})
         sync.ensure("DefaultSpecification", f"Retention of {nutrient} in cooking", {
             "forType": food_ids[ROOT_FOOD], "hasKind": kinds["RetentionFactor"], "hasValue": qty,
-            "keyedBy": [nutrient_ids[nid]]})
+            "keyedBy": [nutrient_ids[nid]], "provenance": "estimated",
+            "source": "the owner's decision of 2026-09-26: kept through cooking, as in USDA recipe calculations"})
     return sync.counts

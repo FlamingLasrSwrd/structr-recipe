@@ -39,8 +39,10 @@ review, so what the README and REVIEW.md claim has to be true.
   never rebuilt; the development stack (8083) and throwaway stacks hold only reproducible data.
   Owner data goes in through committed, idempotent tools (`tools/import_recipe.py`) whose input
   files live in `private/`, which git ignores: the repository is public, the owner's data is
-  not. Never run anything from `scripts/` against it (`connect()` refuses a marked instance), and
-  never `down -v` it: nothing can rebuild it.
+  not. Never run a demo from `scripts/` against it (`connect()` refuses a marked instance), and
+  never `down -v` it: nothing can rebuild it. The exception is a schema-only migration (such as
+  `30a`), which declares `owner_data_ok=True` and must be run on the owner's instance as well,
+  then Structr restarted (hard rule 8).
 - **The development laptop has 8 GB and has frozen three times.** Run one stack at a time (stop
   one before starting another), stop a stack once its work is done, and check `free -m` before
   starting one or a heavy step. `docker-compose.yml` caps each stack (Neo4j 1 GB, Structr 1.5 GB);

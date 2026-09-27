@@ -3,7 +3,8 @@
     python3 tools/import_vocabulary.py            # load
     python3 tools/import_vocabulary.py --check    # validate the file against the pinned FDC subset; write nothing
 
-Idempotent: a second run changes nothing. Meant for the owner's instance as well
+Idempotent: a second run changes nothing. --check also lists every food that lacks a
+Nutrition Facts figure (vocabulary_import.CORE_NUTRIENTS). Meant for the owner's instance as well
 as any other; needs STRUCTR_SUPERUSER_PASSWORD and STRUCTR_URL.
 """
 
@@ -14,7 +15,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner.connection import connect
-from mealplanner.vocabulary_import import VOCABULARY, VocabularyError, import_vocabulary, read_vocabulary
+from mealplanner.vocabulary_import import VOCABULARY, VocabularyError, core_gaps, import_vocabulary, read_vocabulary
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -30,7 +31,11 @@ def main(argv=None) -> int:
             print(f"problem: {problem}")
         return 1
     print(f"{VOCABULARY}: {len(vocabulary.foods)} foods, {len(vocabulary.methods)} methods, "
-          f"{len(vocabulary.fdc['nutrients'])} FDC nutrients")
+          f"{len(vocabulary.equipment)} equipment, {len(vocabulary.fdc['nutrients'])} FDC nutrients")
+    for food in vocabulary.foods:
+        gaps = core_gaps(vocabulary.fdc, food) if food.sources else []
+        if gaps:
+            print(f"gap: {food.name} has no {', '.join(gaps)}: add a source that reports it")
     if args.check:
         return 0
     client = connect(owner_data_ok=True)      # the vocabulary goes into the owner's instance too

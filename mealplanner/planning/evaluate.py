@@ -121,7 +121,7 @@ def _basic_reason(problem: PlanningProblem, candidate) -> str | None:
         if candidate.nutrients.get(nutrient) is None:
             return f"no {label} data, and a hard target needs it"
         if nutrient in candidate.untrusted:
-            return f"its {label} figure is placeholder or unmarked, and a hard target needs sourced data"
+            return f"its {label} figure is placeholder or unmarked, and a hard target needs sourced or estimated data"
     return None
 
 

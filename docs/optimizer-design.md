@@ -224,7 +224,7 @@ The first version follows Sec 7's four phases and lives in `mealplanner/planning
 | D4 | Stock is soft only (coverage and waste terms); the "cook only from what I have" option is not built |
 | D5 | Per-meal time budget only |
 | D6 | `Plan.difficultyRating` is an optional hard cap (`max_difficulty`); a recipe with no stated difficulty is ineligible when a cap is set; there is no soft difficulty term |
-| D7 | `NutrientProfile.provenance` (`placeholder` / `sourced`) was added as a property; a hard target is never decided on a figure that is unknown, placeholder or unmarked. Nothing in the repo is marked `sourced`: only a person who has checked a figure can say so |
+| D7 | `NutrientProfile.provenance` (`placeholder` / `sourced`) was added as a property; a hard target is never decided on a figure that is unknown, placeholder or unmarked. Since J21 (2026-09-27), `estimated` and `calculated` figures may decide one too, and the plan's notes name every recipe that rests on them. Nothing in the repo is marked `sourced`: only a person who has checked a figure can say so |
 | D9 | Meal-type coverage is "each fresh cook is tagged for its slot's meal type"; leftovers may fill any slot |
 
 **Where the build departs from the text above**

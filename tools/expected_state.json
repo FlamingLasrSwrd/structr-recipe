@@ -63,6 +63,20 @@
   "propertyType": "String",
   "unique": true
  },
+ "@schema | property DefaultSpecification.provenance": {
+  "format": "placeholder,sourced,estimated,calculated",
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Enum",
+  "unique": false
+ },
+ "@schema | property DefaultSpecification.source": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "String",
+  "unique": false
+ },
  "@schema | property DomainType.isLookupBearing": {
   "format": null,
   "indexed": false,
@@ -183,10 +197,17 @@
   "unique": false
  },
  "@schema | property NutrientProfile.provenance": {
-  "format": "placeholder,sourced",
+  "format": "placeholder,sourced,estimated,calculated",
   "indexed": false,
   "notNull": false,
   "propertyType": "Enum",
+  "unique": false
+ },
+ "@schema | property NutrientProfile.source": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "String",
   "unique": false
  },
  "@schema | property NutrientProfile.unit": {
