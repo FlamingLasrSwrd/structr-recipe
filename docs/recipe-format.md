@@ -53,9 +53,11 @@ inputs = [
   (1/8 tsp), `pinch` (1/16 tsp), `each`, `whole` and `count`. A volume or a count converts to grams only if the food has a `Density` or
   `MassPerUnit` default; the loader names any quantity that does not, since that ingredient's
   nutrition stays unknown until it does.
-- **Equipment** names must be in the vocabulary too (the Equipment Type hierarchy). Each becomes an
-  instrument-role Specification of its Step: the model's place for a tool a process needs, with no
-  quantity.
+- **Equipment** names must be in the vocabulary too (the Equipment Type hierarchy); choose them from
+  `python3 tools/instantiate_profile.py kitchen --list`. Name the most general tool that will do
+  (`Skillet`, not `Nonstick skillet`, unless the recipe needs nonstick): any subtype meets the need.
+  Each becomes an instrument-role Specification of its Step: the model's place for a tool a process
+  needs, with no quantity.
 - **One dish per recipe.** Every step but the last must make something a later step uses, and
   nothing may be used before it is made.
 - **Names** cannot contain a comma or a semicolon (Structr's exact-match lookup cannot find them).
