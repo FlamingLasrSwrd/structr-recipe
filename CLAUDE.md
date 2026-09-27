@@ -41,6 +41,12 @@ review, so what the README and REVIEW.md claim has to be true.
   files live in `private/`, which git ignores: the repository is public, the owner's data is
   not. Never run anything from `scripts/` against it (`connect()` refuses a marked instance), and
   never `down -v` it: nothing can rebuild it.
+- **The development laptop has 8 GB and has frozen three times.** Run one stack at a time (stop
+  one before starting another), stop a stack once its work is done, and check `free -m` before
+  starting one or a heavy step. `docker-compose.yml` caps each stack (Neo4j 1 GB, Structr 1.5 GB);
+  do not raise the caps without measuring. Avoid loading large files repeatedly (the FNDDS JSON is
+  about 450 MB in Python; `data/fdc/` already pins what is needed), and close built-in browser
+  tabs as soon as they have been read.
 - **Test data is named `TEST -- `.** Demos and checks delete what they create, and sweep what an
   interrupted earlier run left.
 - **Expected values in a test are worked out independently of the code under test**, by hand or

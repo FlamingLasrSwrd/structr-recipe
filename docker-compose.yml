@@ -1,8 +1,17 @@
+# Memory is capped on purpose. Left alone, Structr takes a 4 GB heap and Neo4j about a
+# quarter of the machine plus a page cache, so one stack could grow to about 6.5 GB; on the
+# 8 GB development laptop that, with the desktop app beside it, froze the machine
+# (2026-09-27). This project's graph is a few thousand nodes. The limits below were checked
+# against a full rebuild and a full vocabulary load (see the commit that set them).
 services:
   neo4j:
     image: neo4j:2025.12.1
+    mem_limit: 1g
     environment:
       - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+      - NEO4J_server_memory_heap_initial__size=256m
+      - NEO4J_server_memory_heap_max__size=512m
+      - NEO4J_server_memory_pagecache_size=128m
     volumes:
       - neo4j-database:/data
       - neo4j-logs:/logs
@@ -13,10 +22,13 @@ services:
   structr:
     image: structr/structr:6.0.0
     depends_on: [neo4j]
+    mem_limit: 1536m
     ports:
       - "${STRUCTR_PORT:-8083}:8082"
     environment:
       - AGREE_TO_STRUCTR_PRIVACY_POLICY=yes
+      - STRUCTR_application_heap_min__size=256m
+      - STRUCTR_application_heap_max__size=1g
       - STRUCTR_superuser_password=${STRUCTR_SUPERUSER_PASSWORD}
       - STRUCTR_database_available_connections=neo4j_default
       - STRUCTR_neo4j__default_database_driver=org.structr.bolt.BoltDatabaseService
