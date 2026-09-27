@@ -13,7 +13,7 @@ import itertools
 import unittest
 
 from mealplanner.planning.evaluate import (
-    allocate_stock, evaluate, initial_partial, ineligible_reason, leftover_reason, options, resolve,
+    allocate_stock, evaluate, initial_partial, ineligible_reason, leftover_reason, options, prefix_bound, resolve,
 )
 from mealplanner.planning.model import Fixed, Lot, Pick, Weights
 from mealplanner.planning.search import oracle
@@ -124,6 +124,38 @@ class UnknownAndUntrustedData(unittest.TestCase):
         shaky = cand("shaky", 60, 10, untrusted=frozenset({"protein"}))
         p = day_of_three([protein_target(70, None, hard=False, weight=0.2)], candidates=(shaky,))
         self.assertIsNone(ineligible_reason(p, 0, shaky))
+
+
+class ASoftTargetOverAnUnknownTotalIsNeutral(unittest.TestCase):
+    """Sec 4.6: a soft target whose scope holds an entry with no figure scores 0.5 of its weight,
+    as an unknown duration does, instead of treating the missing figure as zero."""
+
+    def two_meals(self, target):
+        return problem([slot("lunch", when(28, 12)), slot("dinner", when(28, 18))],
+                       (cand("big", 80, 20), cand("mystery", None, 20)), [target])
+
+    def test_neutral_against_a_minimum_and_a_maximum(self):
+        for target in (protein_target(60, None, hard=False, weight=0.6), protein_target(None, 50, hard=False, weight=0.6)):
+            ev = evaluate(self.two_meals(target), (Pick(candidate="mystery"), Pick(candidate="mystery")))
+            self.assertAlmostEqual(ev.terms["nutrition"], 0.3)       # was 0 against the minimum, 0.6 against the maximum
+        known = evaluate(self.two_meals(protein_target(60, None, hard=False, weight=0.6)), (Pick(candidate="big"),) * 2)
+        self.assertAlmostEqual(known.terms["nutrition"], 0.6)
+
+    def test_a_hard_target_is_not_softened(self):
+        p = self.two_meals(protein_target(60, None, hard=True, weight=0.6))
+        self.assertIn("no Protein data", ineligible_reason(p, 0, p.candidates["mystery"]))
+
+    def test_a_later_unknown_can_lift_an_exceeded_maximum_so_the_bound_allows_for_it(self):
+        p = self.two_meals(protein_target(None, 50, hard=False, weight=0.6))   # big alone is 80, fit 0.4
+        final = evaluate(p, (Pick(candidate="big"), Pick(candidate="mystery")))
+        self.assertAlmostEqual(final.terms["nutrition"], 0.3)                # 0.5 x 0.6, more than 0.4 x 0.6
+        self.assertGreaterEqual(prefix_bound(p, [Pick(candidate="big"), None]).objective, final.objective - 1e-9)
+
+    def test_once_a_scope_holds_an_unknown_its_bound_is_exactly_neutral(self):
+        with_target = self.two_meals(protein_target(60, None, hard=False, weight=0.6))
+        without = problem(with_target.slots, with_target.candidates.values(), [])
+        partial = [Pick(candidate="mystery"), None]
+        self.assertAlmostEqual(prefix_bound(with_target, partial).objective - prefix_bound(without, partial).objective, 0.3)
 
 
 class FixedEntries(unittest.TestCase):

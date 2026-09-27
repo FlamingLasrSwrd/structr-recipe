@@ -38,6 +38,7 @@ from mealplanner.planning.evaluate import (
 )
 from mealplanner.planning.model import Pick, PlanningProblem
 from mealplanner.planning.search import SearchResult
+from mealplanner.scoring import NEUTRAL
 from mealplanner.scoring import VARIETY_CAP_DAYS, time_fit_score
 
 NS = 10**6          # scale for nutrient amounts
@@ -194,6 +195,7 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
     for target in problem.targets:
         for label, indices in slot_groups(problem, target):
             terms, known_fixed, unknown_fixed, has_open, most = [], 0.0, False, False, 0
+            unknown_uses = []                  # choices that would put an entry with no figure in the group
             for i in indices:
                 if i in open_set:
                     has_open = True
@@ -201,6 +203,8 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
                     best = 0
                     for c in candidates:
                         amount = c.nutrients.get(target.nutrient)
+                        if amount is None:
+                            unknown_uses.extend(uses_of.get((i, c.id), []))
                         coef = 0 if amount is None else round(amount * e * NS)
                         if coef:
                             best = max(best, coef)
@@ -248,15 +252,25 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
             if target.hard and not relaxed:
                 constant += cap                       # a feasible plan sits inside the range: fit 1
                 continue
+            neutral = round(target.weight * NEUTRAL * OS)   # a soft target over an unknown total (evaluate.soft_fit)
+            if unknown_fixed and not target.hard:
+                constant += neutral
+                continue
             fit = m.new_int_var(0, cap, f"fit_{target.name}_{label}")
             keep = m.new_bool_var(f"fit_on_{target.name}_{label}")
-            m.add(fit == 0).only_enforce_if(keep.negated())
+            known = []
+            if unknown_uses and not target.hard:
+                unknown = m.new_bool_var(f"unknown_{target.name}_{label}")
+                m.add_max_equality(unknown, unknown_uses)
+                m.add(fit == neutral).only_enforce_if(unknown)
+                known = [unknown.negated()]
+            m.add(fit == 0).only_enforce_if([keep.negated()] + known)
             if lo is not None and lo > 0:
-                m.add(fit * lo <= cap * total).only_enforce_if(keep)
+                m.add(fit * lo <= cap * total).only_enforce_if([keep] + known)
             if hi is not None and hi > 0:
-                m.add(fit * hi + cap * total <= 2 * cap * hi).only_enforce_if(keep)
+                m.add(fit * hi + cap * total <= 2 * cap * hi).only_enforce_if([keep] + known)
             if hi is not None and hi == 0:
-                m.add(total == 0).only_enforce_if(keep)
+                m.add(total == 0).only_enforce_if([keep] + known)
             objective.append((fit, 1))
 
     model_objective = sum(var * coef for var, coef in objective)

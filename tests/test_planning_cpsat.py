@@ -15,7 +15,8 @@ from unittest import mock
 
 from mealplanner.planning import cpsat
 from mealplanner.planning.search import SearchResult, auto, oracle, solve
-from tests.planning_fixtures import day_of_three, protein_target
+from mealplanner.planning.model import Fixed
+from tests.planning_fixtures import cand, day_of_three, problem, protein_target, slot, when
 from tests.test_planning_search import SEEDS, random_problem
 
 TOL = 1e-4
@@ -70,6 +71,23 @@ class WorkedDay(unittest.TestCase):
             result = auto(self.p)
         self.assertEqual((result.method, result.proven, result.upper_bound), ("exact+cpsat+beam", False, 2.5))
         self.assertTrue(result.best.feasible)                # the beam search found the plan
+
+
+@unittest.skipUnless(cpsat.available(), "OR-tools is not installed")
+class UnknownFiguresAreNeutralInTheModelToo(unittest.TestCase):
+    def test_a_planned_meal_with_no_figure(self):
+        p = problem([slot("lunch", when(28, 12), fixed=Fixed(eaten=1.0, candidate="mystery")), slot("dinner", when(28, 18))],
+                    (cand("big", 80, 20), cand("mystery", None, 20)), [protein_target(60, None, hard=False, weight=0.6)])
+        got, want = cpsat.solve(p), oracle(p)
+        self.assertTrue(got.proven)
+        self.assertAlmostEqual(got.best.objective, want.best.objective, delta=TOL)
+
+    def test_a_meal_the_model_may_choose_with_no_figure(self):
+        p = problem([slot("lunch", when(28, 12)), slot("dinner", when(28, 18))],
+                    (cand("small", 10, 20), cand("mystery", None, 20)), [protein_target(60, None, hard=False, weight=0.6)])
+        got, want = cpsat.solve(p), oracle(p)            # 10 + 10 fits 0.33; any mystery scores 0.5
+        self.assertTrue(got.proven)
+        self.assertAlmostEqual(got.best.objective, want.best.objective, delta=TOL)
 
 
 @unittest.skipUnless(cpsat.available(), "OR-tools is not installed")
