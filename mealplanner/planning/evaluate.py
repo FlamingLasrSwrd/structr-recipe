@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta, timezone
 
 from mealplanner.planning.model import DIFFICULTY_ORDER, Pick, PlanningProblem, Target
-from mealplanner.scoring import nutrition_fit_score, time_fit_score, variety_bonus, waste_urgency
+from mealplanner.scoring import NEUTRAL, nutrition_fit_score, time_fit_score, variety_bonus, waste_urgency
 
 EPS = 1e-9
 
@@ -260,6 +260,18 @@ def group_states(problem: PlanningProblem, resolved) -> list[GroupState]:
     return states
 
 
+def soft_fit(g: GroupState) -> float:
+    """A target's fit over one scope. A soft target over a scope holding an entry
+    with no figure for its nutrient scores NEUTRAL: the total is not known, and
+    counting the missing figure as zero rewarded it against a maximum and
+    penalised it against a minimum (Sec 4.6). A hard target keeps the fit of what
+    is known; one it cannot verify is a violation instead (group_violation)."""
+    t = g.target
+    if g.unknown and not t.hard:
+        return NEUTRAL
+    return nutrition_fit_score(g.total, t.minimum, t.maximum)
+
+
 def _relative(amount: float, base: float) -> float:
     return amount / base if base > 0 else amount
 
@@ -459,7 +471,7 @@ def evaluate(problem: PlanningProblem, picks) -> Evaluation:
         })
     for g in groups:
         if g.has_open:
-            terms["nutrition"] += g.target.weight * nutrition_fit_score(g.total, g.target.minimum, g.target.maximum)
+            terms["nutrition"] += g.target.weight * soft_fit(g)
     return Evaluation(
         picks=picks, legal=not problems, problems=problems, violations=violations,
         violation_measure=sum(v.measure for v in violations), objective=sum(terms.values()),
@@ -507,10 +519,11 @@ def prefix_bound(problem: PlanningProblem, partial) -> Bound:
         if not g.has_open:
             continue
         t = g.target
-        if g.unassigned == 0:
-            ceiling += t.weight * nutrition_fit_score(g.total, t.minimum, t.maximum)
+        if g.unassigned == 0 or (g.unknown and not t.hard):
+            ceiling += t.weight * soft_fit(g)         # settled: an unknown stays unknown
         elif t.maximum is not None and g.total > t.maximum:
-            ceiling += t.weight * nutrition_fit_score(g.total, t.minimum, t.maximum)   # can only get worse
+            fit = nutrition_fit_score(g.total, t.minimum, t.maximum)   # known part can only get worse,
+            ceiling += t.weight * (fit if t.hard else max(fit, NEUTRAL))  # but a later unknown scores NEUTRAL
         else:
             ceiling += t.weight
     return Bound(violation, ceiling)

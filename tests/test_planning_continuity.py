@@ -22,7 +22,7 @@ _spec = importlib.util.spec_from_file_location(
 sel = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(sel)
 
-from mealplanner.planning.evaluate import evaluate
+from mealplanner.planning.evaluate import evaluate, initial_partial
 from mealplanner.planning.extract import SlotSpec, build_problem
 from mealplanner.planning.model import Pick
 from mealplanner.planning.search import exact
@@ -83,6 +83,42 @@ class OneSlotAgreesWithTheSelector(unittest.TestCase):
         terms = {n: evaluate(self.problem, (Pick(candidate=n),)).terms for n in self.selector}
         for term in ("time", "variety", "stock", "waste", "soft_exclusion", "nutrition"):
             self.assertGreater(len({round(t[term], 9) for t in terms.values()}), 1, term)
+
+
+class ARecipeWithNoFigureAgreesToo(unittest.TestCase):
+    """Both score a soft target NEUTRAL where a recipe has no figure (Sec 4.6). The hard ceiling is
+    left out: under it the planner refuses such a recipe, which the selector does not."""
+
+    def test_every_recipes_score_matches(self):
+        g = shared_kitchen()
+        g.nodes["week"]["hasConstraint"] = [r for r in g.nodes["week"]["hasConstraint"] if r.id != "protein ceiling"]
+        add_recipe(g, "mystery stew", output_grams=400, protein_per_100g=None, provenance="sourced", yield_servings=2,
+                   minutes=25, inputs=[("Mystery", 300.0)])
+        g.nodes["mystery stew (dish)"]["nutrientProfilesAbout"] = []           # no figure, from the dish or its parts
+        p = build_problem(g, "week", [SlotSpec(NOW, "Dinner")], NOW, servings_eaten=2.0)
+        ranked = {r["plan"]["name"]: r for r in sel.select(g, "week", NOW, meal_type="Dinner", slot_start=NOW, servings_eaten=2.0)}
+        self.assertIn("mystery stew", ranked)
+        for name, row in ranked.items():
+            ev = evaluate(p, (Pick(candidate=name),))
+            self.assertAlmostEqual(ev.objective, row["score"], places=9, msg=f"{name}: planner {ev.terms} vs selector {row['score']}")
+        self.assertAlmostEqual(evaluate(p, (Pick(candidate="mystery stew"),)).terms["nutrition"], 0.3 * 0.5)
+
+    def test_a_day_that_already_holds_a_meal_with_no_figure(self):
+        g = shared_kitchen()
+        g.nodes["week"]["hasConstraint"] = [r for r in g.nodes["week"]["hasConstraint"] if r.id != "protein ceiling"]
+        add_recipe(g, "mystery stew", output_grams=400, protein_per_100g=None, provenance="sourced", yield_servings=2,
+                   minutes=25, inputs=[("Mystery", 300.0)])
+        g.nodes["mystery stew (dish)"]["nutrientProfilesAbout"] = []
+        add_entry(g, "lunch stew", "mystery stew", at(28, 12), servings=2)           # already planned, same day
+        p = build_problem(g, "week", [SlotSpec(NOW, "Dinner")], NOW, servings_eaten=2.0)
+        ranked = {r["plan"]["name"]: r for r in sel.select(g, "week", NOW, meal_type="Dinner", slot_start=NOW, servings_eaten=2.0)}
+        self.assertEqual(sum(s.fixed is not None for s in p.slots), 1)               # the planned lunch
+        fixed = initial_partial(p)
+        for name in ("omelette", "pasta"):
+            picks = tuple(fixed[i] if s.fixed is not None else Pick(candidate=name) for i, s in enumerate(p.slots))
+            ev = evaluate(p, picks)
+            self.assertAlmostEqual(ev.terms["nutrition"], 0.3 * 0.5, msg=name)       # the day's total is not known
+            self.assertAlmostEqual(ev.objective, ranked[name]["score"], places=9, msg=f"{name}: planner {ev.terms} vs selector {ranked[name]['score']}")
 
 
 if __name__ == "__main__":

@@ -90,7 +90,7 @@ from mealplanner.candidates import (
     candidate_optional_types, excluded_domain_type_ids, soft_exclusions,
 )
 from mealplanner.scoring import (
-    VARIETY_CAP_DAYS, WASTE_URGENCY_WINDOW_DAYS, nutrition_fit_score, number as _number, time_fit_score,
+    NEUTRAL, VARIETY_CAP_DAYS, WASTE_URGENCY_WINDOW_DAYS, nutrition_fit_score, number as _number, time_fit_score,
 )
 from mealplanner.inventory import eligible_on_hand_with_urgency
 from mealplanner.material_accounting import candidate_input_requirements
@@ -217,11 +217,14 @@ def nutrition_terms(
         unit = rng["unit"]
         per_serving = serving_nutrient_amount(client, plan, nutrient["id"], unit)
         if per_serving is None:
+            if target.get("strictness") != "hard":
+                term += _number(target.get("weight"), 0.0) * NEUTRAL
+                notes.append(f"{nutrient['name']}: no figure, scored neutral ({NEUTRAL:g})")
             continue
         intake = per_serving * servings_eaten
         scope, hard = target["hasTimeScope"], target.get("strictness") == "hard"
 
-        planned_total, caveats = 0.0, []
+        planned_total, caveats, planned_unknown = 0.0, [], False
         if scope == "daily" and slot_start is None:
             if hard and max_val is not None and intake > max_val:
                 disqualified = True
@@ -236,6 +239,7 @@ def nutrition_terms(
             planned = planned_cache[key]
             planned_total = planned.total
             if planned.unknown:
+                planned_unknown = True
                 caveats.append(f"{len(planned.unknown)} planned meal(s) have no nutrient data")
             if planned.assumed_default_servings:
                 caveats.append(f"{len(planned.assumed_default_servings)} planned meal(s) assumed {DEFAULT_SERVINGS_EATEN:g} serving")
@@ -253,7 +257,8 @@ def nutrition_terms(
             disqualified = True
             notes.append(f"{label} outside HARD range [{min_val},{max_val}]")
         else:
-            fit = nutrition_fit_score(actual, min_val, max_val)
+            neutral = planned_unknown and not hard           # the scope's total is not known
+            fit = NEUTRAL if neutral else nutrition_fit_score(actual, min_val, max_val)
             term += _number(target.get("weight"), 0.0) * fit
             notes.append(f"{label} fit={fit:.2f}")
             if hard and under_min:

@@ -10,6 +10,9 @@ from __future__ import annotations
 
 VARIETY_CAP_DAYS = 14.0
 WASTE_URGENCY_WINDOW_DAYS = 5.0
+# What a term scores when its input is unknown: neither the best nor the worst,
+# so missing data neither wins nor loses a choice (docs/optimizer-design.md Sec 4.6).
+NEUTRAL = 0.5
 
 
 def number(value, default: float) -> float:
@@ -24,7 +27,7 @@ def time_fit_score(duration_minutes: float | None, budget_minutes: float) -> flo
     """1 within the budget, falling linearly to 0 at twice the budget. An unknown
     duration is neutral (0.5), neither a penalty nor a reward."""
     if duration_minutes is None:
-        return 0.5
+        return NEUTRAL
     if duration_minutes <= budget_minutes:
         return 1.0
     if budget_minutes <= 0:

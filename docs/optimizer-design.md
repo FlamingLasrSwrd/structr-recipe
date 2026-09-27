@@ -115,7 +115,7 @@ There is no numeric definition of a good week. This section proposes one, delibe
 
 The project's rule is that unknown stays unknown, never a plausible default. The optimizer inherits it, and it bites hardest here, because a hard target can now be *decided* on data that may be missing or placeholder.
 
-Proposal: a candidate whose amount of a hard-targeted nutrient is unknown, or comes from placeholder data (REVIEW.md round 1 #24, which needs a provenance field on `NutrientProfile`), is **ineligible in any scope with a hard target on that nutrient**, and is listed in the result as "would be eligible if its nutrition were filled in". A soft target treats it as neutral, as the selector does today. This makes missing data a visible, fixable reason a recipe was skipped, never a silent pass.
+Proposal: a candidate whose amount of a hard-targeted nutrient is unknown, or comes from placeholder data (REVIEW.md round 1 #24, which needs a provenance field on `NutrientProfile`), is **ineligible in any scope with a hard target on that nutrient**, and is listed in the result as "would be eligible if its nutrition were filled in". A soft target treats it as neutral: a scope holding an entry with no figure scores 0.5 of the target's weight, the convention an unknown duration already has (`scoring.NEUTRAL`). This makes missing data a visible, fixable reason a recipe was skipped, never a silent pass.
 
 ### 4.7 Infeasibility is an answer
 
@@ -224,7 +224,7 @@ The first version follows Sec 7's four phases and lives in `mealplanner/planning
 | D4 | Stock is soft only (coverage and waste terms); the "cook only from what I have" option is not built |
 | D5 | Per-meal time budget only |
 | D6 | `Plan.difficultyRating` is an optional hard cap (`max_difficulty`); a recipe with no stated difficulty is ineligible when a cap is set; there is no soft difficulty term |
-| D7 | `NutrientProfile.provenance` (`placeholder` / `sourced`) was added as a property; a hard target is never decided on a figure that is unknown, placeholder or unmarked. Since J21 (2026-09-27), `estimated` and `calculated` figures may decide one too, and the plan's notes name every recipe that rests on them. Nothing in the repo is marked `sourced`: only a person who has checked a figure can say so |
+| D7 | `NutrientProfile.provenance` (`placeholder` / `sourced`) was added as a property; a hard target is never decided on a figure that is unknown, placeholder or unmarked. Since J21 (2026-09-27), `estimated` and `calculated` figures may decide one too, and the plan's notes name every recipe that rests on them. Nothing in the repo is marked `sourced`: only a person who has checked a figure can say so. **Neutral unknowns** (2026-09-27): as first built, a soft target counted a missing figure as zero, which penalised it against a minimum and rewarded it against a maximum, and the selector skipped it, which also scored 0; both now score `NEUTRAL` (0.5 of the weight) for a scope with an unknown entry, in `evaluate()`, the search bound (a later unknown can lift an exceeded maximum to 0.5) and the CP-SAT model alike |
 | D9 | Meal-type coverage is "each fresh cook is tagged for its slot's meal type"; leftovers may fill any slot |
 
 **Where the build departs from the text above**
