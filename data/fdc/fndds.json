@@ -1,0 +1,491 @@
+{
+ "source": {
+  "file": "FoodData_Central_survey_food_json_2024-10-31.zip",
+  "citation": "U.S. Department of Agriculture, Agricultural Research Service. FoodData Central. fdc.nal.usda.gov. Public domain (CC0 1.0)."
+ },
+ "nutrients": {
+  "1003": {
+   "name": "Protein",
+   "unit": "G",
+   "number": "203"
+  },
+  "1004": {
+   "name": "Total lipid (fat)",
+   "unit": "G",
+   "number": "204"
+  },
+  "1005": {
+   "name": "Carbohydrate, by difference",
+   "unit": "G",
+   "number": "205"
+  },
+  "1008": {
+   "name": "Energy",
+   "unit": "KCAL",
+   "number": "208"
+  },
+  "1018": {
+   "name": "Alcohol, ethyl",
+   "unit": "G",
+   "number": "221"
+  },
+  "1051": {
+   "name": "Water",
+   "unit": "G",
+   "number": "255"
+  },
+  "1057": {
+   "name": "Caffeine",
+   "unit": "MG",
+   "number": "262"
+  },
+  "1058": {
+   "name": "Theobromine",
+   "unit": "MG",
+   "number": "263"
+  },
+  "1079": {
+   "name": "Fiber, total dietary",
+   "unit": "G",
+   "number": "291"
+  },
+  "1087": {
+   "name": "Calcium, Ca",
+   "unit": "MG",
+   "number": "301"
+  },
+  "1089": {
+   "name": "Iron, Fe",
+   "unit": "MG",
+   "number": "303"
+  },
+  "1090": {
+   "name": "Magnesium, Mg",
+   "unit": "MG",
+   "number": "304"
+  },
+  "1091": {
+   "name": "Phosphorus, P",
+   "unit": "MG",
+   "number": "305"
+  },
+  "1092": {
+   "name": "Potassium, K",
+   "unit": "MG",
+   "number": "306"
+  },
+  "1093": {
+   "name": "Sodium, Na",
+   "unit": "MG",
+   "number": "307"
+  },
+  "1095": {
+   "name": "Zinc, Zn",
+   "unit": "MG",
+   "number": "309"
+  },
+  "1098": {
+   "name": "Copper, Cu",
+   "unit": "MG",
+   "number": "312"
+  },
+  "1103": {
+   "name": "Selenium, Se",
+   "unit": "UG",
+   "number": "317"
+  },
+  "1105": {
+   "name": "Retinol",
+   "unit": "UG",
+   "number": "319"
+  },
+  "1106": {
+   "name": "Vitamin A, RAE",
+   "unit": "UG",
+   "number": "320"
+  },
+  "1107": {
+   "name": "Carotene, beta",
+   "unit": "UG",
+   "number": "321"
+  },
+  "1108": {
+   "name": "Carotene, alpha",
+   "unit": "UG",
+   "number": "322"
+  },
+  "1109": {
+   "name": "Vitamin E (alpha-tocopherol)",
+   "unit": "MG",
+   "number": "323"
+  },
+  "1114": {
+   "name": "Vitamin D (D2 + D3)",
+   "unit": "UG",
+   "number": "328"
+  },
+  "1120": {
+   "name": "Cryptoxanthin, beta",
+   "unit": "UG",
+   "number": "334"
+  },
+  "1122": {
+   "name": "Lycopene",
+   "unit": "UG",
+   "number": "337"
+  },
+  "1123": {
+   "name": "Lutein + zeaxanthin",
+   "unit": "UG",
+   "number": "338"
+  },
+  "1162": {
+   "name": "Vitamin C, total ascorbic acid",
+   "unit": "MG",
+   "number": "401"
+  },
+  "1165": {
+   "name": "Thiamin",
+   "unit": "MG",
+   "number": "404"
+  },
+  "1166": {
+   "name": "Riboflavin",
+   "unit": "MG",
+   "number": "405"
+  },
+  "1167": {
+   "name": "Niacin",
+   "unit": "MG",
+   "number": "406"
+  },
+  "1175": {
+   "name": "Vitamin B-6",
+   "unit": "MG",
+   "number": "415"
+  },
+  "1177": {
+   "name": "Folate, total",
+   "unit": "UG",
+   "number": "417"
+  },
+  "1178": {
+   "name": "Vitamin B-12",
+   "unit": "UG",
+   "number": "418"
+  },
+  "1180": {
+   "name": "Choline, total",
+   "unit": "MG",
+   "number": "421"
+  },
+  "1185": {
+   "name": "Vitamin K (phylloquinone)",
+   "unit": "UG",
+   "number": "430"
+  },
+  "1186": {
+   "name": "Folic acid",
+   "unit": "UG",
+   "number": "431"
+  },
+  "1187": {
+   "name": "Folate, food",
+   "unit": "UG",
+   "number": "432"
+  },
+  "1190": {
+   "name": "Folate, DFE",
+   "unit": "UG",
+   "number": "435"
+  },
+  "1242": {
+   "name": "Vitamin E, added",
+   "unit": "MG",
+   "number": "573"
+  },
+  "1246": {
+   "name": "Vitamin B-12, added",
+   "unit": "UG",
+   "number": "578"
+  },
+  "1253": {
+   "name": "Cholesterol",
+   "unit": "MG",
+   "number": "601"
+  },
+  "1258": {
+   "name": "Fatty acids, total saturated",
+   "unit": "G",
+   "number": "606"
+  },
+  "1259": {
+   "name": "SFA 4:0",
+   "unit": "G",
+   "number": "607"
+  },
+  "1260": {
+   "name": "SFA 6:0",
+   "unit": "G",
+   "number": "608"
+  },
+  "1261": {
+   "name": "SFA 8:0",
+   "unit": "G",
+   "number": "609"
+  },
+  "1262": {
+   "name": "SFA 10:0",
+   "unit": "G",
+   "number": "610"
+  },
+  "1263": {
+   "name": "SFA 12:0",
+   "unit": "G",
+   "number": "611"
+  },
+  "1264": {
+   "name": "SFA 14:0",
+   "unit": "G",
+   "number": "612"
+  },
+  "1265": {
+   "name": "SFA 16:0",
+   "unit": "G",
+   "number": "613"
+  },
+  "1266": {
+   "name": "SFA 18:0",
+   "unit": "G",
+   "number": "614"
+  },
+  "1268": {
+   "name": "MUFA 18:1",
+   "unit": "G",
+   "number": "617"
+  },
+  "1269": {
+   "name": "PUFA 18:2",
+   "unit": "G",
+   "number": "618"
+  },
+  "1270": {
+   "name": "PUFA 18:3",
+   "unit": "G",
+   "number": "619"
+  },
+  "1271": {
+   "name": "PUFA 20:4",
+   "unit": "G",
+   "number": "620"
+  },
+  "1272": {
+   "name": "PUFA 22:6 n-3 (DHA)",
+   "unit": "G",
+   "number": "621"
+  },
+  "1275": {
+   "name": "MUFA 16:1",
+   "unit": "G",
+   "number": "626"
+  },
+  "1276": {
+   "name": "PUFA 18:4",
+   "unit": "G",
+   "number": "627"
+  },
+  "1277": {
+   "name": "MUFA 20:1",
+   "unit": "G",
+   "number": "628"
+  },
+  "1278": {
+   "name": "PUFA 20:5 n-3 (EPA)",
+   "unit": "G",
+   "number": "629"
+  },
+  "1279": {
+   "name": "MUFA 22:1",
+   "unit": "G",
+   "number": "630"
+  },
+  "1280": {
+   "name": "PUFA 22:5 n-3 (DPA)",
+   "unit": "G",
+   "number": "631"
+  },
+  "1292": {
+   "name": "Fatty acids, total monounsaturated",
+   "unit": "G",
+   "number": "645"
+  },
+  "1293": {
+   "name": "Fatty acids, total polyunsaturated",
+   "unit": "G",
+   "number": "646"
+  },
+  "2000": {
+   "name": "Total Sugars",
+   "unit": "G",
+   "number": "269"
+  }
+ },
+ "foods": {
+  "2706366": {
+   "description": "Shrimp, dried",
+   "data_type": "survey_fndds_food",
+   "nutrients": {
+    "1003": 51.0,
+    "1004": 3.4,
+    "1005": 0.0,
+    "1008": 250.0,
+    "1018": 0.0,
+    "1051": 39.6,
+    "1057": 0.0,
+    "1058": 0.0,
+    "2000": 0.0,
+    "1079": 0.0,
+    "1087": 362.0,
+    "1089": 5.32,
+    "1090": 82.0,
+    "1091": 488.0,
+    "1092": 200.0,
+    "1093": 2180.0,
+    "1095": 4.9,
+    "1098": 0.655,
+    "1103": 119.0,
+    "1105": 0.0,
+    "1106": 0.0,
+    "1107": 0.0,
+    "1108": 0.0,
+    "1109": 2.75,
+    "1114": 0.0,
+    "1120": 0.0,
+    "1122": 0.0,
+    "1123": 0.0,
+    "1162": 10.2,
+    "1165": 0.017,
+    "1166": 0.038,
+    "1167": 1.4,
+    "1175": 0.025,
+    "1177": 22.0,
+    "1178": 1.85,
+    "1180": 202.0,
+    "1185": 0.0,
+    "1186": 0.0,
+    "1187": 22.0,
+    "1190": 22.0,
+    "1242": 0.0,
+    "1246": 0.0,
+    "1253": 630.0,
+    "1258": 0.47,
+    "1259": 0.0,
+    "1260": 0.0,
+    "1261": 0.0,
+    "1262": 0.002,
+    "1263": 0.002,
+    "1264": 0.008,
+    "1265": 0.208,
+    "1266": 0.175,
+    "1268": 0.173,
+    "1269": 0.038,
+    "1270": 0.02,
+    "1271": 0.108,
+    "1272": 0.63,
+    "1275": 0.05,
+    "1276": 0.017,
+    "1277": 0.015,
+    "1278": 0.732,
+    "1279": 0.015,
+    "1280": 0.13,
+    "1292": 0.27,
+    "1293": 1.71
+   },
+   "portions": [
+    {
+     "amount": 1.0,
+     "label": "cup",
+     "grams": 135.0
+    }
+   ]
+  },
+  "2707357": {
+   "description": "White beans, from canned, no added fat",
+   "data_type": "survey_fndds_food",
+   "nutrients": {
+    "1003": 10.8,
+    "1004": 0.57,
+    "1005": 30.9,
+    "1008": 168.0,
+    "1018": 0.0,
+    "1051": 55.7,
+    "1057": 0.0,
+    "1058": 0.0,
+    "2000": 2.07,
+    "1079": 7.2,
+    "1087": 78.0,
+    "1089": 2.31,
+    "1090": 75.0,
+    "1091": 200.0,
+    "1092": 516.0,
+    "1093": 345.0,
+    "1095": 0.96,
+    "1098": 0.235,
+    "1103": 6.0,
+    "1105": 0.0,
+    "1106": 0.0,
+    "1107": 0.0,
+    "1108": 0.0,
+    "1109": 1.16,
+    "1114": 0.0,
+    "1120": 0.0,
+    "1122": 0.0,
+    "1123": 0.0,
+    "1162": 1.8,
+    "1165": 0.2,
+    "1166": 0.084,
+    "1167": 0.644,
+    "1175": 0.148,
+    "1177": 113.0,
+    "1178": 0.0,
+    "1180": 43.4,
+    "1185": 4.4,
+    "1186": 0.0,
+    "1187": 113.0,
+    "1190": 113.0,
+    "1242": 0.0,
+    "1246": 0.0,
+    "1253": 0.0,
+    "1258": 0.176,
+    "1259": 0.0,
+    "1260": 0.0,
+    "1261": 0.0,
+    "1262": 0.0,
+    "1263": 0.0,
+    "1264": 0.0,
+    "1265": 0.166,
+    "1266": 0.01,
+    "1268": 0.026,
+    "1269": 0.131,
+    "1270": 0.106,
+    "1271": 0.0,
+    "1272": 0.0,
+    "1275": 0.0,
+    "1276": 0.0,
+    "1277": 0.0,
+    "1278": 0.0,
+    "1279": 0.0,
+    "1280": 0.0,
+    "1292": 0.026,
+    "1293": 0.237
+   },
+   "portions": [
+    {
+     "amount": 1.0,
+     "label": "cup",
+     "grams": 180.0
+    }
+   ]
+  }
+ }
+}

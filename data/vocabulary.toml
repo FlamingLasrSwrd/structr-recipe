@@ -1,20 +1,28 @@
-# The curated vocabulary: foods, cooking methods and the nutrients kept through cooking.
+# The curated vocabulary: foods, cooking methods, equipment and the nutrients kept through cooking.
 # Loaded by tools/import_vocabulary.py (mealplanner/vocabulary_import.py).
 #
-# Every food with an `fdc` id takes its nutrients from USDA FoodData Central, SR Legacy
-# (April 2018): U.S. Department of Agriculture, Agricultural Research Service, FoodData Central,
-# fdc.nal.usda.gov. Public domain (CC0 1.0). tools/fdc_extract.py pins the foods named here into
-# data/fdc/sr_legacy.json; re-run it after adding a food.
+# Figures come from USDA FoodData Central: U.S. Department of Agriculture, Agricultural Research
+# Service, FoodData Central, fdc.nal.usda.gov. Public domain (CC0 1.0). tools/fdc_extract.py pins
+# the foods named here into data/fdc/; re-run it after adding one.
 #
-#   fdc      the FDC food. The match was chosen by Claude and is listed here to be reviewed.
-#   proxy    true when FDC has no entry for this food and `fdc` is the closest one it has. Its
-#            profiles are loaded as `placeholder`, so they never decide a hard nutrition target.
-#   each     the FDC portion that gives the mass of one ("1 large egg = 50 g"): MassPerUnit
-#   volume   the FDC portion that gives a density ("1 cup, sliced = 115 g"): Density
+# Every figure is loaded with its provenance and its source, so it can be checked and replaced:
+#   sourced     a published figure for this very food
+#   estimated   anything nearer or rougher: a similar food, an average of brand labels, a web figure
+#   calculated  worked out from parts
+# The owner decided (2026-09-27) that estimates are good enough to plan with (J21).
+#
+# A food:
+#   fdc      its FDC food: `sourced`, or `estimated` with `proxy = true` (the nearest FDC has).
+#            The match was chosen by Claude and is listed here to be reviewed.
+#   sources  more sources, in order; each nutrient comes from the first that reports it:
+#            { fdc = id } or { mean = [ids] }, with status, `only = [FDC nutrient ids]`, note
+#   each     the weight of one item: a portion label of its first source, or a table
+#   volume   a density: the same, or { portions = [[fdc, label], ...] } averaged, or
+#            { grams = x, per = "tsp", source = "..." } for a weight from elsewhere
 #   parent   default "Food", the root every food sits under
 
 [source]
-subset = "data/fdc/sr_legacy.json"
+subsets = ["data/fdc/sr_legacy.json", "data/fdc/foundation.json", "data/fdc/fndds.json", "data/fdc/branded.json"]
 
 [retention]
 # The owner's decision (2026-09-26): energy, protein, fat, carbohydrate, fiber and sugars are
@@ -71,6 +79,46 @@ parent = "No-Heat Method"
 name = "Mixing"
 parent = "No-Heat Method"
 
+# -- equipment, parents before children --------------------------------------------------------
+
+[[equipment]]
+name = "Cookware"
+
+[[equipment]]
+name = "Dutch Oven"
+parent = "Cookware"
+
+[[equipment]]
+name = "Wok"
+parent = "Cookware"
+
+[[equipment]]
+name = "Skillet"
+parent = "Cookware"
+
+[[equipment]]
+name = "Prep tool"
+
+[[equipment]]
+name = "Cutting board"
+parent = "Prep tool"
+
+[[equipment]]
+name = "Chef's knife"
+parent = "Prep tool"
+
+[[equipment]]
+name = "Fine-mesh sieve"
+parent = "Prep tool"
+
+[[equipment]]
+name = "Mixing bowl"
+parent = "Prep tool"
+
+[[equipment]]
+name = "Meat pounder"
+parent = "Prep tool"
+
 # -- groups already in the vocabulary ----------------------------------------------------------
 
 [[food]]
@@ -86,185 +134,249 @@ name = "Butter"
 
 [[food]]
 name = "Firm tofu"
-fdc = 172475                    # Tofu, raw, firm, prepared with calcium sulfate
+fdc = 172475                    # SR: Tofu, raw, firm, prepared with calcium sulfate
+sources = [{ fdc = 172448, status = "estimated", note = "Tofu firm with nigari: for what 172475 does not report (sugars)" }]
 volume = "cup"
 
 [[food]]
 name = "Rice noodles (dry)"
-fdc = 169742                    # Rice noodles, dry
+fdc = 169742                    # SR: Rice noodles, dry
 
 [[food]]
 name = "Tamarind paste"
-fdc = 167763                    # Tamarinds, raw (the pulp)
+fdc = 167763                    # SR: Tamarinds, raw (the pulp)
 proxy = true                    # the pulp, not pressed paste; its density is loose pulp's
 volume = "cup, pulp"
 
 [[food]]
 name = "Tap water"
-fdc = 173647                    # Beverages, water, tap, drinking
+fdc = 173647                    # SR: Beverages, water, tap, drinking
 volume = "fl oz"
 
 [[food]]
 name = "Soy sauce (low sodium)"
-fdc = 172473                    # Soy sauce made from soy and wheat (shoyu), low sodium
+fdc = 172473                    # SR: Soy sauce made from soy and wheat (shoyu), low sodium
 volume = "tbsp"
 
 [[food]]
 name = "Rice vinegar"
-fdc = 172237                    # Vinegar, distilled
-proxy = true                    # FDC has no rice vinegar
+fdc = 172237                    # SR: Vinegar, distilled
+proxy = true                    # FDC has no rice vinegar; the Mizkan, Kikkoman and Marukan labels are all 0 too
 volume = "tbsp"
 
 [[food]]
-name = "Five-spice powder"
-fdc = 171316                    # Spices, anise seed
-proxy = true                    # FDC has no five-spice blend
-volume = "tsp, whole"
+name = "Five-spice powder"      # the parts on the Spice Islands label: cinnamon, anise, fennel, black pepper, cloves
+sources = [{ mean = [171320, 171316, 171323, 170931, 171321], status = "calculated", note = "equal parts of the five spices on the Spice Islands label; the labels' own figures round to 0 at 0.5 g" }]
+volume = { portions = [[1495185, "tsp"], [2037617, "tsp"]] }   # Spice Islands, Dynasty
 
 [[food]]
 name = "Fish sauce"
-fdc = 174531                    # Sauce, fish, ready-to-serve
+fdc = 174531                    # SR: Sauce, fish, ready-to-serve
 volume = "tbsp"
 
 [[food]]
-name = "Palm sugar"
-fdc = 168833                    # Sugars, brown
-proxy = true                    # FDC has no palm sugar
-volume = "cup packed"
+name = "Palm sugar"             # no brand named: two widely sold ones, Wira (label impossible) and Dragonfly "pure" (46 g sugar per 100 g) left out
+sources = [
+  { mean = [2033749, 2149557], note = "Dragonfly Palm Sugar and Good & Gather Coconut Palm Sugar labels" },
+  { fdc = 168833, status = "estimated", note = "SR Sugars brown: for what the labels do not report" },
+]
+volume = { fdc = 2033749, portion = "tbsp" }                  # Dragonfly: 1 Tbsp = 19 g
 
 [[food]]
 name = "Peanut oil"
-fdc = 171410                    # Oil, peanut, salad or cooking
+fdc = 171410                    # SR: Oil, peanut, salad or cooking
 volume = "tbsp"
 
 [[food]]
 name = "Dried shrimp"
-fdc = 171971                    # Crustaceans, shrimp, mixed species, cooked, moist heat
-proxy = true                    # FDC has no dried shrimp, and no volume for them: a weight is needed
+fdc = 2706366                   # FNDDS: Shrimp, dried (USDA derived it from canned shrimp)
+volume = "cup"                  # FNDDS: 1 cup = 135 g
 
 [[food]]
-name = "Sweet preserved radish"
-fdc = 168453                    # Radishes, oriental, dried
-proxy = true                    # FDC has no salted, sweetened preserved radish
-volume = "cup"
+name = "Sweet preserved radish" # Thai chai po; FDC has no label for it
+sources = [
+  { mean = [2030391, 2623526, 2030346], note = "Akiyama, Waimanalo Ko-Ko and Kula Maui takuan: sweet pickled daikon, the nearest labelled food" },
+  { fdc = 168451, status = "estimated", note = "SR Radishes oriental raw: for what the labels do not report" },
+]
+volume = { fdc = 2115048, portion = "tbsp" }                  # Eden sun-dried daikon: 2 Tbsp = 14 g
 
 [[food]]
 name = "Scallions"
-fdc = 170005                    # Onions, spring or scallions (includes tops and bulb), raw
+fdc = 170005                    # SR: Onions, spring or scallions (includes tops and bulb), raw
 each = 'medium (4-1/8" long)'
 volume = "cup, chopped"
 
 [[food]]
 name = "Garlic"
-fdc = 169230                    # Garlic, raw
+fdc = 169230                    # SR: Garlic, raw
 each = "clove"
 volume = "tsp"
 
 [[food]]
 name = "Egg"
-fdc = 171287                    # Egg, whole, raw, fresh
+fdc = 171287                    # SR: Egg, whole, raw, fresh
 each = "large"
 
 [[food]]
 name = "Mung bean sprouts"
-fdc = 169957                    # Mung beans, mature seeds, sprouted, raw
+fdc = 169957                    # SR: Mung beans, mature seeds, sprouted, raw
 volume = "cup"
 
 [[food]]
 name = "Roasted salted peanuts"
-fdc = 174261                    # Peanuts, all types, oil-roasted, with salt
+fdc = 174261                    # SR: Peanuts, all types, oil-roasted, with salt
 volume = "cup, chopped"
 
 [[food]]
 name = "Thai chile flakes"
-fdc = 170932                    # Spices, pepper, red or cayenne
+fdc = 170932                    # SR: Spices, pepper, red or cayenne
 proxy = true                    # dried Thai chiles, flaked; cayenne is the nearest FDC has
 volume = "tsp"
 
 [[food]]
 name = "Lime"
-fdc = 168155                    # Limes, raw
+fdc = 168155                    # SR: Limes, raw
 each = 'fruit (2" dia)'
 
 [[food]]
 name = "Beef top sirloin (raw)"
 parent = "Beef (raw)"
-fdc = 168726                    # Beef, top sirloin, steak, separable lean and fat, trimmed to 1/8" fat, all grades, raw
+fdc = 168726                    # SR: Beef, top sirloin, steak, separable lean and fat, trimmed to 1/8" fat, all grades, raw
 
 [[food]]
 name = "AP Flour"
-fdc = 168894                    # Wheat flour, white, all-purpose, enriched, bleached
+fdc = 168894                    # SR: Wheat flour, white, all-purpose, enriched, bleached
 volume = "cup"
 
 [[food]]
 name = "Paprika"
-fdc = 171329                    # Spices, paprika
+fdc = 171329                    # SR: Spices, paprika
 volume = "tsp"
 
 [[food]]
 name = "Kosher salt"
-fdc = 173468                    # Salt, table: the same salt. No volume: a teaspoon of kosher salt
-                                # weighs 2.8 g to 4.8 g by brand, and FDC's is table salt's 6 g
+fdc = 173468                    # SR: Salt, table: the same salt, not a kosher-salt analysis
+proxy = true
+volume = { portions = [[2617978, "tsp"], [2571981, "tsp"]] }  # Morton 1/4 tsp = 1.2 g, Diamond Crystal 0.7 g: brand unknown
+
+[[food]]
+name = "Table salt"
+fdc = 173468                    # SR: Salt, table
+volume = "tsp"
 
 [[food]]
 name = "Canola oil"
-fdc = 172336                    # Oil, canola
+fdc = 172336                    # SR: Oil, canola
 volume = "tbsp"
 
 [[food]]
 name = "Butter (unsalted)"
 parent = "Butter"
-fdc = 173430                    # Butter, without salt
+fdc = 173430                    # SR: Butter, without salt
 volume = "tbsp"
 
 [[food]]
 name = "Yellow Onion"
-fdc = 170000                    # Onions, raw
+fdc = 170000                    # SR: Onions, raw
 each = 'medium (2-1/2" dia)'
 volume = "cup, sliced"
 
 [[food]]
 name = "Cremini mushrooms"
-fdc = 168434                    # Mushrooms, brown, italian, or crimini, raw
+fdc = 168434                    # SR: Mushrooms, brown, italian, or crimini, raw
 volume = "cup sliced"
 
 [[food]]
 name = "Dry white wine"
-fdc = 174837                    # Alcoholic beverage, wine, table, white
+fdc = 174837                    # SR: Alcoholic beverage, wine, table, white
 volume = "fl oz"
 
 [[food]]
 name = "Beef broth (low sodium)"
-fdc = 172889                    # Soup, beef broth, less/reduced sodium, ready to serve
+fdc = 172889                    # SR: Soup, beef broth, less/reduced sodium, ready to serve
 volume = "cup"
 
 [[food]]
 name = "Sour cream"
-fdc = 171257                    # Cream, sour, cultured
+fdc = 171257                    # SR: Cream, sour, cultured
 volume = "cup"
 
 [[food]]
 name = "Dijon mustard"
-fdc = 172234                    # Mustard, prepared, yellow
-proxy = true                    # FDC has no Dijon
-volume = "tsp or 1 packet"
+sources = [
+  { mean = [2597122, 2601407], only = [1093], note = "sodium from the Grey Poupon and French's Dijon labels; their other figures round to 0 at 5 g" },
+  { fdc = 172234, status = "estimated", note = "SR Mustard prepared yellow: everything else" },
+]
+volume = { portions = [[2597122, "tsp"], [2601407, "tsp"]] }  # both 1 tsp = 5 g
 
 [[food]]
 name = "Worcestershire sauce"
-fdc = 171610                    # Sauce, worcestershire
+fdc = 171610                    # SR: Sauce, worcestershire
 volume = "tbsp"
 
 [[food]]
 name = "Black pepper"
-fdc = 170931                    # Spices, pepper, black
+fdc = 170931                    # SR: Spices, pepper, black
 volume = "tsp, ground"
 
 [[food]]
 name = "Parsley"
-fdc = 170416                    # Parsley, fresh
+fdc = 170416                    # SR: Parsley, fresh
 volume = "tbsp"
 
 [[food]]
 name = "Egg noodles (dry)"
-fdc = 169731                    # Noodles, egg, dry, enriched
+fdc = 169731                    # SR: Noodles, egg, dry, enriched
 volume = "cup"
+
+[[food]]
+name = "Olive oil"
+fdc = 171413                    # SR: Oil, olive, salad or cooking
+volume = "tablespoon"
+
+[[food]]
+name = "Chicken Breast (raw)"
+parent = "Poultry"
+fdc = 171077                    # SR: Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw
+each = "piece"                  # USDA: one piece = 272 g; breasts vary widely
+
+[[food]]
+name = "Chicken broth"
+fdc = 174536                    # SR: Soup, chicken broth, ready-to-serve
+volume = "cup"
+
+[[food]]
+name = "Canned cannellini beans (drained)"
+fdc = 2644294                   # Foundation: Beans, great northern, canned, sodium added, drained and rinsed
+proxy = true                    # great northern for cannellini: both white beans
+sources = [{ fdc = 2707357, status = "estimated", note = "FNDDS White beans from canned: what the Foundation analysis does not report (energy in kcal, fiber, sugars)" }]
+each = { grams = 270, per = "each", source = "one 15-oz can drained and rinsed: 255-285 g, midpoint (https://kitchencalculator.app/charts/standard-package-yield-conversions/canned-beans-standard-can-to-drained-weight-volume-conversion-chart.html, 2026-09-27); 1.5 cups x FNDDS 2707357 180 g per cup agrees" }
+
+[[food]]
+name = "Canned green chiles"
+fdc = 170426                    # SR: Peppers, hot chili, green, canned, pods, excluding seeds, solids and liquids
+
+[[food]]
+name = "Dried oregano"
+fdc = 171328                    # SR: Spices, oregano, dried
+volume = "tsp, leaves"
+
+[[food]]
+name = "Ground cumin"
+fdc = 170923                    # SR: Spices, cumin seed (ground cumin is the ground seed)
+volume = { fdc = 170923, portion = "tsp, whole", status = "estimated" }   # SR gives whole seed only
+
+[[food]]
+name = "Cayenne pepper"
+fdc = 170932                    # SR: Spices, pepper, red or cayenne
+volume = "tsp"
+
+[[food]]
+name = "Cilantro"
+fdc = 169997                    # SR: Coriander (cilantro) leaves, raw
+volume = "cup"
+
+[[food]]
+name = "Monterey Jack"
+fdc = 170844                    # SR: Cheese, monterey
+volume = "cup, shredded"

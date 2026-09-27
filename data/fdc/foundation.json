@@ -1,0 +1,137 @@
+{
+ "source": {
+  "file": "FoodData_Central_foundation_food_csv_2025-12-18.zip",
+  "citation": "U.S. Department of Agriculture, Agricultural Research Service. FoodData Central. fdc.nal.usda.gov. Public domain (CC0 1.0)."
+ },
+ "nutrients": {
+  "1002": {
+   "name": "Nitrogen",
+   "unit": "G",
+   "number": "202"
+  },
+  "1003": {
+   "name": "Protein",
+   "unit": "G",
+   "number": "203"
+  },
+  "1004": {
+   "name": "Total lipid (fat)",
+   "unit": "G",
+   "number": "204"
+  },
+  "1005": {
+   "name": "Carbohydrate, by difference",
+   "unit": "G",
+   "number": "205"
+  },
+  "1007": {
+   "name": "Ash",
+   "unit": "G",
+   "number": "207"
+  },
+  "1009": {
+   "name": "Starch",
+   "unit": "G",
+   "number": "209"
+  },
+  "1051": {
+   "name": "Water",
+   "unit": "G",
+   "number": "255"
+  },
+  "1071": {
+   "name": "Resistant starch",
+   "unit": "G",
+   "number": "283"
+  },
+  "1087": {
+   "name": "Calcium, Ca",
+   "unit": "MG",
+   "number": "301"
+  },
+  "1089": {
+   "name": "Iron, Fe",
+   "unit": "MG",
+   "number": "303"
+  },
+  "1090": {
+   "name": "Magnesium, Mg",
+   "unit": "MG",
+   "number": "304"
+  },
+  "1091": {
+   "name": "Phosphorus, P",
+   "unit": "MG",
+   "number": "305"
+  },
+  "1092": {
+   "name": "Potassium, K",
+   "unit": "MG",
+   "number": "306"
+  },
+  "1093": {
+   "name": "Sodium, Na",
+   "unit": "MG",
+   "number": "307"
+  },
+  "1095": {
+   "name": "Zinc, Zn",
+   "unit": "MG",
+   "number": "309"
+  },
+  "1098": {
+   "name": "Copper, Cu",
+   "unit": "MG",
+   "number": "312"
+  },
+  "1101": {
+   "name": "Manganese, Mn",
+   "unit": "MG",
+   "number": "315"
+  },
+  "2033": {
+   "name": "Total dietary fiber (AOAC 2011.25)",
+   "unit": "G",
+   "number": "293"
+  },
+  "2047": {
+   "name": "Energy (Atwater General Factors)",
+   "unit": "KCAL",
+   "number": "957"
+  },
+  "2048": {
+   "name": "Energy (Atwater Specific Factors)",
+   "unit": "KCAL",
+   "number": "958"
+  }
+ },
+ "foods": {
+  "2644294": {
+   "description": "Beans, great northern, canned, sodium added, drained and rinsed",
+   "data_type": "foundation_food",
+   "nutrients": {
+    "1071": 2.0,
+    "1095": 0.6349,
+    "1093": 223.1,
+    "1087": 67.16,
+    "1101": 0.4628,
+    "1009": 11.68,
+    "1098": 0.2558,
+    "1004": 1.266,
+    "1002": 1.125,
+    "1051": 71.16,
+    "2033": 6.913,
+    "1089": 1.382,
+    "1092": 213.1,
+    "1091": 88.61,
+    "1090": 29.3,
+    "1007": 1.214,
+    "1003": 7.03125,
+    "1005": 19.32875,
+    "2047": 116.834,
+    "2048": 113.66287
+   },
+   "portions": []
+  }
+ }
+}

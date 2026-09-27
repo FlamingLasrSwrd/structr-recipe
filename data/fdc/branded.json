@@ -1,0 +1,406 @@
+{
+ "source": {
+  "file": "api",
+  "citation": "U.S. Department of Agriculture, Agricultural Research Service. FoodData Central. fdc.nal.usda.gov. Public domain (CC0 1.0)."
+ },
+ "nutrients": {
+  "1003": {
+   "name": "Protein",
+   "unit": "G",
+   "number": "203"
+  },
+  "1004": {
+   "name": "Total lipid (fat)",
+   "unit": "G",
+   "number": "204"
+  },
+  "1005": {
+   "name": "Carbohydrate, by difference",
+   "unit": "G",
+   "number": "205"
+  },
+  "1008": {
+   "name": "Energy",
+   "unit": "KCAL",
+   "number": "208"
+  },
+  "1079": {
+   "name": "Fiber, total dietary",
+   "unit": "G",
+   "number": "291"
+  },
+  "1087": {
+   "name": "Calcium, Ca",
+   "unit": "MG",
+   "number": "301"
+  },
+  "1089": {
+   "name": "Iron, Fe",
+   "unit": "MG",
+   "number": "303"
+  },
+  "1090": {
+   "name": "Magnesium, Mg",
+   "unit": "MG",
+   "number": "304"
+  },
+  "1091": {
+   "name": "Phosphorus, P",
+   "unit": "MG",
+   "number": "305"
+  },
+  "1092": {
+   "name": "Potassium, K",
+   "unit": "MG",
+   "number": "306"
+  },
+  "1093": {
+   "name": "Sodium, Na",
+   "unit": "MG",
+   "number": "307"
+  },
+  "1095": {
+   "name": "Zinc, Zn",
+   "unit": "MG",
+   "number": "309"
+  },
+  "1104": {
+   "name": "Vitamin A, IU",
+   "unit": "IU",
+   "number": "318"
+  },
+  "1106": {
+   "name": "Vitamin A, RAE",
+   "unit": "UG",
+   "number": "320"
+  },
+  "1114": {
+   "name": "Vitamin D (D2 + D3)",
+   "unit": "UG",
+   "number": "328"
+  },
+  "1162": {
+   "name": "Vitamin C, total ascorbic acid",
+   "unit": "MG",
+   "number": "401"
+  },
+  "1235": {
+   "name": "Sugars, added",
+   "unit": "G",
+   "number": "539"
+  },
+  "1253": {
+   "name": "Cholesterol",
+   "unit": "MG",
+   "number": "601"
+  },
+  "1257": {
+   "name": "Fatty acids, total trans",
+   "unit": "G",
+   "number": "605"
+  },
+  "1258": {
+   "name": "Fatty acids, total saturated",
+   "unit": "G",
+   "number": "606"
+  },
+  "2000": {
+   "name": "Total Sugars",
+   "unit": "G",
+   "number": "269"
+  }
+ },
+ "foods": {
+  "1495185": {
+   "description": "CHINESE FIVE SPICE",
+   "data_type": "branded_food",
+   "brand": "SPICE ISLANDS",
+   "gtin": "04032917",
+   "nutrients": {
+    "1003": 0.0,
+    "1004": 0.0,
+    "1005": 0.0,
+    "1008": 0.0,
+    "1093": 0.0
+   },
+   "portions": [
+    {
+     "amount": 0.25,
+     "label": "tsp",
+     "grams": 0.6000000238418579
+    }
+   ]
+  },
+  "2030346": {
+   "description": "KULA MAUI, TAKUAN PICKLED RADISH",
+   "data_type": "branded_food",
+   "brand": "KULA MAUI",
+   "gtin": "033346412701",
+   "nutrients": {
+    "1003": 3.57,
+    "1004": 0.0,
+    "1005": 17.9,
+    "1008": 89.0,
+    "2000": 14.3,
+    "1093": 714.0
+   },
+   "portions": [
+    {
+     "amount": 3.0,
+     "label": "PIECES",
+     "grams": 28.0
+    }
+   ]
+  },
+  "2030391": {
+   "description": "AKIYAMA, TAKUAN (PICKLED RADISH)",
+   "data_type": "branded_food",
+   "brand": "AKIYAMA",
+   "gtin": "087902551007",
+   "nutrients": {
+    "1003": 0.0,
+    "1004": 0.0,
+    "1005": 14.1,
+    "1008": 53.0,
+    "2000": 10.6,
+    "1079": 3.5,
+    "1087": 0.0,
+    "1089": 0.0,
+    "1093": 741.0,
+    "1104": 0.0,
+    "1162": 0.0,
+    "1253": 0.0,
+    "1258": 0.0
+   },
+   "portions": [
+    {
+     "amount": 1.0,
+     "label": "oz",
+     "grams": 28.350000381469727
+    }
+   ]
+  },
+  "2033749": {
+   "description": "PALM SUGAR",
+   "data_type": "branded_food",
+   "brand": "DRAGONFLY",
+   "gtin": "721557331224",
+   "nutrients": {
+    "1003": 0.0,
+    "1004": 0.0,
+    "1005": 84.2,
+    "1008": 337.0,
+    "2000": 84.2,
+    "1079": 0.0,
+    "1087": 0.0,
+    "1089": 0.0,
+    "1093": 211.0,
+    "1104": 0.0,
+    "1162": 0.0,
+    "1253": 0.0,
+    "1257": 0.0,
+    "1258": 0.0
+   },
+   "portions": [
+    {
+     "amount": 1.0,
+     "label": "tbsp",
+     "grams": 19.0
+    }
+   ]
+  },
+  "2037617": {
+   "description": "CHINESE FIVE SPICES",
+   "data_type": "branded_food",
+   "brand": "DYNASTY",
+   "gtin": "011152030234",
+   "nutrients": {
+    "1003": 0.0,
+    "1004": 0.0,
+    "1005": 0.0,
+    "1008": 0.0,
+    "1093": 0.0
+   },
+   "portions": [
+    {
+     "amount": 0.25,
+     "label": "tsp",
+     "grams": 0.5
+    }
+   ]
+  },
+  "2115048": {
+   "description": "SUN DRIED & SLICED DAIKON RADISH",
+   "data_type": "branded_food",
+   "brand": "EDEN",
+   "gtin": "024182300154",
+   "nutrients": {
+    "1003": 7.14,
+    "1004": 0.0,
+    "1005": 64.3,
+    "1008": 321.0,
+    "2000": 42.9,
+    "1079": 21.4,
+    "1087": 429.0,
+    "1089": 5.14,
+    "1090": 57.0,
+    "1091": 286.0,
+    "1092": 143.0,
+    "1093": 143.0,
+    "1095": 2.14,
+    "1104": 0.0,
+    "1162": 0.0,
+    "1253": 0.0,
+    "1257": 0.0,
+    "1258": 0.0
+   },
+   "portions": [
+    {
+     "amount": 2.0,
+     "label": "tbsp",
+     "grams": 14.0
+    }
+   ]
+  },
+  "2149557": {
+   "description": "COCONUT PALM SUGAR",
+   "data_type": "branded_food",
+   "brand": "GOOD & GATHER",
+   "gtin": "085239084601",
+   "nutrients": {
+    "1003": 0.0,
+    "1004": 0.0,
+    "1005": 100.0,
+    "1008": 375.0,
+    "2000": 87.5,
+    "1093": 0.0,
+    "1235": 87.5
+   },
+   "portions": [
+    {
+     "amount": 2.0,
+     "label": "tsp",
+     "grams": 8.0
+    }
+   ]
+  },
+  "2571981": {
+   "description": "KOSHER SALT, KOSHER",
+   "data_type": "branded_food",
+   "brand": "DIAMOND CRYSTAL",
+   "gtin": "013600020019",
+   "nutrients": {
+    "1003": 0.0,
+    "1004": 0.0,
+    "1005": 0.0,
+    "1008": 0.0,
+    "1093": 40000.0
+   },
+   "portions": [
+    {
+     "amount": 0.25,
+     "label": "tsp",
+     "grams": 0.699999988079071
+    }
+   ]
+  },
+  "2597122": {
+   "description": "DIJON MUSTARD",
+   "data_type": "branded_food",
+   "brand": "GREY POUPON",
+   "gtin": "0054400000245",
+   "nutrients": {
+    "1003": 0.0,
+    "1004": 0.0,
+    "1005": 0.0,
+    "1008": 100.0,
+    "2000": 0.0,
+    "1079": 0.0,
+    "1087": 0.0,
+    "1089": 0.0,
+    "1092": 0.0,
+    "1093": 2300.0,
+    "1114": 0.0,
+    "1235": 0.0,
+    "1253": 0.0,
+    "1257": 0.0,
+    "1258": 0.0
+   },
+   "portions": [
+    {
+     "amount": 1.0,
+     "label": "tsp",
+     "grams": 5.0
+    }
+   ]
+  },
+  "2601407": {
+   "description": "DIJON MUSTARD, DIJON",
+   "data_type": "branded_food",
+   "brand": "FRENCH'S",
+   "gtin": "041500741284",
+   "nutrients": {
+    "1003": 0.0,
+    "1004": 0.0,
+    "1005": 0.0,
+    "1008": 100.0,
+    "1093": 2300.0
+   },
+   "portions": [
+    {
+     "amount": 1.0,
+     "label": "tsp",
+     "grams": 5.0
+    }
+   ]
+  },
+  "2617978": {
+   "description": "KOSHER COARSE SALT, KOSHER",
+   "data_type": "branded_food",
+   "brand": "MORTON",
+   "gtin": "024600017008",
+   "nutrients": {
+    "1003": 0.0,
+    "1004": 0.0,
+    "1005": 0.0,
+    "1008": 0.0,
+    "1093": 40000.0
+   },
+   "portions": [
+    {
+     "amount": 0.25,
+     "label": "tsp",
+     "grams": 1.2000000476837158
+    }
+   ]
+  },
+  "2623526": {
+   "description": "TAKUWAN PICKLED RADISH, TAKUWAN",
+   "data_type": "branded_food",
+   "brand": "WAIMANALO KO-KO",
+   "gtin": "073581000110",
+   "nutrients": {
+    "1003": 0.0,
+    "1004": 0.0,
+    "1005": 21.4,
+    "1008": 89.0,
+    "2000": 7.14,
+    "1079": 3.6,
+    "1087": 0.0,
+    "1089": 1.29,
+    "1093": 929.0,
+    "1162": 0.0,
+    "1253": 0.0,
+    "1258": 0.0,
+    "1106": 0.0
+   },
+   "portions": [
+    {
+     "amount": 5.0,
+     "label": "pieces",
+     "grams": 28.0
+    }
+   ]
+  }
+ }
+}
