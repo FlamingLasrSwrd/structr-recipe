@@ -91,6 +91,13 @@
   "propertyType": "String",
   "unique": true
  },
+ "@schema | property EquipmentObject.source": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "String",
+  "unique": false
+ },
  "@schema | property Identifier.identifierValue": {
   "format": null,
   "indexed": true,
@@ -229,6 +236,13 @@
   "indexed": false,
   "notNull": false,
   "propertyType": "Enum",
+  "unique": false
+ },
+ "@schema | property NutritionTarget.source": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "String",
   "unique": false
  },
  "@schema | property Plan.difficultyRating": {
@@ -773,6 +787,12 @@
   "sourceMultiplicity": "*",
   "targetJsonName": "hasTargetLevel",
   "targetMultiplicity": "1"
+ },
+ "@schema | relationship UtensilSet -[HAS_MEMBER_PART]-> EquipmentObject": {
+  "sourceJsonName": "memberOfSet",
+  "sourceMultiplicity": "1",
+  "targetJsonName": "hasMemberPart",
+  "targetMultiplicity": "*"
  },
  "@schema | type AcquisitionList": {
   "inheritedTraits": [

@@ -44,6 +44,7 @@ class ResolvedDefault:
     default_name: str         # the DefaultSpecification's name
     found_at_type_id: str     # the Type the default is attached to
     keyed_by: frozenset       # its keys (DomainType ids)
+    spec: dict | None = None  # the DefaultSpecification itself (its provenance and source)
 
 
 def resolve_default(client, type_id: str, kind_id: str, keys=frozenset()) -> ResolvedDefault | None:
@@ -76,6 +77,41 @@ def resolve_default(client, type_id: str, kind_id: str, keys=frozenset()) -> Res
             raise ValueError(f"DefaultSpecification {spec['name']!r} has no value")
         return ResolvedDefault(
             quantity=client.get_all("QuantitySpecification", value_ref["id"])["result"],
-            default_name=spec["name"], found_at_type_id=level_type, keyed_by=spec_keys,
+            default_name=spec["name"], found_at_type_id=level_type, keyed_by=spec_keys, spec=spec,
         )
     return None
+
+
+def resolve_all(client, type_id: str, kind_id: str) -> dict[frozenset, ResolvedDefault]:
+    """Every default of `kind_id` that applies to `type_id`, one per key
+    signature: the nearest Type's default for each signature wins, so a Type
+    inherits whatever its ancestors define and overrides what it defines itself.
+
+    This is what instantiating a profile reads (mealplanner/profiles.py): a
+    profile Type with defaults keyed by nutrient or by equipment type, each
+    child adding to or overriding its parent. Two defaults with one signature
+    on one Type are ambiguous and raise, as in resolve_default."""
+    found: dict[frozenset, ResolvedDefault] = {}
+    for level_type in ancestors_or_self(client, type_id):
+        node = client.get_all("DomainType", level_type)["result"]
+        here: dict[frozenset, dict] = {}
+        for ref in node.get("defaultSpecifications", []):
+            spec = client.get_all("DefaultSpecification", ref["id"])["result"]
+            if (spec.get("hasKind") or {}).get("id") != kind_id:
+                continue
+            keys = frozenset(k["id"] for k in spec.get("keyedBy", []))
+            if keys in here:
+                raise AmbiguousDefaultError(f"two defaults of one kind on {node.get('name')!r} share the keys "
+                                            f"{sorted(keys)}: {sorted([here[keys]['name'], spec['name']])}")
+            here[keys] = spec
+        for keys, spec in here.items():
+            if keys in found:
+                continue
+            value_ref = spec.get("hasValue")
+            if not value_ref:
+                raise ValueError(f"DefaultSpecification {spec['name']!r} has no value")
+            found[keys] = ResolvedDefault(
+                quantity=client.get_all("QuantitySpecification", value_ref["id"])["result"],
+                default_name=spec["name"], found_at_type_id=level_type, keyed_by=keys, spec=spec,
+            )
+    return found

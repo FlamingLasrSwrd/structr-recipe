@@ -1,0 +1,94 @@
+# Kitchen profiles: the equipment typical of four kinds of kitchen, instantiated into the owner's own
+# kitchen by tools/instantiate_profile.py (mealplanner/profiles.py, docs/profiles.md).
+#
+# A profile is a Type in the "Kitchen Profile" hierarchy; each item is a DefaultSpecification of kind
+# "Kitchen Equipment" keyed by an Equipment Type (data/vocabulary.toml), its value how many (default
+# 1). Each tier sits under the one before and inherits its equipment, adding its own; a tier may also
+# restate an item to change the count.
+#
+# Curated by Claude, so every item is `estimated`. The two lowest tiers follow America's Test Kitchen:
+# "Essential Cooking Tools for Beginner Home Cooks" (article 2945: a nonstick skillet and spatula, a
+# chef's knife, a cutting board, liquid and dry measuring cups, mixing bowls) and "Essential Items of
+# Kitchen Gear for a New Home" (article 7867: adds measuring spoons, fish and silicone spatulas, tongs,
+# an instant-read thermometer, a cast-iron skillet and a Dutch oven). The rest are the owner's to prune.
+
+[[profile]]
+name = "Minimal kitchen"
+note = "someone who rarely cooks"
+equipment = [
+  { item = "Nonstick skillet" },
+  { item = "Saucepan" },
+  { item = "Chef's knife" },
+  { item = "Cutting board" },
+  { item = "Silicone spatula" },
+  { item = "Wooden spoon" },
+  { item = "Liquid measuring cup" },
+  { item = "Dry measuring cups" },
+  { item = "Measuring spoons" },
+  { item = "Mixing bowl", count = 2 },
+  { item = "Colander" },
+  { item = "Can opener" },
+  { item = "Sheet pan" },
+  { item = "Oven mitts" },
+  { item = "Microwave" },
+]
+
+[[profile]]
+name = "Everyday home kitchen"
+parent = "Minimal kitchen"
+note = "cooks most days from recipes"
+equipment = [
+  { item = "Cast-iron skillet" },
+  { item = "Dutch Oven" },
+  { item = "Stockpot" },
+  { item = "Paring knife" },
+  { item = "Fish spatula" },
+  { item = "Tongs" },
+  { item = "Whisk" },
+  { item = "Ladle" },
+  { item = "Vegetable peeler" },
+  { item = "Box grater" },
+  { item = "Instant-read thermometer" },
+  { item = "Baking dish" },
+  { item = "Mixing bowl", count = 3 },
+  { item = "Cutting board", count = 2 },
+]
+
+[[profile]]
+name = "Enthusiast kitchen"
+parent = "Everyday home kitchen"
+note = "cooks for pleasure and tries new cuisines"
+equipment = [
+  { item = "Stainless-steel skillet" },
+  { item = "Wok" },
+  { item = "Roasting pan" },
+  { item = "Bread knife" },
+  { item = "Fine-mesh sieve" },
+  { item = "Salad spinner" },
+  { item = "Microplane grater" },
+  { item = "Mandoline" },
+  { item = "Meat pounder" },
+  { item = "Mortar and pestle" },
+  { item = "Kitchen scale" },
+  { item = "Food processor" },
+  { item = "Immersion blender" },
+  { item = "Rice cooker" },
+  { item = "Spice grinder" },
+]
+
+[[profile]]
+name = "Prosumer kitchen"
+parent = "Enthusiast kitchen"
+note = "has most of the gadgets"
+equipment = [
+  { item = "Carbon-steel skillet" },
+  { item = "Pizza steel" },
+  { item = "High-speed blender" },
+  { item = "Stand mixer" },
+  { item = "Pressure cooker" },
+  { item = "Sous vide circulator" },
+  { item = "Dehydrator" },
+  { item = "Vacuum sealer" },
+  { item = "Pasta machine" },
+  { item = "Kitchen torch" },
+]

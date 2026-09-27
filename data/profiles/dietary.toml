@@ -1,0 +1,337 @@
+# Dietary reference profiles: daily nutrition targets for kinds of people, instantiated into the
+# owner's own targets by tools/instantiate_profile.py (mealplanner/profiles.py, docs/profiles.md).
+#
+# A profile is a Type in the "Dietary Reference Profile" hierarchy; each intake is a DefaultSpecification
+# of kind "Recommended Daily Intake" keyed by its nutrient (FDC nutrient id). A child inherits its
+# parent's intakes and overrides any it restates. basis: an amount (default), "share of energy" (a
+# percent of the day's calories, converted to grams at 4 kcal/g for protein, carbohydrate and sugars,
+# 9 for fats) or "per 1000 kcal" (fiber), both worked out from the profile's energy when instantiated.
+#
+# Sources: Dietary Guidelines for Americans 2020-2025 (U.S. Department of Agriculture and U.S. Department of Health and Human Services),
+# Appendix 1 Table A1-2 (from the Institute of Medicine / National Academies Dietary Reference Intakes)
+# and Appendix 2 Table A2-2 (Estimated Energy Requirements); weight loss from the 2013 AHA/ACC/TOS
+# obesity guideline. RDA and AI are floors (minimums); CDRR, the DGA limits and the AMDR bounds are
+# ceilings or ranges. These are population guidelines, not personal advice. Upper limits are not listed.
+
+[[profile]]
+name = "Adult"
+intakes = [
+  { nutrient = 1093, max = 2300, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: sodium CDRR (all adults)" },
+  { nutrient = 1003, basis = "share of energy", min = 10, max = 35, status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: protein AMDR" },
+  { nutrient = 1005, min = 130, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: carbohydrate RDA" },
+  { nutrient = 1005, basis = "share of energy", min = 45, max = 65, status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: carbohydrate AMDR" },
+  { nutrient = 1079, basis = "per 1000 kcal", min = 14, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: fiber 14 g per 1,000 kcal" },
+  { nutrient = 1235, basis = "share of energy", max = 10, status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: added sugars under 10% of calories (DGA)" },
+  { nutrient = 1004, basis = "share of energy", min = 20, max = 35, status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: total fat AMDR (adults 19+)" },
+  { nutrient = 1258, basis = "share of energy", max = 10, status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: saturated fat under 10% of calories (DGA)" },
+]
+
+[[profile]]
+name = "Adult female"
+parent = "Adult"
+
+[[profile]]
+name = "Adult female 19-30"
+parent = "Adult female"
+intakes = [
+  { nutrient = 1003, min = 46, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Protein RDA, F 19-30" },
+  { nutrient = 1269, min = 12, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: 18:2 linoleic acid AI, F 19-30" },
+  { nutrient = 1270, min = 1.1, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: 18:3 linolenic acid AI, F 19-30" },
+  { nutrient = 1087, min = 1000, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Calcium RDA, F 19-30" },
+  { nutrient = 1089, min = 18, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Iron RDA, F 19-30" },
+  { nutrient = 1090, min = 310, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Magnesium RDA, F 19-30" },
+  { nutrient = 1091, min = 700, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Phosphorus RDA, F 19-30" },
+  { nutrient = 1092, min = 2600, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Potassium AI, F 19-30" },
+  { nutrient = 1095, min = 8, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Zinc RDA, F 19-30" },
+  { nutrient = 1106, min = 700, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin A (RAE) RDA, F 19-30" },
+  { nutrient = 1109, min = 15, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin E (alpha-tocopherol) RDA, F 19-30" },
+  { nutrient = 1110, min = 600, unit = "IU", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin D RDA, F 19-30" },
+  { nutrient = 1162, min = 75, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin C RDA, F 19-30" },
+  { nutrient = 1165, min = 1.1, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Thiamin RDA, F 19-30" },
+  { nutrient = 1166, min = 1.1, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Riboflavin RDA, F 19-30" },
+  { nutrient = 1167, min = 14, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Niacin RDA, F 19-30" },
+  { nutrient = 1175, min = 1.3, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin B-6 RDA, F 19-30" },
+  { nutrient = 1178, min = 2.4, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin B-12 RDA, F 19-30" },
+  { nutrient = 1180, min = 425, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Choline AI, F 19-30" },
+  { nutrient = 1185, min = 90, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin K AI, F 19-30" },
+  { nutrient = 1190, min = 400, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Folate (DFE) RDA, F 19-30" },
+]
+
+[[profile]]
+name = "Adult female 19-30 sedentary"
+parent = "Adult female 19-30"
+intakes = [
+  { nutrient = 1008, min = 1800, max = 2000, unit = "kcal", status = "calculated", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: sedentary, ages 19-20 to 26-30: 1,800 to 2,000 kcal, the least and most over the age bands" },
+]
+
+[[profile]]
+name = "Adult female 19-30 moderately active"
+parent = "Adult female 19-30"
+intakes = [
+  { nutrient = 1008, min = 2000, max = 2200, unit = "kcal", status = "calculated", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: moderately active, ages 19-20 to 26-30: 2,000 to 2,200 kcal, the least and most over the age bands" },
+]
+
+[[profile]]
+name = "Adult female 19-30 active"
+parent = "Adult female 19-30"
+intakes = [
+  { nutrient = 1008, min = 2400, max = 2400, unit = "kcal", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: active, ages 19-20 to 26-30: 2,400 kcal" },
+]
+
+[[profile]]
+name = "Adult female 31-50"
+parent = "Adult female"
+intakes = [
+  { nutrient = 1003, min = 46, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Protein RDA, F 31-50" },
+  { nutrient = 1269, min = 12, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: 18:2 linoleic acid AI, F 31-50" },
+  { nutrient = 1270, min = 1.1, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: 18:3 linolenic acid AI, F 31-50" },
+  { nutrient = 1087, min = 1000, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Calcium RDA, F 31-50" },
+  { nutrient = 1089, min = 18, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Iron RDA, F 31-50" },
+  { nutrient = 1090, min = 320, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Magnesium RDA, F 31-50" },
+  { nutrient = 1091, min = 700, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Phosphorus RDA, F 31-50" },
+  { nutrient = 1092, min = 2600, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Potassium AI, F 31-50" },
+  { nutrient = 1095, min = 8, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Zinc RDA, F 31-50" },
+  { nutrient = 1106, min = 700, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin A (RAE) RDA, F 31-50" },
+  { nutrient = 1109, min = 15, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin E (alpha-tocopherol) RDA, F 31-50" },
+  { nutrient = 1110, min = 600, unit = "IU", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin D RDA, F 31-50" },
+  { nutrient = 1162, min = 75, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin C RDA, F 31-50" },
+  { nutrient = 1165, min = 1.1, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Thiamin RDA, F 31-50" },
+  { nutrient = 1166, min = 1.1, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Riboflavin RDA, F 31-50" },
+  { nutrient = 1167, min = 14, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Niacin RDA, F 31-50" },
+  { nutrient = 1175, min = 1.3, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin B-6 RDA, F 31-50" },
+  { nutrient = 1178, min = 2.4, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin B-12 RDA, F 31-50" },
+  { nutrient = 1180, min = 425, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Choline AI, F 31-50" },
+  { nutrient = 1185, min = 90, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin K AI, F 31-50" },
+  { nutrient = 1190, min = 400, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Folate (DFE) RDA, F 31-50" },
+]
+
+[[profile]]
+name = "Adult female 31-50 sedentary"
+parent = "Adult female 31-50"
+intakes = [
+  { nutrient = 1008, min = 1800, max = 1800, unit = "kcal", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: sedentary, ages 31-35 to 46-50: 1,800 kcal" },
+]
+
+[[profile]]
+name = "Adult female 31-50 moderately active"
+parent = "Adult female 31-50"
+intakes = [
+  { nutrient = 1008, min = 2000, max = 2000, unit = "kcal", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: moderately active, ages 31-35 to 46-50: 2,000 kcal" },
+]
+
+[[profile]]
+name = "Adult female 31-50 active"
+parent = "Adult female 31-50"
+intakes = [
+  { nutrient = 1008, min = 2200, max = 2200, unit = "kcal", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: active, ages 31-35 to 46-50: 2,200 kcal" },
+]
+
+[[profile]]
+name = "Adult female 51+"
+parent = "Adult female"
+intakes = [
+  { nutrient = 1003, min = 46, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Protein RDA, F 51+" },
+  { nutrient = 1269, min = 11, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: 18:2 linoleic acid AI, F 51+" },
+  { nutrient = 1270, min = 1.1, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: 18:3 linolenic acid AI, F 51+" },
+  { nutrient = 1087, min = 1200, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Calcium RDA, F 51+" },
+  { nutrient = 1089, min = 8, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Iron RDA, F 51+" },
+  { nutrient = 1090, min = 320, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Magnesium RDA, F 51+" },
+  { nutrient = 1091, min = 700, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Phosphorus RDA, F 51+" },
+  { nutrient = 1092, min = 2600, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Potassium AI, F 51+" },
+  { nutrient = 1095, min = 8, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Zinc RDA, F 51+" },
+  { nutrient = 1106, min = 700, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin A (RAE) RDA, F 51+" },
+  { nutrient = 1109, min = 15, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin E (alpha-tocopherol) RDA, F 51+" },
+  { nutrient = 1110, min = 600, unit = "IU", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin D RDA, F 51+" },
+  { nutrient = 1162, min = 75, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin C RDA, F 51+" },
+  { nutrient = 1165, min = 1.1, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Thiamin RDA, F 51+" },
+  { nutrient = 1166, min = 1.1, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Riboflavin RDA, F 51+" },
+  { nutrient = 1167, min = 14, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Niacin RDA, F 51+" },
+  { nutrient = 1175, min = 1.5, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin B-6 RDA, F 51+" },
+  { nutrient = 1178, min = 2.4, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin B-12 RDA, F 51+" },
+  { nutrient = 1180, min = 425, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Choline AI, F 51+" },
+  { nutrient = 1185, min = 90, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin K AI, F 51+" },
+  { nutrient = 1190, min = 400, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Folate (DFE) RDA, F 51+" },
+]
+
+[[profile]]
+name = "Adult female 51+ sedentary"
+parent = "Adult female 51+"
+intakes = [
+  { nutrient = 1008, min = 1600, max = 1600, unit = "kcal", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: sedentary, ages 51-55 to 76 and up: 1,600 kcal" },
+]
+
+[[profile]]
+name = "Adult female 51+ moderately active"
+parent = "Adult female 51+"
+intakes = [
+  { nutrient = 1008, min = 1800, max = 1800, unit = "kcal", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: moderately active, ages 51-55 to 76 and up: 1,800 kcal" },
+]
+
+[[profile]]
+name = "Adult female 51+ active"
+parent = "Adult female 51+"
+intakes = [
+  { nutrient = 1008, min = 2000, max = 2200, unit = "kcal", status = "calculated", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: active, ages 51-55 to 76 and up: 2,000 to 2,200 kcal, the least and most over the age bands" },
+]
+
+[[profile]]
+name = "Adult female 31-50 weight loss"
+parent = "Adult female 31-50"
+intakes = [
+  { nutrient = 1008, min = 1200, max = 1500, unit = "kcal", status = "sourced", source = "Jensen et al. 2013 AHA/ACC/TOS Guideline for the Management of Overweight and Obesity in Adults, Circulation 2014;129(suppl 2):S102-S138: 1,200-1,500 kcal per day for women" },
+]
+
+[[profile]]
+name = "Adult male"
+parent = "Adult"
+
+[[profile]]
+name = "Adult male 19-30"
+parent = "Adult male"
+intakes = [
+  { nutrient = 1003, min = 56, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Protein RDA, M 19-30" },
+  { nutrient = 1269, min = 17, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: 18:2 linoleic acid AI, M 19-30" },
+  { nutrient = 1270, min = 1.6, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: 18:3 linolenic acid AI, M 19-30" },
+  { nutrient = 1087, min = 1000, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Calcium RDA, M 19-30" },
+  { nutrient = 1089, min = 8, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Iron RDA, M 19-30" },
+  { nutrient = 1090, min = 400, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Magnesium RDA, M 19-30" },
+  { nutrient = 1091, min = 700, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Phosphorus RDA, M 19-30" },
+  { nutrient = 1092, min = 3400, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Potassium AI, M 19-30" },
+  { nutrient = 1095, min = 11, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Zinc RDA, M 19-30" },
+  { nutrient = 1106, min = 900, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin A (RAE) RDA, M 19-30" },
+  { nutrient = 1109, min = 15, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin E (alpha-tocopherol) RDA, M 19-30" },
+  { nutrient = 1110, min = 600, unit = "IU", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin D RDA, M 19-30" },
+  { nutrient = 1162, min = 90, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin C RDA, M 19-30" },
+  { nutrient = 1165, min = 1.2, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Thiamin RDA, M 19-30" },
+  { nutrient = 1166, min = 1.3, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Riboflavin RDA, M 19-30" },
+  { nutrient = 1167, min = 16, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Niacin RDA, M 19-30" },
+  { nutrient = 1175, min = 1.3, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin B-6 RDA, M 19-30" },
+  { nutrient = 1178, min = 2.4, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin B-12 RDA, M 19-30" },
+  { nutrient = 1180, min = 550, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Choline AI, M 19-30" },
+  { nutrient = 1185, min = 120, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin K AI, M 19-30" },
+  { nutrient = 1190, min = 400, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Folate (DFE) RDA, M 19-30" },
+]
+
+[[profile]]
+name = "Adult male 19-30 sedentary"
+parent = "Adult male 19-30"
+intakes = [
+  { nutrient = 1008, min = 2400, max = 2600, unit = "kcal", status = "calculated", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: sedentary, ages 19-20 to 26-30: 2,400 to 2,600 kcal, the least and most over the age bands" },
+]
+
+[[profile]]
+name = "Adult male 19-30 moderately active"
+parent = "Adult male 19-30"
+intakes = [
+  { nutrient = 1008, min = 2600, max = 2800, unit = "kcal", status = "calculated", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: moderately active, ages 19-20 to 26-30: 2,600 to 2,800 kcal, the least and most over the age bands" },
+]
+
+[[profile]]
+name = "Adult male 19-30 active"
+parent = "Adult male 19-30"
+intakes = [
+  { nutrient = 1008, min = 3000, max = 3000, unit = "kcal", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: active, ages 19-20 to 26-30: 3,000 kcal" },
+]
+
+[[profile]]
+name = "Adult male 31-50"
+parent = "Adult male"
+intakes = [
+  { nutrient = 1003, min = 56, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Protein RDA, M 31-50" },
+  { nutrient = 1269, min = 17, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: 18:2 linoleic acid AI, M 31-50" },
+  { nutrient = 1270, min = 1.6, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: 18:3 linolenic acid AI, M 31-50" },
+  { nutrient = 1087, min = 1000, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Calcium RDA, M 31-50" },
+  { nutrient = 1089, min = 8, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Iron RDA, M 31-50" },
+  { nutrient = 1090, min = 420, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Magnesium RDA, M 31-50" },
+  { nutrient = 1091, min = 700, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Phosphorus RDA, M 31-50" },
+  { nutrient = 1092, min = 3400, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Potassium AI, M 31-50" },
+  { nutrient = 1095, min = 11, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Zinc RDA, M 31-50" },
+  { nutrient = 1106, min = 900, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin A (RAE) RDA, M 31-50" },
+  { nutrient = 1109, min = 15, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin E (alpha-tocopherol) RDA, M 31-50" },
+  { nutrient = 1110, min = 600, unit = "IU", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin D RDA, M 31-50" },
+  { nutrient = 1162, min = 90, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin C RDA, M 31-50" },
+  { nutrient = 1165, min = 1.2, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Thiamin RDA, M 31-50" },
+  { nutrient = 1166, min = 1.3, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Riboflavin RDA, M 31-50" },
+  { nutrient = 1167, min = 16, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Niacin RDA, M 31-50" },
+  { nutrient = 1175, min = 1.3, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin B-6 RDA, M 31-50" },
+  { nutrient = 1178, min = 2.4, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin B-12 RDA, M 31-50" },
+  { nutrient = 1180, min = 550, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Choline AI, M 31-50" },
+  { nutrient = 1185, min = 120, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin K AI, M 31-50" },
+  { nutrient = 1190, min = 400, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Folate (DFE) RDA, M 31-50" },
+]
+
+[[profile]]
+name = "Adult male 31-50 sedentary"
+parent = "Adult male 31-50"
+intakes = [
+  { nutrient = 1008, min = 2200, max = 2400, unit = "kcal", status = "calculated", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: sedentary, ages 31-35 to 46-50: 2,200 to 2,400 kcal, the least and most over the age bands" },
+]
+
+[[profile]]
+name = "Adult male 31-50 moderately active"
+parent = "Adult male 31-50"
+intakes = [
+  { nutrient = 1008, min = 2400, max = 2600, unit = "kcal", status = "calculated", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: moderately active, ages 31-35 to 46-50: 2,400 to 2,600 kcal, the least and most over the age bands" },
+]
+
+[[profile]]
+name = "Adult male 31-50 active"
+parent = "Adult male 31-50"
+intakes = [
+  { nutrient = 1008, min = 2800, max = 3000, unit = "kcal", status = "calculated", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: active, ages 31-35 to 46-50: 2,800 to 3,000 kcal, the least and most over the age bands" },
+]
+
+[[profile]]
+name = "Adult male 51+"
+parent = "Adult male"
+intakes = [
+  { nutrient = 1003, min = 56, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Protein RDA, M 51+" },
+  { nutrient = 1269, min = 14, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: 18:2 linoleic acid AI, M 51+" },
+  { nutrient = 1270, min = 1.6, unit = "g", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: 18:3 linolenic acid AI, M 51+" },
+  { nutrient = 1087, min = 1000, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Calcium RDA, M 51+" },
+  { nutrient = 1089, min = 8, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Iron RDA, M 51+" },
+  { nutrient = 1090, min = 420, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Magnesium RDA, M 51+" },
+  { nutrient = 1091, min = 700, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Phosphorus RDA, M 51+" },
+  { nutrient = 1092, min = 3400, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Potassium AI, M 51+" },
+  { nutrient = 1095, min = 11, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Zinc RDA, M 51+" },
+  { nutrient = 1106, min = 900, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin A (RAE) RDA, M 51+" },
+  { nutrient = 1109, min = 15, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin E (alpha-tocopherol) RDA, M 51+" },
+  { nutrient = 1110, min = 600, unit = "IU", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin D RDA, M 51+" },
+  { nutrient = 1162, min = 90, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin C RDA, M 51+" },
+  { nutrient = 1165, min = 1.2, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Thiamin RDA, M 51+" },
+  { nutrient = 1166, min = 1.3, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Riboflavin RDA, M 51+" },
+  { nutrient = 1167, min = 16, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Niacin RDA, M 51+" },
+  { nutrient = 1175, min = 1.7, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin B-6 RDA, M 51+" },
+  { nutrient = 1178, min = 2.4, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin B-12 RDA, M 51+" },
+  { nutrient = 1180, min = 550, unit = "mg", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Choline AI, M 51+" },
+  { nutrient = 1185, min = 120, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Vitamin K AI, M 51+" },
+  { nutrient = 1190, min = 400, unit = "ug", status = "sourced", source = "Dietary Guidelines for Americans 2020-2025 Table A1-2: Folate (DFE) RDA, M 51+" },
+]
+
+[[profile]]
+name = "Adult male 51+ sedentary"
+parent = "Adult male 51+"
+intakes = [
+  { nutrient = 1008, min = 2000, max = 2200, unit = "kcal", status = "calculated", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: sedentary, ages 51-55 to 76 and up: 2,000 to 2,200 kcal, the least and most over the age bands" },
+]
+
+[[profile]]
+name = "Adult male 51+ moderately active"
+parent = "Adult male 51+"
+intakes = [
+  { nutrient = 1008, min = 2200, max = 2400, unit = "kcal", status = "calculated", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: moderately active, ages 51-55 to 76 and up: 2,200 to 2,400 kcal, the least and most over the age bands" },
+]
+
+[[profile]]
+name = "Adult male 51+ active"
+parent = "Adult male 51+"
+intakes = [
+  { nutrient = 1008, min = 2400, max = 2800, unit = "kcal", status = "calculated", source = "Dietary Guidelines for Americans 2020-2025 Table A2-2: active, ages 51-55 to 76 and up: 2,400 to 2,800 kcal, the least and most over the age bands" },
+]
+
+[[profile]]
+name = "Adult male 31-50 weight loss"
+parent = "Adult male 31-50"
+intakes = [
+  { nutrient = 1008, min = 1500, max = 1800, unit = "kcal", status = "sourced", source = "Jensen et al. 2013 AHA/ACC/TOS Guideline for the Management of Overweight and Obesity in Adults, Circulation 2014;129(suppl 2):S102-S138: 1,500-1,800 kcal per day for men" },
+]

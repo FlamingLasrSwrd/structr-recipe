@@ -15,6 +15,8 @@ A single-user meal-planning tool. It generates a weekly plan satisfying difficul
 | `structr-cheatsheet.md` | ✅ **Authoritative** | Structr mechanics. Empirically verified against a real instance — trust its ✅ items over the official docs |
 | `bfo-reference.md` | 📖 Reference | what BFO classes and relations mean, with domains/ranges |
 | `optimizer-design.md` | 📝 **Proposal, built as a first version — unreviewed** | the design of the optimizer and, in its §12, what was actually built and which of its questions were answered by default. Not authoritative: the objective in particular is a proposal, not a fact about what makes a good week |
+| `recipe-format.md` | 📘 Guide | how a recipe is transcribed into a file and loaded |
+| `profiles.md` | 📘 Guide, as built; its last section is exploration | how dietary and kitchen profiles are defined, resolved and instantiated into the owner's data. Its table of other uses is a set of candidates, not a plan |
 | `design-review-document.md` | 🗄️ **Historical — do not follow** | records round-1 review findings, all since fixed |
 | `design-review-document-round2.md` | 🗄️ **Historical — do not follow** | same, round 2. Its §11 "not yet acted on" items **have** since been acted on |
 
