@@ -394,9 +394,12 @@ def import_recipe(client, doc: RecipeDoc, *, check_only: bool = False) -> Import
     if doc.source:
         client.upsert("Identifier", "name", f"{doc.name} source", {
             "identifierValue": doc.source, "identifierScheme": names.web_page, "denotes": recipe_id})
+    else:
+        for stale in _one(client, "/structr/rest/Identifier", f"{doc.name} source"):
+            client.delete(f"/structr/rest/Identifier/{stale['id']}")
     yield_id = client.upsert("QuantitySpecification", "name", f"{doc.plan_name} yield", {
         "value": doc.servings, "unit": "servings", "status": "specified"})
-    plan_id = client.upsert("Plan", "name", doc.plan_name, {
+    plan_id = _write(client, "Plan", doc.plan_name, {
         "specializationOf": recipe_id, "hasRecipeYield": yield_id,
         "estimatedDurationMinutes": doc.minutes, "difficultyRating": doc.difficulty})
 
@@ -404,7 +407,7 @@ def import_recipe(client, doc: RecipeDoc, *, check_only: bool = False) -> Import
     keep_steps, keep_specs = set(), set()
     for i, step in enumerate(doc.steps, 1):
         fields = {"plan": plan_id, "instanceOf": names.methods.get(step.method) if step.method else None}
-        step_id = client.upsert("Step", "name", step_name(doc, i, step), fields)
+        step_id = _write(client, "Step", step_name(doc, i, step), fields)
         keep_steps.add(step_id)
         for j, ing in enumerate(step.inputs, 1):
             spec_name = input_name(doc, i, j, ing)
@@ -412,7 +415,7 @@ def import_recipe(client, doc: RecipeDoc, *, check_only: bool = False) -> Import
             if ing.amount is not None:
                 qty_id = client.upsert("QuantitySpecification", "name", f"{spec_name} quantity", {
                     "value": ing.amount, "unit": ing.unit, "status": "specified"})
-            spec_id = client.upsert("Specification", "name", spec_name, {
+            spec_id = _write(client, "Specification", spec_name, {
                 "step": step_id, "hasParticipationRole": "input", "specifies": type_of[ing.food],
                 "hasSpecifiedQuantity": qty_id, "isOptional": ing.optional})
             keep_specs.add(spec_id)
@@ -434,6 +437,17 @@ def import_recipe(client, doc: RecipeDoc, *, check_only: bool = False) -> Import
                     convert_to_grams(client, names.foods[ing.food], ing.amount, ing.unit) is None:
                 report.unconvertible.append(f"{ing.amount:g} {ing.unit} {ing.food}")
     return report
+
+
+def _write(client, type_name: str, name: str, fields: dict) -> str:
+    """upsert, and then clear every field given as None. upsert leaves a None
+    out, so on its own an edited file could never remove a Step's method, an
+    ingredient's amount or a recipe's minutes: the old value stayed."""
+    node_id = client.upsert(type_name, "name", name, fields)
+    cleared = {k: None for k, v in fields.items() if v is None}
+    if cleared:
+        client.patch(f"/structr/rest/{type_name}/{node_id}", cleared)
+    return node_id
 
 
 def _delete_orphan_quantity(client, name: str) -> None:

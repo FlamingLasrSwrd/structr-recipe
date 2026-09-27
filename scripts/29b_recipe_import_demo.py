@@ -51,13 +51,13 @@ FILE = f"""
 name = "{DISH}"
 source = "https://example.org/chickpea-rice"
 servings = 4
-minutes = 35
+{{minutes}}
 difficulty = "easy"
 meal_types = ["Dinner", "Lunch"]
 
 [[steps]]
 name = "boil the rice"
-method = "Boiling"
+{{method}}
 makes = "{RICE_COOKED}"
 inputs = [{{ food = "{RICE}", amount = 1.5, unit = "cup" }}]
 
@@ -65,14 +65,18 @@ inputs = [{{ food = "{RICE}", amount = 1.5, unit = "cup" }}]
 name = "fold in"
 inputs = [
   {{ food = "{RICE_COOKED}" }},
-  {{ food = "{CHICKPEAS}", amount = {{chickpeas}}, unit = "g" }},
+  {{chickpeas}},
   {{salt}}
 ]
 """
 
 
-def recipe_file(chickpeas=400, salt=True, version=None):
-    text = FILE.replace("{chickpeas}", str(chickpeas))
+def recipe_file(chickpeas=400, salt=True, version=None, minutes=True, method=True):
+    """chickpeas=None: listed with no amount."""
+    amount = "" if chickpeas is None else f', amount = {chickpeas}, unit = "g"'
+    text = FILE.replace("{chickpeas}", f'{{ food = "{CHICKPEAS}"{amount} }}')
+    text = text.replace("{minutes}", "minutes = 35" if minutes else "")
+    text = text.replace("{method}", 'method = "Boiling"' if method else "")
     text = text.replace("{salt}", f'{{ food = "{SALT}", amount = 6, unit = "g" }}' if salt else "")
     if version:
         text = text.replace("servings = 4", f"version = {version}\nservings = 4")
@@ -177,6 +181,14 @@ def main():
         plan = client.get_all("Plan", report.plan_id)["result"]
         check(close(serving_nutrient_figure(client, plan, nutrients["Sodium"], "mg").amount, (RICE_G * 0.05 + 300 * 2.5) / 4),
               "sodium follows the edit")
+        bare = recipe_file(chickpeas=None, salt=False, minutes=False, method=False)
+        import_recipe(client, bare)
+        check(export_plan(client, report.plan_id) == bare.plan_part(),
+              "an edit that removes an amount, a method and the minutes takes effect")
+        check(not client.get("/structr/rest/QuantitySpecification", params={"name": f"{DISH} v1 step 2 input 2 {CHICKPEAS} quantity"})["result"],
+              "and the removed amount's quantity is deleted")
+        import_recipe(client, edited)
+        check(export_plan(client, report.plan_id) == edited.plan_part(), "and they come back with the file")
 
         print("\n[4] Once cooked, a Plan is history...")
         client.upsert("Process", "name", P + "cook", {"concretizes": report.plan_id})
