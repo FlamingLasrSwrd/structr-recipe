@@ -1,0 +1,270 @@
+# The curated vocabulary: foods, cooking methods and the nutrients kept through cooking.
+# Loaded by tools/import_vocabulary.py (mealplanner/vocabulary_import.py).
+#
+# Every food with an `fdc` id takes its nutrients from USDA FoodData Central, SR Legacy
+# (April 2018): U.S. Department of Agriculture, Agricultural Research Service, FoodData Central,
+# fdc.nal.usda.gov. Public domain (CC0 1.0). tools/fdc_extract.py pins the foods named here into
+# data/fdc/sr_legacy.json; re-run it after adding a food.
+#
+#   fdc      the FDC food. The match was chosen by Claude and is listed here to be reviewed.
+#   proxy    true when FDC has no entry for this food and `fdc` is the closest one it has. Its
+#            profiles are loaded as `placeholder`, so they never decide a hard nutrition target.
+#   each     the FDC portion that gives the mass of one ("1 large egg = 50 g"): MassPerUnit
+#   volume   the FDC portion that gives a density ("1 cup, sliced = 115 g"): Density
+#   parent   default "Food", the root every food sits under
+
+[source]
+subset = "data/fdc/sr_legacy.json"
+
+[retention]
+# The owner's decision (2026-09-26): energy, protein, fat, carbohydrate, fiber and sugars are
+# kept through cooking, as USDA's recipe calculations treat them; its retention factors adjust
+# vitamins and minerals. Fat gained in frying or poured off is not modeled (J18). FDC nutrient
+# ids: Energy (kcal), Protein, Total lipid (fat), Carbohydrate by difference, Fiber total
+# dietary, Sugars total.
+kept_in_cooking = [1008, 1003, 1004, 1005, 1079, 2000]
+
+# -- methods, parents before children --------------------------------------------------------
+
+[[method]]
+name = "Wet-Heat Method"
+
+[[method]]
+name = "Boiling"
+parent = "Wet-Heat Method"
+
+[[method]]
+name = "Braising"
+parent = "Wet-Heat Method"
+
+[[method]]
+name = "Simmering"
+parent = "Wet-Heat Method"
+
+[[method]]
+name = "Dry-Heat Method"
+
+[[method]]
+name = "Stir-Frying"            # was filed under Wet-Heat Method; it cooks in hot fat
+parent = "Dry-Heat Method"
+
+[[method]]
+name = "Searing"
+parent = "Dry-Heat Method"
+
+[[method]]
+name = "Sauteing"
+parent = "Dry-Heat Method"
+
+[[method]]
+name = "No-Heat Method"
+
+[[method]]
+name = "Soaking"
+parent = "No-Heat Method"
+
+[[method]]
+name = "Marinating"
+parent = "No-Heat Method"
+
+[[method]]
+name = "Mixing"
+parent = "No-Heat Method"
+
+# -- groups already in the vocabulary ----------------------------------------------------------
+
+[[food]]
+name = "Poultry"
+
+[[food]]
+name = "Beef (raw)"
+
+[[food]]
+name = "Butter"
+
+# -- foods -------------------------------------------------------------------------------------
+
+[[food]]
+name = "Firm tofu"
+fdc = 172475                    # Tofu, raw, firm, prepared with calcium sulfate
+volume = "cup"
+
+[[food]]
+name = "Rice noodles (dry)"
+fdc = 169742                    # Rice noodles, dry
+
+[[food]]
+name = "Tamarind paste"
+fdc = 167763                    # Tamarinds, raw (the pulp)
+proxy = true                    # the pulp, not pressed paste; its density is loose pulp's
+volume = "cup, pulp"
+
+[[food]]
+name = "Tap water"
+fdc = 173647                    # Beverages, water, tap, drinking
+volume = "fl oz"
+
+[[food]]
+name = "Soy sauce (low sodium)"
+fdc = 172473                    # Soy sauce made from soy and wheat (shoyu), low sodium
+volume = "tbsp"
+
+[[food]]
+name = "Rice vinegar"
+fdc = 172237                    # Vinegar, distilled
+proxy = true                    # FDC has no rice vinegar
+volume = "tbsp"
+
+[[food]]
+name = "Five-spice powder"
+fdc = 171316                    # Spices, anise seed
+proxy = true                    # FDC has no five-spice blend
+volume = "tsp, whole"
+
+[[food]]
+name = "Fish sauce"
+fdc = 174531                    # Sauce, fish, ready-to-serve
+volume = "tbsp"
+
+[[food]]
+name = "Palm sugar"
+fdc = 168833                    # Sugars, brown
+proxy = true                    # FDC has no palm sugar
+volume = "cup packed"
+
+[[food]]
+name = "Peanut oil"
+fdc = 171410                    # Oil, peanut, salad or cooking
+volume = "tbsp"
+
+[[food]]
+name = "Dried shrimp"
+fdc = 171971                    # Crustaceans, shrimp, mixed species, cooked, moist heat
+proxy = true                    # FDC has no dried shrimp, and no volume for them: a weight is needed
+
+[[food]]
+name = "Sweet preserved radish"
+fdc = 168453                    # Radishes, oriental, dried
+proxy = true                    # FDC has no salted, sweetened preserved radish
+volume = "cup"
+
+[[food]]
+name = "Scallions"
+fdc = 170005                    # Onions, spring or scallions (includes tops and bulb), raw
+each = 'medium (4-1/8" long)'
+volume = "cup, chopped"
+
+[[food]]
+name = "Garlic"
+fdc = 169230                    # Garlic, raw
+each = "clove"
+volume = "tsp"
+
+[[food]]
+name = "Egg"
+fdc = 171287                    # Egg, whole, raw, fresh
+each = "large"
+
+[[food]]
+name = "Mung bean sprouts"
+fdc = 169957                    # Mung beans, mature seeds, sprouted, raw
+volume = "cup"
+
+[[food]]
+name = "Roasted salted peanuts"
+fdc = 174261                    # Peanuts, all types, oil-roasted, with salt
+volume = "cup, chopped"
+
+[[food]]
+name = "Thai chile flakes"
+fdc = 170932                    # Spices, pepper, red or cayenne
+proxy = true                    # dried Thai chiles, flaked; cayenne is the nearest FDC has
+volume = "tsp"
+
+[[food]]
+name = "Lime"
+fdc = 168155                    # Limes, raw
+each = 'fruit (2" dia)'
+
+[[food]]
+name = "Beef top sirloin (raw)"
+parent = "Beef (raw)"
+fdc = 168726                    # Beef, top sirloin, steak, separable lean and fat, trimmed to 1/8" fat, all grades, raw
+
+[[food]]
+name = "AP Flour"
+fdc = 168894                    # Wheat flour, white, all-purpose, enriched, bleached
+volume = "cup"
+
+[[food]]
+name = "Paprika"
+fdc = 171329                    # Spices, paprika
+volume = "tsp"
+
+[[food]]
+name = "Kosher salt"
+fdc = 173468                    # Salt, table: the same salt. No volume: a teaspoon of kosher salt
+                                # weighs 2.8 g to 4.8 g by brand, and FDC's is table salt's 6 g
+
+[[food]]
+name = "Canola oil"
+fdc = 172336                    # Oil, canola
+volume = "tbsp"
+
+[[food]]
+name = "Butter (unsalted)"
+parent = "Butter"
+fdc = 173430                    # Butter, without salt
+volume = "tbsp"
+
+[[food]]
+name = "Yellow Onion"
+fdc = 170000                    # Onions, raw
+each = 'medium (2-1/2" dia)'
+volume = "cup, sliced"
+
+[[food]]
+name = "Cremini mushrooms"
+fdc = 168434                    # Mushrooms, brown, italian, or crimini, raw
+volume = "cup sliced"
+
+[[food]]
+name = "Dry white wine"
+fdc = 174837                    # Alcoholic beverage, wine, table, white
+volume = "fl oz"
+
+[[food]]
+name = "Beef broth (low sodium)"
+fdc = 172889                    # Soup, beef broth, less/reduced sodium, ready to serve
+volume = "cup"
+
+[[food]]
+name = "Sour cream"
+fdc = 171257                    # Cream, sour, cultured
+volume = "cup"
+
+[[food]]
+name = "Dijon mustard"
+fdc = 172234                    # Mustard, prepared, yellow
+proxy = true                    # FDC has no Dijon
+volume = "tsp or 1 packet"
+
+[[food]]
+name = "Worcestershire sauce"
+fdc = 171610                    # Sauce, worcestershire
+volume = "tbsp"
+
+[[food]]
+name = "Black pepper"
+fdc = 170931                    # Spices, pepper, black
+volume = "tsp, ground"
+
+[[food]]
+name = "Parsley"
+fdc = 170416                    # Parsley, fresh
+volume = "tbsp"
+
+[[food]]
+name = "Egg noodles (dry)"
+fdc = 169731                    # Noodles, egg, dry, enriched
+volume = "cup"

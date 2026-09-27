@@ -66,7 +66,9 @@ set -a && source .env && set +a    # before running any single script by hand
 python3 tools/snapshot_state.py | diff - tools/expected_state.json   # instance vs golden
 
 bash tools/owner_stack.sh up       # the owner's instance (8085); stop the development stack first
+STRUCTR_URL=http://localhost:8085 python3 tools/import_vocabulary.py   # data/vocabulary.toml; --check validates only
 STRUCTR_URL=http://localhost:8085 python3 tools/import_recipe.py private/recipes/*.toml
+python3 tools/fdc_extract.py .cache/fdc/FoodData_Central_sr_legacy_food_csv_2018-04.zip   # after adding a food
 ```
 
 Both interpreters must pass the whole suite. `tools/expected_state.json` is a golden file: if a

@@ -56,6 +56,25 @@ inputs = [
   nothing may be used before it is made.
 - **Names** cannot contain a comma or a semicolon (Structr's exact-match lookup cannot find them).
 
+## Transcribing a recipe
+
+Only facts are transcribed: ingredients, amounts, servings, times and the order of operations.
+A page's own instructions are not copied; its address goes in `source`. Choices a transcription
+makes go in a comment at the top of the file. The conventions so far (`docs/data-model.md` §18 J20):
+
+- **A seasoning "to taste"** is `optional`, with no amount. An ingredient with no amount would make
+  every figure it contributes to unknown.
+- **A size** ("1 large onion") is written in grams from FDC's portion for that size, since a food
+  has one weight per item.
+- **An ingredient split across steps** ("1 tbsp, divided") is split between the steps; say how if
+  the page does not.
+- **A discarded marinade** is counted as eaten, and the file says so: the model cannot yet say an
+  output is thrown away.
+- **An ingredient with no known weight for its measure** keeps the recipe's unit; the loader names
+  it, and its figures stay unknown until it is weighed.
+- **A side "for serving"** with no amount is `optional`.
+- Every food must be in `data/vocabulary.toml`, matched to a USDA food (`tools/import_vocabulary.py`).
+
 ## What it becomes
 
 A `RecipeIdentity` (meal types; an `Identifier` for the source page), a `Plan` named
