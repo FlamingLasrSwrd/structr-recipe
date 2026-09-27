@@ -67,6 +67,9 @@ DATASETS = {"sr_legacy_food": "SR Legacy", "foundation_food": "Foundation", "sur
 # its figure: taking 1008 from another food instead once gave drained beans the
 # energy of a drier food (168 kcal per 100 g against their own 114).
 EQUIVALENT_IDS = {"1008": ("2048", "2047"), "1079": ("2033",), "2000": ("1063",)}
+# The same vitamin in another unit, by a fixed factor: FNDDS and Foundation foods give
+# vitamin D in micrograms (1114) only, SR Legacy in both; 1 ug of vitamin D is 40 IU.
+SCALED_IDS = {"1110": ("1114", 40.0)}
 WATER = "1051"
 # The Nutrition Facts figures. Every food should have them; --check lists the gaps.
 CORE_NUTRIENTS = {"1008": "Energy", "1003": "Protein", "1004": "Total fat", "1258": "Saturated fat",
@@ -239,6 +242,9 @@ def _with_equivalents(nutrients: dict) -> dict:
                 if nid in nutrients:
                     out[older] = nutrients[nid]
                     break
+    for nid, (other, factor) in SCALED_IDS.items():
+        if nid not in out and other in nutrients:
+            out[nid] = nutrients[other] * factor
     return out
 
 
