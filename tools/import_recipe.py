@@ -29,7 +29,7 @@ def main(argv=None) -> int:
     parser.add_argument("--check", action="store_true", help="parse and resolve names only; write nothing")
     args = parser.parse_args(argv)
 
-    client = connect()
+    client = connect(owner_data_ok=True)        # this tool is how the owner's recipes get in
     client.wait_until_ready()
     failed = 0
     for path in args.files:

@@ -70,9 +70,8 @@ def snapshot_schema(client) -> dict:
     return out
 
 
-def main():
-    client = StructrClient(BASE_URL, "superadmin", os.environ["STRUCTR_SUPERUSER_PASSWORD"])
-    client.wait_until_ready()
+def snapshot(client) -> dict:
+    """The whole comparable state: schema entries and every named entity."""
     entities = snapshot_schema(client)
     for type_name in sorted(n["name"] for n in client.get("/structr/rest/SchemaNode")["result"]):
         try:
@@ -92,7 +91,17 @@ def main():
             # A polymorphic query returns each entity once per supertype; the
             # entity's own concrete type is the one that identifies it.
             entities[f"{row.get('type', type_name)} | {row['name']}"] = properties
-    print(json.dumps(entities, indent=1, sort_keys=True, ensure_ascii=False))
+    return entities
+
+
+def render(entities: dict) -> str:
+    return json.dumps(entities, indent=1, sort_keys=True, ensure_ascii=False)
+
+
+def main():
+    client = StructrClient(BASE_URL, "superadmin", os.environ["STRUCTR_SUPERUSER_PASSWORD"])
+    client.wait_until_ready()
+    print(render(snapshot(client)))
 
 
 if __name__ == "__main__":

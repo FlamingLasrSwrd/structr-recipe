@@ -6,7 +6,9 @@ recipe itself lives in Structr. Real recipe files belong in `private/recipes/`, 
 the repository is public, the owner's data is not.
 
 ```bash
+bash tools/owner_stack.sh up                       # the owner's instance, on port 8085
 set -a && source .env && set +a
+export STRUCTR_URL=http://localhost:8085
 python3 tools/import_recipe.py --check private/recipes/*.toml   # parse and look up every name; write nothing
 python3 tools/import_recipe.py private/recipes/*.toml           # load
 ```

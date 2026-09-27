@@ -33,6 +33,14 @@ review, so what the README and REVIEW.md claim has to be true.
 - **Every change to a live instance's data goes through a committed, idempotent, numbered
   script**, never inline Python or a one-off PATCH. An instance must always be reproducible
   from `scripts/`; a rebuild once found about 40 entities no script produced.
+- **The owner's own data is the one exception, and it lives only in the owner's instance**
+  (decided by the owner 2026-09-26: "my data would live in the structr instance"). That
+  instance is its own compose project on port 8085 (`tools/owner_stack.sh`), built once and
+  never rebuilt; the development stack (8083) and throwaway stacks hold only reproducible data.
+  Owner data goes in through committed, idempotent tools (`tools/import_recipe.py`) whose input
+  files live in `private/`, which git ignores: the repository is public, the owner's data is
+  not. Never run anything from `scripts/` against it (`connect()` refuses a marked instance), and
+  never `down -v` it: nothing can rebuild it.
 - **Test data is named `TEST -- `.** Demos and checks delete what they create, and sweep what an
   interrupted earlier run left.
 - **Expected values in a test are worked out independently of the code under test**, by hand or
@@ -56,6 +64,9 @@ bash cloud/bootstrap.sh            # stack up: makes .env if missing, docker com
 bash tools/rebuild.sh              # every script in build order, then the snapshot check (SNAPSHOT IDENTICAL)
 set -a && source .env && set +a    # before running any single script by hand
 python3 tools/snapshot_state.py | diff - tools/expected_state.json   # instance vs golden
+
+bash tools/owner_stack.sh up       # the owner's instance (8085); stop the development stack first
+STRUCTR_URL=http://localhost:8085 python3 tools/import_recipe.py private/recipes/*.toml
 ```
 
 Both interpreters must pass the whole suite. `tools/expected_state.json` is a golden file: if a

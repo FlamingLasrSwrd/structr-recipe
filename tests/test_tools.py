@@ -14,7 +14,7 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
-SCRIPTS = ["tools/wait_for_structr.sh", "tools/rebuild.sh", "cloud/bootstrap.sh", "cloud/setup.sh"]
+SCRIPTS = ["tools/wait_for_structr.sh", "tools/rebuild.sh", "tools/owner_stack.sh", "cloud/bootstrap.sh", "cloud/setup.sh"]
 
 
 def write(directory, name, text):
@@ -101,6 +101,21 @@ class ShellScripts(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = self.bootstrap_copy(tmp)
             self.assertEqual(self.run_script(str(tmp / "cloud/bootstrap.sh"), "--frobnicate", cwd=tmp).returncode, 2)
+
+    def test_the_owner_stack_has_its_own_project_and_port_and_never_deletes_volumes(self):
+        result = self.run_script(str(ROOT / "tools/owner_stack.sh"), "url", cwd=ROOT)
+        self.assertEqual(result.stdout.strip(), "http://localhost:8085")
+        result = self.run_script(str(ROOT / "tools/owner_stack.sh"), "url", cwd=ROOT, env_extra={"OWNER_PORT": "9001"})
+        self.assertEqual(result.stdout.strip(), "http://localhost:9001")
+        text = (ROOT / "tools/owner_stack.sh").read_text()
+        commands = [line for line in text.splitlines() if not line.lstrip().startswith("#")]
+        self.assertFalse(any("down" in line for line in commands), "the owner stack's script must never take it down")
+        self.assertIn('docker compose -p "$project"', text)
+
+    def test_the_owner_stack_shows_its_usage_for_an_unknown_command(self):
+        result = self.run_script(str(ROOT / "tools/owner_stack.sh"), "frobnicate", cwd=ROOT)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("down -v", result.stdout)                    # the warning is part of the usage
 
     def test_the_setup_script_always_exits_zero_and_pins_what_the_repo_pins(self):
         text = (ROOT / "cloud/setup.sh").read_text()
