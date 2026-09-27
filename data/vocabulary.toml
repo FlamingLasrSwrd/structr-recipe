@@ -15,7 +15,8 @@
 #   fdc      its FDC food: `sourced`, or `estimated` with `proxy = true` (the nearest FDC has).
 #            The match was chosen by Claude and is listed here to be reviewed.
 #   sources  more sources, in order; each nutrient comes from the first that reports it:
-#            { fdc = id } or { mean = [ids] }, with status, `only = [FDC nutrient ids]`, note
+#            { fdc = id } or { mean = [ids] } (an id listed twice counts twice: a blend's parts),
+#            with status, `only = [FDC nutrient ids]`, note
 #   each     the weight of one item: a portion label of its first source, or a table
 #   volume   a density: the same, or { portions = [[fdc, label], ...] } averaged, or
 #            { grams = x, per = "tsp", source = "..." } for a weight from elsewhere
@@ -78,6 +79,26 @@ parent = "No-Heat Method"
 [[method]]
 name = "Mixing"
 parent = "No-Heat Method"
+
+[[method]]
+name = "Roasting"
+parent = "Dry-Heat Method"
+
+[[method]]
+name = "Baking"
+parent = "Dry-Heat Method"
+
+[[method]]
+name = "Broiling"
+parent = "Dry-Heat Method"
+
+[[method]]
+name = "Toasting"
+parent = "Dry-Heat Method"
+
+[[method]]
+name = "Pan-frying"
+parent = "Dry-Heat Method"
 
 # -- equipment, parents before children -------------------------------------------------------
 # Chosen from, not named freely: recipes list their tools from here (docs/recipe-format.md), and the
@@ -247,6 +268,10 @@ name = "Wooden spoon"
 parent = "Utensil"
 
 [[equipment]]
+name = "Skewers"
+parent = "Utensil"
+
+[[equipment]]
 name = "Tongs"
 parent = "Utensil"
 
@@ -264,6 +289,10 @@ parent = "Utensil"
 
 [[equipment]]
 name = "Appliance"
+
+[[equipment]]
+name = "Oven"                   # roasting, baking and broiling need one; assumed until HelloFresh's recipes
+parent = "Appliance"
 
 [[equipment]]
 name = "Microwave"
@@ -578,3 +607,539 @@ volume = "cup"
 name = "Monterey Jack"
 fdc = 170844                    # SR: Cheese, monterey
 volume = "cup, shredded"
+
+# -- HelloFresh recipes (2026-09-27): the Hall of Fame, four breakfasts and four lunches ---------------
+# "HelloFresh" products FDC has no entry for (stock concentrates, sauce bases, glazes, pastes, spice
+# blends) take the nearest food or brand labels, `estimated`, and say so; a blend is `calculated`
+# from its spices. Weights of HelloFresh "units" are in the recipe files.
+
+[[food]]
+name = "Fingerling potatoes"
+fdc = 170029                    # SR: Potatoes, red, flesh and skin, raw
+proxy = true                    # FDC has no fingerling; red is the nearest waxy potato
+
+[[food]]
+name = "Potatoes"
+fdc = 170026                    # SR: Potatoes, flesh and skin, raw
+
+[[food]]
+name = "Russet potato"
+fdc = 170027                    # SR: Potatoes, russet, flesh and skin, raw
+each = 'Potato medium (2-1/4" to 3-1/4" dia)'
+
+[[food]]
+name = "Sweet potato"
+fdc = 168482                    # SR: Sweet potato, raw, unprepared
+each = 'sweetpotato, 5" long'
+
+[[food]]
+name = "Shallot"
+fdc = 170499                    # SR: Shallots, raw
+each = { grams = 30, per = "each", source = "a medium shallot weighs about 30 g (wellcalm.info, What is the weight of 1 shallot?); FDC gives only 1 tbsp chopped" }
+
+[[food]]
+name = "Broccoli florets"
+fdc = 169330                    # SR: Broccoli, flower clusters, raw
+
+[[food]]
+name = "Lemon"
+fdc = 167746                    # SR: Lemons, raw, without peel
+each = 'fruit (2-1/8" dia)'
+
+[[food]]
+name = "Rosemary"
+fdc = 173473                    # SR: Rosemary, fresh
+sources = [{ fdc = 172232, status = "estimated", only = [2000], note = "SR Basil fresh: FDC reports no sugars for rosemary, fresh or dried; a fresh herb's, for the gram a recipe uses" }]
+volume = "tsp"
+
+[[food]]
+name = "Mixed greens"
+fdc = 2709792                   # FNDDS: Mixed salad greens, raw
+
+[[food]]
+name = "Mini cucumber"
+fdc = 168409                    # SR: Cucumber, with peel, raw
+each = { fdc = 2709784, portion = "miniature" }               # FNDDS Cucumber raw: 1 miniature = 65 g
+
+[[food]]
+name = "Ginger"
+fdc = 169231                    # SR: Ginger root, raw
+volume = "tsp"
+
+[[food]]
+name = "Red onion"
+fdc = 790577                    # Foundation: Onions, red, raw
+sources = [{ fdc = 170000, status = "estimated", only = [1258, 1253], note = "SR Onions raw: for what the Foundation record does not report" }]
+each = { fdc = 170000, portion = 'medium (2-1/2" dia)' }      # SR Onions raw: FDC's red onion has only a 197 g one
+
+[[food]]
+name = "Grape tomatoes"
+fdc = 321360                    # Foundation: Tomatoes, grape, raw
+sources = [{ fdc = 170457, status = "estimated", only = [1258, 1253, 2000], note = "SR Tomatoes red ripe raw: for what the Foundation record does not report" }]
+
+[[food]]
+name = "Tomato"
+fdc = 170457                    # SR: Tomatoes, red, ripe, raw, year round average
+each = 'medium whole (2-3/5" dia)'
+
+[[food]]
+name = "Roma tomato"
+fdc = 170457                    # SR: Tomatoes, red, ripe, raw, year round average
+each = "plum tomato"
+
+[[food]]
+name = "Red bell pepper"
+fdc = 170108                    # SR: Peppers, sweet, red, raw
+each = 'medium (approx 2-3/4" long, 2-1/2 dia.)'
+
+[[food]]
+name = "Green bell pepper"
+fdc = 170427                    # SR: Peppers, sweet, green, raw
+each = 'medium (approx 2-3/4" long, 2-1/2" dia)'
+
+[[food]]
+name = "Poblano pepper"
+fdc = 2747662                   # Foundation: Peppers, poblano, seeded, raw
+sources = [{ fdc = 2709798, status = "estimated", only = [1258, 1253], note = "FNDDS Peppers hot raw: for what the Foundation record does not report" }]
+each = { grams = 113, per = "each", source = "about four to a pound, a medium one 3-4 oz (happyspicyhour.com, How Many Poblano Peppers Are in a Pound)" }
+
+[[food]]
+name = "Red chili pepper"
+fdc = 170106                    # SR: Peppers, hot chili, red, raw
+each = "pepper"
+
+[[food]]
+name = "Avocado"
+fdc = 171706                    # SR: Avocados, raw, California (Hass)
+each = "fruit, without skin and seed"
+
+[[food]]
+name = "Apple"
+fdc = 171688                    # SR: Apples, raw, with skin
+each = 'medium (3" dia)'
+
+[[food]]
+name = "Red grapes"
+fdc = 174683                    # SR: Grapes, red or green (European type), raw
+
+[[food]]
+name = "Orange"
+fdc = 169097                    # SR: Oranges, raw, all commercial varieties
+each = 'fruit (2-5/8" dia)'
+
+[[food]]
+name = "Orange juice (fresh)"
+fdc = 169098                    # SR: Orange juice, raw
+volume = "cup"
+
+[[food]]
+name = "Arugula"
+fdc = 169387                    # SR: Arugula, raw
+
+[[food]]
+name = "Bok choy and napa cabbage"   # HelloFresh sends the two mixed
+sources = [{ mean = [170390, 169979], status = "estimated", note = "SR bok choy (pak-choi) and napa (pe-tsai) raw, in equal parts (assumed)" }]
+
+[[food]]
+name = "Basil"
+fdc = 172232                    # SR: Basil, fresh
+
+[[food]]
+name = "Chives"
+fdc = 169994                    # SR: Chives, raw
+
+[[food]]
+name = "Sage"
+fdc = 170935                    # SR: Spices, sage, ground
+proxy = true                    # FDC has no fresh sage; the recipes use a gram or two
+
+[[food]]
+name = "Corn kernels (canned drained)"
+fdc = 169214                    # SR: Corn, sweet, yellow, canned, whole kernel, drained solids
+
+[[food]]
+name = "Pork tenderloin (raw)"
+fdc = 168312                    # SR: Pork, fresh, loin, tenderloin, separable lean and fat, raw
+
+[[food]]
+name = "Boneless pork chops (raw)"
+fdc = 168286                    # SR: Pork, fresh, loin, center loin (chops), boneless, separable lean and fat, raw
+
+[[food]]
+name = "Ground pork (raw)"
+fdc = 167902                    # SR: Pork, fresh, ground, raw
+sources = [{ fdc = 2705863, status = "estimated", only = [2000], note = "FNDDS Pork ground: sugars (0)" }]
+
+[[food]]
+name = "Chicken thighs (raw)"
+parent = "Poultry"
+fdc = 173627                    # SR: Chicken, broilers or fryers, dark meat, thigh, meat only, raw
+
+[[food]]
+name = "Ground beef 85% lean (raw)"
+parent = "Beef (raw)"
+fdc = 171796                    # SR: Beef, ground, 85% lean meat / 15% fat, raw
+
+[[food]]
+name = "Ground turkey 93% lean (raw)"
+parent = "Poultry"
+fdc = 172850                    # SR: Turkey, ground, 93% lean, 7% fat, raw
+
+[[food]]
+name = "Ranch steak (raw)"
+parent = "Beef (raw)"
+fdc = 172132                    # SR: Beef, chuck, shoulder clod, shoulder top and center steaks (ranch steak), lean and fat, 0" fat, all grades, raw
+
+[[food]]
+name = "Bavette steak (raw)"
+parent = "Beef (raw)"
+fdc = 169563                    # SR: Beef, flank, steak, separable lean and fat, trimmed to 0" fat, all grades, raw
+proxy = true                    # bavette is flap meat, which FDC does not have; flank is the nearest cut
+
+[[food]]
+name = "Shrimp (raw)"
+fdc = 175179                    # SR: Crustaceans, shrimp, raw
+sources = [{ fdc = 174210, status = "estimated", only = [1079, 2000, 1162], note = "SR shrimp mixed species raw: fiber, sugars and vitamin C (all 0)" }]
+
+[[food]]
+name = "Bacon (raw)"
+fdc = 168277                    # SR: Pork, cured, bacon, unprepared: counted raw, fat poured off is not modeled (J18)
+
+[[food]]
+name = "Butter (salted)"
+parent = "Butter"
+fdc = 173410                    # SR: Butter, salted
+volume = "tbsp"
+
+[[food]]
+name = "Cheddar cheese"
+fdc = 173414                    # SR: Cheese, cheddar
+volume = "cup, shredded"
+
+[[food]]
+name = "Mozzarella (low-moisture part-skim)"
+fdc = 171244                    # SR: Cheese, mozzarella, low moisture, part-skim
+volume = "cup, shredded"
+
+[[food]]
+name = "Parmesan (grated)"
+fdc = 171247                    # SR: Cheese, parmesan, grated
+volume = "tbsp"
+
+[[food]]
+name = "Cream cheese"
+fdc = 173418                    # SR: Cheese, cream
+volume = "tbsp"
+
+[[food]]
+name = "Creme fraiche"
+sources = [{ mean = [2148943, 2468125, 2276524], note = "Russell McCall's, Snowville and Sierra Nevada creme fraiche labels" }]
+volume = { grams = 15, per = "tbsp", source = "Snowville and Sierra Nevada labels: 2 Tbsp = 30 g" }
+
+[[food]]
+name = "Whole milk"
+fdc = 171265                    # SR: Milk, whole, 3.25% milkfat, with added vitamin D
+volume = "cup"
+
+[[food]]
+name = "Cream sauce base"       # HelloFresh's; a cream-and-milk sauce base with no published label
+fdc = 170857                    # SR: Cream, fluid, light (coffee cream or table cream)
+proxy = true
+
+[[food]]
+name = "Garlic herb butter"     # HelloFresh's compound butter
+fdc = 173410                    # SR: Butter, salted
+proxy = true
+volume = "tbsp"
+
+[[food]]
+name = "Smoky red pepper crema" # HelloFresh's sour-cream topping
+fdc = 171257                    # SR: Cream, sour, cultured
+proxy = true
+volume = "cup"
+
+[[food]]
+name = "Jasmine rice (dry)"
+fdc = 168877                    # SR: Rice, white, long-grain, regular, raw, enriched (jasmine is a long-grain white rice)
+volume = "cup"
+
+[[food]]
+name = "Orzo (dry)"
+fdc = 169736                    # SR: Pasta, dry, enriched
+
+[[food]]
+name = "Ramen noodles (dry)"
+fdc = 168908                    # SR: Noodles, japanese, somen, dry
+sources = [{ fdc = 169736, status = "estimated", only = [2000], note = "SR Pasta dry enriched: sugars" }]
+proxy = true                    # HelloFresh's are unfried wheat noodles; FDC's ramen is the fried instant kind
+
+[[food]]
+name = "Rolled oats"
+fdc = 173904                    # SR: Cereals, oats, regular and quick, not fortified, dry
+volume = { grams = 81, per = "cup", source = "SR 173904: 1 cup = 81 g (its 0.33 cup portion is 27 g)" }
+
+[[food]]
+name = "Panko"
+sources = [{ mean = [2661608, 2112787, 1862715], note = "Target (Good & Gather), DeLallo and Kingston panko labels" }]
+volume = { grams = 84, per = "cup", source = "Target and DeLallo labels: 1/3 cup = 28 g" }
+
+[[food]]
+name = "Brioche bun"
+fdc = 2707682                   # FNDDS: Brioche
+each = "piece"
+
+[[food]]
+name = "Potato bun"
+sources = [
+  { mean = [2476728, 2503567], note = "Big Y and United States Bakery potato hamburger roll labels" },
+  { fdc = 167943, status = "estimated", only = [1162], note = "SR Bread potato: vitamin C (0)" },
+]
+each = { grams = 55, per = "each", source = "the two labels: 1 roll = 53 g and 57 g" }
+
+[[food]]
+name = "Ciabatta roll"
+sources = [{ mean = [2550797, 2624055], note = "New French Bakery and Walmart ciabatta roll labels" }]
+each = { grams = 85, per = "each", source = "both labels: 1 roll = 85 g" }
+
+[[food]]
+name = "Demi-baguette"
+fdc = 2707610                   # FNDDS: Bread, French or Vienna
+each = "mini baguette"
+
+[[food]]
+name = "Sourdough bread"
+fdc = 172675                    # SR: Bread, french or vienna (includes sourdough)
+each = { fdc = 2707610, portion = "medium or regular slice" }  # FNDDS: 1 medium slice = 64 g
+
+[[food]]
+name = "Flour tortilla (6 inch)"
+fdc = 175037                    # SR: Tortillas, ready-to-bake or -fry, flour, refrigerated
+each = 'tortilla medium (approx 6" dia)'
+
+[[food]]
+name = "Whole wheat pita"
+fdc = 174916                    # SR: Bread, pita, whole-wheat
+each = 'pita, large (6-1/2" dia)'
+
+[[food]]
+name = "Blue corn tortilla chips"
+fdc = 167558                    # SR: Snacks, tortilla chips, plain, white corn, salted
+proxy = true                    # FDC has no blue corn chip
+
+[[food]]
+name = "Balsamic vinegar"
+fdc = 172241                    # SR: Vinegar, balsamic
+sources = [{ fdc = 2709351, status = "estimated", only = [1253, 1079], note = "FNDDS Vinegar: cholesterol and fiber (0)" }]
+volume = "tbsp"
+
+[[food]]
+name = "White wine vinegar"
+fdc = 172240                    # SR: Vinegar, red wine
+sources = [{ fdc = 2709351, status = "estimated", only = [1253], note = "FNDDS Vinegar: cholesterol (0)" }]
+proxy = true                    # FDC has no white wine vinegar
+volume = "tbsp"
+
+[[food]]
+name = "Fruit jam"              # cherry, cranberry and fig jams and preserves
+fdc = 169641                    # SR: Jams and preserves
+volume = "tbsp"
+
+[[food]]
+name = "Apricot jam"
+fdc = 170645                    # SR: Jams and preserves, apricot
+volume = "tbsp"
+
+[[food]]
+name = "Ketchup"
+fdc = 168556                    # SR: Catsup
+volume = "tbsp"
+
+[[food]]
+name = "Mayonnaise"
+fdc = 171009                    # SR: Salad dressing, mayonnaise, regular
+volume = "tbsp"
+
+[[food]]
+name = "Tomato paste"
+fdc = 170459                    # SR: Tomato products, canned, paste, without salt added
+volume = "tbsp"
+
+[[food]]
+name = "Soy sauce"
+fdc = 174277                    # SR: Soy sauce made from soy and wheat (shoyu)
+volume = "tbsp"
+
+[[food]]
+name = "Sriracha"
+fdc = 171186                    # SR: Sauce, hot chile, sriracha
+sources = [{ fdc = 2710093, status = "estimated", only = [1258, 1253], note = "FNDDS Hot pepper sauce: saturated fat and cholesterol" }]
+volume = "tsp"
+
+[[food]]
+name = "Hot sauce"
+fdc = 174527                    # SR: Sauce, ready-to-serve, pepper or hot
+volume = { grams = 4.7, per = "tsp", source = "SR 174527: 1 tsp = 4.7 g" }
+
+[[food]]
+name = "Honey"
+fdc = 169640                    # SR: Honey
+volume = "tbsp"
+
+[[food]]
+name = "Maple syrup"
+fdc = 169661                    # SR: Syrups, maple
+volume = "tbsp"
+
+[[food]]
+name = "Granulated sugar"
+fdc = 169655                    # SR: Sugars, granulated
+volume = "tsp"
+
+[[food]]
+name = "Brown sugar"
+fdc = 168833                    # SR: Sugars, brown
+volume = "tsp packed"
+
+[[food]]
+name = "Sweet soy glaze"        # HelloFresh's: soy sauce, honey, vinegar, garlic, ginger, sesame oil, cornstarch
+fdc = 171167                    # SR: Sauce, teriyaki, ready-to-serve
+proxy = true
+volume = "tbsp"
+
+[[food]]
+name = "Sweet chili sauce"
+sources = [
+  { mean = [2616781, 2542455, 2093921, 2010822], note = "Allied Old English, House of Tsang, Schlotterbeck & Foss and Greystar sweet chili sauce labels" },
+  { fdc = 2710296, status = "estimated", only = [1092], note = "FNDDS Sweet and sour sauce: potassium" },
+]
+
+[[food]]
+name = "Ponzu"
+fdc = 172473                    # SR: Soy sauce made from soy and wheat (shoyu), low sodium
+proxy = true                    # its sodium and energy are those of Kikkoman's ponzu label (3200 mg, 67 kcal per 100 mL), which is sold by volume
+volume = "tbsp"
+
+[[food]]
+name = "Chipotle adobo sauce"
+sources = [{ mean = [2673773, 559011], note = "Goya and B&G chipotle peppers in adobo sauce labels" }]
+volume = { grams = 15, per = "tbsp", source = "B&G label: 2 Tbsp = 30 g" }
+
+[[food]]
+name = "Tex-Mex paste"          # HelloFresh's: a chipotle-tomato paste with no published label
+sources = [{ mean = [2673773, 559011], status = "estimated", note = "chipotle peppers in adobo labels (Goya, B&G), the nearest labelled food" }]
+
+[[food]]
+name = "Chicken stock concentrate"   # HelloFresh's packet
+sources = [
+  { mean = [2434787, 2029037], status = "estimated", note = "Del Monte and Meto chicken broth concentrate labels (a 12 g pouch makes a cup of broth), taken for HelloFresh's packet" },
+  { fdc = 171562, status = "estimated", only = [1162], note = "SR chicken bouillon dry: vitamin C" },
+]
+each = { grams = 12, per = "each", source = "both labels: 1 pouch = 12 g, taken as HelloFresh's packet size" }
+
+[[food]]
+name = "Beef stock concentrate"
+sources = [
+  { mean = [2434787, 2029037], status = "estimated", note = "the chicken broth concentrate labels: no beef concentrate label was found" },
+  { fdc = 171562, status = "estimated", only = [1162], note = "SR chicken bouillon dry: vitamin C" },
+]
+each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
+
+[[food]]
+name = "Vegetable stock concentrate"
+sources = [
+  { mean = [2434787, 2029037], status = "estimated", note = "the chicken broth concentrate labels: no vegetable concentrate label was found" },
+  { fdc = 171562, status = "estimated", only = [1162], note = "SR chicken bouillon dry: vitamin C" },
+]
+each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
+
+[[food]]
+name = "Pork ramen stock concentrate"
+sources = [
+  { mean = [2434787, 2029037], status = "estimated", note = "the chicken broth concentrate labels: no pork ramen concentrate label was found" },
+  { fdc = 171562, status = "estimated", only = [1162], note = "SR chicken bouillon dry: vitamin C" },
+]
+each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
+
+[[food]]
+name = "Vegetable pho stock concentrate"
+sources = [
+  { mean = [2434787, 2029037], status = "estimated", note = "the chicken broth concentrate labels: no pho concentrate label was found" },
+  { fdc = 171562, status = "estimated", only = [1162], note = "SR chicken bouillon dry: vitamin C" },
+]
+each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
+
+[[food]]
+name = "Coconut milk (canned)"
+fdc = 170173                    # SR: Nuts, coconut milk, canned
+sources = [{ fdc = 2707568, status = "estimated", moisture = true, only = [1079, 2000], note = "FNDDS Coconut milk used in cooking: fiber and sugars" }]
+volume = "cup"
+
+[[food]]
+name = "Black beans (canned)"
+fdc = 175188                    # SR: Beans, black turtle, mature seeds, canned (solids and liquid)
+
+[[food]]
+name = "Dried thyme"
+fdc = 170938                    # SR: Spices, thyme, dried
+volume = "tsp, leaves"
+
+[[food]]
+name = "Garlic powder"
+fdc = 171325                    # SR: Spices, garlic powder
+volume = "tsp"
+
+[[food]]
+name = "Ground turmeric"
+fdc = 172231                    # SR: Spices, turmeric, ground
+volume = "tsp"
+
+[[food]]
+name = "Ground cinnamon"
+fdc = 171320                    # SR: Spices, cinnamon, ground
+volume = "tsp"
+
+[[food]]
+name = "Curry powder"
+fdc = 170924                    # SR: Spices, curry powder
+volume = "tbsp"
+
+[[food]]
+name = "Chipotle powder"
+fdc = 170932                    # SR: Spices, pepper, red or cayenne
+proxy = true                    # ground dried chile, as chipotle powder is; FDC has no chipotle
+volume = "tsp"
+
+[[food]]
+name = "Southwest spice blend"  # HelloFresh's: garlic powder, cumin and chili powder
+sources = [{ mean = [171325, 170923, 171319], status = "calculated", note = "equal parts of garlic powder, cumin and chili powder, the three HelloFresh names (ratio assumed)" }]
+volume = { portions = [[171325, "tbsp"], [171319, "tbsp"]] }   # garlic and chili powder: 1 tbsp = 9.7 g and 8 g
+
+[[food]]
+name = "Shawarma spice blend"   # HelloFresh's
+sources = [{ mean = [172231, 172231, 170923, 170923, 170922, 171325, 171329], status = "calculated", note = "turmeric, cumin, coriander, garlic powder and paprika 2:2:1:1:1, from a published copy of HelloFresh's blend (mysweetprecision.com); its allspice and pepper (1/8) left out" }]
+volume = { portions = [[172231, "tbsp"], [170922, "tbsp"], [171325, "tbsp"]] }
+
+[[food]]
+name = "Truffle zest"           # HelloFresh's dried truffle seasoning
+fdc = 168436                    # SR: Mushrooms, shiitake, dried
+proxy = true                    # the nearest dried fungus FDC has
+
+[[food]]
+name = "Almonds"
+fdc = 170567                    # SR: Nuts, almonds
+
+[[food]]
+name = "Pecans"
+fdc = 170182                    # SR: Nuts, pecans
+
+[[food]]
+name = "Pistachios (roasted salted)"
+fdc = 169426                    # SR: Nuts, pistachio nuts, dry roasted, with salt added
+
+[[food]]
+name = "Dried cranberries"
+fdc = 171723                    # SR: Cranberries, dried, sweetened
+
+[[food]]
+name = "Semisweet chocolate chips"
+fdc = 167976                    # SR: Candies, semisweet chocolate
