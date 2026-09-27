@@ -34,7 +34,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from mealplanner.planning.evaluate import (
-    basic_reason, evaluate, ineligible_reason, initial_partial, intake, resolve, slot_eaten, slot_groups,
+    basic_reason, evaluate, ineligible_reason, initial_partial, intake, meal_type_reason, resolve, slot_eaten, slot_groups,
 )
 from mealplanner.planning.model import Pick, PlanningProblem
 from mealplanner.planning.search import SearchResult
@@ -101,6 +101,8 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
         for j in range(s):
             for c in candidates:
                 if c.leftover_days is None or basic_reason(problem, c) is not None:
+                    continue
+                if meal_type_reason(problem, s, c) is not None:
                     continue
                 if j in open_set:
                     if (j, c.id) not in x:

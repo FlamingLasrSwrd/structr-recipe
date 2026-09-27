@@ -134,10 +134,19 @@ def ineligible_reason(problem: PlanningProblem, i: int, candidate) -> str | None
     return problem._cache[key]
 
 
-def _ineligible_reason(problem: PlanningProblem, i: int, candidate) -> str | None:
+def meal_type_reason(problem: PlanningProblem, i: int, candidate) -> str | None:
+    """Slot i's meal type, if the recipe is not tagged for it. The tags are the
+    owner's word on which meals a dish suits, fresh or as leftovers (D9)."""
     slot = problem.slots[i]
     if slot.meal_type is not None and slot.meal_type not in candidate.meal_types:
         return f"not tagged for {slot.meal_type}"
+    return None
+
+
+def _ineligible_reason(problem: PlanningProblem, i: int, candidate) -> str | None:
+    reason = meal_type_reason(problem, i, candidate)
+    if reason:
+        return reason
     reason = basic_reason(problem, candidate)
     if reason:
         return reason
@@ -152,8 +161,9 @@ def _ineligible_reason(problem: PlanningProblem, i: int, candidate) -> str | Non
 
 def leftover_reason(problem: PlanningProblem, resolved, j: int, i: int) -> str | None:
     """Why slot i cannot eat the leftovers of the cook at slot j, or None if it can.
-    Meal type is not checked: leftovers may serve any slot (last night's dinner at
-    lunch)."""
+    Leftovers follow the recipe's meal-type tags, as a fresh cook does (D9, the
+    owner's decision 2026-09-27): last night's dinner can be lunch when the recipe
+    is tagged Lunch, and breakfast oatmeal cannot be dinner."""
     source = resolved[j] if 0 <= j < i else None
     if source is None or source.kind != "cook":
         return "the source is not a fresh cook"
@@ -166,7 +176,7 @@ def leftover_reason(problem: PlanningProblem, resolved, j: int, i: int) -> str |
         return "not cooked yet"
     if now > start + timedelta(days=candidate.leftover_days):
         return "past its keeping time"
-    return basic_reason(problem, candidate)
+    return meal_type_reason(problem, i, candidate) or basic_reason(problem, candidate)
 
 
 def options(problem: PlanningProblem, partial, i: int) -> list:
