@@ -8,6 +8,9 @@ Figures are worked out by hand from the fixtures below:
            volume: brand 10 "1 Tbsp" = 19 g and brand 11 "2 tsp" = 8 g ->
            (19 / 14.7868 + 8 / (2 x 4.92892)) / 2 = (1.284930 + 0.811536) / 2 = 1.048233 g per mL
   salt     a stated 3.8 g per tsp -> 3.8 / 4.92892 = 0.770960 g per mL
+  beans    energy and fiber reported only under the newer ids 2048 (113.7) and 2033 (6.9): those are
+           its energy and fiber; sugars from a drier food (2.07 g, 55.7% water) scaled to the beans'
+           71.2% water: 2.07 x (100 - 71.2) / (100 - 55.7) = 2.07 x 28.8 / 44.3 = 1.345734
 """
 
 import csv
@@ -20,10 +23,10 @@ import zipfile
 
 from mealplanner.fdc import ImplausibleRecord, extract, extract_branded, extract_survey, household, unit_name
 from mealplanner.vocabulary_import import (
-    VocabularyError, composition, core_gaps, import_vocabulary, measure_value, merge, nutrient_name,
+    VocabularyError, _with_equivalents, composition, core_gaps, import_vocabulary, measure_value, merge, nutrient_name,
     parse_vocabulary, volume_unit,
 )
-from tests.fakegraph import FakeGraph, Ref
+from tests.fakegraph import Ref, WritableGraph as Writable
 
 
 def table(rows: list[dict]) -> str:
@@ -164,8 +167,17 @@ class Names(unittest.TestCase):
 def fdc_subset():
     sr = {"nutrients": {"1003": {"name": "Protein", "unit": "G"}, "1093": {"name": "Sodium, Na", "unit": "MG"},
                         "1062": {"name": "Energy", "unit": "kJ"}, "1008": {"name": "Energy", "unit": "KCAL"},
-                        "1089": {"name": "Iron, Fe", "unit": "MG"}},
-          "foods": {"2": {"description": "Garlic, raw", "data_type": "sr_legacy_food",
+                        "1089": {"name": "Iron, Fe", "unit": "MG"}, "2048": {"name": "Energy (Atwater Specific Factors)", "unit": "KCAL"},
+                        "2047": {"name": "Energy (Atwater General Factors)", "unit": "KCAL"},
+                        "2033": {"name": "Total dietary fiber (AOAC 2011.25)", "unit": "G"},
+                        "1051": {"name": "Water", "unit": "G"}, "2000": {"name": "Sugars, Total", "unit": "G"},
+                        "1079": {"name": "Fiber, total dietary", "unit": "G"}},
+          "foods": {"20": {"description": "Beans, drained", "data_type": "foundation_food",
+                           "nutrients": {"2048": 113.7, "2047": 116.8, "2033": 6.9, "1051": 71.2, "1003": 7.0},
+                           "portions": []},
+                    "21": {"description": "White beans, from canned", "data_type": "survey_fndds_food",
+                           "nutrients": {"1008": 168.0, "2000": 2.07, "1079": 7.2, "1051": 55.7}, "portions": []},
+                    "2": {"description": "Garlic, raw", "data_type": "sr_legacy_food",
                           "nutrients": {"1003": 6.36, "1093": 17.0, "1008": 149.0, "1062": 623.0},
                           "portions": [{"amount": 1.0, "label": "clove", "grams": 3.0},
                                        {"amount": 1.0, "label": "tsp", "grams": 2.8}]},
@@ -249,6 +261,27 @@ class Parse(unittest.TestCase):
         self.assertEqual(onion["1003"][1], "estimated")
         self.assertIn("SR Legacy 2 (Garlic, raw)", garlic["1003"][2])
 
+    def test_an_older_id_the_record_has_is_kept(self):
+        self.assertEqual(_with_equivalents({"1008": 100.0, "2048": 110.0, "2047": 112.0})["1008"], 100.0)
+        self.assertEqual(_with_equivalents({"2047": 112.0, "2048": 110.0})["1008"], 110.0)   # Atwater specific first
+
+    def test_a_newer_id_is_the_records_own_figure_and_a_fill_is_moisture_adjusted(self):
+        data = vocabulary_data()
+        data["food"].append({"name": "Beans", "fdc": 20, "sources": [{"fdc": 21, "status": "estimated", "moisture": True}]})
+        v = parse_vocabulary(data, fdc_subset())
+        beans = composition(v.fdc, v.foods[-1])
+        self.assertEqual(beans["1008"][:2], (113.7, "sourced"))             # its own 2048, not the other food's 168
+        self.assertEqual(beans["1079"][:2], (6.9, "sourced"))               # its own 2033, not 7.2
+        self.assertAlmostEqual(beans["2000"][0], 1.345734, places=6)
+        self.assertIn("adjusted to this food's water content", beans["2000"][2])
+
+    def test_a_moisture_adjustment_needs_both_waters(self):
+        data = vocabulary_data()
+        data["food"].append({"name": "Beans", "fdc": 2, "sources": [{"fdc": 21, "moisture": True}]})   # garlic: no water
+        v = parse_vocabulary(data, fdc_subset())
+        with self.assertRaises(VocabularyError):
+            composition(v.fdc, v.foods[-1])
+
     def test_core_gaps(self):
         v = self.vocabulary()
         gaps = core_gaps(v.fdc, v.foods[1])
@@ -278,42 +311,6 @@ class Parse(unittest.TestCase):
         subset["nutrients"]["1003"]["unit"] = "PH"
         with self.assertRaises(VocabularyError):
             parse_vocabulary(vocabulary_data(), subset)
-
-
-RELATIONS = {"hierarchy", "parent", "isAbout", "forNutrient", "identifierScheme", "denotesType", "inScheme",
-             "forType", "hasKind", "hasValue", "keyedBy"}
-
-
-class Writable(FakeGraph):
-    """FakeGraph with the write side the loader uses. Relationship fields are stored as Refs, so they
-    render the way Structr renders them."""
-
-    def __init__(self):
-        super().__init__()
-        self.posts = self.patches = 0
-
-    def _store(self, fields):
-        out = {}
-        for key, value in fields.items():
-            if key in RELATIONS and value is not None:
-                value = [Ref(v) for v in value] if isinstance(value, list) else Ref(value)
-            out[key] = value
-        return out
-
-    def post(self, path, payload):
-        type_name = path.rsplit("/", 1)[-1]
-        node_id = f"{type_name}:{payload['name']}"
-        self.add(type_name, node_id, **self._store({k: v for k, v in payload.items() if k != "name"}),
-                 name=payload["name"])
-        self.posts += 1
-        return {"result": [node_id]}
-
-    def patch(self, path, payload):
-        self.nodes[path.rsplit("/", 1)[-1]].update(self._store(payload))
-        self.patches += 1
-
-    def delete(self, path):
-        del self.nodes[path.rsplit("/", 1)[-1]]
 
 
 def instance():

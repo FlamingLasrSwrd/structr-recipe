@@ -79,10 +79,25 @@ parent = "No-Heat Method"
 name = "Mixing"
 parent = "No-Heat Method"
 
-# -- equipment, parents before children --------------------------------------------------------
+# -- equipment, parents before children -------------------------------------------------------
+# Chosen from, not named freely: recipes list their tools from here (docs/recipe-format.md), and the
+# kitchen profiles in data/profiles/kitchen.toml are built from it. A recipe that needs a Skillet is
+# met by any kind of skillet.
 
 [[equipment]]
 name = "Cookware"
+
+[[equipment]]
+name = "Skillet"
+parent = "Cookware"
+
+[[equipment]]
+name = "Saucepan"
+parent = "Cookware"
+
+[[equipment]]
+name = "Stockpot"
+parent = "Cookware"
 
 [[equipment]]
 name = "Dutch Oven"
@@ -93,8 +108,54 @@ name = "Wok"
 parent = "Cookware"
 
 [[equipment]]
-name = "Skillet"
-parent = "Cookware"
+name = "Nonstick skillet"
+parent = "Skillet"
+
+[[equipment]]
+name = "Cast-iron skillet"
+parent = "Skillet"
+
+[[equipment]]
+name = "Stainless-steel skillet"
+parent = "Skillet"
+
+[[equipment]]
+name = "Carbon-steel skillet"
+parent = "Skillet"
+
+[[equipment]]
+name = "Bakeware"
+
+[[equipment]]
+name = "Sheet pan"
+parent = "Bakeware"
+
+[[equipment]]
+name = "Baking dish"
+parent = "Bakeware"
+
+[[equipment]]
+name = "Roasting pan"
+parent = "Bakeware"
+
+[[equipment]]
+name = "Pizza steel"
+parent = "Bakeware"
+
+[[equipment]]
+name = "Knife"
+
+[[equipment]]
+name = "Chef's knife"
+parent = "Knife"
+
+[[equipment]]
+name = "Paring knife"
+parent = "Knife"
+
+[[equipment]]
+name = "Bread knife"
+parent = "Knife"
 
 [[equipment]]
 name = "Prep tool"
@@ -104,7 +165,11 @@ name = "Cutting board"
 parent = "Prep tool"
 
 [[equipment]]
-name = "Chef's knife"
+name = "Mixing bowl"
+parent = "Prep tool"
+
+[[equipment]]
+name = "Colander"
 parent = "Prep tool"
 
 [[equipment]]
@@ -112,12 +177,145 @@ name = "Fine-mesh sieve"
 parent = "Prep tool"
 
 [[equipment]]
-name = "Mixing bowl"
+name = "Salad spinner"
+parent = "Prep tool"
+
+[[equipment]]
+name = "Vegetable peeler"
+parent = "Prep tool"
+
+[[equipment]]
+name = "Box grater"
+parent = "Prep tool"
+
+[[equipment]]
+name = "Microplane grater"
+parent = "Prep tool"
+
+[[equipment]]
+name = "Mandoline"
 parent = "Prep tool"
 
 [[equipment]]
 name = "Meat pounder"
 parent = "Prep tool"
+
+[[equipment]]
+name = "Can opener"
+parent = "Prep tool"
+
+[[equipment]]
+name = "Mortar and pestle"
+parent = "Prep tool"
+
+[[equipment]]
+name = "Measuring tool"
+
+[[equipment]]
+name = "Liquid measuring cup"
+parent = "Measuring tool"
+
+[[equipment]]
+name = "Dry measuring cups"
+parent = "Measuring tool"
+
+[[equipment]]
+name = "Measuring spoons"
+parent = "Measuring tool"
+
+[[equipment]]
+name = "Kitchen scale"
+parent = "Measuring tool"
+
+[[equipment]]
+name = "Instant-read thermometer"
+parent = "Measuring tool"
+
+[[equipment]]
+name = "Utensil"
+
+[[equipment]]
+name = "Silicone spatula"
+parent = "Utensil"
+
+[[equipment]]
+name = "Fish spatula"
+parent = "Utensil"
+
+[[equipment]]
+name = "Wooden spoon"
+parent = "Utensil"
+
+[[equipment]]
+name = "Tongs"
+parent = "Utensil"
+
+[[equipment]]
+name = "Whisk"
+parent = "Utensil"
+
+[[equipment]]
+name = "Ladle"
+parent = "Utensil"
+
+[[equipment]]
+name = "Oven mitts"
+parent = "Utensil"
+
+[[equipment]]
+name = "Appliance"
+
+[[equipment]]
+name = "Microwave"
+parent = "Appliance"
+
+[[equipment]]
+name = "Food processor"
+parent = "Appliance"
+
+[[equipment]]
+name = "Immersion blender"
+parent = "Appliance"
+
+[[equipment]]
+name = "High-speed blender"
+parent = "Appliance"
+
+[[equipment]]
+name = "Rice cooker"
+parent = "Appliance"
+
+[[equipment]]
+name = "Stand mixer"
+parent = "Appliance"
+
+[[equipment]]
+name = "Pressure cooker"
+parent = "Appliance"
+
+[[equipment]]
+name = "Sous vide circulator"
+parent = "Appliance"
+
+[[equipment]]
+name = "Dehydrator"
+parent = "Appliance"
+
+[[equipment]]
+name = "Vacuum sealer"
+parent = "Appliance"
+
+[[equipment]]
+name = "Pasta machine"
+parent = "Appliance"
+
+[[equipment]]
+name = "Spice grinder"
+parent = "Appliance"
+
+[[equipment]]
+name = "Kitchen torch"
+parent = "Appliance"
 
 # -- groups already in the vocabulary ----------------------------------------------------------
 
@@ -135,7 +333,7 @@ name = "Butter"
 [[food]]
 name = "Firm tofu"
 fdc = 172475                    # SR: Tofu, raw, firm, prepared with calcium sulfate
-sources = [{ fdc = 172448, status = "estimated", note = "Tofu firm with nigari: for what 172475 does not report (sugars)" }]
+sources = [{ fdc = 172448, status = "estimated", moisture = true, note = "Tofu firm with nigari (82.9% water, against 69.8%): for what 172475 does not report (sugars)" }]
 volume = "cup"
 
 [[food]]
@@ -349,7 +547,7 @@ volume = "cup"
 name = "Canned cannellini beans (drained)"
 fdc = 2644294                   # Foundation: Beans, great northern, canned, sodium added, drained and rinsed
 proxy = true                    # great northern for cannellini: both white beans
-sources = [{ fdc = 2707357, status = "estimated", note = "FNDDS White beans from canned: what the Foundation analysis does not report (energy in kcal, fiber, sugars)" }]
+sources = [{ fdc = 2707357, status = "estimated", moisture = true, note = "FNDDS White beans from canned (55.7% water, against 71.2%): what the Foundation analysis does not report" }]
 each = { grams = 270, per = "each", source = "one 15-oz can drained and rinsed: 255-285 g, midpoint (https://kitchencalculator.app/charts/standard-package-yield-conversions/canned-beans-standard-can-to-drained-weight-volume-conversion-chart.html, 2026-09-27); 1.5 cups x FNDDS 2707357 180 g per cup agrees" }
 
 [[food]]

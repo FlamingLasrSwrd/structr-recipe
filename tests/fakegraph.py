@@ -69,3 +69,52 @@ def type_tree(graph: FakeGraph, tree: dict, parent: str | None = None) -> None:
         graph.add("DomainType", name, parent=Ref(parent) if parent else None,
                   children=[Ref(c) for c in children], defaultSpecifications=[], stockPoliciesApplying=[])
         type_tree(graph, children, name)
+
+
+class WritableGraph(FakeGraph):
+    """FakeGraph with the write side the loaders use (post, patch, delete). Relationship
+    fields are stored as Refs, so they render as Structr renders them, and the reverse
+    side of the relationships the code reads back is kept up to date."""
+
+    RELATIONS = {"hierarchy", "parent", "isAbout", "forNutrient", "identifierScheme", "denotesType", "inScheme",
+                 "forType", "hasKind", "hasValue", "keyedBy", "hasTargetRange", "instanceOf", "memberOfSet"}
+    REVERSES = {"forType": "defaultSpecifications", "memberOfSet": "hasMemberPart", "parent": "children"}
+
+    def __init__(self):
+        super().__init__()
+        self.posts = self.patches = 0
+
+    def _link(self, node_id, key, old, new):
+        reverse = self.REVERSES.get(key)
+        if not reverse:
+            return
+        if isinstance(old, Ref) and old.id in self.nodes:
+            self.nodes[old.id].setdefault(reverse, [])
+            self.nodes[old.id][reverse] = [r for r in self.nodes[old.id][reverse] if r.id != node_id]
+        if isinstance(new, Ref):
+            self.nodes[new.id].setdefault(reverse, []).append(Ref(node_id))
+
+    def _store(self, node_id, fields):
+        for key, value in fields.items():
+            if key in self.RELATIONS and value is not None:
+                value = [Ref(v) for v in value] if isinstance(value, list) else Ref(value)
+            self._link(node_id, key, self.nodes[node_id].get(key), value)
+            self.nodes[node_id][key] = value
+
+    def post(self, path, payload):
+        type_name = path.rsplit("/", 1)[-1]
+        node_id = f"{type_name}:{payload['name']}"
+        self.add(type_name, node_id, name=payload["name"])
+        self._store(node_id, {k: v for k, v in payload.items() if k != "name"})
+        self.posts += 1
+        return {"result": [node_id]}
+
+    def patch(self, path, payload):
+        self._store(path.rsplit("/", 1)[-1], payload)
+        self.patches += 1
+
+    def delete(self, path):
+        node_id = path.rsplit("/", 1)[-1]
+        for key in self.REVERSES:
+            self._link(node_id, key, self.nodes[node_id].get(key), None)
+        del self.nodes[node_id]

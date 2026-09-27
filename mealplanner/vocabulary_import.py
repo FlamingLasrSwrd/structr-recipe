@@ -58,6 +58,13 @@ FDC_UNITS = {"G": "g", "MG": "mg", "UG": "ug", "KCAL": "kcal", "KJ": "kJ", "IU":
 VOLUME_WORDS = {"cup": "cup", "tbsp": "tbsp", "tsp": "tsp", "fl oz": "fl_oz", "liter": "l", "tablespoon": "tbsp"}
 DATASETS = {"sr_legacy_food": "SR Legacy", "foundation_food": "Foundation", "survey_fndds_food": "FNDDS",
             "branded_food": "Branded"}
+# The same quantity under a newer FDC nutrient id. Foundation foods report energy
+# as Atwater General (2047) or Specific (2048) factors, not 1008, and fiber by the
+# AOAC 2011.25 method (2033), not 1079. A record's own figure under the newer id is
+# its figure: taking 1008 from another food instead once gave drained beans the
+# energy of a drier food (168 kcal per 100 g against their own 114).
+EQUIVALENT_IDS = {"1008": ("2048", "2047"), "1079": ("2033",)}
+WATER = "1051"
 # The Nutrition Facts figures. Every food should have them; --check lists the gaps.
 CORE_NUTRIENTS = {"1008": "Energy", "1003": "Protein", "1004": "Total fat", "1258": "Saturated fat",
                   "1253": "Cholesterol", "1005": "Carbohydrate", "1079": "Fiber", "2000": "Sugars",
@@ -76,6 +83,7 @@ class Source:
     status: str                           # sourced, estimated or calculated
     only: frozenset | None = None         # the FDC nutrient ids it may supply; None: all it reports
     note: str = ""
+    moisture: bool = False                # scale to the food's own water content (a gap fill from a wetter or drier food)
 
 
 @dataclass(frozen=True)
@@ -196,19 +204,48 @@ def composition(fdc: dict, food: Food) -> dict[str, tuple[float, str, str]]:
     nutrient from the first source that reports it, averaged over that source's
     foods that report it."""
     out: dict[str, tuple[float, str, str]] = {}
+    own_water = None
+    if food.sources:
+        first = [fdc["foods"][str(fid)]["nutrients"].get(WATER) for fid in food.sources[0].ids]
+        own_water = sum(first) / len(first) if all(w is not None for w in first) else None
     for source in food.sources:
-        records = {fid: fdc["foods"][str(fid)] for fid in source.ids}
-        reported = sorted({n for r in records.values() for n in r["nutrients"]}, key=int)
+        records = {fid: _with_equivalents(fdc["foods"][str(fid)]["nutrients"]) for fid in source.ids}
+        reported = sorted({n for r in records.values() for n in r}, key=int)
         for nid in reported:
             if nid in out or nid in SKIPPED_NUTRIENTS or (source.only is not None and nid not in source.only):
                 continue
-            having = [fid for fid, r in records.items() if nid in r["nutrients"]]
-            amount = sum(records[fid]["nutrients"][nid] for fid in having) / len(having)
+            having = [fid for fid, r in records.items() if nid in r]
+            values = [records[fid][nid] * _moisture_factor(source, records[fid], own_water, food) for fid in having]
+            amount = sum(values) / len(values)
             text = "; ".join(_describe(fdc, fid) for fid in having)
             prefix = "mean of " if len(having) > 1 else ""
+            adjusted = " adjusted to this food's water content" if source.moisture else ""
             kind = f" ({source.status}: {source.note})" if source.note else ""
-            out[nid] = (amount, source.status, f"{prefix}USDA FoodData Central {text}{kind}")
+            out[nid] = (amount, source.status, f"{prefix}USDA FoodData Central {text}{adjusted}{kind}")
     return out
+
+
+def _with_equivalents(nutrients: dict) -> dict:
+    """A record's figures, with a figure under a newer id standing in for the
+    older id it measures (EQUIVALENT_IDS) when the record lacks the older one."""
+    out = dict(nutrients)
+    for older, newer in EQUIVALENT_IDS.items():
+        if older not in out:
+            for nid in newer:
+                if nid in nutrients:
+                    out[older] = nutrients[nid]
+                    break
+    return out
+
+
+def _moisture_factor(source: Source, record: dict, own_water: float | None, food: Food) -> float:
+    """1, or for a moisture-adjusted source the ratio of the food's dry matter to
+    the source food's: a figure per 100 g scales with the solids it is in."""
+    if not source.moisture:
+        return 1.0
+    if own_water is None or WATER not in record:
+        raise VocabularyError([f"food {food.name!r}: a moisture-adjusted source needs the water content of both foods"])
+    return (100.0 - own_water) / (100.0 - record[WATER])
 
 
 def core_gaps(fdc: dict, food: Food) -> list[str]:
@@ -222,7 +259,7 @@ def _source(raw, where: str, problems: list[str]) -> Source | None:
     if not isinstance(raw, dict):
         problems.append(f"{where}: a source is a table")
         return None
-    unknown = set(raw) - {"fdc", "mean", "status", "only", "note"}
+    unknown = set(raw) - {"fdc", "mean", "status", "only", "note", "moisture"}
     if unknown:
         problems.append(f"{where}: unknown key(s) {sorted(unknown)}")
     if ("fdc" in raw) == ("mean" in raw):
@@ -236,7 +273,10 @@ def _source(raw, where: str, problems: list[str]) -> Source | None:
     if status not in STATUSES:
         problems.append(f"{where}: status must be one of {', '.join(STATUSES)}, not {status!r}")
     only = frozenset(str(n) for n in raw["only"]) if "only" in raw else None
-    return Source(ids, status, only, raw.get("note", ""))
+    moisture = raw.get("moisture", False)
+    if not isinstance(moisture, bool):
+        problems.append(f"{where}: moisture is true or false")
+    return Source(ids, status, only, raw.get("note", ""), moisture is True)
 
 
 def _measure(raw, first: Source | None, where: str, want_volume: bool, problems: list[str]) -> Measure | None:
