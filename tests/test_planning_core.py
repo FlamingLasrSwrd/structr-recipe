@@ -217,10 +217,15 @@ class Leftovers(unittest.TestCase):
         resolved, _ = resolve(p, [Pick(candidate="roast"), None])
         self.assertEqual(leftover_reason(p, resolved, 0, 1), "leftovers of this recipe are not planned")
 
-    def test_a_leftover_slot_may_have_any_meal_type(self):
-        stew = cand("stew", 40, 90, yield_servings=4.0, leftover_days=3.0, meal_types=frozenset({"Dinner"}))
-        p = problem([slot("mon dinner", when(28, 18), "Dinner"), slot("tue lunch", when(29, 12), "Lunch")], [stew])
-        self.assertEqual(oracle(p).best.picks, (Pick(candidate="stew"), Pick(source=0)))    # no fresh cook may fill lunch
+    def test_leftovers_follow_the_recipes_meal_type_tags(self):
+        def week(tags):
+            stew = cand("stew", 40, 90, yield_servings=4.0, leftover_days=3.0, meal_types=frozenset(tags))
+            return problem([slot("mon dinner", when(28, 18), "Dinner"), slot("tue lunch", when(29, 12), "Lunch")], [stew])
+        self.assertEqual(oracle(week({"Dinner", "Lunch"})).best.picks, (Pick(candidate="stew"), Pick(source=0)))
+        p = week({"Dinner"})                                                    # dinner only: not lunch, even as leftovers
+        resolved, _ = resolve(p, [Pick(candidate="stew"), None])
+        self.assertEqual(leftover_reason(p, resolved, 0, 1), "not tagged for Lunch")
+        self.assertIsNone(oracle(p).best)
 
     def test_a_leftover_slot_does_not_cook_a_second_batch_of_stock(self):
         p = self.stew_problem()
