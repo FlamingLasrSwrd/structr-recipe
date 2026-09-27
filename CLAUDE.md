@@ -21,10 +21,12 @@ review, so what the README and REVIEW.md claim has to be true.
 
 ## Working agreements (the owner's, learned the hard way)
 
-- **Ask before every commit and push, one batch at a time.** Finish and verify a batch,
-  summarize it, ask "Should I commit and push this?" and wait for a yes. Stage explicit file
-  names, never `git add -A`. Write a message that says why. End it with the Co-Authored-By
-  trailer. Plain fast-forward push; never force. Never rewrite published history.
+- **Commit and push each verified batch without waiting for a yes** (the owner's deliberate
+  choice, 2026-09-26; it used to be ask-first). Finish and verify a batch before committing it,
+  and say what you did and why in your report. Stage explicit file names, never `git add -A`.
+  Write a message that says why. End it with the Co-Authored-By trailer. Plain fast-forward
+  push; never force. Never rewrite published history. In a cloud session, push to the session's
+  branch, not `main` (see below).
 - **Look at `git status` and `git diff` before committing and read every hunk you did not
   write.** Another Claude session may have edited the same tree. Flag foreign changes; do not
   revert them.
