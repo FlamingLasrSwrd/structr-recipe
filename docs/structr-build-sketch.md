@@ -77,7 +77,9 @@ Entity
 
 51 types (35 concrete, 16 abstract scaffolding; `mealplanner/structural_types.py` is the canonical list and the source of that count). This is the whole schema and it should never change after build.
 
-**Polymorphic targeting pays for itself here.** `Allocation -[ABOUT]-> Entity` and `Identifier -[DENOTES]-> Entity` are single declarations that accept anything, because every concrete type inherits `Entity`. That is exactly the model's deliberately-unrestricted range, and it works natively — provided every concrete type has its traits from creation, which the no-runtime-schema-change rule guarantees.
+**Polymorphic targeting pays for itself here.** `Allocation -[ABOUT]-> Entity` and `Identifier -[DENOTES]-> Entity` are single declarations that accept anything, because every concrete type in the tree above inherits `Entity`. That is exactly the model's deliberately-unrestricted range, and it works natively — provided every concrete type has its traits from creation, which the no-runtime-schema-change rule guarantees.
+
+**Correction, found building identifiers:** the metamodel types (§4: `DomainType`, `TypeHierarchy`, `RelationKind`) are not in that tree and have no traits, so `denotes` cannot reach a Type. The model needs it to (a GTIN denotes a packaged-offering Type; a Type has an FDC mapping), so `Identifier` has a second declaration, `-[DENOTES]-> DomainType` as `denotesType`: an Identifier denotes an instance or a Type, never both (`mealplanner/identifier_schema.py`).
 
 ---
 

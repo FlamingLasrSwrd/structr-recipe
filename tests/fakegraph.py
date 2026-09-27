@@ -1,5 +1,6 @@
 """An in-memory stand-in for the parts of StructrClient that mealplanner/ reads
-through: get_all(type, id), get_all(type) and get(path, params={"name": ...}).
+through: get_all(type, id), get_all(type) and get(path, params={"name": ...}), whose rows,
+as on Structr, carry only id, type and name.
 It lets the pure logic be tested without a Structr instance.
 
 Relationships are written as Ref("id") (or a list of them) and rendered the way
@@ -53,10 +54,12 @@ class FakeGraph:
         return {"result": [self._row(n) for n in self.nodes.values() if n["type"] == type_name]}
 
     def get(self, path: str, params: dict | None = None) -> dict:
+        """A query: rows filtered on their properties, then rendered as Structr's default view
+        renders them, id, type and name only. Anything else needs get_all(type, id), as on Structr."""
         rows = self.get_all(path.rsplit("/", 1)[-1])["result"]
         for key, value in (params or {}).items():
             rows = [r for r in rows if r.get(key) == value]
-        return {"result": rows}
+        return {"result": [{"id": r["id"], "type": r["type"], "name": r["name"]} for r in rows]}
 
 
 def type_tree(graph: FakeGraph, tree: dict, parent: str | None = None) -> None:

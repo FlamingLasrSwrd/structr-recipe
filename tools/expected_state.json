@@ -77,6 +77,13 @@
   "propertyType": "String",
   "unique": true
  },
+ "@schema | property Identifier.identifierValue": {
+  "format": null,
+  "indexed": true,
+  "notNull": false,
+  "propertyType": "String",
+  "unique": false
+ },
  "@schema | property MealPlan.stockWeight": {
   "format": null,
   "indexed": false,
@@ -486,6 +493,24 @@
   "sourceJsonName": "contents",
   "sourceMultiplicity": "*",
   "targetJsonName": "locatedIn",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Identifier -[DENOTES]-> DomainType": {
+  "sourceJsonName": "identifiers",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "denotesType",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Identifier -[DENOTES]-> Entity": {
+  "sourceJsonName": "identifiers",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "denotes",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Identifier -[IDENTIFIER_SCHEME]-> Concept": {
+  "sourceJsonName": "identifiersInScheme",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "identifierScheme",
   "targetMultiplicity": "1"
  },
  "@schema | relationship MealPlan -[ABOUT]-> TemporalRegion": {
@@ -1133,6 +1158,10 @@
    "<RecipeIdentity:TEST -- Buttered Pasta with Parmesan>"
   ]
  },
+ "Concept | FDC ID": {
+  "inScheme": "<ConceptScheme:Identifier Scheme>",
+  "name": "FDC ID"
+ },
  "Concept | Lunch": {
   "inScheme": "<ConceptScheme:Meal Type>",
   "name": "Lunch",
@@ -1146,6 +1175,17 @@
   "taggedRecipes": [
    "<RecipeIdentity:TEST -- Almond Snack Mix>"
   ]
+ },
+ "Concept | Web page": {
+  "inScheme": "<ConceptScheme:Identifier Scheme>",
+  "name": "Web page"
+ },
+ "ConceptScheme | Identifier Scheme": {
+  "concepts": [
+   "<Concept:FDC ID>",
+   "<Concept:Web page>"
+  ],
+  "name": "Identifier Scheme"
  },
  "ConceptScheme | Meal Type": {
   "concepts": [
