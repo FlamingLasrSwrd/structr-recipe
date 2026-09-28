@@ -1,8 +1,8 @@
 """Profiles: patterns defined once on a Type and instantiated into the owner's own data.
 
 A profile is a Type in its own hierarchy ("Dietary Reference Profile", "Kitchen
-Profile") carrying DefaultSpecifications keyed by what they are about: a
-nutrient, an equipment type. A child profile inherits its parent's and
+Profile", "Pantry Profile") carrying DefaultSpecifications keyed by what they
+are about: a nutrient, an equipment type, a food. A child profile inherits its parent's and
 overrides any it restates (defaults.resolve_all). Instantiating one copies the
 resolved pattern into the owner's data, where it is theirs to change:
 
@@ -11,11 +11,14 @@ resolved pattern into the owner's data, where it is theirs to change:
                         where the owner's selection file overrides it
   a kitchen profile  -> the owner's kitchen, a UtensilSet whose members
                         (`has member part`) are EquipmentObjects, one per item
+  a pantry profile   -> the owner's stock on hand: a PortionOfSubstance per food,
+                        with an `imputed` Measurement of its amount (Sec 4.1), an
+                        assumption until a weighing replaces it
 
 The owner's choices live in a selection file in private/ (the profile, and what
 to add, remove or override), so instantiating again reproduces them. A target
 the owner changed in Structr is not overwritten unless asked (reset), and a
-piece of equipment with a cooking history is never deleted. The mechanism and
+piece of equipment or stock with a history is never deleted. The mechanism and
 its other uses: docs/profiles.md, data-model.md Sec 18 J22.
 """
 
@@ -24,20 +27,26 @@ from __future__ import annotations
 import os
 import tomllib
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from mealplanner.defaults import resolve_all
 from mealplanner.nutrition_scope import convert_nutrient, day_zone, nutrient_unit
-from mealplanner.vocabulary_import import Sync
+from mealplanner.unit_conversion import UNIT_TABLE, convert_to_grams
+from mealplanner.vocabulary_import import FOOD_HIERARCHY, Sync
 from structr_client.client import UNSAFE_EXACT_MATCH_CHARS
 
 DIETARY = "data/profiles/dietary.toml"
 KITCHEN = "data/profiles/kitchen.toml"
+PANTRY = "data/profiles/pantry.toml"
 DIET_HIERARCHY = "Dietary Reference Profile"
 KITCHEN_HIERARCHY = "Kitchen Profile"
+PANTRY_HIERARCHY = "Pantry Profile"
 BASIS_HIERARCHY = "Intake Basis"
 EQUIPMENT_HIERARCHY = "Equipment Type"
 INTAKE_KIND = "Recommended Daily Intake"
 EQUIPMENT_KIND = "Kitchen Equipment"
+STOCK_KIND = "Pantry Stock"
+STRUCTR_TIME = "%Y-%m-%dT%H:%M:%S+0000"
 SHARE, PER_1000 = "share of energy", "per 1000 kcal"
 BASIS_TYPES = {SHARE: "Share of energy", PER_1000: "Per 1000 kcal"}
 ENERGY = "1008"
@@ -72,12 +81,20 @@ class Item:
 
 
 @dataclass(frozen=True)
+class Stock:
+    food: str                     # a Food Type name
+    amount: float
+    unit: str                     # any unit_conversion.UNIT_TABLE knows
+
+
+@dataclass(frozen=True)
 class Profile:
     name: str
     parent: str | None
     intakes: tuple[Intake, ...] = ()
     items: tuple[Item, ...] = ()
     note: str = ""
+    stock: tuple[Stock, ...] = ()
 
 
 def _name_ok(where, value, problems) -> bool:
@@ -88,9 +105,24 @@ def _name_ok(where, value, problems) -> bool:
     return True
 
 
+def _amount(where, entry, problems) -> tuple[float, str] | None:
+    """An item's amount and unit: a number above 0 in a unit the unit table knows."""
+    amount, unit = entry.get("amount"), entry.get("unit")
+    ok = True
+    if not isinstance(amount, (int, float)) or isinstance(amount, bool) or amount <= 0:
+        problems.append(f"{where}: amount must be a number above 0, not {amount!r}")
+        ok = False
+    if not isinstance(unit, str) or unit.strip().lower() not in UNIT_TABLE:
+        problems.append(f"{where}: unit {unit!r} is not one of {', '.join(UNIT_TABLE)}")
+        ok = False
+    return (float(amount), unit.strip().lower()) if ok else None
+
+
 def parse_profiles(data: dict, kind: str) -> tuple[Profile, ...]:
-    """Profiles from a dietary ("dietary") or kitchen ("kitchen") file, or
-    ProfileError naming every problem. Parents must come before children."""
+    """Profiles from a dietary ("dietary"), kitchen ("kitchen") or pantry ("pantry")
+    file, or ProfileError naming every problem. Parents must come before children."""
+    if kind not in ("dietary", "kitchen", "pantry"):
+        raise ValueError(f"no profile kind {kind!r}")
     problems: list[str] = []
     profiles: list[Profile] = []
     seen: set[str] = set()
@@ -104,7 +136,7 @@ def parse_profiles(data: dict, kind: str) -> tuple[Profile, ...]:
         if parent is not None and parent not in seen:
             problems.append(f"{where}: parent {parent!r} must be listed before it")
         seen.add(name)
-        intakes, items = [], []
+        intakes, items, stock = [], [], []
         if kind == "dietary":
             keys = set()
             for j, it in enumerate(raw.get("intakes", []), 1):
@@ -139,7 +171,7 @@ def parse_profiles(data: dict, kind: str) -> tuple[Profile, ...]:
                     problems.append(f"{iw}: FDC nutrient {nid} with basis {basis!r} is listed twice")
                 keys.add((nid, basis))
                 intakes.append(Intake(nid, basis, lo, hi, unit, status, it.get("source", "")))
-        else:
+        elif kind == "kitchen":
             names = set()
             for j, it in enumerate(raw.get("equipment", []), 1):
                 iw = f"{where} item {j}"
@@ -152,18 +184,31 @@ def parse_profiles(data: dict, kind: str) -> tuple[Profile, ...]:
                     problems.append(f"{iw}: {it['item']!r} is listed twice")
                 names.add(it["item"])
                 items.append(Item(it["item"], count))
-        profiles.append(Profile(name, parent, tuple(intakes), tuple(items), raw.get("note", "")))
+        else:
+            names = set()
+            for j, it in enumerate(raw.get("stock", []), 1):
+                iw = f"{where} item {j}"
+                if not _name_ok(iw, it.get("item"), problems):
+                    continue
+                if it["item"] in names:
+                    problems.append(f"{iw}: {it['item']!r} is listed twice")
+                names.add(it["item"])
+                amount = _amount(iw, it, problems)
+                if amount:
+                    stock.append(Stock(it["item"], *amount))
+        profiles.append(Profile(name, parent, tuple(intakes), tuple(items), raw.get("note", ""), tuple(stock)))
     if problems:
         raise ProfileError(problems)
     return tuple(profiles)
 
 
-def read_profiles(root: str) -> tuple[tuple[Profile, ...], tuple[Profile, ...]]:
+def read_profiles(root: str) -> tuple[tuple[Profile, ...], tuple[Profile, ...], tuple[Profile, ...]]:
+    """(dietary, kitchen, pantry) profiles from data/profiles/."""
     out = []
-    for rel, kind in ((DIETARY, "dietary"), (KITCHEN, "kitchen")):
+    for rel, kind in ((DIETARY, "dietary"), (KITCHEN, "kitchen"), (PANTRY, "pantry")):
         with open(os.path.join(root, rel), "rb") as fh:
             out.append(parse_profiles(tomllib.load(fh), kind))
-    return out[0], out[1]
+    return out[0], out[1], out[2]
 
 
 def _one_id(client, type_name: str, name: str) -> str | None:
@@ -183,9 +228,26 @@ def nutrient_types(client) -> dict[str, tuple[str, str]]:
     return out
 
 
-def import_profiles(client, dietary: tuple[Profile, ...], kitchen: tuple[Profile, ...]) -> dict[str, int]:
+def food_types(client) -> dict[str, str]:
+    """Food Type name -> id, every Type in the vocabulary's Food Identity hierarchy."""
+    return {row["name"]: row["id"] for row in Sync(client).rows("DomainType").values()
+            if (row.get("hierarchy") or {}).get("name") == FOOD_HIERARCHY}
+
+
+def _unconvertible(client, food_id: str, food: str, amount: float, unit: str) -> str | None:
+    """Why an amount of a food cannot be counted in grams, or None if it can. Stock is
+    counted in grams (invariant 13), so a volume needs the food's density and `each`
+    its weight per item, from the vocabulary."""
+    if convert_to_grams(client, food_id, amount, unit) is not None:
+        return None
+    need = "weight per item" if UNIT_TABLE[unit][0] == "count" else "density"
+    return f"{amount:g} {unit} of {food!r} does not convert to grams: the vocabulary gives it no {need}; give a mass"
+
+
+def import_profiles(client, dietary: tuple[Profile, ...], kitchen: tuple[Profile, ...],
+                    pantry: tuple[Profile, ...] = ()) -> dict[str, int]:
     """Write the profile definitions (idempotent). The vocabulary must be loaded
-    first: nutrients and equipment types are looked up, never created here."""
+    first: nutrients, equipment types and foods are looked up, never created here."""
     sync = Sync(client)
     nutrients = nutrient_types(client)
     problems = []
@@ -199,17 +261,28 @@ def import_profiles(client, dietary: tuple[Profile, ...], kitchen: tuple[Profile
         for item in p.items:
             if item.equipment not in equipment:
                 problems.append(f"profile {p.name!r}: equipment {item.equipment!r} is not in the vocabulary")
+    foods = food_types(client) if pantry else {}
+    for p in pantry:
+        for st in p.stock:
+            if st.food not in foods:
+                problems.append(f"profile {p.name!r}: food {st.food!r} is not in the vocabulary")
+                continue
+            why = _unconvertible(client, foods[st.food], st.food, st.amount, st.unit)
+            if why:
+                problems.append(f"profile {p.name!r}: {why}")
     if problems:
         raise ProfileError(problems)
 
     hierarchies = {h: sync.ensure("TypeHierarchy", h, {"singleParent": True})
-                   for h in (DIET_HIERARCHY, KITCHEN_HIERARCHY, BASIS_HIERARCHY)}
+                   for h in (DIET_HIERARCHY, KITCHEN_HIERARCHY, BASIS_HIERARCHY)
+                   + ((PANTRY_HIERARCHY,) if pantry else ())}
     default_kind = _one_id(client, "TypeHierarchy", "Default Kind")
-    kinds = {k: sync.ensure("DomainType", k, {"hierarchy": default_kind}) for k in (INTAKE_KIND, EQUIPMENT_KIND)}
+    kinds = {k: sync.ensure("DomainType", k, {"hierarchy": default_kind})
+             for k in (INTAKE_KIND, EQUIPMENT_KIND) + ((STOCK_KIND,) if pantry else ())}
     bases = {b: sync.ensure("DomainType", name, {"hierarchy": hierarchies[BASIS_HIERARCHY], "isLookupBearing": True})
              for b, name in BASIS_TYPES.items()}
 
-    for profiles, hierarchy in ((dietary, DIET_HIERARCHY), (kitchen, KITCHEN_HIERARCHY)):
+    for profiles, hierarchy in ((dietary, DIET_HIERARCHY), (kitchen, KITCHEN_HIERARCHY), (pantry, PANTRY_HIERARCHY)):
         ids: dict[str, str] = {}
         for p in profiles:
             ids[p.name] = sync.ensure("DomainType", p.name, {
@@ -234,6 +307,14 @@ def import_profiles(client, dietary: tuple[Profile, ...], kitchen: tuple[Profile
                     "forType": ids[p.name], "hasKind": kinds[EQUIPMENT_KIND], "hasValue": qty,
                     "keyedBy": [equipment[item.equipment]], "provenance": "estimated",
                     "source": f"kitchen profile {p.name!r} in data/profiles/kitchen.toml, curated (see its header)"})
+            for st in p.stock:
+                label = f"{p.name} -- {st.food}"
+                qty = sync.ensure("QuantitySpecification", f"{label} amount", {
+                    "value": st.amount, "unit": st.unit, "status": "default"})
+                sync.ensure("DefaultSpecification", label, {
+                    "forType": ids[p.name], "hasKind": kinds[STOCK_KIND], "hasValue": qty,
+                    "keyedBy": [foods[st.food]], "provenance": "estimated",
+                    "source": f"pantry profile {p.name!r} in data/profiles/pantry.toml, curated (see its header)"})
     return sync.counts
 
 
@@ -344,6 +425,20 @@ def kitchen_items(client, profile_name: str) -> dict[str, tuple[str, int]]:
         (equipment_id,) = keys
         out[equipment_id] = (client.get_all("DomainType", equipment_id)["result"]["name"],
                              int(default.quantity.get("value") or 0))
+    return out
+
+
+def pantry_stock(client, profile_name: str) -> dict[str, tuple[str, dict]]:
+    """Food Type id -> (name, its amount: the QuantitySpecification) for a pantry
+    profile, inherited and overridden."""
+    profile_id = _one_id(client, "DomainType", profile_name)
+    kind_id = _one_id(client, "DomainType", STOCK_KIND)
+    if profile_id is None or kind_id is None:
+        raise ProfileError([f"no pantry profile {profile_name!r} (load it with tools/import_profiles.py)"])
+    out = {}
+    for keys, default in resolve_all(client, profile_id, kind_id).items():
+        (food_id,) = keys
+        out[food_id] = (client.get_all("DomainType", food_id)["result"]["name"], default.quantity)
     return out
 
 
@@ -481,5 +576,115 @@ def instantiate_kitchen(client, selection: dict) -> Report:
             continue
         sync.delete("EquipmentObject", node)
         report.removed.append(node["name"])
+    report.counts = sync.counts
+    return report
+
+
+
+def instantiate_pantry(client, selection: dict, *, reset: bool = False, now: datetime | None = None) -> Report:
+    """The owner's stock on hand from their selection file:
+
+        name = "Home pantry"
+        profile = "Basic pantry"
+        add = [{ item = "Sesame oil", amount = 5, unit = "fl_oz" }]   # or a profile item's own amount
+        remove = ["Honey"]
+
+    Each item becomes a PortionOfSubstance "<pantry> -- <food>" bearing a Mass Quality,
+    and an `imputed` Measurement of its amount (data-model.md Sec 4.1): what is assumed
+    to be there, not a count. It `wasDerivedFrom` the QuantitySpecification it came
+    from: the profile's, or, for an amount the file gives, the owner's own (status
+    `specified`). It is dated when written, so only cooking after that uses it up, and
+    a weighing (an `observed` Measurement) replaces it as any later one does.
+
+    An amount that differs from its source is kept unless reset: the owner may have
+    changed it in Structr. One whose source changed (an override added or dropped)
+    is rewritten and dated again. An item the selection no longer includes is
+    deleted, unless it has history (a cook used it, or it was weighed), which is
+    kept and reported."""
+    report = Report()
+    now = now or datetime.now(timezone.utc)
+    foods = food_types(client)
+    wanted = {name: qty for name, qty in pantry_stock(client, selection["profile"]).values()}
+    problems, own = [], {}
+    for i, entry in enumerate(selection.get("add", []), 1):
+        item = entry.get("item") if isinstance(entry, dict) else entry
+        if item not in foods:
+            problems.append(f"add: {item!r} is not a food in the vocabulary (tools/instantiate_profile.py pantry --list)")
+            continue
+        if not isinstance(entry, dict):
+            problems.append(f"add: {item!r} needs an amount, like {{ item = {item!r}, amount = 500, unit = \"g\" }}")
+            continue
+        amount = _amount(f"add {i} ({item!r})", entry, problems)
+        if amount:
+            why = _unconvertible(client, foods[item], item, *amount)
+            if why:
+                problems.append(f"add: {why}")
+            own[item] = amount
+    for item in selection.get("remove", []):
+        if item not in wanted and item not in own:
+            problems.append(f"remove: {item!r} is not in the pantry")
+        wanted.pop(item, None)
+        own.pop(item, None)
+    if problems:
+        raise ProfileError(problems)
+
+    pantry = selection.get("name", "Home pantry")
+    if not _name_ok("name", pantry, problems):
+        raise ProfileError(problems)
+    sync = Sync(client)
+    mass = _one_id(client, "DomainType", "Mass")
+    plan = {name: (qty["value"], qty["unit"], qty["id"]) for name, qty in wanted.items() if name not in own}
+    for item, (amount, unit) in own.items():
+        qty = sync.ensure("QuantitySpecification", f"{pantry} -- {item} amount", {
+            "value": amount, "unit": unit, "status": "specified"})
+        plan[item] = (amount, unit, qty)
+    keep = set()
+    for item, (amount, unit, qty) in sorted(plan.items()):
+        name = f"{pantry} -- {item}"
+        portion = sync.ensure("PortionOfSubstance", name, {"instanceOf": foods[item]})
+        keep.add(portion)
+        quality = sync.ensure("Quality", f"{name} mass Quality", {"hasKind": mass, "inheresIn": portion})
+        label = f"{name} mass assumed"
+        current = sync.rows("Measurement").get(label)
+        fields = {"value": amount, "unit": unit, "status": "imputed", "isAboutQuality": quality, "wasDerivedFrom": qty}
+        if current is not None:
+            same_source = (current.get("wasDerivedFrom") or {}).get("id") == qty
+            if same_source and (current.get("value"), current.get("unit")) == (amount, unit):
+                sync.ensure("Measurement", label, fields)
+                report.written.append(name)
+                continue
+            if same_source and not reset:
+                said = "the selection file" if item in own else f"pantry profile {selection['profile']!r}"
+                report.kept.append(f"{name}: {current.get('value'):g} {current.get('unit')} ({said} says {amount:g} {unit})")
+                continue
+        fields["hasTime"] = now.strftime(STRUCTR_TIME)
+        sync.ensure("Measurement", label, fields)
+        report.written.append(name)
+
+    prefix = f"{pantry} -- "
+    for row in list(sync.rows("PortionOfSubstance").values()):
+        if not row["name"].startswith(prefix) or row["id"] in keep:
+            continue
+        portion = client.get_all("PortionOfSubstance", row["id"])["result"]
+        qualities = [client.get_all("Quality", r["id"])["result"] for r in portion.get("bearerOf", [])
+                     if r.get("type") == "Quality"]
+        measurements = [m for q in qualities for m in q.get("measurements", [])]
+        if portion.get("allocationsAbout") or portion.get("processesWithParticipant") \
+                or any(m["name"] != f"{row['name']} mass assumed" for m in measurements):
+            report.refused.append(row["name"])
+            continue
+        for m in measurements:
+            sync.delete("Measurement", m)
+        for q in qualities:
+            sync.delete("Quality", q)
+        sync.delete("PortionOfSubstance", portion)
+        report.removed.append(row["name"])
+    for row in list(sync.rows("QuantitySpecification").values()):
+        # only the owner's own amounts: a profile's are `default`, and a pantry may share a profile's name
+        if row["name"].startswith(prefix) and row["name"].endswith(" amount") and row.get("status") == "specified" \
+                and row["name"][len(prefix):-len(" amount")] not in own:
+            node = client.get_all("QuantitySpecification", row["id"])["result"]
+            if not node.get("imputedMeasurements"):
+                sync.delete("QuantitySpecification", node)
     report.counts = sync.counts
     return report

@@ -278,7 +278,11 @@ STOCK_POLICY_ONCREATE = (
 
 # --- DEFERRED ------------------------------------------------------------
 #
-# 2b, 9 (wasRevisionOf part), 11 (Identifier): need wasRevisionOf /
+# 2b: Measurement -[WAS_DERIVED_FROM]-> QuantitySpecification exists (33a) and
+#   every imputed Measurement a pantry profile writes has it; not a validator,
+#   because the demos' imputed Measurements predate the relation, and the
+#   `derived` half (to prior Measurements and Allocations) is not built.
+# 9 (wasRevisionOf part), 11 (Identifier): need wasRevisionOf /
 #   Identifier's denotes+scheme relations, not built.
 # 16: "No Allocation target both input and output of the same Process."
 #   Genuinely awkward as a per-Allocation onCreate check: an
