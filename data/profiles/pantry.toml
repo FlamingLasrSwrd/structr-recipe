@@ -1,0 +1,113 @@
+# Pantry profiles: the staples typically on hand in five kinds of kitchen, instantiated into the owner's
+# own stock by tools/instantiate_profile.py (mealplanner/profiles.py, docs/profiles.md).
+#
+# A profile is a Type in the "Pantry Profile" hierarchy; each item is a DefaultSpecification of kind
+# "Pantry Stock" keyed by a Food Type (data/vocabulary.toml), its value an amount in any unit the food
+# converts to grams (a mass; a volume if the food has a density; `each` if it has a weight per item).
+# Each profile sits under the one before and inherits its stock, adding its own; a profile may also
+# restate an item to change the amount.
+#
+# Curated by Claude, so every amount is `estimated`. The rule for an amount: half of a common US retail
+# package, since what is on hand is anywhere between a full package and an empty one; a can or carton
+# is kept whole, unopened. The items were chosen from what 33 HelloFresh recipes ask the cook to supply
+# (salt, pepper, oil, butter, sugar, eggs, flour) and the staples they use most, then widened by kind of
+# cooking. Instantiated stock is an assumption (`imputed`), not a count: a weighing replaces it.
+# Tap water is left out: it is never bought or run out of.
+
+[[profile]]
+name = "Bare pantry"
+note = "someone who rarely cooks: seasoning and a cooking oil"
+stock = [
+  { item = "Table salt", amount = 13, unit = "oz" },              # 26 oz canister
+  { item = "Black pepper", amount = 1.5, unit = "oz" },           # 3 oz tin, ground
+  { item = "Canola oil", amount = 24, unit = "fl_oz" },           # 48 fl oz bottle
+  { item = "Olive oil", amount = 8.5, unit = "fl_oz" },           # 500 ml bottle
+]
+
+[[profile]]
+name = "Basic pantry"
+parent = "Bare pantry"
+note = "cooks from meal kits: what a kit leaves to the cook, and the everyday aromatics"
+stock = [
+  { item = "Butter (salted)", amount = 8, unit = "oz" },          # 1 lb, four sticks
+  { item = "Granulated sugar", amount = 2, unit = "lb" },         # 4 lb bag
+  { item = "AP Flour", amount = 2.5, unit = "lb" },               # 5 lb bag
+  { item = "Egg", amount = 6, unit = "each" },                    # a dozen, large
+  { item = "Garlic", amount = 5, unit = "each" },                 # a head, about 10 cloves
+  { item = "Yellow Onion", amount = 3, unit = "each" },           # 3 lb bag, about 6 medium
+  { item = "Honey", amount = 6, unit = "oz" },                    # 12 oz bottle
+  { item = "Soy sauce", amount = 7.5, unit = "fl_oz" },           # 15 fl oz bottle
+  { item = "Garlic powder", amount = 1.5, unit = "oz" },          # 3 oz jar
+  { item = "Paprika", amount = 1, unit = "oz" },                  # 2 oz jar
+  { item = "Ground cumin", amount = 0.75, unit = "oz" },          # 1.5 oz jar
+  { item = "Dried oregano", amount = 0.4, unit = "oz" },          # 0.75 oz jar
+  { item = "Red chili flakes", amount = 0.75, unit = "oz" },      # 1.5 oz jar
+  { item = "Jasmine rice (dry)", amount = 1, unit = "lb" },       # 2 lb bag
+]
+
+[[profile]]
+name = "Well-stocked pantry"
+parent = "Basic pantry"
+note = "cooks from scratch most days"
+stock = [
+  { item = "Brown sugar", amount = 1, unit = "lb" },              # 2 lb bag
+  { item = "Rolled oats", amount = 21, unit = "oz" },             # 42 oz canister
+  { item = "Panko", amount = 4, unit = "oz" },                    # 8 oz box
+  { item = "Egg noodles (dry)", amount = 6, unit = "oz" },        # 12 oz bag
+  { item = "Orzo (dry)", amount = 8, unit = "oz" },               # 1 lb box
+  { item = "Tomato paste", amount = 6, unit = "oz" },             # a can, unopened
+  { item = "Diced tomatoes (canned)", amount = 14.5, unit = "oz" },  # a can, unopened
+  { item = "Black beans (canned)", amount = 15, unit = "oz" },    # a can, unopened
+  { item = "Chickpeas (canned)", amount = 15, unit = "oz" },      # a can, unopened
+  { item = "Chicken broth", amount = 32, unit = "fl_oz" },        # a carton, unopened
+  { item = "Dijon mustard", amount = 6, unit = "oz" },            # 12 oz jar
+  { item = "Mayonnaise", amount = 15, unit = "fl_oz" },           # 30 fl oz jar
+  { item = "Ketchup", amount = 10, unit = "oz" },                 # 20 oz bottle
+  { item = "Hot sauce", amount = 6, unit = "fl_oz" },             # 12 fl oz bottle
+  { item = "Worcestershire sauce", amount = 5, unit = "fl_oz" },  # 10 fl oz bottle
+  { item = "White wine vinegar", amount = 6, unit = "fl_oz" },    # 12 fl oz bottle
+  { item = "Balsamic vinegar", amount = 8.5, unit = "fl_oz" },    # 500 ml bottle
+  { item = "Maple syrup", amount = 6, unit = "fl_oz" },           # 12 fl oz bottle
+  { item = "Whole milk", amount = 32, unit = "fl_oz" },           # half gallon
+  { item = "Parmesan (grated)", amount = 4, unit = "oz" },        # 8 oz tub
+  { item = "Lemon", amount = 2, unit = "each" },
+  { item = "Ground cinnamon", amount = 1.2, unit = "oz" },        # 2.4 oz jar
+  { item = "Dried thyme", amount = 0.4, unit = "oz" },            # 0.75 oz jar
+  { item = "Italian seasoning", amount = 0.4, unit = "oz" },      # 0.75 oz jar
+  { item = "Cayenne pepper", amount = 0.9, unit = "oz" },         # 1.75 oz jar
+]
+
+[[profile]]
+name = "East and Southeast Asian pantry"
+parent = "Basic pantry"
+note = "cooks Chinese, Thai, Vietnamese or Japanese dishes often"
+stock = [
+  { item = "Rice vinegar", amount = 6, unit = "fl_oz" },          # 12 fl oz bottle
+  { item = "Fish sauce", amount = 3.4, unit = "fl_oz" },          # 6.76 fl oz bottle
+  { item = "Sesame oil", amount = 2.5, unit = "fl_oz" },          # 5 fl oz bottle
+  { item = "Sriracha", amount = 8.5, unit = "oz" },               # 17 oz bottle
+  { item = "Sweet chili sauce", amount = 5, unit = "oz" },        # 10 oz bottle
+  { item = "Coconut milk (canned)", amount = 13.5, unit = "fl_oz" },  # a can, unopened
+  { item = "Rice noodles (dry)", amount = 7, unit = "oz" },       # 14 oz package
+  { item = "Five-spice powder", amount = 0.9, unit = "oz" },      # 1.75 oz jar
+  { item = "Ginger", amount = 2, unit = "oz" },                   # a piece of fresh root
+]
+
+[[profile]]
+name = "Baker's pantry"
+parent = "Basic pantry"
+note = "bakes bread, biscuits or sweets most weeks"
+stock = [
+  { item = "Butter (salted)", amount = 1, unit = "lb" },          # restated: a baker keeps more
+  { item = "Brown sugar", amount = 1, unit = "lb" },              # 2 lb bag
+  { item = "Powdered sugar", amount = 1, unit = "lb" },           # 2 lb bag
+  { item = "Baking powder", amount = 4, unit = "oz" },            # 8 oz can
+  { item = "Baking soda", amount = 8, unit = "oz" },              # 1 lb box
+  { item = "Active dry yeast", amount = 2, unit = "oz" },         # 4 oz jar
+  { item = "Cornstarch", amount = 8, unit = "oz" },               # 1 lb box
+  { item = "Vanilla extract", amount = 1, unit = "fl_oz" },       # 2 fl oz bottle
+  { item = "Semisweet chocolate chips", amount = 6, unit = "oz" },  # 12 oz bag
+  { item = "Ground cinnamon", amount = 1.2, unit = "oz" },        # 2.4 oz jar
+  { item = "Rolled oats", amount = 21, unit = "oz" },             # 42 oz canister
+  { item = "Whole milk", amount = 32, unit = "fl_oz" },           # half gallon
+]

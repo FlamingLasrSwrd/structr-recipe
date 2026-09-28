@@ -9,14 +9,19 @@ Worked out by hand for "Man moderately active" (energy 2,400-2,600 kcal, so 2,50
   Vitamin C   at least 90 mg (from "Man")
 Kitchen "Enthusiast" inherits "Minimal" (nonstick skillet 1, chef's knife 1, mixing bowl 2), adds a wok
 and restates the bowls as 3.
+Pantry "Basic" inherits "Bare" (salt 13 oz, oil 24 fl oz), adds 6 eggs and restates salt as 500 g. In grams:
+  oil  24 fl oz x 29.5735 mL x 0.92 g/mL (its density) = 652.983 g
+  eggs 6 x 50 g (its weight per item) = 300 g
 """
 
 import unittest
+from datetime import datetime, timezone
 
 from mealplanner.defaults import AmbiguousDefaultError, resolve_all
+from mealplanner.inventory import current_magnitude
 from mealplanner.profiles import (
-    ProfileError, dietary_targets, import_profiles, instantiate_kitchen, instantiate_nutrition, kitchen_items,
-    parse_profiles,
+    ProfileError, dietary_targets, import_profiles, instantiate_kitchen, instantiate_nutrition, instantiate_pantry,
+    kitchen_items, pantry_stock, parse_profiles,
 )
 from tests.fakegraph import Ref, WritableGraph
 
@@ -44,6 +49,12 @@ KITCHEN = {"profile": [
                                       {"item": "Mixing bowl", "count": 2}]},
     {"name": "Enthusiast", "parent": "Minimal", "equipment": [{"item": "Wok"}, {"item": "Mixing bowl", "count": 3}]},
 ]}
+PANTRY = {"profile": [
+    {"name": "Bare", "stock": [{"item": "Salt", "amount": 13, "unit": "oz"}, {"item": "Oil", "amount": 24, "unit": "fl_oz"}]},
+    {"name": "Basic", "parent": "Bare", "stock": [{"item": "Egg", "amount": 6, "unit": "each"},
+                                                  {"item": "Salt", "amount": 500, "unit": "g"}]},
+]}
+NOW = datetime(2026, 9, 27, 12, tzinfo=timezone.utc)
 NUTRIENTS = {"1008": ("Energy", "KCAL"), "1003": ("Protein", "G"), "1005": ("Carbohydrate", "G"),
              "1004": ("Total fat", "G"), "1093": ("Sodium - Na", "MG"), "1079": ("Fiber", "G"),
              "1162": ("Vitamin C", "MG")}
@@ -60,8 +71,26 @@ def instance():
               denotesType=Ref(name))
     for tool in ("Nonstick skillet", "Chef's knife", "Mixing bowl", "Wok"):
         g.add("DomainType", tool, tool, hierarchy=Ref("Equipment Type"), defaultSpecifications=[])
-    import_profiles(g, parse_profiles(DIETARY, "dietary"), parse_profiles(KITCHEN, "kitchen"))
+    add_foods(g)
+    import_profiles(g, parse_profiles(DIETARY, "dietary"), parse_profiles(KITCHEN, "kitchen"),
+                    parse_profiles(PANTRY, "pantry"))
     return g
+
+
+def add_foods(g):
+    """Four foods: salt (a mass is enough), oil with a density, eggs with a weight per item, and milk
+    with neither, so only a mass of milk converts to grams."""
+    g.add("TypeHierarchy", "Food Identity", "Food Identity")
+    for kind in ("Density", "MassPerUnit"):
+        g.add("DomainType", kind, kind, hierarchy=Ref("Default Kind"), defaultSpecifications=[])
+    g.add("DomainType", "Mass", "Mass", defaultSpecifications=[])
+    for food in ("Salt", "Oil", "Egg", "Milk"):
+        g.add("DomainType", food, food, hierarchy=Ref("Food Identity"), defaultSpecifications=[])
+    for food, kind, value, unit in (("Oil", "Density", 0.92, "g_per_mL"), ("Egg", "MassPerUnit", 50.0, "g_per_each")):
+        g.add("QuantitySpecification", f"{food} {kind} value", value=value, unit=unit, status="default")
+        g.add("DefaultSpecification", f"{food} {kind}", forType=Ref(food), hasKind=Ref(kind), keyedBy=[],
+              hasValue=Ref(f"{food} {kind} value"))
+        g.nodes[food]["defaultSpecifications"].append(Ref(f"{food} {kind}"))
 
 
 def by_name(targets):
@@ -238,6 +267,122 @@ class Kitchen(unittest.TestCase):
     def test_an_unknown_item_is_refused(self):
         with self.assertRaises(ProfileError):
             instantiate_kitchen(instance(), {**self.SELECTION, "add": ["Spork"]})
+
+
+class PantryDefinitions(unittest.TestCase):
+    def test_every_problem_is_reported(self):
+        bad = {"profile": [{"name": "P", "stock": [
+            {"item": "Salt", "amount": 0, "unit": "g"}, {"item": "Oil", "amount": 1, "unit": "glug"},
+            {"item": "Egg", "amount": True, "unit": "each"}, {"item": "Salt", "amount": 5, "unit": "g"}]}]}
+        with self.assertRaises(ProfileError) as caught:
+            parse_profiles(bad, "pantry")
+        self.assertEqual(len(caught.exception.problems), 4)
+
+    def test_a_child_inherits_and_restates(self):
+        stock = {name: (q["value"], q["unit"]) for name, q in pantry_stock(instance(), "Basic").values()}
+        self.assertEqual(stock, {"Salt": (500.0, "g"), "Oil": (24.0, "fl_oz"), "Egg": (6.0, "each")})
+        bare = {name for name, _ in pantry_stock(instance(), "Bare").values()}
+        self.assertEqual(bare, {"Salt", "Oil"})
+
+    def test_a_food_not_in_the_vocabulary_or_not_countable_in_grams_is_refused(self):
+        g = WritableGraph()
+        g.add("TypeHierarchy", "Default Kind", "Default Kind")
+        add_foods(g)
+        for stock, text in (([{"item": "Flour", "amount": 1, "unit": "lb"}], "not in the vocabulary"),
+                            ([{"item": "Milk", "amount": 1, "unit": "cup"}], "no density"),
+                            ([{"item": "Oil", "amount": 2, "unit": "each"}], "no weight per item")):
+            with self.assertRaises(ProfileError) as caught:
+                import_profiles(g, (), (), parse_profiles({"profile": [{"name": "P", "stock": stock}]}, "pantry"))
+            self.assertIn(text, caught.exception.problems[0])
+
+
+class Pantry(unittest.TestCase):
+    SELECTION = {"name": "Home pantry", "profile": "Basic", "add": [{"item": "Milk", "amount": 1, "unit": "lb"}],
+                 "remove": ["Egg"]}
+
+    def lot(self, g, food):
+        name = f"Home pantry -- {food}"
+        return g.nodes[f"PortionOfSubstance:{name}"], g.nodes[f"Measurement:{name} mass assumed"]
+
+    def test_the_owners_stock_is_an_assumption_derived_from_where_it_came_from(self):
+        g = instance()
+        instantiate_pantry(g, self.SELECTION, now=NOW)
+        lots = sorted(n["name"] for n in g.nodes.values() if n["type"] == "PortionOfSubstance")
+        self.assertEqual(lots, ["Home pantry -- Milk", "Home pantry -- Oil", "Home pantry -- Salt"])
+        portion, m = self.lot(g, "Oil")
+        self.assertEqual(portion["instanceOf"].id, "Oil")
+        self.assertEqual((m["value"], m["unit"], m["status"], m["hasTime"]), (24.0, "fl_oz", "imputed", "2026-09-27T12:00:00+0000"))
+        self.assertEqual(m["wasDerivedFrom"].id, "QuantitySpecification:Bare -- Oil amount")    # the profile's
+        milk = self.lot(g, "Milk")[1]["wasDerivedFrom"].id
+        self.assertEqual(milk, "QuantitySpecification:Home pantry -- Milk amount")              # the owner's own
+        self.assertEqual(g.nodes[milk]["status"], "specified")
+        self.assertEqual(self.lot(g, "Salt")[1]["wasDerivedFrom"].id, "QuantitySpecification:Basic -- Salt amount")
+
+    def test_the_inventory_engine_counts_it_in_grams_from_when_it_was_written(self):
+        g = instance()
+        instantiate_pantry(g, {**self.SELECTION, "remove": []}, now=NOW)
+        grams = {}
+        for food in ("Salt", "Oil", "Egg", "Milk"):
+            portion, _ = self.lot(g, food)
+            grams[food] = current_magnitude(g, portion["bearerOf"][0].id, NOW)
+        self.assertAlmostEqual(grams["Oil"], 652.983, places=2)
+        self.assertEqual((grams["Salt"], grams["Egg"]), (500.0, 300.0))
+        self.assertAlmostEqual(grams["Milk"], 453.592, places=3)
+        before = datetime(2026, 9, 26, tzinfo=timezone.utc)
+        self.assertIsNone(current_magnitude(g, self.lot(g, "Salt")[0]["bearerOf"][0].id, before))
+
+    def test_again_changes_nothing_and_an_edit_in_structr_is_kept_unless_reset(self):
+        g = instance()
+        instantiate_pantry(g, self.SELECTION, now=NOW)
+        later = datetime(2026, 10, 1, tzinfo=timezone.utc)
+        again = instantiate_pantry(g, self.SELECTION, now=later)
+        self.assertEqual((again.counts["created"], again.counts["changed"]), (0, 0))
+        self.assertEqual(self.lot(g, "Oil")[1]["hasTime"], "2026-09-27T12:00:00+0000")
+        self.lot(g, "Oil")[1]["value"] = 10.0                         # the owner corrects it in Structr
+        report = instantiate_pantry(g, self.SELECTION, now=later)
+        self.assertEqual(report.kept, ["Home pantry -- Oil: 10 fl_oz (pantry profile 'Basic' says 24 fl_oz)"])
+        self.assertEqual(self.lot(g, "Oil")[1]["value"], 10.0)
+        instantiate_pantry(g, self.SELECTION, reset=True, now=later)
+        self.assertEqual((self.lot(g, "Oil")[1]["value"], self.lot(g, "Oil")[1]["hasTime"]), (24.0, "2026-10-01T00:00:00+0000"))
+
+    def test_a_new_source_rewrites_it_and_a_dropped_override_is_cleaned_up(self):
+        g = instance()
+        instantiate_pantry(g, self.SELECTION, now=NOW)
+        later = datetime(2026, 10, 1, tzinfo=timezone.utc)
+        instantiate_pantry(g, {**self.SELECTION, "add": [{"item": "Oil", "amount": 1, "unit": "l"}]}, now=later)
+        oil = self.lot(g, "Oil")[1]
+        self.assertEqual((oil["value"], oil["unit"], oil["hasTime"]), (1.0, "l", "2026-10-01T00:00:00+0000"))
+        self.assertNotIn("PortionOfSubstance:Home pantry -- Milk", g.nodes)
+        self.assertNotIn("QuantitySpecification:Home pantry -- Milk amount", g.nodes)
+        instantiate_pantry(g, self.SELECTION, now=later)               # the oil override dropped: back to the profile
+        self.assertEqual(self.lot(g, "Oil")[1]["wasDerivedFrom"].id, "QuantitySpecification:Bare -- Oil amount")
+        self.assertNotIn("QuantitySpecification:Home pantry -- Oil amount", g.nodes)
+
+    def test_a_removal_keeps_what_has_history(self):
+        g = instance()
+        instantiate_pantry(g, {**self.SELECTION, "remove": []}, now=NOW)
+        g.add("Allocation", "a cook")
+        g.nodes["PortionOfSubstance:Home pantry -- Salt"]["allocationsAbout"] = [Ref("a cook")]
+        quality = self.lot(g, "Oil")[0]["bearerOf"][0].id
+        g.add("Measurement", "a weighing", status="observed", value=400.0, unit="g")
+        g.nodes[quality]["measurements"].append(Ref("a weighing"))
+        report = instantiate_pantry(g, {**self.SELECTION, "remove": ["Salt", "Oil", "Egg"]}, now=NOW)
+        self.assertEqual(sorted(report.refused), ["Home pantry -- Oil", "Home pantry -- Salt"])
+        self.assertEqual(report.removed, ["Home pantry -- Egg"])
+        self.assertNotIn("Quality:Home pantry -- Egg mass Quality", g.nodes)
+        self.assertNotIn("Measurement:Home pantry -- Egg mass assumed", g.nodes)
+
+    def test_a_pantry_named_like_a_profile_leaves_the_profile_alone(self):
+        g = instance()
+        instantiate_pantry(g, {"name": "Bare", "profile": "Basic"}, now=NOW)
+        self.assertIn("QuantitySpecification:Bare -- Oil amount", g.nodes)
+        self.assertEqual({n for n, _ in pantry_stock(g, "Bare").values()}, {"Salt", "Oil"})
+
+    def test_what_cannot_be_instantiated_is_refused(self):
+        for selection in ({"add": ["Flour"]}, {"add": ["Oil"]}, {"add": [{"item": "Milk", "amount": 1, "unit": "cup"}]},
+                          {"remove": ["Flour"]}, {"name": "Home, pantry"}):
+            with self.subTest(selection=selection), self.assertRaises(ProfileError):
+                instantiate_pantry(instance(), {"profile": "Basic", **selection}, now=NOW)
 
 
 if __name__ == "__main__":

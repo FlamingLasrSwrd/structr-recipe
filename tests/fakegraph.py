@@ -77,8 +77,10 @@ class WritableGraph(FakeGraph):
     side of the relationships the code reads back is kept up to date."""
 
     RELATIONS = {"hierarchy", "parent", "isAbout", "forNutrient", "identifierScheme", "denotesType", "inScheme",
-                 "forType", "hasKind", "hasValue", "keyedBy", "hasTargetRange", "instanceOf", "memberOfSet"}
-    REVERSES = {"forType": "defaultSpecifications", "memberOfSet": "hasMemberPart", "parent": "children"}
+                 "forType", "hasKind", "hasValue", "keyedBy", "hasTargetRange", "instanceOf", "memberOfSet",
+                 "inheresIn", "isAboutQuality", "wasDerivedFrom"}
+    REVERSES = {"forType": "defaultSpecifications", "memberOfSet": "hasMemberPart", "parent": "children",
+                "inheresIn": "bearerOf", "isAboutQuality": "measurements", "wasDerivedFrom": "imputedMeasurements"}
 
     def __init__(self):
         super().__init__()

@@ -1321,6 +1321,38 @@ name = "Za'atar"
 sources = [{ mean = [170938, 170150], status = "calculated", note = "equal parts dried thyme and sesame (assumed; sumac is not in FDC and salt is left out)" }]
 volume = { portions = [[170938, "tsp, ground"], [170150, "tbsp"]] }
 
+# -- pantry staples (2026-09-27): foods the pantry profiles name that no recipe has used yet ---------
+
+[[food]]
+name = "Baking powder"
+fdc = 172803                    # SR: Leavening agents, baking powder, double-acting, sodium aluminum sulfate
+volume = { grams = 4.6, per = "tsp", source = "SR 172803: 1 tsp = 4.6 g (and 0.5 tsp = 2.3 g, the same density)" }
+
+[[food]]
+name = "Baking soda"
+fdc = 175040                    # SR: Leavening agents, baking soda
+volume = { grams = 4.6, per = "tsp", source = "SR 175040: 1 tsp = 4.6 g (and 0.5 tsp = 2.3 g, the same density)" }
+
+[[food]]
+name = "Active dry yeast"
+fdc = 175043                    # SR: Leavening agents, yeast, baker's, active dry
+volume = "tsp"
+
+[[food]]
+name = "Cornstarch"
+fdc = 169698                    # SR: Cornstarch
+volume = "cup"
+
+[[food]]
+name = "Vanilla extract"
+fdc = 173471                    # SR: Vanilla extract
+volume = "tsp"
+
+[[food]]
+name = "Sesame oil"
+fdc = 171016                    # SR: Oil, sesame, salad or cooking
+volume = "tsp"
+
 # -- supplements (2026-09-27) ----------------------------------------------------------------------
 # A supplement states its figures per unit, as its label does (`label`); every nutrient it does not
 # state is loaded as none. These two are the owner's daily doses, not a product's label: replace

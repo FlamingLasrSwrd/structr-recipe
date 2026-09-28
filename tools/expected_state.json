@@ -608,6 +608,12 @@
   "targetJsonName": "isAboutQuality",
   "targetMultiplicity": "1"
  },
+ "@schema | relationship Measurement -[WAS_DERIVED_FROM]-> QuantitySpecification": {
+  "sourceJsonName": "imputedMeasurements",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "wasDerivedFrom",
+  "targetMultiplicity": "1"
+ },
  "@schema | relationship NutrientProfile -[ABOUT]-> DomainType": {
   "sourceJsonName": "nutrientProfilesAbout",
   "sourceMultiplicity": "*",
