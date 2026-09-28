@@ -12,6 +12,7 @@ private/week.toml:
     targets = "Daily "                  # the standing NutritionTargets: names starting with this
     leftovers = true
     leftover_days = 3                   # how long cooked food keeps, if the data gives no ShelfLife for it
+    portions = [0.75, 1, 1.25, 1.5]     # servings a meal may be; default: one serving each
     time_limit_s = 30
     [weights]                           # optional: written onto the MealPlan (optimizer-design Sec 4.5)
     time = 0.5
@@ -63,6 +64,9 @@ def read_week(path: str) -> dict:
             meal["time"] = time.fromisoformat(meal["at"])
         except (KeyError, ValueError):
             problems.append(f"meal {meal!r}: `at` must be a time like \"18:30\"")
+    portions = week.get("portions", [])
+    if not isinstance(portions, list) or not all(isinstance(x, (int, float)) and not isinstance(x, bool) and x > 0 for x in portions):
+        problems.append(f"portions must be a list of servings above 0, like [0.75, 1, 1.5], not {portions!r}")
     if not week.get("meals"):
         problems.append("meals: give at least one, like { type = \"Dinner\", at = \"18:30\" }")
     if problems:
@@ -157,6 +161,7 @@ def main(argv=None) -> int:
         return 1
     result = plan_week(client, meal_plan_id, slots, datetime.now(timezone.utc), commit=args.commit,
                        leftovers=week.get("leftovers", True), leftover_days=week.get("leftover_days"),
+                       portions=tuple(week.get("portions", [])),
                        time_limit_s=float(week.get("time_limit_s", 30)))
     print(result.text())
     if result.evaluation is not None:

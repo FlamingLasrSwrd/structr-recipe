@@ -26,7 +26,7 @@ solver adapter can be added later without touching anything above it.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Iterator
 
 from mealplanner.planning.evaluate import (
@@ -202,12 +202,31 @@ def auto(
     def keyed(result):
         return None if result is None or result.best is None else _key(result.best, relaxed)
 
+    seed = None
+    default = problem.servings_eaten
+    if len(problem.portion_levels()) > 1 and default in problem.portion_levels():
+        # Portions multiply every slot's choices, and on a real week no search found a
+        # first plan in the time left. So solve the week at the default portion first,
+        # and start from it: varying the portions can then only improve on it.
+        base = auto(replace(problem, portions=(), _cache={}), relaxed=relaxed, time_limit_s=time_limit_s * 0.4,
+                    node_limit=node_limit, beam_width=beam_width)
+        if base.best is not None:
+            picks = tuple(p if problem.slots[i].fixed is not None else replace(p, portion=default)
+                          for i, p in enumerate(base.best.picks))
+            ev = evaluate(problem, picks)
+            if ev.legal:
+                seed = SearchResult(ev, False, base.nodes, base.method + " at one portion")
+        time_limit_s *= 0.6
+
     first = exact(problem, relaxed=relaxed, node_limit=node_limit, time_limit_s=min(SHORT_EXACT_S, time_limit_s))
     if first.proven:
         return SearchResult(first.best, True, first.nodes, "exact")
     found, nodes, ceiling, label = first, first.nodes, None, ["exact"]
+    if seed is not None and _beats(keyed(seed), keyed(found)):
+        found, label = seed, ["one portion", "exact"]
     if cpsat.available():
-        solved = cpsat.solve(problem, relaxed=relaxed, time_limit_s=time_limit_s)
+        solved = cpsat.solve(problem, relaxed=relaxed, time_limit_s=time_limit_s,
+                             hint=seed.best.picks if seed is not None else None)
         if solved.proven:
             return solved
         nodes, ceiling = nodes + solved.nodes, solved.upper_bound

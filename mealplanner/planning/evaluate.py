@@ -66,7 +66,7 @@ def resolve(problem: PlanningProblem, partial) -> tuple[list, list]:
     for i, pick in enumerate(partial):
         if pick is None:
             continue
-        eaten = slot_eaten(problem, i)
+        eaten = slot_eaten(problem, i) if pick.portion is None or problem.slots[i].fixed is not None else pick.portion
         if pick.candidate is not None:
             resolved[i] = Resolved("cook", pick.candidate, None, eaten)
         else:
@@ -184,18 +184,20 @@ def options(problem: PlanningProblem, partial, i: int) -> list:
     """Every legal Pick for open slot i given the picks before it, in a fixed
     order (recipes by name, then leftovers by source) so results are deterministic."""
     key = ("cooks", i)
+    levels = problem.portions or (None,)          # no portion levels: every pick eats the default
     if key not in problem._cache:
         problem._cache[key] = tuple(
-            Pick(candidate=c.id)
+            Pick(candidate=c.id, portion=p)
             for c in sorted(problem.candidates.values(), key=lambda c: (c.name, c.id))
             if ineligible_reason(problem, i, c) is None
+            for p in levels
         )
     picks = list(problem._cache[key])
     if any(c.leftover_days is not None for c in problem.candidates.values()):
         resolved, _ = resolve(problem, partial[:i] + [None] * (len(partial) - i))
         for j in range(i):
             if leftover_reason(problem, resolved, j, i) is None:
-                picks.append(Pick(source=j))
+                picks.extend(Pick(source=j, portion=p) for p in levels)
     return picks
 
 
@@ -204,7 +206,7 @@ def slot_max_intake(problem: PlanningProblem, i: int, nutrient: str) -> float:
     so pruning on it is safe."""
     key = ("max_intake", i, nutrient)
     if key not in problem._cache:
-        eaten = slot_eaten(problem, i)
+        eaten = slot_eaten(problem, i) if problem.slots[i].fixed is not None else max(problem.portion_levels())
         best = 0.0
         for c in problem.candidates.values():
             amount = c.nutrients.get(nutrient)
@@ -458,6 +460,8 @@ def evaluate(problem: PlanningProblem, picks) -> Evaluation:
             if pick != fixed_picks[i]:
                 problems.append(f"{slot.key}: a fixed entry cannot be changed")
             continue
+        if pick.portion is not None and pick.portion not in problem.portion_levels():
+            problems.append(f"{slot.key}: a portion of {pick.portion:g} is not one of {list(problem.portion_levels())}")
         if pick.candidate is not None:
             candidate = problem.candidates.get(pick.candidate)
             if candidate is None:
@@ -493,7 +497,7 @@ def evaluate(problem: PlanningProblem, picks) -> Evaluation:
             "slot": slot.key, "kind": r.kind, "recipe": candidate.name,
             "source": problem.slots[r.source].key if r.source is not None else None,
             "time_fit": time_fit, "variety": bonuses.get(i, 1.0), "coverage": coverage, "urgency": urgency,
-            "cooked_servings": cooked[i] if r.kind == "cook" else 0.0,
+            "cooked_servings": cooked[i] if r.kind == "cook" else 0.0, "eaten": r.eaten,
         })
     for g in groups:
         if g.has_open:

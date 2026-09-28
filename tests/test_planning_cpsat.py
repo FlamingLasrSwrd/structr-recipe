@@ -74,6 +74,17 @@ class WorkedDay(unittest.TestCase):
 
 
 @unittest.skipUnless(cpsat.available(), "OR-tools is not installed")
+class PortionsInTheModel(unittest.TestCase):
+    def test_it_chooses_the_portion_the_oracle_does(self):
+        p = day_of_three([protein_target(100, 130, hard=False, weight=0.5)], candidates=(cand("omelette", 24, 20), cand("salad", 30, 40)),
+                         portions=(0.75, 1.0, 1.5))
+        got, want = cpsat.solve(p), oracle(p)
+        self.assertTrue(got.proven)
+        self.assertAlmostEqual(got.best.objective, want.best.objective, delta=TOL)
+        self.assertTrue(all(pick.portion in (0.75, 1.0, 1.5) for pick in got.best.picks))
+
+
+@unittest.skipUnless(cpsat.available(), "OR-tools is not installed")
 class UnknownFiguresAreNeutralInTheModelToo(unittest.TestCase):
     def test_a_planned_meal_with_no_figure(self):
         p = problem([slot("lunch", when(28, 12), fixed=Fixed(eaten=1.0, candidate="mystery")), slot("dinner", when(28, 18))],

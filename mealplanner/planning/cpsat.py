@@ -34,8 +34,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from mealplanner.planning.evaluate import (
-    baseline_in, basic_reason, evaluate, ineligible_reason, initial_partial, intake, meal_type_reason, resolve, slot_eaten,
-    slot_groups,
+    baseline_in, basic_reason, evaluate, ineligible_reason, initial_partial, intake, meal_type_reason, resolve, slot_groups,
 )
 from mealplanner.planning.model import Pick, PlanningProblem
 from mealplanner.planning.search import SearchResult
@@ -62,17 +61,25 @@ def _days(a, b) -> float:
 
 def solve(
     problem: PlanningProblem, *, relaxed: bool = False, time_limit_s: float = 20.0, workers: int = 1,
+    hint: tuple | None = None,
 ) -> SearchResult:
     """Solve with CP-SAT. workers=1 makes the result reproducible: with several the
-    solver may return a different, equally good plan from run to run."""
+    solver may return a different, equally good plan from run to run. `hint`: a
+    complete plan to start from (the search may leave it)."""
     if not available():
         raise RuntimeError("OR-tools is not installed (pip install -r requirements-solver.txt)")
     from ortools.sat.python import cp_model
 
     built = _build(problem, relaxed)
+    if hint is not None:
+        _hint(built, problem, hint)
     first = _run(built, problem, time_limit_s, workers, minimise_violation=relaxed)
     if relaxed and first["status"] in ("OPTIMAL", "FEASIBLE"):
         built["model"].add(built["violation"] <= first["value"])
+        # Start the second solve from the first one's plan: it already meets the bound, and
+        # with portions the tight bound left the search without a first solution in 60 s.
+        for var in list(built["x"].values()) + list(built["y"].values()) + list(built["q"].values()):
+            built["model"].add_hint(var, first["solver"].boolean_value(var))
         second = _run(built, problem, time_limit_s, workers, minimise_violation=False)
         second["proven"] = second.get("proven", False) and first.get("proven", False)
         first = second
@@ -134,6 +141,34 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
             m.add_exactly_one(by_slot[s])
         else:
             m.add_bool_or([])              # nothing may fill this slot: the problem is infeasible
+
+    # ---- portions: when they vary, each open slot eats one level (a one-hot q[s, k]),
+    # and "slot s eats recipe c at level k" is the product of the two, z[s, c, k]
+    levels = problem.portion_levels()
+    q: dict = {}
+    if len(levels) > 1:
+        for s in open_slots:
+            for k in range(len(levels)):
+                q[s, k] = m.new_bool_var(f"q_{s}_{k}")
+            m.add_exactly_one(q[s, k] for k in range(len(levels)))
+    portioned_var: dict = {}
+
+    def portioned(s: int, cid: str) -> list:
+        """(variable, servings eaten) pairs whose sum is what slot s eats of recipe cid."""
+        if (s, cid) not in uses_of:
+            return []
+        if not q:
+            return [(var, levels[0]) for var in uses_of[s, cid]]
+        if (s, cid) not in portioned_var:
+            u = use(s, cid)
+            pairs = []
+            for k, level in enumerate(levels):
+                z = m.new_bool_var(f"z_{s}_{cid}_{k}")
+                m.add_bool_and([u, q[s, k]]).only_enforce_if(z)
+                m.add_bool_or([u.negated(), q[s, k].negated(), z])
+                pairs.append((z, level))
+            portioned_var[s, cid] = pairs
+        return portioned_var[s, cid]
 
     use_var: dict = {}
 
@@ -203,17 +238,16 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
             for i in indices:
                 if i in open_set:
                     has_open = True
-                    e = slot_eaten(problem, i)
                     best = 0
                     for c in candidates:
                         amount = c.nutrients.get(target.nutrient)
                         if amount is None:
                             unknown_uses.extend(uses_of.get((i, c.id), []))
-                        coef = 0 if amount is None else round(amount * e * NS)
-                        if coef:
+                            continue
+                        for var, eaten in (portioned(i, c.id) if amount else []):
+                            coef = round(amount * eaten * NS)
                             best = max(best, coef)
-                            for var in uses_of.get((i, c.id), []):
-                                terms.append((var, coef))
+                            terms.append((var, coef))
                     most += best
                 else:
                     value = intake(problem, fixed_resolved[i], target.nutrient)
@@ -229,7 +263,14 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
                 if relaxed:
                     if hi is not None:
                         if unknown_fixed:
+                            # as group_violation: a total over the maximum is an overshoot, measured
+                            # below; one under it cannot be certified with an entry that has no
+                            # figure, which costs the full measure
+                            over = m.new_bool_var(f"over_known_{target.name}_{label}")
+                            m.add(total >= hi + 1).only_enforce_if(over)
+                            m.add(total <= hi).only_enforce_if(over.negated())
                             violation_constant += VS
+                            violation_terms.append((over, -VS))
                         slack = m.new_int_var(0, max(ceiling, 1), f"over_{target.name}_{label}")
                         m.add(slack >= total - hi)
                         scale = VS if hi > 0 else 1
@@ -280,7 +321,7 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
     model_objective = sum(var * coef for var, coef in objective)
     violation = sum(var * coef for var, coef in violation_terms) + violation_constant
     return {
-        "model": m, "x": x, "y": y, "objective": model_objective, "constant": constant,
+        "model": m, "x": x, "y": y, "q": q, "levels": levels, "objective": model_objective, "constant": constant,
         "violation": violation, "exact_stock": exact_stock, "open": open_slots,
     }
 
@@ -309,14 +350,34 @@ def _run(built: dict, problem: PlanningProblem, time_limit_s: float, workers: in
     return out
 
 
+def _hint(built: dict, problem: PlanningProblem, picks) -> None:
+    m, levels = built["model"], built["levels"]
+    resolved, _ = resolve(problem, list(picks))
+    for s in problem.open_slots():
+        pick, r = picks[s], resolved[s]
+        if r is None or r.candidate is None:
+            continue
+        var = built["x"].get((s, r.candidate)) if pick.candidate is not None else built["y"].get((s, pick.source, r.candidate))
+        if var is not None:
+            m.add_hint(var, 1)
+        if built["q"]:
+            portion = pick.portion if pick.portion is not None else problem.servings_eaten
+            for k, level in enumerate(levels):
+                m.add_hint(built["q"][s, k], int(abs(level - portion) < 1e-9))
+
+
 def _picks(built: dict, problem: PlanningProblem, solver) -> tuple:
     picks = initial_partial(problem)
+    portion = {}
+    for (s, k), var in built["q"].items():
+        if solver.boolean_value(var):
+            portion[s] = built["levels"][k]
     for (s, cid), var in built["x"].items():
         if solver.boolean_value(var):
-            picks[s] = Pick(candidate=cid)
+            picks[s] = Pick(candidate=cid, portion=portion.get(s))
     for (s, j, cid), var in built["y"].items():
         if solver.boolean_value(var):
-            picks[s] = Pick(source=j)
+            picks[s] = Pick(source=j, portion=portion.get(s))
     return tuple(picks)
 
 

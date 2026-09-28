@@ -9,6 +9,7 @@ never promise less than a completion delivers.
 
 import random
 import unittest
+from dataclasses import replace
 from unittest import mock
 
 from mealplanner.planning.evaluate import evaluate, initial_partial, prefix_bound
@@ -48,8 +49,9 @@ def random_problem(seed: int):
     lots = [Lot("p", rnd.choice([50.0, 150.0, 400.0]), when(rnd.randint(27, 33), 12)) for _ in range(rnd.randint(0, 2))]
     weights = Weights(*(round(rnd.random(), 2) for _ in range(4)), time_budget_minutes=30.0)
     baseline = {"protein": rnd.choice([None, 10.0, 40.0])} if rnd.random() < 0.4 else {}
+    portions = (1.0, 1.5) if rnd.random() < 0.25 else ()
     return problem(slots, candidates, targets, lots, weights=weights,
-                   max_difficulty=None, baseline=baseline)
+                   max_difficulty=None, baseline=baseline, portions=portions)
 
 
 class ExactAgreesWithTheOracle(unittest.TestCase):
@@ -120,6 +122,17 @@ class TheBoundsAreSound(unittest.TestCase):
         p = day_of_three([protein_target(70, 140, weight=0.2)])
         picks = (Pick(candidate="omelette"),) * 3
         self.assertAlmostEqual(prefix_bound(p, list(picks)).objective, evaluate(p, picks).objective)
+
+
+class PortionsStartFromOneServing(unittest.TestCase):
+    def test_varying_portions_never_does_worse_than_one_serving(self):
+        for seed in range(0, 80, 8):
+            p = random_problem(seed)
+            one, varied = replace(p, portions=(), _cache={}), replace(p, portions=(0.75, 1.0, 1.5), _cache={})
+            base, got = auto(one, time_limit_s=2.0), auto(varied, time_limit_s=2.0)
+            if base.best is not None and base.best.feasible:
+                self.assertIsNotNone(got.best, f"seed {seed}")
+                self.assertGreaterEqual(got.best.objective, base.best.objective - TOL, f"seed {seed}")
 
 
 class Facade(unittest.TestCase):

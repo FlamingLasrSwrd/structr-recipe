@@ -64,7 +64,7 @@ def _leftover_days(client, override: float | None) -> float | None:
 def build_problem(
     client, meal_plan_id: str, template, now: datetime, *,
     servings_eaten: float = 1.0, max_difficulty: str | None = None, leftover_days: float | None = None,
-    leftovers: bool = True,
+    leftovers: bool = True, portions: tuple = (),
 ) -> PlanningProblem:
     """Read the MealPlan, the recipes, the stock and the constraints into a
     PlanningProblem for the slots in `template` (an iterable of SlotSpec).
@@ -233,4 +233,5 @@ def build_problem(
     return PlanningProblem(
         slots=tuple(slots), candidates=candidates, targets=tuple(targets), lots=lots, weights=weights, now=now,
         max_difficulty=max_difficulty, servings_eaten=servings_eaten, notes=notes, baseline=baseline, units=dict(unit_of),
+        portions=tuple(portions),
     )

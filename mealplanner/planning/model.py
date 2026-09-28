@@ -114,10 +114,12 @@ class Slot:
 @dataclass(frozen=True)
 class Pick:
     """What fills a slot: a fresh cook of `candidate`, or the leftovers of the
-    cook at slot index `source`. Exactly one is set."""
+    cook at slot index `source`. Exactly one is set. `portion` is the servings
+    eaten, one of the problem's portion levels; None means the problem's default."""
 
     candidate: str | None = None
     source: int | None = None
+    portion: float | None = None
 
     def __post_init__(self):
         if (self.candidate is None) == (self.source is None):
@@ -139,11 +141,15 @@ class PlanningProblem:
     # day: nutrient id -> amount per day in the targets' unit, None if unknown.
     baseline: Mapping = field(default_factory=dict)
     units: Mapping = field(default_factory=dict)       # nutrient id -> the unit its figures and targets are in
+    # The servings an open slot may eat, when portions vary (the owner's decision 2026-09-27);
+    # empty means every open slot eats `servings_eaten`.
+    portions: tuple = ()
     _cache: dict = field(default_factory=dict, repr=False, compare=False)
 
     def __post_init__(self):
         self.slots = tuple(self.slots)
         self.targets = tuple(self.targets)
+        self.portions = tuple(sorted(float(x) for x in self.portions))
         self.lots = tuple(self.lots)
         for slot in self.slots:
             if slot.start.tzinfo is None:
@@ -173,3 +179,7 @@ class PlanningProblem:
 
     def open_slots(self) -> list[int]:
         return [i for i, s in enumerate(self.slots) if s.fixed is None]
+
+    def portion_levels(self) -> tuple:
+        """The servings an open slot may eat: the portion levels, or the one default."""
+        return self.portions or (self.servings_eaten,)

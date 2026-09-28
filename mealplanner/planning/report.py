@@ -6,6 +6,11 @@ from mealplanner.planning.evaluate import Evaluation
 from mealplanner.planning.model import PlanningProblem
 
 
+def _eats(detail: dict) -> str:
+    eaten = detail.get("eaten", 1.0)
+    return "" if abs(eaten - 1.0) < 1e-9 else f", eat {eaten:g}"
+
+
 def describe_plan(problem: PlanningProblem, evaluation: Evaluation) -> str:
     lines = []
     details = {d["slot"]: d for d in evaluation.slot_details}
@@ -18,10 +23,10 @@ def describe_plan(problem: PlanningProblem, evaluation: Evaluation) -> str:
         if d is None:
             lines.append(f"  {when}  {slot.key}: (unresolved)")
         elif d["kind"] == "leftover":
-            lines.append(f"  {when}  {slot.key}: leftover {d['recipe']} from {d['source']}")
+            lines.append(f"  {when}  {slot.key}: leftover {d['recipe']} from {d['source']}{_eats(d)}")
         else:
             servings = d["cooked_servings"]
-            lines.append(f"  {when}  {slot.key}: cook {d['recipe']} for {servings:g} serving{'s' if servings != 1 else ''}")
+            lines.append(f"  {when}  {slot.key}: cook {d['recipe']} for {servings:g} serving{'s' if servings != 1 else ''}{_eats(d)}")
     terms = ", ".join(f"{name} {value:+.3f}" for name, value in evaluation.terms.items() if abs(value) > 1e-12)
     lines.append(f"  score {evaluation.objective:.3f} ({terms or 'no weighted terms'})")
     return "\n".join(lines)
