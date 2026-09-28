@@ -52,6 +52,26 @@ class Targets(unittest.TestCase):
         self.assertEqual((t.name, t.scope, t.minimum, t.maximum, t.hard, t.weight, t.nutrient_name),
                          ("protein floor", "daily", 70, 140, True, 0.3, "Protein"))
 
+    def test_a_recipe_resting_wholly_on_estimates_is_named_in_one_short_note(self):
+        g = kitchen()
+        add_recipe(g, "stew", output_grams=500, protein_per_100g=10, provenance="estimated", yield_servings=2, minutes=60)
+        add_target(g, "protein floor", 70, 140, weight=0.3)
+        notes = build_problem(g, "week", DINNERS, NOW).notes
+        self.assertEqual([n for n in notes if "estimates" in n], ["recipe 'stew': all its figures rest on estimates (J21)"])
+
+    def test_a_recipe_resting_partly_on_estimates_names_those_figures(self):
+        g = kitchen()
+        add_recipe(g, "stew", output_grams=500, protein_per_100g=10, provenance="estimated", yield_servings=2, minutes=60)
+        add_type(g, "Fat")
+        g.add("NutrientProfile", "profile stew fat", forNutrient=Ref("Fat"), basis="per_100g", unit="g", amount=5.0,
+              provenance="sourced")
+        g.nodes["stew (dish)"]["nutrientProfilesAbout"].append(Ref("profile stew fat"))
+        add_target(g, "protein floor", 70, 140, weight=0.3)
+        add_target(g, "fat range", 40, 90, weight=0.3)
+        g.nodes["fat range"]["forNutrient"] = Ref("Fat")
+        notes = build_problem(g, "week", DINNERS, NOW).notes
+        self.assertEqual([n for n in notes if "estimates" in n], ["recipe 'stew': its Protein figure(s) rest on estimates (J21)"])
+
     def test_a_target_not_stated_in_a_nutrient_unit_is_noted_and_left_out(self):
         g = kitchen()
         add_target(g, "odd", 1, 2, unit="cup")
