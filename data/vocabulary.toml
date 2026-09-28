@@ -1321,6 +1321,46 @@ name = "Za'atar"
 sources = [{ mean = [170938, 170150], status = "calculated", note = "equal parts dried thyme and sesame (assumed; sumac is not in FDC and salt is left out)" }]
 volume = { portions = [[170938, "tsp, ground"], [170150, "tbsp"]] }
 
+# -- EveryPlate recipes (2026-09-28): seven of the most popular dinners ---------------------------------
+
+[[food]]
+name = "Brussels sprouts"
+fdc = 170383                    # SR: Brussels sprouts, raw
+
+[[food]]
+name = "Coleslaw mix"           # bagged shredded green cabbage, with a little carrot and red cabbage
+fdc = 169975                    # SR: Cabbage, raw
+proxy = true
+
+[[food]]
+name = "White bread"
+fdc = 174924                    # SR: Bread, white, commercially prepared
+each = { grams = 27, per = "each", source = "SR 174924 gives a slice as 25 g and as 29 g; the mean, 27 g" }
+
+[[food]]
+name = "Flour tortilla (10 inch)"
+fdc = 175037                    # SR: Tortillas, ready-to-bake or -fry, flour, refrigerated
+each = 'tortilla (approx 10" dia)'
+
+[[food]]
+name = "Honey Dijon dressing"   # EveryPlate's
+fdc = 171043                    # SR: Salad dressing, honey mustard, regular
+
+[[food]]
+name = "Buttermilk ranch dressing"   # EveryPlate's
+fdc = 173592                    # SR: Salad dressing, ranch dressing, regular
+volume = "tablespoon"
+
+[[food]]
+name = "Greek vinaigrette"      # EveryPlate's: oil, vinegar and herbs
+fdc = 171019                    # SR: Salad dressing, italian dressing, commercial, regular
+proxy = true
+volume = "tbsp"
+
+[[food]]
+name = "Frank's seasoning blend"   # EveryPlate's Frank's RedHot seasoning; no published label
+sources = [{ mean = [170932, 171325, 171329], status = "calculated", note = "equal parts cayenne, garlic powder and paprika (assumed; like the kits' other blends, salt left out, which may understate sodium)" }]
+
 # -- pantry staples (2026-09-27): foods the pantry profiles name that no recipe has used yet ---------
 
 [[food]]
