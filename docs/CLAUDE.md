@@ -17,6 +17,8 @@ A single-user meal-planning tool. It generates a weekly plan satisfying difficul
 | `optimizer-design.md` | 📝 **Proposal, built as a first version — unreviewed** | the design of the optimizer and, in its §12, what was actually built and which of its questions were answered by default. Not authoritative: the objective in particular is a proposal, not a fact about what makes a good week |
 | `recipe-format.md` | 📘 Guide | how a recipe is transcribed into a file and loaded |
 | `profiles.md` | 📘 Guide, as built; its last section is exploration | how dietary, kitchen and pantry profiles are defined, resolved and instantiated into the owner's data. Its table of other uses is a set of candidates, not a plan |
+| `prices.md` | 📘 Guide, as built | where the interim food prices come from, how they are layered, the owner's own prices, and what a recipe or a week costs |
+| `verification-and-sharing.md` | 📝 **Proposal, not built** | how checks by people (stock takes, purchases, confirmed or corrected figures) and several users with shared and private data would fit the model. It reverses "Person/Agent: out of scope" if accepted, so nothing in it is built until the owner decides |
 | `design-review-document.md` | 🗄️ **Historical — do not follow** | records round-1 review findings, all since fixed |
 | `design-review-document-round2.md` | 🗄️ **Historical — do not follow** | same, round 2. Its §11 "not yet acted on" items **have** since been acted on |
 
@@ -44,7 +46,7 @@ From the cheatsheet's empirically-verified findings. These are not stylistic.
 
 Each was considered and declined. Adding any of them is a regression, not an improvement.
 
-- **Person/Agent** — single-user by design. There are no agents in the model; equipment participates, it does not act.
+- **Person/Agent** — single-user by design. There are no agents in the model; equipment participates, it does not act. *Under review:* on 2026-09-28 the owner asked to move toward several users with shared and private data, and for checks recorded with who made them. `verification-and-sharing.md` proposes how; this line stands until the owner decides it.
 - **Per-serving customization** (`MealServing`) — deferred with its motivating scenario recorded.
 - **Freezing/thawing as modeled state transitions** — storage condition is a static tag.
 - **Non-linear recipe scaling** — scaling is uniform across ingredients, knowingly.
