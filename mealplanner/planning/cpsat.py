@@ -34,7 +34,8 @@ from __future__ import annotations
 from datetime import timedelta
 
 from mealplanner.planning.evaluate import (
-    basic_reason, evaluate, ineligible_reason, initial_partial, intake, meal_type_reason, resolve, slot_eaten, slot_groups,
+    baseline_in, basic_reason, evaluate, ineligible_reason, initial_partial, intake, meal_type_reason, resolve, slot_eaten,
+    slot_groups,
 )
 from mealplanner.planning.model import Pick, PlanningProblem
 from mealplanner.planning.search import SearchResult
@@ -196,7 +197,8 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
     violation_constant = 0
     for target in problem.targets:
         for label, indices in slot_groups(problem, target):
-            terms, known_fixed, unknown_fixed, has_open, most = [], 0.0, False, False, 0
+            known_fixed, unknown_fixed = baseline_in(problem, target, indices)
+            terms, has_open, most = [], False, 0
             unknown_uses = []                  # choices that would put an entry with no figure in the group
             for i in indices:
                 if i in open_set:

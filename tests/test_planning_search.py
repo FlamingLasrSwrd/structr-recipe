@@ -47,8 +47,9 @@ def random_problem(seed: int):
         ))
     lots = [Lot("p", rnd.choice([50.0, 150.0, 400.0]), when(rnd.randint(27, 33), 12)) for _ in range(rnd.randint(0, 2))]
     weights = Weights(*(round(rnd.random(), 2) for _ in range(4)), time_budget_minutes=30.0)
+    baseline = {"protein": rnd.choice([None, 10.0, 40.0])} if rnd.random() < 0.4 else {}
     return problem(slots, candidates, targets, lots, weights=weights,
-                   max_difficulty=None)
+                   max_difficulty=None, baseline=baseline)
 
 
 class ExactAgreesWithTheOracle(unittest.TestCase):

@@ -109,11 +109,23 @@ class Food:
     sources: tuple[Source, ...] = ()
     each: Measure | None = None
     volume: Measure | None = None
+    label: "Label | None" = None
 
     @property
     def fdc(self) -> int | None:
         """The first source's FDC food, when it is a single one: the food's FDC ID."""
         return self.sources[0].ids[0] if self.sources and len(self.sources[0].ids) == 1 else None
+
+
+@dataclass(frozen=True)
+class Label:
+    """A food counted in units whose figures are stated per unit, as a supplement's
+    label states them: FDC nutrient id -> amount per unit, in FDC's unit for it.
+    Every other nutrient is none: a unit of it is loaded as 0, so a day that
+    counts it is not left unknown for want of a figure its label never gives."""
+    figures: tuple[tuple[str, float], ...]
+    status: str
+    source: str
 
 
 @dataclass(frozen=True)
@@ -258,6 +270,34 @@ def _moisture_factor(source: Source, record: dict, own_water: float | None, food
     return (100.0 - own_water) / (100.0 - record[WATER])
 
 
+def _label(raw, where: str, fdc: dict | None, problems: list[str]) -> Label | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        problems.append(f"{where}: label must be a table")
+        return None
+    for key in sorted(set(raw) - {"per", "figures", "status", "source"}):
+        problems.append(f"{where} label: unknown key {key!r}")
+    if raw.get("per") != "each":
+        problems.append(f"{where} label: per must be \"each\" (figures per unit)")
+    if not raw.get("source"):
+        problems.append(f"{where} label: every figure names its source")
+    status = raw.get("status", "sourced")
+    if status not in ("sourced", "estimated", "calculated"):
+        problems.append(f"{where} label: status {status!r} is not sourced, estimated or calculated")
+    figures = []
+    for nid, amount in (raw.get("figures") or {}).items():
+        if not isinstance(amount, (int, float)) or isinstance(amount, bool) or amount < 0:
+            problems.append(f"{where} label: FDC nutrient {nid} must be a number from 0, not {amount!r}")
+        elif fdc is not None and str(nid) not in fdc["nutrients"]:
+            problems.append(f"{where} label: FDC nutrient {nid} is not in the pinned subsets")
+        else:
+            figures.append((str(nid), float(amount)))
+    if not figures:
+        problems.append(f"{where} label: give at least one figure")
+    return Label(tuple(figures), status, raw.get("source") or "")
+
+
 def core_gaps(fdc: dict, food: Food) -> list[str]:
     have = composition(fdc, food) if food.sources else {}
     return [label for nid, label in CORE_NUTRIENTS.items() if nid not in have]
@@ -358,7 +398,7 @@ def parse_vocabulary(data: dict, fdc: dict | None) -> Vocabulary:
     methods, equipment = named("method"), named("equipment")
 
     foods = []
-    allowed = {"name", "parent", "fdc", "proxy", "sources", "each", "volume", "note"}
+    allowed = {"name", "parent", "fdc", "proxy", "sources", "each", "volume", "note", "label"}
     for i, raw in enumerate(data.get("food", []), 1):
         where = f"food {i}"
         for key in sorted(set(raw) - allowed):
@@ -378,7 +418,10 @@ def parse_vocabulary(data: dict, fdc: dict | None) -> Vocabulary:
         first = sources[0] if sources else None
         each = _measure(raw.get("each"), first, f"{where} each", False, problems)
         volume = _measure(raw.get("volume"), first, f"{where} volume", True, problems)
-        food = Food(raw["name"], raw.get("parent", ROOT_FOOD), tuple(sources), each, volume)
+        label = _label(raw.get("label"), where, fdc, problems)
+        if label and (sources or each or volume):
+            problems.append(f"{where}: a label food states its own figures per unit; it takes no fdc, sources, each or volume")
+        food = Food(raw["name"], raw.get("parent", ROOT_FOOD), tuple(sources), each, volume, label)
         if fdc is not None:
             for fid in sorted(Vocabulary((), (food,), (), (), ()).ids()):
                 if str(fid) not in fdc["foods"]:
@@ -576,6 +619,18 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> dict[str, int]:
             sync.ensure("NutrientProfile", profile, {
                 "isAbout": fid, "forNutrient": nutrient_ids[nid], "amount": round(amount, 6), "basis": "per_100g",
                 "unit": FDC_UNITS[fdc["nutrients"][nid]["unit"].upper()], "provenance": status, "source": source})
+        if food.label:
+            stated = dict(food.label.figures)
+            for nid, n in fdc["nutrients"].items():
+                if nid in SKIPPED_NUTRIENTS:
+                    continue
+                nutrient = nutrient_name(n["name"])
+                profile = f"{food.name} -- {nutrient} per unit"
+                wanted_profiles.add(profile)
+                source = food.label.source if nid in stated else "not on the label: taken as none"
+                sync.ensure("NutrientProfile", profile, {
+                    "isAbout": fid, "forNutrient": nutrient_ids[nid], "amount": stated.get(nid, 0.0), "basis": "per_unit",
+                    "unit": FDC_UNITS[n["unit"].upper()], "provenance": food.label.status, "source": source})
         for kind, measure, unit, label in (("Density", food.volume, "g_per_mL", "density"),
                                            ("MassPerUnit", food.each, "g_per_each", "mass per each")):
             if measure is None:
@@ -585,7 +640,7 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> dict[str, int]:
             sync.ensure("DefaultSpecification", f"{food.name} {label}", {
                 "forType": fid, "hasKind": kinds[kind], "hasValue": qty, "provenance": measure.status,
                 "source": measure_source(fdc, measure)})
-    mapped = {f.name for f in vocabulary.foods if f.sources}
+    mapped = {f.name for f in vocabulary.foods if f.sources or f.label}
     for profile in list(sync.rows("NutrientProfile").values()):
         if (profile.get("isAbout") or {}).get("name") in mapped and profile["name"] not in wanted_profiles:
             sync.delete("NutrientProfile", profile)

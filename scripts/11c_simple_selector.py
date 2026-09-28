@@ -95,7 +95,7 @@ from mealplanner.scoring import (
 from mealplanner.inventory import eligible_on_hand_with_urgency
 from mealplanner.material_accounting import candidate_input_requirements
 from mealplanner.nutrition_scope import (
-    DEFAULT_SERVINGS_EATEN, scope_total, serving_nutrient_amount, target_scope_problem,
+    DEFAULT_SERVINGS_EATEN, calendar_day, day_zone, scope_total, serving_nutrient_amount, target_scope_problem,
 )
 from mealplanner.reservation import (
     Reserved, available_for_planning, policy_eligibility_kwargs, resolve_stock_policy,
@@ -233,9 +233,10 @@ def nutrition_terms(
                 notes.append(f"{nutrient['name']}: daily target not scored (no slot_start given)")
             continue
         if scope in ("daily", "weekly"):
-            key = (nutrient["id"], unit, scope, slot_start.astimezone(timezone.utc).date() if scope == "daily" else None)
+            zone = day_zone(target.get("dayBoundaryRule")) or timezone.utc
+            key = (nutrient["id"], unit, scope, calendar_day(slot_start, zone) if scope == "daily" else None)
             if key not in planned_cache:
-                planned_cache[key] = scope_total(client, meal_plan, nutrient["id"], scope, slot_start, unit)
+                planned_cache[key] = scope_total(client, meal_plan, nutrient["id"], scope, slot_start, unit, zone)
             planned = planned_cache[key]
             planned_total = planned.total
             if planned.unknown:
