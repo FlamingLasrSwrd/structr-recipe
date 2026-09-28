@@ -39,6 +39,7 @@ import tomllib
 from dataclasses import dataclass, field
 
 from mealplanner.identifier_schema import WEB_PAGE
+from mealplanner.nutrition_scope import COUNT_UNITS
 from mealplanner.unit_conversion import UNIT_TABLE, convert_to_grams
 from structr_client.client import UNSAFE_EXACT_MATCH_CHARS
 
@@ -47,7 +48,7 @@ FOOD_HIERARCHY = "Food Identity"
 METHOD_HIERARCHY = "Transformation Method"
 EQUIPMENT_HIERARCHY = "Equipment Type"
 MEAL_TYPE_SCHEME = "Meal Type"
-TOP_KEYS = {"name", "version", "source", "servings", "minutes", "difficulty", "meal_types", "dish", "steps"}
+TOP_KEYS = {"name", "version", "source", "servings", "minutes", "difficulty", "meal_types", "dish", "steps", "baseline"}
 STEP_KEYS = {"name", "method", "makes", "inputs", "equipment"}
 INPUT_KEYS = {"food", "amount", "unit", "optional"}
 
@@ -153,8 +154,18 @@ def parse_recipe(data: dict) -> RecipeDoc:
     difficulty = data.get("difficulty")
     if difficulty is not None and difficulty not in DIFFICULTIES:
         problems.append(f"difficulty must be one of {', '.join(DIFFICULTIES)}, not {difficulty!r}")
-    meal_types = data.get("meal_types")
-    if not isinstance(meal_types, list) or not meal_types or not all(isinstance(m, str) for m in meal_types):
+    baseline = data.get("baseline", False)
+    if not isinstance(baseline, bool):
+        problems.append(f"baseline must be true or false, not {baseline!r}")
+        baseline = False
+    meal_types = data.get("meal_types", [] if baseline else None)
+    if baseline:
+        if meal_types:
+            problems.append("a baseline is eaten every day, outside the planned meals: it takes no meal_types")
+        if servings != 1:
+            problems.append("a baseline's servings must be 1: one serving is one day of it")
+        meal_types = []
+    elif not isinstance(meal_types, list) or not meal_types or not all(isinstance(m, str) for m in meal_types):
         problems.append("meal_types must be a list of at least one meal type (a recipe with none can never be planned)")
         meal_types = []
     dish = data.get("dish", name)
@@ -456,10 +467,19 @@ def import_recipe(client, doc: RecipeDoc, *, check_only: bool = False) -> Import
             report.without_profiles.append(food)
     for step in doc.steps:
         for ing in step.inputs:
-            if ing.food in names.foods and ing.amount is not None and \
-                    convert_to_grams(client, names.foods[ing.food], ing.amount, ing.unit) is None:
+            if ing.food not in names.foods or ing.amount is None:
+                continue
+            if ing.unit in COUNT_UNITS and _counted_per_unit(client, names.foods[ing.food]):
+                continue                     # a supplement: its figures are per unit, no weight needed
+            if convert_to_grams(client, names.foods[ing.food], ing.amount, ing.unit) is None:
                 report.unconvertible.append(f"{ing.amount:g} {ing.unit} {ing.food}")
     return report
+
+
+def _counted_per_unit(client, type_id: str) -> bool:
+    node = client.get_all("DomainType", type_id)["result"]
+    return any(client.get_all("NutrientProfile", ref["id"])["result"].get("basis") == "per_unit"
+               for ref in node.get("nutrientProfilesAbout", []))
 
 
 def _write(client, type_name: str, name: str, fields: dict) -> str:

@@ -23,6 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import timedelta, timezone
 
+from mealplanner.nutrition_scope import calendar_day, day_zone
 from mealplanner.planning.model import DIFFICULTY_ORDER, Pick, PlanningProblem, Target
 from mealplanner.scoring import NEUTRAL, nutrition_fit_score, time_fit_score, variety_bonus, waste_urgency
 
@@ -225,7 +226,7 @@ def slot_groups(problem: PlanningProblem, target: Target) -> list[tuple[str, lis
         return [("week", list(range(n)))] if n else []
     days: dict[str, list[int]] = {}
     for i, slot in enumerate(problem.slots):
-        days.setdefault(slot.start.astimezone(timezone.utc).date().isoformat(), []).append(i)
+        days.setdefault(calendar_day(slot.start, day_zone(target.day_boundary) or timezone.utc).isoformat(), []).append(i)
     return sorted(days.items())
 
 
@@ -248,11 +249,26 @@ class GroupState:
     has_open: bool = False  # the group contains at least one slot the planner decides
 
 
+def baseline_in(problem: PlanningProblem, target: Target, indices) -> tuple[float, bool]:
+    """(amount, unknown) the MealPlan's baseline adds to one of a target's scopes:
+    a day's worth to a daily scope, one per calendar day of its slots to a weekly
+    one, nothing to a single meal."""
+    if target.scope == "per_meal" or target.nutrient not in problem.baseline:
+        return 0.0, False
+    per_day = problem.baseline[target.nutrient]
+    if per_day is None:
+        return 0.0, True
+    zone = day_zone(target.day_boundary) or timezone.utc
+    days = 1 if target.scope == "daily" else len({calendar_day(problem.slots[i].start, zone) for i in indices})
+    return per_day * days, False
+
+
 def group_states(problem: PlanningProblem, resolved) -> list[GroupState]:
     states = []
     for target in problem.targets:
         for label, indices in slot_groups(problem, target):
-            total, unknown, unassigned, gain, has_open = 0.0, False, 0, 0.0, False
+            total, unknown = baseline_in(problem, target, indices)
+            unassigned, gain, has_open = 0, 0.0, False
             for i in indices:
                 open_slot = problem.slots[i].fixed is None
                 has_open = has_open or open_slot

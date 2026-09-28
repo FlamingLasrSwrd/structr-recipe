@@ -99,6 +99,33 @@ class Units(unittest.TestCase):
             convert_nutrient(1.0, None, "g")
 
 
+class PerUnitLabels(unittest.TestCase):
+    """A supplement's figures are per unit: 2 pills of 90 mg vitamin C add 180 mg to the stew,
+    (200 x 5.9/100 + 2 x 90) / 4 = (11.8 + 180) / 4 = 47.95 mg a serving."""
+
+    def with_pills(self, quantity, unit):
+        g = kitchen()
+        add_type(g, "Pill", "Food")
+        g.add("NutrientProfile", "pill vitamin C", forNutrient=Ref("Vitamin C"), basis="per_unit", amount=90.0, unit="mg",
+              provenance="estimated")
+        g.nodes["Pill"]["nutrientProfilesAbout"].append(Ref("pill vitamin C"))
+        g.add("QuantitySpecification", "q pills", value=quantity, unit=unit)
+        g.add("Specification", "in pills", hasParticipationRole="input", specifies=Ref("Pill"), isOptional=False,
+              hasSpecifiedQuantity=Ref("q pills"))
+        g.nodes["braise"]["hasSpecification"].append(Ref("in pills"))
+        return g
+
+    def test_a_count_of_units_times_the_figure_per_unit(self):
+        g = self.with_pills(2, "each")
+        self.assertAlmostEqual(serving_nutrient_figure(g, stew(g), "Vitamin C", "mg").amount, 47.95)
+
+    def test_a_per_unit_food_given_by_weight_is_unknown(self):
+        g = self.with_pills(5, "g")
+        figure = serving_nutrient_figure(g, stew(g), "Vitamin C", "mg")
+        self.assertIsNone(figure.amount)
+        self.assertIn("needs a count", figure.reason)
+
+
 class FromIngredients(unittest.TestCase):
     def test_protein_is_the_ingredients_sum_per_serving(self):
         figure = serving_nutrient_figure(kitchen(), stew(kitchen()), "Protein")
@@ -296,6 +323,42 @@ class Report(unittest.TestCase):
         (row,) = nutrition_report(g, "week")
         self.assertEqual((row["unit"], row["status"]), ("kcal", "below_min"))
         self.assertAlmostEqual(row["total"], 666.0)          # two servings of 333 kcal
+
+    def test_a_local_day_and_the_baseline(self):
+        """Entries at 20:00 and 01:00 UTC are 14:00 and 19:00 in Denver: one local day, two UTC ones.
+        A baseline of one stew a day adds 333 kcal to each day judged."""
+        from datetime import datetime, timezone
+        from mealplanner.nutrition_scope import day_zone, scope_total
+        g = kitchen()
+        g.add("QuantitySpecification", "range", minValue=1800.0, maxValue=2500.0, unit="kcal")
+        g.add("NutritionTarget", "energy", "energy", forNutrient=Ref("Energy"), hasTargetRange=Ref("range"),
+              hasTimeScope="daily", dayBoundaryRule="midnight America/Denver", strictness="soft")
+        g.add("MealPlan", "week", "week", hasEntry=[], hasConstraint=[Ref("energy")], hasBaseline=[Ref("stew")])
+        for i, (day, hour) in enumerate(((28, 20), (29, 1))):
+            g.add("TemporalRegion", f"r{i}", hasBeginning=at(day, hour))
+            g.add("MealPlanEntry", f"e{i}", f"e{i}", isAbout=Ref(f"r{i}"), isSkipped=False, references=Ref("stew"),
+                  memberOf=Ref("week"))
+            g.nodes["week"]["hasEntry"].append(Ref(f"e{i}"))
+        (row,) = nutrition_report(g, "week")
+        self.assertAlmostEqual(row["total"], 999.0)            # both meals and one day of the baseline
+        when = datetime(2026, 9, 29, 1, 0, tzinfo=timezone.utc)
+        local = scope_total(g, g.get_all("MealPlan", "week")["result"], "Energy", "daily", when, "kcal", day_zone("midnight America/Denver"))
+        utc = scope_total(g, g.get_all("MealPlan", "week")["result"], "Energy", "daily", when, "kcal")
+        self.assertEqual((round(local.total, 6), round(local.baseline, 6), round(utc.total, 6)), (999.0, 333.0, 666.0))
+
+class DayBoundaries(unittest.TestCase):
+    """A day ends at midnight in the target's zone: an 18:30 dinner in Denver is 00:30 UTC the next day."""
+
+    def test_the_rules(self):
+        from datetime import datetime, timezone
+        from mealplanner.nutrition_scope import calendar_day, day_zone, target_scope_problem
+        dinner = datetime(2026, 10, 6, 0, 30, tzinfo=timezone.utc)                  # Mon 5 Oct, 18:30 in Denver
+        self.assertEqual(calendar_day(dinner, day_zone("midnight")).isoformat(), "2026-10-06")
+        self.assertEqual(calendar_day(dinner, day_zone("midnight America/Denver")).isoformat(), "2026-10-05")
+        self.assertIsNone(day_zone("midnight Mars/Olympus"))
+        daily = {"hasTimeScope": "daily"}
+        self.assertIsNone(target_scope_problem({**daily, "dayBoundaryRule": "midnight America/Denver"}, "g"))
+        self.assertIn("unsupported dayBoundaryRule", target_scope_problem({**daily, "dayBoundaryRule": "noon"}, "g"))
 
 
 if __name__ == "__main__":

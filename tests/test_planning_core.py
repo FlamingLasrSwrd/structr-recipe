@@ -158,6 +158,47 @@ class ASoftTargetOverAnUnknownTotalIsNeutral(unittest.TestCase):
         self.assertAlmostEqual(prefix_bound(with_target, partial).objective - prefix_bound(without, partial).objective, 0.3)
 
 
+class DaysEndAtTheTargetsMidnight(unittest.TestCase):
+    def test_a_denver_evening_is_the_same_day(self):
+        from datetime import datetime, timezone
+        from mealplanner.planning.evaluate import slot_groups
+        from mealplanner.planning.model import Target
+        breakfast = slot("mon breakfast", datetime(2026, 10, 5, 14, 0, tzinfo=timezone.utc))   # 08:00 in Denver
+        dinner = slot("mon dinner", datetime(2026, 10, 6, 0, 30, tzinfo=timezone.utc))        # 18:30 in Denver
+        p = problem([breakfast, dinner], (cand("omelette", 24, 20),), [])
+        utc = Target("t", "protein", "daily", 50, None)
+        local = Target("t", "protein", "daily", 50, None, day_boundary="midnight America/Denver")
+        self.assertEqual([idx for _, idx in slot_groups(p, utc)], [[0], [1]])
+        self.assertEqual([idx for _, idx in slot_groups(p, local)], [[0, 1]])
+
+
+class TheBaselineCountsEveryDay(unittest.TestCase):
+    """Supplements or the morning coffee: an amount added to every day's total, outside the slots."""
+
+    def test_a_daily_baseline_lowers_what_the_meals_must_bring(self):
+        target = protein_target(100, None)                       # hard: 100 g a day
+        without, with_baseline = day_of_three([target]), day_of_three([target], baseline={"protein": 40.0})
+        picks = (Pick(candidate="omelette"),) * 3                 # 3 x 24 = 72 g
+        self.assertFalse(evaluate(without, picks).feasible)
+        self.assertTrue(evaluate(with_baseline, picks).feasible)  # 72 + 40 = 112 g
+
+    def test_a_week_counts_it_once_a_day_and_a_meal_not_at_all(self):
+        slots = [slot("mon", when(28, 18)), slot("tue", when(29, 18))]
+        meals = (cand("omelette", 24, 20),)
+        weekly = problem(slots, meals, [protein_target(None, 100, hard=False, scope="weekly", weight=1.0)], baseline={"protein": 30.0})
+        per_meal = problem(slots, meals, [protein_target(None, 20, hard=False, scope="per_meal", weight=1.0)], baseline={"protein": 30.0})
+        picks = (Pick(candidate="omelette"),) * 2
+        self.assertAlmostEqual(evaluate(weekly, picks).terms["nutrition"], 1 - (24 * 2 + 60 - 100) / 100)   # 108 g against 100
+        self.assertAlmostEqual(evaluate(per_meal, picks).terms["nutrition"], 2 * (1 - 4 / 20))             # 24 each against 20
+
+    def test_an_unknown_baseline_leaves_the_day_unknown(self):
+        soft = day_of_three([protein_target(70, None, hard=False, weight=0.4)], baseline={"protein": None})
+        self.assertAlmostEqual(evaluate(soft, (Pick(candidate="omelette"),) * 3).terms["nutrition"], 0.2)   # neutral
+        hard = day_of_three([protein_target(None, 140)], baseline={"protein": None})
+        ev = evaluate(hard, (Pick(candidate="omelette"),) * 3)
+        self.assertEqual([v.kind for v in ev.violations], ["unverifiable"])
+
+
 class FixedEntries(unittest.TestCase):
     def test_a_fixed_entry_counts_towards_the_group_and_cannot_change(self):
         p = problem([slot("lunch", when(28, 12), fixed=Fixed(eaten=1.0, candidate="chicken salad")), slot("dinner", when(28, 18))],

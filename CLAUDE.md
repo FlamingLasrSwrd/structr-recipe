@@ -41,7 +41,7 @@ review, so what the README and REVIEW.md claim has to be true.
   files live in `private/`, which git ignores: the repository is public, the owner's data is
   not. Never run a demo from `scripts/` against it (`connect()` refuses a marked instance), and
   never `down -v` it: nothing can rebuild it. The exception is a schema-only migration (such as
-  `30a`, `31a`), which declares `owner_data_ok=True` and must be run on the owner's instance as well,
+  `30a`, `31a`, `32a`), which declares `owner_data_ok=True` and must be run on the owner's instance as well,
   then Structr restarted (hard rule 8).
 - **The development laptop has 8 GB and has frozen three times.** Run one stack at a time (stop
   one before starting another), stop a stack once its work is done, and check `free -m` before
@@ -78,6 +78,8 @@ STRUCTR_URL=http://localhost:8085 python3 tools/import_vocabulary.py   # data/vo
 STRUCTR_URL=http://localhost:8085 python3 tools/import_recipe.py private/recipes/*.toml
 STRUCTR_URL=http://localhost:8085 python3 tools/import_profiles.py     # data/profiles/*.toml; --check validates only
 STRUCTR_URL=http://localhost:8085 python3 tools/instantiate_profile.py kitchen --list   # then nutrition|kitchen private/<file>.toml (docs/profiles.md)
+STRUCTR_URL=http://localhost:8085 python3 tools/import_recipe.py private/baseline.toml    # the daily baseline (supplements)
+STRUCTR_URL=http://localhost:8085 python3 tools/plan_week.py private/week.toml            # propose a week and report nutrients; --commit writes it
 python3 tools/fdc_extract.py .cache/fdc/FoodData_Central_sr_legacy_food_csv_2018-04.zip   # after adding a food
 ```
 

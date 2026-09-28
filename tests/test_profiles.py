@@ -193,6 +193,16 @@ class Nutrition(unittest.TestCase):
         self.assertNotIn("QuantitySpecification:Daily Energy target range", g.nodes)
         self.assertIn("NutritionTarget:Daily Vitamin C target", g.nodes)
 
+    def test_a_day_ends_at_the_owners_midnight(self):
+        g = instance()
+        instantiate_nutrition(g, {**self.SELECTION, "timezone": "America/Denver"})
+        self.assertEqual(self.target(g, "Protein")[0]["dayBoundaryRule"], "midnight America/Denver")
+        g2 = instance()
+        instantiate_nutrition(g2, self.SELECTION)
+        self.assertEqual(self.target(g2, "Protein")[0]["dayBoundaryRule"], "midnight")
+        with self.assertRaises(ProfileError):
+            instantiate_nutrition(instance(), {**self.SELECTION, "timezone": "Mountain Time"})
+
     def test_a_name_the_profile_lacks_is_refused(self):
         with self.assertRaises(ProfileError):
             instantiate_nutrition(instance(), {**self.SELECTION, "hard": ["Protien"]})

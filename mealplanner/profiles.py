@@ -26,7 +26,7 @@ import tomllib
 from dataclasses import dataclass, field
 
 from mealplanner.defaults import resolve_all
-from mealplanner.nutrition_scope import convert_nutrient, nutrient_unit
+from mealplanner.nutrition_scope import convert_nutrient, day_zone, nutrient_unit
 from mealplanner.vocabulary_import import Sync
 from structr_client.client import UNSAFE_EXACT_MATCH_CHARS
 
@@ -365,6 +365,7 @@ def instantiate_nutrition(client, selection: dict, *, reset: bool = False) -> Re
     """The owner's standing daily NutritionTargets from their selection file:
 
         profile = "Adult male 31-50 moderately active"
+        timezone = "America/Denver"  # a day ends at local midnight (default: UTC)
         strictness = "soft"          # default for every target
         weight = 0.1                 # default for every soft target
         hard = ["Protein"]           # nutrient names made hard
@@ -385,6 +386,11 @@ def instantiate_nutrition(client, selection: dict, *, reset: bool = False) -> Re
     if unknown:
         raise ProfileError([f"no target for nutrient {n!r} in profile {selection['profile']!r}" for n in unknown])
     strictness, weight = selection.get("strictness", "soft"), selection.get("weight", 0.1)
+    day_boundary = "midnight"                  # midnight UTC, unless the owner names their zone
+    if selection.get("timezone"):
+        day_boundary = f"midnight {selection['timezone']}"
+        if day_zone(day_boundary) is None:
+            raise ProfileError([f"timezone {selection['timezone']!r} is not an IANA zone name (for example America/Denver)"])
     sync = Sync(client)
     for name, t in sorted(targets.items()):
         target_name = f"Daily {name} target"
@@ -417,7 +423,7 @@ def instantiate_nutrition(client, selection: dict, *, reset: bool = False) -> Re
         hard = name in selection.get("hard", [])
         sync.ensure("NutritionTarget", target_name, {
             "forNutrient": t.nutrient_id, "hasTargetRange": rng, "hasTimeScope": "daily",
-            "dayBoundaryRule": "midnight", "strictness": "hard" if hard else strictness,
+            "dayBoundaryRule": day_boundary, "strictness": "hard" if hard else strictness,
             "weight": None if hard else weight, "source": source})
         report.written.append(target_name)
     report.counts = sync.counts

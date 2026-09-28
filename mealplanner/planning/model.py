@@ -62,6 +62,7 @@ class Target:
     hard: bool = False
     weight: float = 0.0
     nutrient_name: str = ""
+    day_boundary: str = "midnight"     # a daily scope's dayBoundaryRule: "midnight" (UTC) or "midnight <IANA zone>"
 
 
 @dataclass(frozen=True)
@@ -134,6 +135,10 @@ class PlanningProblem:
     max_difficulty: str | None = None
     servings_eaten: float = 1.0
     notes: list = field(default_factory=list)
+    # What the MealPlan's baseline (supplements, the morning coffee) adds to every
+    # day: nutrient id -> amount per day in the targets' unit, None if unknown.
+    baseline: Mapping = field(default_factory=dict)
+    units: Mapping = field(default_factory=dict)       # nutrient id -> the unit its figures and targets are in
     _cache: dict = field(default_factory=dict, repr=False, compare=False)
 
     def __post_init__(self):

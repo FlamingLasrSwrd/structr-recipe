@@ -22,7 +22,7 @@ _spec = importlib.util.spec_from_file_location(
 sel = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(sel)
 
-from mealplanner.planning.evaluate import evaluate, initial_partial
+from mealplanner.planning.evaluate import evaluate, group_states, initial_partial, resolve
 from mealplanner.planning.extract import SlotSpec, build_problem
 from mealplanner.planning.model import Pick
 from mealplanner.planning.search import exact
@@ -119,6 +119,27 @@ class ARecipeWithNoFigureAgreesToo(unittest.TestCase):
             ev = evaluate(p, picks)
             self.assertAlmostEqual(ev.terms["nutrition"], 0.3 * 0.5, msg=name)       # the day's total is not known
             self.assertAlmostEqual(ev.objective, ranked[name]["score"], places=9, msg=f"{name}: planner {ev.terms} vs selector {ranked[name]['score']}")
+
+
+class WithABaselineTheyStillAgree(unittest.TestCase):
+    """A daily baseline (a morning shake, 120 g at 50 g protein per 100 g: 60 g a day) counts toward the day in both,
+    enough to move a recipe's score: two servings of omelette (48 g) plus the shake pass the 100 g top of the range."""
+
+    def test_every_recipes_score_matches_and_the_baseline_is_no_meal(self):
+        g = shared_kitchen()
+        add_recipe(g, "morning shake", output_grams=120, protein_per_100g=50, provenance="sourced", yield_servings=1,
+                   minutes=2, meal_types=())
+        g.nodes["week"]["hasBaseline"] = [Ref("morning shake")]
+        p = build_problem(g, "week", [SlotSpec(NOW, "Dinner")], NOW, servings_eaten=2.0)
+        self.assertNotIn("morning shake", p.candidates)
+        self.assertAlmostEqual(p.baseline["Protein"], 60.0)
+        ranked = {r["plan"]["name"]: r for r in sel.select(g, "week", NOW, meal_type="Dinner", slot_start=NOW, servings_eaten=2.0)}
+        for name in ("omelette", "pasta", "curry"):
+            ev = evaluate(p, (Pick(candidate=name),))
+            self.assertAlmostEqual(ev.objective, ranked[name]["score"], places=9, msg=f"{name}: planner {ev.terms} vs selector {ranked[name]['score']}")
+        resolved, _ = resolve(p, [Pick(candidate="omelette")])
+        totals = {g.target.name: g.total for g in group_states(p, resolved)}
+        self.assertAlmostEqual(totals["protein range"], 48.0 + 60.0)       # two servings of omelette, and the shake
 
 
 if __name__ == "__main__":

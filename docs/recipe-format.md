@@ -62,6 +62,26 @@ inputs = [
   nothing may be used before it is made.
 - **Names** cannot contain a comma or a semicolon (Structr's exact-match lookup cannot find them).
 
+## A daily baseline
+
+What is eaten every day outside the planned meals (supplements, the morning coffee) is written as a
+recipe with `baseline = true` and no `meal_types`, one serving being one day of it (`servings = 1`).
+It is never offered as a meal; a week counts it every day once it is named in the week file
+(`tools/plan_week.py`, `baseline = [...]`). The owner's is `private/baseline.toml`:
+
+```toml
+name = "Daily supplements"
+baseline = true
+servings = 1
+
+[[steps]]
+name = "take the supplements"
+inputs = [{ food = "Vitamin D3 supplement (1000 IU)", amount = 1, unit = "each" }]
+```
+
+A supplement is a `label` food in the vocabulary: its figures per unit, as its label states them,
+and every other nutrient none. It is counted with `each`.
+
 ## Transcribing a recipe
 
 Only facts are transcribed: ingredients, amounts, servings, times and the order of operations.

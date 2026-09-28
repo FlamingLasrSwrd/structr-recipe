@@ -27,7 +27,8 @@ from mealplanner.candidates import (
 from mealplanner.inventory import shelf_life_days
 from mealplanner.material_accounting import candidate_input_requirements, recipe_servings_strict
 from mealplanner.nutrition_scope import (
-    active_entries, convert_nutrient, entry_servings_eaten, entry_start, serving_nutrient_figure, target_scope_problem,
+    active_entries, baseline_day_intake, baseline_plans, convert_nutrient, entry_servings_eaten, entry_start,
+    serving_nutrient_figure, target_scope_problem,
 )
 from mealplanner.planning.model import Candidate, Fixed, Lot, PlanningProblem, Slot, Target, Weights
 from mealplanner.reservation import stock_pools
@@ -105,7 +106,7 @@ def build_problem(
         targets.append(Target(
             name=raw["name"], nutrient=nutrient["id"], scope=raw["hasTimeScope"], minimum=scaled[0],
             maximum=scaled[1], hard=raw.get("strictness") == "hard", weight=number(raw.get("weight"), 0.0),
-            nutrient_name=nutrient["name"],
+            nutrient_name=nutrient["name"], day_boundary=raw.get("dayBoundaryRule") or "midnight",
         ))
 
     # Entries already in the MealPlan: fixed slots. A leftover entry is kept only if
@@ -145,9 +146,15 @@ def build_problem(
     excluded = excluded_domain_type_ids(client)
     soft = soft_exclusions(client)
     keep_days = _leftover_days(client, leftover_days) if leftovers else None
+    if leftovers and keep_days is None:
+        notes.append("leftovers are not planned: no keeping time for cooked food resolves "
+                     f"(a ShelfLife default for {LEFTOVER_CLASS!r}, or leftover_days)")
 
     raw_plans: list[tuple[dict, list]] = []
+    baseline_ids = {ref["id"] for ref in meal_plan.get("hasBaseline", [])}
     for plan in client.get_all("Plan")["result"]:
+        if plan["id"] in baseline_ids:
+            continue                          # eaten every day already, not a meal to plan
         recipe_ref = plan.get("specializationOf")
         retired = bool(recipe_ref and client.get_all("RecipeIdentity", recipe_ref["id"])["result"].get("isRetired"))
         if retired and plan["id"] not in forced:
@@ -210,11 +217,20 @@ def build_problem(
                           name=payload["name"], entry_id=payload["id"])
         slots.append(Slot(payload["name"], start, None, fixed))
 
+    baseline: dict[str, float | None] = {}
+    if baseline_ids:
+        for nutrient_id, unit in unit_of.items():
+            per_day, unknown = baseline_day_intake(client, meal_plan, nutrient_id, unit)
+            baseline[nutrient_id] = None if unknown else per_day
+        names = sorted(p["name"] for p in baseline_plans(client, meal_plan))
+        notes.append(f"baseline counted every day: {', '.join(names)} ("
+                     + "; ".join(f"{name_of[n]} {'unknown' if v is None else f'{v:g} {unit_of[n]}'}"
+                                 for n, v in sorted(baseline.items(), key=lambda kv: name_of[kv[0]])) + ")")
     lots = tuple(
         Lot(pool=root, grams=lot.grams, expires=lot.expires, name=lot.name)
         for root, pool_lots in lots_by_pool.items() for lot in pool_lots
     )
     return PlanningProblem(
         slots=tuple(slots), candidates=candidates, targets=tuple(targets), lots=lots, weights=weights, now=now,
-        max_difficulty=max_difficulty, servings_eaten=servings_eaten, notes=notes,
+        max_difficulty=max_difficulty, servings_eaten=servings_eaten, notes=notes, baseline=baseline, units=dict(unit_of),
     )

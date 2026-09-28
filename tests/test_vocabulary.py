@@ -377,6 +377,28 @@ class Load(unittest.TestCase):
         self.assertIn("mean of", energy["source"])
         self.assertEqual((iron["amount"], iron["provenance"]), (1.91, "estimated"))
 
+    def test_a_label_food_is_written_per_unit_with_none_of_the_rest(self):
+        data = vocabulary_data()
+        data["food"].append({"name": "Vitamin pill", "label": {
+            "per": "each", "status": "estimated", "source": "the owner's dose", "figures": {"1093": 5, "1089": 18}}})
+        g = instance()
+        self.load(g, data)
+        iron = self.node(g, "NutrientProfile", "Vitamin pill -- Iron - Fe per unit")
+        self.assertEqual((iron["amount"], iron["basis"], iron["unit"], iron["provenance"], iron["source"]),
+                         (18.0, "per_unit", "mg", "estimated", "the owner's dose"))
+        protein = self.node(g, "NutrientProfile", "Vitamin pill -- Protein per unit")
+        self.assertEqual((protein["amount"], protein["source"]), (0.0, "not on the label: taken as none"))
+        self.assertFalse([r for r in g.get_all("NutrientProfile")["result"] if r["name"].startswith("Vitamin pill") and "per 100 g" in r["name"]])
+
+    def test_a_label_food_takes_nothing_else_and_names_its_source(self):
+        data = vocabulary_data()
+        data["food"].append({"name": "Pill", "fdc": 2, "label": {"per": "each", "figures": {"9999": -1}}})
+        with self.assertRaises(VocabularyError) as caught:
+            parse_vocabulary(data, fdc_subset())
+        text = " ".join(caught.exception.problems)
+        for fragment in ("takes no fdc", "names its source", "number from 0"):
+            self.assertIn(fragment, text)
+
     def test_defaults_carry_provenance_and_source(self):
         g = instance()
         self.load(g)

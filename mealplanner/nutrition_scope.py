@@ -43,9 +43,10 @@ Scope semantics:
   per_meal  one serving of the candidate against the range (the old
             behaviour, now only for targets that ask for it).
   daily     entries whose start falls on the same calendar day under the
-            target's dayBoundaryRule. Only "midnight" is supported; any
-            other rule is reported as unsupported, never guessed
-            (invariant 30 requires the rule to be stated).
+            target's dayBoundaryRule: "midnight" is midnight UTC, and
+            "midnight America/Denver" (any IANA zone) the owner's local
+            midnight. Any other rule is reported as unsupported, never
+            guessed (invariant 30 requires the rule to be stated).
   weekly    every active entry of the MealPlan. A MealPlan is one week
             by construction, so plan membership is the week boundary.
 Skipped entries never count. Fulfilled (already cooked) entries DO count:
@@ -64,7 +65,9 @@ convention, and a bad record should be visibly broken, not quietly wrong.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, tzinfo
+from functools import lru_cache
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from mealplanner.defaults import resolve_default
 from mealplanner.material_accounting import candidate_outputs, recipe_servings_strict
@@ -118,26 +121,27 @@ def convert_nutrient(amount: float, from_unit: str, to_unit: str) -> float | Non
 
 @dataclass(frozen=True)
 class ProfileFigure:
-    amount: float              # per 100 g, in `unit`
+    amount: float              # per 100 g, or per unit for a per_unit profile, in `unit`
     unit: str
     provenance: str | None     # "placeholder", "sourced", "estimated", "calculated", or None if never set
 
 
-def profile_figure(client, type_id: str, nutrient_id: str) -> ProfileFigure | None:
-    """A Type's OWN per-100 g NutrientProfile for this nutrient, or None if it
-    has none. Profiles are not inherited down the hierarchy: a parent's figure
-    is not a measurement of its child. Two profiles for one nutrient on one
-    Type raise rather than one being picked."""
+def profile_figure(client, type_id: str, nutrient_id: str, basis: str = "per_100g") -> ProfileFigure | None:
+    """A Type's OWN NutrientProfile for this nutrient on `basis` ("per_100g", or
+    "per_unit" for a food counted in units, as a supplement's label is), or None
+    if it has none. Profiles are not inherited down the hierarchy: a parent's
+    figure is not a measurement of its child. Two profiles for one nutrient and
+    basis on one Type raise rather than one being picked."""
     node = client.get_all("DomainType", type_id)["result"]
     found = []
     for profile_ref in node.get("nutrientProfilesAbout", []):
         profile = client.get_all("NutrientProfile", profile_ref["id"])["result"]
-        if (profile.get("forNutrient") or {}).get("id") == nutrient_id and profile.get("basis") == "per_100g":
+        if (profile.get("forNutrient") or {}).get("id") == nutrient_id and profile.get("basis") == basis:
             found.append(profile)
     if not found:
         return None
     if len(found) > 1:
-        raise AmbiguousProfileError(f"{node.get('name')!r} has {len(found)} per-100 g profiles for one nutrient: "
+        raise AmbiguousProfileError(f"{node.get('name')!r} has {len(found)} {basis} profiles for one nutrient: "
                                     f"{sorted(p['name'] for p in found)}")
     profile = found[0]
     if profile.get("amount") is None:
@@ -218,6 +222,18 @@ def serving_nutrient_figure(client, plan: dict, nutrient_id: str, unit: str = "g
     return _from_ingredients(client, plan, nutrient_id, unit, servings)
 
 
+COUNT_UNITS = frozenset({"each", "count", "whole"})
+
+
+def _input_count(client, spec: dict) -> float | None:
+    """How many units a Specification calls for, if its quantity is a count."""
+    qty_ref = spec.get("hasSpecifiedQuantity")
+    if not qty_ref:
+        return None
+    qty = client.get_all("QuantitySpecification", qty_ref["id"])["result"]
+    return qty.get("value") if qty.get("unit") in COUNT_UNITS else None
+
+
 def _input_grams(client, spec: dict, type_id: str) -> float | None:
     qty_ref = spec.get("hasSpecifiedQuantity")
     if not qty_ref:
@@ -290,24 +306,34 @@ def _from_ingredients(client, plan: dict, nutrient_id: str, unit: str, servings:
             counted += 1
             name = specifies.get("name") or specifies["id"]
             figure = profile_figure(client, specifies["id"], nutrient_id)
+            per_unit = figure is None
+            if per_unit:
+                figure = profile_figure(client, specifies["id"], nutrient_id, basis="per_unit")
             if figure is None:
                 return _unknown(f"ingredient {name!r} has no profile for this nutrient", "ingredients")
-            per_100g = convert_nutrient(figure.amount, figure.unit, unit)
-            if per_100g is None:
+            per_basis = convert_nutrient(figure.amount, figure.unit, unit)
+            if per_basis is None:
                 return _unknown(f"ingredient {name!r}'s profile is in {figure.unit}, not comparable with {unit}",
                                 "ingredients")
             provenances.add(figure.provenance)
-            if per_100g == 0:
+            if per_basis == 0:
                 continue          # none of it, whatever the quantity or the cooking
-            grams = _input_grams(client, spec, specifies["id"])
-            if grams is None:
-                return _unknown(f"ingredient {name!r} has no quantity that converts to grams", "ingredients")
+            if per_unit:
+                units = _input_count(client, spec)
+                if units is None:
+                    return _unknown(f"ingredient {name!r} is labelled per unit, so it needs a count", "ingredients")
+                amount = units * per_basis
+            else:
+                grams = _input_grams(client, spec, specifies["id"])
+                if grams is None:
+                    return _unknown(f"ingredient {name!r} has no quantity that converts to grams", "ingredients")
+                amount = grams * per_basis / 100.0
             factor = retention_factor(client, specifies["id"], method_id, nutrient_id)
             if factor is None:
                 factor = 1.0
                 if name not in unadjusted:        # an ingredient used in two Steps is named once
                     unadjusted.append(name)
-            total += grams * per_100g / 100.0 * factor
+            total += amount * factor
     if counted == 0:
         return _unknown("the recipe lists no ingredients", "ingredients")
     trusted, estimated, reason = _judge(provenances, unadjusted)
@@ -399,8 +425,23 @@ def entry_start(client, entry: dict) -> datetime | None:
     return datetime.strptime(beginning, FMT) if beginning else None
 
 
-def calendar_day(when: datetime) -> date:
-    return when.astimezone(timezone.utc).date()
+@lru_cache(maxsize=None)
+def day_zone(rule: str | None) -> tzinfo | None:
+    """The zone whose midnight a dayBoundaryRule names, or None for a rule that
+    is not supported: "midnight" is UTC, "midnight <IANA zone>" that zone. With
+    UTC, a 18:30 dinner in Denver (00:30 UTC) counted toward the next day."""
+    if rule == SUPPORTED_DAY_BOUNDARY:
+        return timezone.utc
+    if isinstance(rule, str) and rule.startswith(SUPPORTED_DAY_BOUNDARY + " "):
+        try:
+            return ZoneInfo(rule[len(SUPPORTED_DAY_BOUNDARY) + 1:])
+        except (ZoneInfoNotFoundError, ValueError):
+            return None
+    return None
+
+
+def calendar_day(when: datetime, zone: tzinfo = timezone.utc) -> date:
+    return when.astimezone(zone).date()
 
 
 @dataclass
@@ -412,6 +453,7 @@ class ScopeTotal:
     unknown: list[str] = field(default_factory=list)
     assumed_default_servings: list[str] = field(default_factory=list)
     unplaced: list[str] = field(default_factory=list)
+    baseline: float = 0.0          # the part of `total` the MealPlan's baseline adds
 
 
 def active_entries(client, meal_plan: dict) -> list[dict]:
@@ -419,25 +461,51 @@ def active_entries(client, meal_plan: dict) -> list[dict]:
     return [e for e in entries if not e.get("isSkipped")]
 
 
+def baseline_plans(client, meal_plan: dict) -> list[dict]:
+    """The Plans a MealPlan counts as eaten every day, outside its planned meals:
+    supplements, the morning coffee (MealPlan.hasBaseline, data-model J25)."""
+    return [client.get_all("Plan", ref["id"])["result"] for ref in meal_plan.get("hasBaseline", [])]
+
+
+def baseline_day_intake(client, meal_plan: dict, nutrient_id: str, unit: str = "g") -> tuple[float, list[str]]:
+    """What the baseline adds to each day, in `unit`: one serving of every baseline
+    Plan, a serving of one being a day of it. Also the names of any baseline Plan
+    with no figure for the nutrient, which leave the day's total unknown."""
+    total, unknown = 0.0, []
+    for plan in baseline_plans(client, meal_plan):
+        amount = serving_nutrient_figure(client, plan, nutrient_id, unit).amount
+        if amount is None:
+            unknown.append(plan["name"])
+        else:
+            total += amount
+    return total, unknown
+
+
 def scope_total(
     client, meal_plan: dict, nutrient_id: str, scope: str, when: datetime | None = None, unit: str = "g",
+    zone: tzinfo = timezone.utc,
 ) -> ScopeTotal:
     """Nutrient already planned inside one scope of a MealPlan, in `unit`.
 
     scope "weekly": every active entry. scope "daily": entries on the
     same calendar day as `when` (required); entries with no start time
-    can't be placed in a day and are listed as `unplaced`."""
+    can't be placed in a day and are listed as `unplaced`. The baseline is
+    added once for each day in the scope: the day of `when`, and for a week
+    every day holding an entry as well."""
     result = ScopeTotal()
     if scope == "daily" and when is None:
         raise ValueError("scope_total(scope='daily') needs `when`")
+    days = {calendar_day(when, zone)} if when is not None else set()
     for entry in active_entries(client, meal_plan):
+        start = entry_start(client, entry)
         if scope == "daily":
-            start = entry_start(client, entry)
             if start is None:
                 result.unplaced.append(entry["name"])
                 continue
-            if calendar_day(start) != calendar_day(when):
+            if calendar_day(start, zone) != calendar_day(when, zone):
                 continue
+        elif start is not None:
+            days.add(calendar_day(start, zone))
         intake, assumed = entry_nutrient_intake(client, entry, nutrient_id, unit)
         if intake is None:
             result.unknown.append(entry["name"])
@@ -446,6 +514,11 @@ def scope_total(
         result.counted.append(entry["name"])
         if assumed:
             result.assumed_default_servings.append(entry["name"])
+    if meal_plan.get("hasBaseline"):
+        per_day, unknown = baseline_day_intake(client, meal_plan, nutrient_id, unit)
+        result.baseline = per_day * len(days)
+        result.total += result.baseline
+        result.unknown.extend(f"{name} (baseline)" for name in unknown)
     return result
 
 
@@ -455,8 +528,9 @@ def target_scope_problem(target: dict, range_unit: str | None) -> str | None:
     scope = target.get("hasTimeScope")
     if scope not in ("per_meal", "daily", "weekly"):
         return f"no usable hasTimeScope ({scope!r})"
-    if scope == "daily" and target.get("dayBoundaryRule") != SUPPORTED_DAY_BOUNDARY:
-        return f"unsupported dayBoundaryRule {target.get('dayBoundaryRule')!r} (only {SUPPORTED_DAY_BOUNDARY!r})"
+    if scope == "daily" and day_zone(target.get("dayBoundaryRule")) is None:
+        return (f"unsupported dayBoundaryRule {target.get('dayBoundaryRule')!r} "
+                f"(only {SUPPORTED_DAY_BOUNDARY!r} or '{SUPPORTED_DAY_BOUNDARY} <IANA zone>')")
     if not (isinstance(range_unit, str) and range_unit.strip().lower() in NUTRIENT_UNITS):
         return f"target range unit {range_unit!r} isn't a nutrient unit ({', '.join(NUTRIENT_UNITS)})"
     return None
@@ -482,7 +556,8 @@ def nutrition_report(client, meal_plan_id: str) -> list[dict]:
     Days with no entries aren't reported (nothing planned to judge).
     Status: ok / below_min / above_max / indeterminate (some entry has no
     nutrient data, so the total is a lower bound and a shortfall can't be
-    concluded). Totals cover PLANNED meals only."""
+    concluded). Totals cover the planned meals and the baseline (a day's worth
+    for each day judged, none for a single meal)."""
     client = ReadCache(client)      # read-only: each node is fetched once for the whole report
     meal_plan = client.get_all("MealPlan", meal_plan_id)["result"]
     targets = [
@@ -515,11 +590,17 @@ def nutrition_report(client, meal_plan_id: str) -> list[dict]:
                 start = entry_start(client, entry)
                 if start is None:
                     continue
-                key = calendar_day(start).isoformat()
+                key = calendar_day(start, day_zone(target.get("dayBoundaryRule")) or timezone.utc).isoformat()
             groups.setdefault(key, []).append(entry)
 
+        per_day, baseline_unknown = (baseline_day_intake(client, meal_plan, nutrient["id"], rng["unit"])
+                                     if meal_plan.get("hasBaseline") and scope != "per_meal" else (0.0, []))
+        zone = day_zone(target.get("dayBoundaryRule")) or timezone.utc
         for key in sorted(groups):
-            total, unknown, assumed = 0.0, [], []
+            days = 1 if scope == "daily" else len({calendar_day(s, zone) for s in (entry_start(client, e) for e in groups[key]) if s})
+            total = per_day * days if scope != "per_meal" else 0.0
+            unknown = [f"{name} (baseline)" for name in baseline_unknown]
+            assumed = []
             for entry in groups[key]:
                 intake, was_assumed = entry_nutrient_intake(client, entry, nutrient["id"], rng["unit"])
                 if intake is None:

@@ -84,6 +84,16 @@ class Parse(unittest.TestCase):
     def test_a_recipe_needs_a_meal_type(self):
         self.assertTrue(any("meal_types" in p for p in self.problems(good(meal_types=[]))))
 
+    def test_a_baseline_is_a_day_of_it_and_no_meal(self):
+        data = good(baseline=True, servings=1)
+        del data["meal_types"]
+        doc = parse_recipe(data)
+        self.assertEqual((doc.meal_types, doc.servings), ((), 1.0))
+        self.assertTrue(any("no meal_types" in p for p in self.problems(good(baseline=True, servings=1))))
+        del data["servings"]
+        self.assertTrue(any("servings" in p for p in self.problems(dict(data, servings=2))))
+        self.assertTrue(any("true or false" in p for p in self.problems(good(baseline="yes"))))
+
     def test_only_the_last_step_may_leave_out_makes(self):
         data = good()
         del data["steps"][0]["makes"]

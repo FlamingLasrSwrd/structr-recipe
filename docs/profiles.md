@@ -38,6 +38,7 @@ changed.
 ```toml
 # private/nutrition.toml
 profile = "Adult male 31-50 moderately active"
+timezone = "America/Denver"  # a day ends at local midnight (default UTC)
 strictness = "soft"          # every target, unless named in hard
 weight = 0.1                 # every soft target
 hard = []                    # nutrient names that must be met

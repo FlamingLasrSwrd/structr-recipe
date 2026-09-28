@@ -1166,3 +1166,21 @@ fdc = 171723                    # SR: Cranberries, dried, sweetened
 [[food]]
 name = "Semisweet chocolate chips"
 fdc = 167976                    # SR: Candies, semisweet chocolate
+
+# -- supplements (2026-09-27) ----------------------------------------------------------------------
+# A supplement states its figures per unit, as its label does (`label`); every nutrient it does not
+# state is loaded as none. These two are the owner's daily doses, not a product's label: replace
+# them with the product's label figures when known (NIH Dietary Supplement Label Database).
+
+[[food]]
+name = "Dietary supplement"
+
+[[food]]
+name = "Vitamin D3 supplement (1000 IU)"
+parent = "Dietary supplement"
+label = { per = "each", status = "estimated", source = "the owner's daily dose (2026-09-27): 1000 IU (25 ug) of vitamin D", figures = { 1110 = 1000, 1114 = 25 } }
+
+[[food]]
+name = "Magnesium supplement (200 mg)"
+parent = "Dietary supplement"
+label = { per = "each", status = "estimated", source = "the owner's daily dose (2026-09-27): 200 mg of elemental magnesium", figures = { 1090 = 200 } }
