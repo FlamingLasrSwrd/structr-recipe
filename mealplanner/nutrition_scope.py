@@ -271,6 +271,24 @@ def retention_factor(client, type_id: str, method_id: str | None, nutrient_id: s
     return value
 
 
+def raw_inputs(client, plan: dict) -> list[tuple[dict, dict]]:
+    """(Step, Specification) for every ingredient a Plan buys rather than makes: an input
+    no Step of the Plan produces (J5), so an intermediate is not counted twice, and not
+    optional, since the dish is complete without it. What nutrition and cost both count."""
+    steps = [client.get_all("Step", ref["id"])["result"] for ref in plan.get("steps", [])]
+    specs_by_step = [
+        (step, [client.get_all("Specification", ref["id"])["result"] for ref in step.get("hasSpecification", [])])
+        for step in steps
+    ]
+    produced = {
+        s["specifies"]["id"] for _, specs in specs_by_step for s in specs
+        if s.get("hasParticipationRole") == "output" and s.get("specifies")
+    }
+    return [(step, spec) for step, specs in specs_by_step for spec in specs
+            if spec.get("hasParticipationRole") == "input" and spec.get("specifies")
+            and spec["specifies"]["id"] not in produced and not spec.get("isOptional")]
+
+
 def _from_ingredients(client, plan: dict, nutrient_id: str, unit: str, servings: float) -> ServingFigure:
     """Rule 7(b). The dish holds what its ingredients held, less what cooking
     destroys: water loss changes a figure per 100 g, not per serving, so no
@@ -285,55 +303,41 @@ def _from_ingredients(client, plan: dict, nutrient_id: str, unit: str, servings:
     ingredient with no stated or convertible quantity makes the figure unknown,
     unless its profile says it has none of this nutrient; such an ingredient
     needs no quantity and no retention factor, since none stays none."""
-    steps = [client.get_all("Step", ref["id"])["result"] for ref in plan.get("steps", [])]
-    specs_by_step = [
-        (step, [client.get_all("Specification", ref["id"])["result"] for ref in step.get("hasSpecification", [])])
-        for step in steps
-    ]
-    produced = {
-        s["specifies"]["id"] for _, specs in specs_by_step for s in specs
-        if s.get("hasParticipationRole") == "output" and s.get("specifies")
-    }
     total, provenances, unadjusted, counted = 0.0, set(), [], 0
-    for step, specs in specs_by_step:
+    for step, spec in raw_inputs(client, plan):
         method_id = (step.get("instanceOf") or {}).get("id")
-        for spec in specs:
-            specifies = spec.get("specifies")
-            if spec.get("hasParticipationRole") != "input" or not specifies or specifies["id"] in produced:
-                continue
-            if spec.get("isOptional"):
-                continue
-            counted += 1
-            name = specifies.get("name") or specifies["id"]
-            figure = profile_figure(client, specifies["id"], nutrient_id)
-            per_unit = figure is None
-            if per_unit:
-                figure = profile_figure(client, specifies["id"], nutrient_id, basis="per_unit")
-            if figure is None:
-                return _unknown(f"ingredient {name!r} has no profile for this nutrient", "ingredients")
-            per_basis = convert_nutrient(figure.amount, figure.unit, unit)
-            if per_basis is None:
-                return _unknown(f"ingredient {name!r}'s profile is in {figure.unit}, not comparable with {unit}",
-                                "ingredients")
-            provenances.add(figure.provenance)
-            if per_basis == 0:
-                continue          # none of it, whatever the quantity or the cooking
-            if per_unit:
-                units = _input_count(client, spec)
-                if units is None:
-                    return _unknown(f"ingredient {name!r} is labelled per unit, so it needs a count", "ingredients")
-                amount = units * per_basis
-            else:
-                grams = _input_grams(client, spec, specifies["id"])
-                if grams is None:
-                    return _unknown(f"ingredient {name!r} has no quantity that converts to grams", "ingredients")
-                amount = grams * per_basis / 100.0
-            factor = retention_factor(client, specifies["id"], method_id, nutrient_id)
-            if factor is None:
-                factor = 1.0
-                if name not in unadjusted:        # an ingredient used in two Steps is named once
-                    unadjusted.append(name)
-            total += amount * factor
+        specifies = spec["specifies"]
+        counted += 1
+        name = specifies.get("name") or specifies["id"]
+        figure = profile_figure(client, specifies["id"], nutrient_id)
+        per_unit = figure is None
+        if per_unit:
+            figure = profile_figure(client, specifies["id"], nutrient_id, basis="per_unit")
+        if figure is None:
+            return _unknown(f"ingredient {name!r} has no profile for this nutrient", "ingredients")
+        per_basis = convert_nutrient(figure.amount, figure.unit, unit)
+        if per_basis is None:
+            return _unknown(f"ingredient {name!r}'s profile is in {figure.unit}, not comparable with {unit}",
+                            "ingredients")
+        provenances.add(figure.provenance)
+        if per_basis == 0:
+            continue          # none of it, whatever the quantity or the cooking
+        if per_unit:
+            units = _input_count(client, spec)
+            if units is None:
+                return _unknown(f"ingredient {name!r} is labelled per unit, so it needs a count", "ingredients")
+            amount = units * per_basis
+        else:
+            grams = _input_grams(client, spec, specifies["id"])
+            if grams is None:
+                return _unknown(f"ingredient {name!r} has no quantity that converts to grams", "ingredients")
+            amount = grams * per_basis / 100.0
+        factor = retention_factor(client, specifies["id"], method_id, nutrient_id)
+        if factor is None:
+            factor = 1.0
+            if name not in unadjusted:        # an ingredient used in two Steps is named once
+                unadjusted.append(name)
+        total += amount * factor
     if counted == 0:
         return _unknown("the recipe lists no ingredients", "ingredients")
     trusted, estimated, reason = _judge(provenances, unadjusted)

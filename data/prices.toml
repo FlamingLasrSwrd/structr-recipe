@@ -1,0 +1,554 @@
+# Interim food prices: public figures for the vocabulary's foods, until the owner's own prices and
+# purchases replace them (docs/prices.md, mealplanner/prices.py, data-model.md Sec 18 J27).
+#
+# Two public sources, pinned in data/prices/ by tools/price_extract.py (both are U.S. government works):
+#   bls    BLS Average Price Data (CPI), monthly, as bought: the latest month for the U.S. city average and,
+#          where BLS publishes it, the West region. About 45 foods. https://www.bls.gov/cpi/factsheets/average-prices.htm
+#   ppnap  USDA ERS Purchase to Plate National Average Prices, 2017-18 (Circana scanner data), per 100 g of the
+#          food as eaten (edible part), keyed by FNDDS food code. Brought to today's prices by the CPI for food
+#          at home (U.S. city average, CUUR0000SAF11): latest month over the 2017-18 mean.
+#          https://www.ers.usda.gov/data-products/purchase-to-plate
+#
+# Each [[price]] names one source for one food. Its figure is `sourced` if the source prices this very
+# food (a BLS price, converted to dollars per 100 g), `calculated` if it is a Purchase to Plate price
+# brought forward by the CPI, and `estimated` if `proxy = true` (a similar food) or `cooked = true` (a
+# Purchase to Plate price for the cooked food, used for the raw one: it overstates a raw gram by about
+# the weight lost in cooking). A food may name both: the BLS price, where there is one, wins (J27).
+#
+# Not priced (no public figure found): spices and dried herbs, salt, baking powder and soda, yeast,
+# cornstarch, vanilla, panko, rolled oats, tomato paste, canned coconut milk and green chiles, fresh
+# ginger, semisweet chocolate, refrigerated biscuit dough, and the meal kits' own items (stock
+# concentrates, spice blends, sauces and pastes, compote, truffle zest). A recipe's cost names them.
+
+[bls]
+# The BLS items used, as BLS names them, and the quantity each price is for.
+"701111" = { name = "Flour, white, all purpose", per = [1, "lb"] }
+"701312" = { name = "Rice, white, long grain, uncooked", per = [1, "lb"] }
+"701322" = { name = "Spaghetti and macaroni", per = [1, "lb"] }
+"702111" = { name = "Bread, white, pan", per = [1, "lb"] }
+"703112" = { name = "Ground beef, 100% beef", per = [1, "lb"] }
+"703613" = { name = "Steak, sirloin, USDA Choice, boneless", per = [1, "lb"] }
+"FC3101" = { name = "All uncooked beef steaks", per = [1, "lb"] }
+"704111" = { name = "Bacon, sliced", per = [1, "lb"] }
+"704212" = { name = "Chops, boneless (pork)", per = [1, "lb"] }
+"FD4101" = { name = "All other pork (excluding canned ham and luncheon slices)", per = [1, "lb"] }
+"FF1101" = { name = "Chicken breast, boneless", per = [1, "lb"] }
+"708111" = { name = "Eggs, grade A, large", per = [12, "each"] }
+"709112" = { name = "Milk, fresh, whole, fortified", per = [128, "fl_oz"] }
+"FS1101" = { name = "Butter, salted, grade AA, stick", per = [1, "lb"] }
+"710212" = { name = "Cheddar cheese, natural", per = [1, "lb"] }
+"712112" = { name = "Potatoes, white", per = [1, "lb"] }
+"712311" = { name = "Tomatoes, field grown", per = [1, "lb"] }
+"715211" = { name = "Sugar, white, all sizes", per = [1, "lb"] }
+"720311" = { name = "Wine, red and white table", per = [1, "l"] }
+
+# -- grains, bread, pasta --------------------------------------------------------------------------
+[[price]]
+food = "AP Flour"
+bls = "701111"
+[[price]]
+food = "Jasmine rice (dry)"
+bls = "701312"
+proxy = true
+note = "long-grain white rice; jasmine usually costs more"
+[[price]]
+food = "Orzo (dry)"
+bls = "701322"
+proxy = true
+[[price]]
+food = "Egg noodles (dry)"
+bls = "701322"
+proxy = true
+[[price]]
+food = "Ramen noodles (dry)"
+bls = "701322"
+proxy = true
+[[price]]
+food = "Rice noodles (dry)"
+bls = "701322"
+proxy = true
+note = "wheat pasta; rice noodles usually cost more"
+[[price]]
+food = "Pearl couscous (dry)"
+bls = "701322"
+proxy = true
+[[price]]
+food = "Sourdough bread"
+bls = "702111"
+proxy = true
+note = "white pan bread; sourdough usually costs more"
+[[price]]
+food = "Brioche bun"
+ppnap = 51150000                 # Roll, white, soft
+proxy = true
+[[price]]
+food = "Potato bun"
+ppnap = 51154100                 # Roll, white, hamburger bun (includes potato bun)
+[[price]]
+food = "Ciabatta roll"
+ppnap = 51153000                 # Roll, white, hard
+proxy = true
+[[price]]
+food = "Demi-baguette"
+ppnap = 51107010                 # Bread, French or Vienna (includes baguette)
+[[price]]
+food = "Flour tortilla (6 inch)"
+ppnap = 52215200                 # Tortilla, flour
+[[price]]
+food = "Whole wheat pita"
+ppnap = 51301600                 # Bread, pita, whole wheat
+[[price]]
+food = "Blue corn tortilla chips"
+ppnap = 54401075                 # Tortilla chips, plain
+proxy = true
+
+# -- meat, poultry, fish, eggs, tofu ---------------------------------------------------------------
+[[price]]
+food = "Beef top sirloin (raw)"
+bls = "703613"
+[[price]]
+food = "Ranch steak (raw)"
+bls = "FC3101"
+proxy = true
+[[price]]
+food = "Bavette steak (raw)"
+bls = "FC3101"
+proxy = true
+[[price]]
+food = "Ground beef 85% lean (raw)"
+bls = "703112"
+proxy = true
+note = "BLS does not state the lean share of 100% beef"
+[[price]]
+food = "Bacon (raw)"
+bls = "704111"
+[[price]]
+food = "Boneless pork chops (raw)"
+bls = "704212"
+[[price]]
+food = "Pork tenderloin (raw)"
+bls = "FD4101"
+proxy = true
+[[price]]
+food = "Ground pork (raw)"
+bls = "FD4101"
+proxy = true
+[[price]]
+food = "Pork breakfast sausage (raw)"
+ppnap = 25221405                 # Pork sausage
+cooked = true
+[[price]]
+food = "Chicken Breast (raw)"
+bls = "FF1101"
+[[price]]
+food = "Chicken thighs (raw)"
+bls = "FF1101"
+proxy = true
+note = "boneless breast; boneless thighs usually cost about the same or less"
+[[price]]
+food = "Ground turkey 93% lean (raw)"
+ppnap = 24207000                 # Turkey, ground
+cooked = true
+[[price]]
+food = "Italian chicken sausage (raw)"
+ppnap = 25221830                 # Turkey or chicken sausage
+cooked = true
+[[price]]
+food = "Shrimp (raw)"
+ppnap = 26319110                 # Shrimp, cooked, NS as to cooking method
+cooked = true
+[[price]]
+food = "Dried shrimp"
+ppnap = 26319170                 # Shrimp, dried
+[[price]]
+food = "Egg"
+bls = "708111"
+[[price]]
+food = "Firm tofu"
+ppnap = 41420010                 # Soybean curd
+proxy = true
+
+# -- dairy -----------------------------------------------------------------------------------------
+[[price]]
+food = "Whole milk"
+bls = "709112"
+[[price]]
+food = "Butter (salted)"
+bls = "FS1101"
+[[price]]
+food = "Butter (unsalted)"
+bls = "FS1101"
+proxy = true
+[[price]]
+food = "Cheddar cheese"
+bls = "710212"
+[[price]]
+food = "Monterey Jack"
+ppnap = 14106200                 # Cheese, Monterey
+[[price]]
+food = "Mozzarella (low-moisture part-skim)"
+ppnap = 14107030                 # Cheese, Mozzarella, part skim
+[[price]]
+food = "Parmesan (grated)"
+ppnap = 14108010                 # Cheese, Parmesan, dry grated
+[[price]]
+food = "Feta cheese"
+ppnap = 14104400                 # Cheese, Feta
+[[price]]
+food = "Ricotta salata"
+ppnap = 14104400                 # Cheese, Feta
+proxy = true
+[[price]]
+food = "Cream cheese"
+ppnap = 14301010                 # Cream cheese, regular, plain
+[[price]]
+food = "Sour cream"
+ppnap = 12310100                 # Sour cream, regular
+[[price]]
+food = "Creme fraiche"
+ppnap = 12130100                 # Cream, heavy
+proxy = true
+note = "heavy cream; creme fraiche usually costs more"
+
+# -- vegetables and herbs --------------------------------------------------------------------------
+[[price]]
+food = "Potatoes"
+bls = "712112"
+[[price]]
+food = "Russet potato"
+bls = "712112"
+[[price]]
+food = "Fingerling potatoes"
+bls = "712112"
+proxy = true
+note = "white potatoes; fingerlings usually cost more"
+[[price]]
+food = "Sweet potato"
+ppnap = 73401000                 # Sweet potato, NFS
+[[price]]
+food = "Tomato"
+bls = "712311"
+[[price]]
+food = "Roma tomato"
+bls = "712311"
+[[price]]
+food = "Grape tomatoes"
+bls = "712311"
+proxy = true
+note = "field-grown tomatoes; grape tomatoes usually cost more"
+[[price]]
+food = "Yellow Onion"
+ppnap = 75117020                 # Onions, raw
+[[price]]
+food = "Red onion"
+ppnap = 75117020                 # Onions, raw (includes red onions)
+[[price]]
+food = "Shallot"
+ppnap = 75117020                 # Onions, raw
+proxy = true
+note = "onions; shallots cost several times more"
+[[price]]
+food = "Scallions"
+ppnap = 75117010                 # Onions, green, raw
+[[price]]
+food = "Garlic"
+ppnap = 75111500                 # Garlic, raw
+[[price]]
+food = "Carrot"
+ppnap = 73101010                 # Carrots, raw
+[[price]]
+food = "Broccoli florets"
+ppnap = 72201100                 # Broccoli, raw
+[[price]]
+food = "Cremini mushrooms"
+ppnap = 75115000                 # Mushrooms, raw
+[[price]]
+food = "Portobello mushroom"
+ppnap = 75115000                 # Mushrooms, raw
+proxy = true
+[[price]]
+food = "Red bell pepper"
+ppnap = 75122200                 # Pepper, sweet, red, raw
+[[price]]
+food = "Green bell pepper"
+ppnap = 75122100                 # Pepper, sweet, green, raw
+[[price]]
+food = "Poblano pepper"
+ppnap = 75121000                 # Pepper, hot chili, raw (includes jalapeno)
+proxy = true
+[[price]]
+food = "Red chili pepper"
+ppnap = 75121000                 # Pepper, hot chili, raw
+[[price]]
+food = "Mini cucumber"
+ppnap = 75111000                 # Cucumber, raw
+proxy = true
+[[price]]
+food = "Cucumber"
+ppnap = 75111000                 # Cucumber, raw
+[[price]]
+food = "Baby spinach"
+ppnap = 72125100                 # Spinach, raw
+[[price]]
+food = "Kale"
+ppnap = 72119190                 # Kale, raw
+[[price]]
+food = "Arugula"
+ppnap = 75113080                 # Lettuce, arugula, raw
+[[price]]
+food = "Mixed greens"
+ppnap = 75114000                 # Mixed salad greens, raw
+[[price]]
+food = "Bok choy and napa cabbage"
+ppnap = 75104000                 # Cabbage, Chinese, raw (includes napa and bok choy)
+[[price]]
+food = "Mung bean sprouts"
+ppnap = 75101000                 # Bean sprouts, raw
+[[price]]
+food = "Avocado"
+ppnap = 63105010                 # Avocado, raw
+[[price]]
+food = "Corn kernels (canned drained)"
+ppnap = 75216113                 # Corn, canned, cooked, no added fat
+[[price]]
+food = "Crushed tomatoes (canned)"
+ppnap = 74201003                 # Tomatoes, canned, cooked
+[[price]]
+food = "Diced tomatoes (canned)"
+ppnap = 74201003                 # Tomatoes, canned, cooked
+[[price]]
+food = "Cilantro"
+ppnap = 75109550                 # Cilantro, raw
+[[price]]
+food = "Parsley"
+ppnap = 75119000                 # Parsley, raw
+[[price]]
+food = "Basil"
+ppnap = 75109400                 # Basil, raw
+[[price]]
+food = "Chives"
+ppnap = 75109500                 # Chives, raw
+[[price]]
+food = "Rosemary"
+ppnap = 75109400                 # Basil, raw
+proxy = true
+note = "fresh basil; fresh herbs are sold at similar prices"
+[[price]]
+food = "Sage"
+ppnap = 75109400                 # Basil, raw
+proxy = true
+note = "fresh basil; fresh herbs are sold at similar prices"
+[[price]]
+food = "Dill"
+ppnap = 75109400                 # Basil, raw
+proxy = true
+note = "fresh basil; fresh herbs are sold at similar prices"
+
+# -- fruit, nuts, dried fruit ----------------------------------------------------------------------
+[[price]]
+food = "Lemon"
+ppnap = 61113010                 # Lemon, raw
+[[price]]
+food = "Lime"
+ppnap = 61116010                 # Lime, raw
+[[price]]
+food = "Orange"
+ppnap = 61119010                 # Orange, raw
+[[price]]
+food = "Orange juice (fresh)"
+ppnap = 61210010                 # Orange juice, 100%, freshly squeezed
+[[price]]
+food = "Apple"
+ppnap = 63101000                 # Apple, raw
+[[price]]
+food = "Red grapes"
+ppnap = 63123000                 # Grapes, raw
+[[price]]
+food = "Dried cranberries"
+ppnap = 62109100                 # Cranberries, dried
+[[price]]
+food = "Dried apricots"
+ppnap = 62104100                 # Apricot, dried
+[[price]]
+food = "Tamarind paste"
+ppnap = 62126000                 # Tamarind, dried
+proxy = true
+[[price]]
+food = "Almonds"
+ppnap = 42101000                 # Almonds, unroasted
+[[price]]
+food = "Pecans"
+ppnap = 42112100                 # Pecans, unroasted
+[[price]]
+food = "Pistachios (roasted salted)"
+ppnap = 42114140                 # Pistachio nuts, salted
+[[price]]
+food = "Roasted salted peanuts"
+ppnap = 42111200                 # Peanuts, dry roasted, salted
+[[price]]
+food = "Shredded coconut (sweetened)"
+ppnap = 42106020                 # Coconut, packaged (flaked or shredded)
+
+# -- beans and canned goods ------------------------------------------------------------------------
+[[price]]
+food = "Black beans (canned)"
+ppnap = 41102080                 # Black beans, from canned, no added fat
+[[price]]
+food = "Cannellini beans (canned)"
+ppnap = 41102080                 # Black beans, from canned, no added fat
+proxy = true
+[[price]]
+food = "Canned cannellini beans (drained)"
+ppnap = 41102080                 # Black beans, from canned, no added fat
+proxy = true
+[[price]]
+food = "Chickpeas (canned)"
+ppnap = 41301990                 # Chickpeas, NFS
+proxy = true
+[[price]]
+food = "Chickpeas (canned drained)"
+ppnap = 41301990                 # Chickpeas, NFS
+proxy = true
+[[price]]
+food = "Hummus"
+ppnap = 41205070                 # Hummus, plain
+
+# -- oils, sugar, condiments, sauces, broth --------------------------------------------------------
+[[price]]
+food = "Olive oil"
+ppnap = 82104000                 # Olive oil
+[[price]]
+food = "Canola oil"
+ppnap = 82101000                 # Vegetable oil, NFS
+proxy = true
+[[price]]
+food = "Peanut oil"
+ppnap = 82101000                 # Vegetable oil, NFS
+proxy = true
+[[price]]
+food = "Sesame oil"
+ppnap = 82107000                 # Sesame oil
+[[price]]
+food = "Granulated sugar"
+bls = "715211"
+[[price]]
+food = "Brown sugar"
+ppnap = 91102010                 # Sugar, brown
+[[price]]
+food = "Palm sugar"
+ppnap = 91102010                 # Sugar, brown
+proxy = true
+[[price]]
+food = "Powdered sugar"
+ppnap = 91101020                 # Sugar, white, confectioner's, powdered
+[[price]]
+food = "Honey"
+ppnap = 91302010                 # Honey
+[[price]]
+food = "Maple syrup"
+ppnap = 91300100                 # Pancake syrup (includes maple)
+proxy = true
+note = "pancake syrup; pure maple syrup costs several times more"
+[[price]]
+food = "Fruit jam"
+ppnap = 91402000                 # Jam, preserve, all flavors
+[[price]]
+food = "Apricot jam"
+ppnap = 91402000                 # Jam, preserve, all flavors
+[[price]]
+food = "Soy sauce"
+ppnap = 41420300                 # Soy sauce
+[[price]]
+food = "Soy sauce (low sodium)"
+ppnap = 41420300                 # Soy sauce
+proxy = true
+[[price]]
+food = "Ponzu"
+ppnap = 41420300                 # Soy sauce
+proxy = true
+[[price]]
+food = "Fish sauce"
+ppnap = 27150210                 # Fish sauce
+[[price]]
+food = "Worcestershire sauce"
+ppnap = 41420450                 # Worcestershire sauce
+[[price]]
+food = "Ketchup"
+ppnap = 74401010                 # Ketchup
+[[price]]
+food = "Mayonnaise"
+ppnap = 83107000                 # Mayonnaise, regular
+[[price]]
+food = "Dijon mustard"
+ppnap = 75506010                 # Mustard
+proxy = true
+note = "yellow mustard; Dijon usually costs more"
+[[price]]
+food = "Sriracha"
+ppnap = 74403000                 # Hot Thai sauce (includes Sriracha)
+[[price]]
+food = "Hot sauce"
+ppnap = 75511010                 # Hot pepper sauce
+[[price]]
+food = "Sweet chili sauce"
+ppnap = 91361010                 # Sweet and sour sauce
+proxy = true
+[[price]]
+food = "Rice vinegar"
+ppnap = 64401000                 # Vinegar
+proxy = true
+[[price]]
+food = "White wine vinegar"
+ppnap = 64401000                 # Vinegar
+proxy = true
+[[price]]
+food = "Balsamic vinegar"
+ppnap = 64401000                 # Vinegar
+proxy = true
+note = "distilled vinegar; balsamic costs several times more"
+[[price]]
+food = "Chicken broth"
+ppnap = 28340110                 # Chicken or turkey broth, bouillon, or consomme
+[[price]]
+food = "Beef broth (low sodium)"
+ppnap = 28340110                 # Chicken or turkey broth, bouillon, or consomme
+proxy = true
+[[price]]
+food = "Dry white wine"
+bls = "720311"
+proxy = true
+note = "red and white table wine"
+
+# -- free ------------------------------------------------------------------------------------------
+[[price]]
+food = "Tap water"
+free = true
+note = "tap water costs a small fraction of a cent per litre, taken as nothing"
+
+# -- EveryPlate foods (2026-09-28) -----------------------------------------------------------------
+[[price]]
+food = "Brussels sprouts"
+ppnap = 75102750                 # Brussels sprouts, raw
+[[price]]
+food = "Coleslaw mix"
+ppnap = 75103000                 # Cabbage, green, raw
+proxy = true
+note = "loose cabbage; a bagged coleslaw mix costs more"
+[[price]]
+food = "White bread"
+bls = "702111"
+[[price]]
+food = "Flour tortilla (10 inch)"
+ppnap = 52215200                 # Tortilla, flour
+[[price]]
+food = "Honey Dijon dressing"
+ppnap = 83105500                 # Honey mustard dressing (includes honey dijon dressing)
+[[price]]
+food = "Greek vinaigrette"
+ppnap = 83106000                 # Italian dressing, made with vinegar and oil (includes vinaigrette)
+proxy = true
+[[price]]
+food = "Buttermilk ranch dressing"
+ppnap = 12350230                 # Ranch dip, regular
+proxy = true
+note = "ranch dip; Purchase to Plate has no ranch dressing"

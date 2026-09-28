@@ -14,6 +14,7 @@ private/week.toml:
     leftover_days = 3                   # how long cooked food keeps, if the data gives no ShelfLife for it
     portions = [0.75, 1, 1.25, 1.5]     # servings a meal may be; default: one serving each
     time_limit_s = 30
+    prices = "Home prices"              # optional: report the week's cost at this price level
     [weights]                           # optional: written onto the MealPlan (optimizer-design Sec 4.5)
     time = 0.5
     variety = 0.5
@@ -23,7 +24,8 @@ The week's MealPlan is "Week of <start>", about a TemporalRegion spanning its da
 the targets and the baseline attached. Meals already committed to it are kept and planned
 around (a slot they hold is not proposed again). After the plan, the nutrient report
 (mealplanner/planning/nutrients.py): what the week meets, misses, or cannot meet with the
-recipes there are, and how the weeks committed so far have done on each target.
+recipes there are, and how the weeks committed so far have done on each target; then, if
+the file names a price level, what the week's meals cost (mealplanner/prices.py).
 """
 
 import argparse
@@ -40,6 +42,7 @@ from mealplanner.nutrition_scope import active_entries, entry_start, nutrition_r
 from mealplanner.planning.extract import SlotSpec
 from mealplanner.planning.nutrients import describe_nutrients
 from mealplanner.planning.plan import plan_week
+from mealplanner.prices import describe_cost
 from mealplanner.vocabulary_import import Sync
 
 STRUCTR_TIME = "%Y-%m-%dT%H:%M:%S%z"
@@ -167,6 +170,9 @@ def main(argv=None) -> int:
     if result.evaluation is not None:
         print()
         print(describe_nutrients(result.problem, result.evaluation))
+        if week.get("prices"):
+            print()
+            print(describe_cost(client, result.problem, result.evaluation, week["prices"], week.get("days", 7)))
         if args.commit:
             print(f"\ncommitted {len(result.committed)} entries")
         else:

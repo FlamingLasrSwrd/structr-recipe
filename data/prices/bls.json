@@ -1,0 +1,182 @@
+{
+ "cpi": {
+  "base": {
+   "period": "2017-2018 mean",
+   "value": 239.1251
+  },
+  "latest": {
+   "period": "2026-08",
+   "value": 321.5
+  },
+  "series": "CUUR0000SAF11"
+ },
+ "items": {
+  "701111": {
+   "US": {
+    "period": "2026-08",
+    "value": 0.548
+   }
+  },
+  "701312": {
+   "US": {
+    "period": "2026-08",
+    "value": 1.111
+   }
+  },
+  "701322": {
+   "US": {
+    "period": "2026-08",
+    "value": 1.374
+   }
+  },
+  "702111": {
+   "US": {
+    "period": "2026-08",
+    "value": 1.823
+   },
+   "West": {
+    "period": "2026-08",
+    "value": 2.035
+   }
+  },
+  "703112": {
+   "US": {
+    "period": "2026-08",
+    "value": 6.923
+   },
+   "West": {
+    "period": "2026-08",
+    "value": 7.443
+   }
+  },
+  "703613": {
+   "US": {
+    "period": "2026-08",
+    "value": 14.357
+   },
+   "West": {
+    "period": "2026-08",
+    "value": 18.766
+   }
+  },
+  "704111": {
+   "US": {
+    "period": "2026-08",
+    "value": 6.605
+   },
+   "West": {
+    "period": "2026-08",
+    "value": 6.921
+   }
+  },
+  "704212": {
+   "US": {
+    "period": "2026-08",
+    "value": 4.532
+   },
+   "West": {
+    "period": "2026-08",
+    "value": 4.577
+   }
+  },
+  "708111": {
+   "US": {
+    "period": "2026-08",
+    "value": 2.272
+   }
+  },
+  "709112": {
+   "US": {
+    "period": "2026-08",
+    "value": 4.229
+   },
+   "West": {
+    "period": "2026-08",
+    "value": 4.831
+   }
+  },
+  "710212": {
+   "US": {
+    "period": "2026-08",
+    "value": 5.983
+   },
+   "West": {
+    "period": "2026-08",
+    "value": 7.323
+   }
+  },
+  "712112": {
+   "US": {
+    "period": "2026-08",
+    "value": 0.976
+   },
+   "West": {
+    "period": "2026-08",
+    "value": 1.004
+   }
+  },
+  "712311": {
+   "US": {
+    "period": "2026-08",
+    "value": 1.977
+   }
+  },
+  "715211": {
+   "US": {
+    "period": "2026-08",
+    "value": 1.024
+   },
+   "West": {
+    "period": "2026-08",
+    "value": 1.01
+   }
+  },
+  "720311": {
+   "US": {
+    "period": "2026-08",
+    "value": 13.747
+   },
+   "West": {
+    "period": "2026-08",
+    "value": 14.493
+   }
+  },
+  "FC3101": {
+   "US": {
+    "period": "2026-08",
+    "value": 12.813
+   },
+   "West": {
+    "period": "2026-08",
+    "value": 13.807
+   }
+  },
+  "FD4101": {
+   "US": {
+    "period": "2026-08",
+    "value": 3.737
+   },
+   "West": {
+    "period": "2026-08",
+    "value": 3.937
+   }
+  },
+  "FF1101": {
+   "US": {
+    "period": "2026-08",
+    "value": 4.173
+   },
+   "West": {
+    "period": "2026-08",
+    "value": 4.718
+   }
+  },
+  "FS1101": {
+   "US": {
+    "period": "2026-08",
+    "value": 4.021
+   }
+  }
+ },
+ "source": "U.S. Bureau of Labor Statistics, CPI Average Price Data (series APU<area><item>) and CPI-U food at home (CUUR0000SAF11), via the BLS Public Data API"
+}
