@@ -156,6 +156,44 @@ explicitly on every write:
 payload["visibleToAuthenticatedUsers"] = True   # or visibleToPublicUsers
 ```
 
+### Users, groups and grants (✅ probed 2026-09-28 on a throwaway 6.0.0 instance)
+
+Probed to decide how a model `Person` should relate to Structr's accounts
+(docs/verification-and-sharing.md §3.3). Every item below was run live.
+
+- ✅ **There is no `Person` type.** `GET /structr/rest/Person` is a 404. The
+  built-in account types are `User` and `Group` (both principals); neither
+  they nor `Principal` exist as `SchemaNode`s, so a relationship to them cannot
+  name a `targetId`.
+- ✅ **A relationship to a built-in type works with `targetType`:**
+  `POST /structr/rest/SchemaRelationshipNode {"sourceId": <our type>, "targetType":
+  "User", "relationshipType": ..., ...}`. The forward property (`account` on our
+  type) works, and a signed-in user can find their own node through it. The
+  inverse property on `User` did not show in `get_all("User", id)`.
+- ✅ **A custom type can inherit the `User` trait**, alongside custom traits:
+  `{"name": "ProbePerson", "inheritedTraits": ["ProbeObject", "User"]}`, where
+  `ProbeObject` inherits an abstract `ProbeEntity`. An instance created with a
+  `password`:
+  - is listed under `/structr/rest/User` and under `/structr/rest/ProbeEntity`;
+  - satisfies a relationship aimed at `ProbeEntity`, read back in both directions;
+  - logs in with `X-User`/`X-Password`, owns the nodes it creates, and can be a
+    `Group` member (`POST /structr/rest/Group {"name": ..., "members": [ids]}`).
+- ✅ **A non-admin user needs a `ResourceAccess` grant for every REST path it
+  uses**, and the grant must itself be `visibleToAuthenticatedUsers`, or every
+  request is a 401 (the same trap as the anonymous `_login` grant above).
+  Signatures are the type (`ProbeSecret`) and the type with an id
+  (`ProbeSecret/_id`); `flags: 255` worked. No signature tried (`_me`, `me`,
+  `Me`) opened `GET /structr/rest/me` to a non-admin, which stayed 401.
+- ✅ **A group grant shares an owner-only node, read-only:**
+  `grant(first(find('Group', 'name', 'probe-household')), this, 'read')` in a
+  `SchemaMethod`. Both members could then list it; a user outside the group got
+  an empty list, and a 404 (not a 401) reading it by id. A member's `PATCH` was a
+  401.
+- ✅ **What a user creates is theirs alone**, owned by them and invisible to
+  their group's other members until it is granted. Sharing a household's data
+  therefore needs a grant on every create (an `onCreate` method, or the tool
+  that writes it).
+
 ---
 
 ## 3. Building a schema via REST (not the Schema Editor UI)
