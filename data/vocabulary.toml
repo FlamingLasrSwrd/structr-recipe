@@ -1167,6 +1167,160 @@ fdc = 171723                    # SR: Cranberries, dried, sweetened
 name = "Semisweet chocolate chips"
 fdc = 167976                    # SR: Candies, semisweet chocolate
 
+# -- HelloFresh recipes, second batch (2026-09-27): five breakfasts, eight soups and bowls ---------
+
+[[food]]
+name = "Baby spinach"
+fdc = 168462                    # SR: Spinach, raw
+
+[[food]]
+name = "Berry compote"          # HelloFresh's; berries cooked with sugar, no published label
+fdc = 173951                    # SR: Blueberries, frozen, sweetened
+proxy = true
+
+[[food]]
+name = "Buttermilk biscuits (refrigerated dough)"
+fdc = 172668                    # SR: Biscuits, plain or buttermilk, refrigerated dough, higher fat
+sources = [{ fdc = 2707801, status = "estimated", moisture = true, note = "FNDDS Biscuit NFS (baked, scaled to the dough): what SR does not report" }]
+
+[[food]]
+name = "Cannellini beans (canned)"
+fdc = 175204                    # SR: Beans, white, mature seeds, canned (solids and liquid)
+sources = [{ fdc = 2707357, status = "estimated", moisture = true, note = "FNDDS White beans from canned: what SR does not report" }]
+
+[[food]]
+name = "Carrot"
+fdc = 170393                    # SR: Carrots, raw
+
+[[food]]
+name = "Chickpeas (canned)"
+fdc = 175206                    # SR: Chickpeas, mature seeds, canned, solids and liquids
+sources = [{ fdc = 2707418, status = "estimated", moisture = true, note = "FNDDS Chickpeas from canned (scaled to solids and liquid): what SR does not report" }]
+
+[[food]]
+name = "Chickpeas (canned drained)"
+fdc = 173801                    # SR: Chickpeas, mature seeds, canned, drained, rinsed in tap water
+sources = [{ fdc = 2707418, status = "estimated", moisture = true, note = "FNDDS Chickpeas from canned: what SR does not report" }]
+
+[[food]]
+name = "Red chili flakes"
+fdc = 170932                    # SR: Spices, pepper, red or cayenne
+proxy = true                    # crushed dried red chiles; cayenne is the nearest FDC has
+volume = "tsp"
+
+[[food]]
+name = "Crushed tomatoes (canned)"
+fdc = 170501                    # SR: Tomatoes, crushed, canned
+
+[[food]]
+name = "Diced tomatoes (canned)"
+fdc = 170051                    # SR: Tomatoes, red, ripe, canned, packed in tomato juice
+
+[[food]]
+name = "Dill"
+fdc = 172233                    # SR: Dill weed, fresh
+sources = [{ fdc = 2709796, status = "estimated", moisture = true, note = "FNDDS Parsley raw: a fresh herb, for what SR does not report of dill" }]
+
+[[food]]
+name = "Dried apricots"
+fdc = 173941                    # SR: Apricots, dried, sulfured, uncooked
+
+[[food]]
+name = "Everything bagel seasoning"
+sources = [{ mean = [170150, 170150, 171330, 171330, 171325, 171325, 171327, 171327, 173468], status = "calculated", note = "sesame, poppy, garlic, onion and salt 2:2:2:2:1, a common recipe (ratio assumed)" }]
+volume = { portions = [[170150, "tbsp"], [171330, "tbsp"]] }
+
+[[food]]
+name = "Feta cheese"
+fdc = 173420                    # SR: Cheese, feta
+volume = "cup, crumbled"
+
+[[food]]
+name = "Fry seasoning"          # HelloFresh's: garlic powder, onion powder and paprika
+sources = [{ mean = [171325, 171327, 171329], status = "calculated", note = "equal parts garlic powder, onion powder and paprika (mommytravels.net, HelloFresh Spice Recipes)" }]
+volume = { portions = [[171325, "tbsp"], [171327, "tbsp"]] }
+
+[[food]]
+name = "Hummus"
+fdc = 174289                    # SR: Hummus, commercial
+sources = [{ fdc = 2707402, status = "estimated", moisture = true, note = "FNDDS Hummus plain: what SR does not report" }]
+volume = "tbsp"
+
+[[food]]
+name = "Pearl couscous (dry)"
+fdc = 169699                    # SR: Couscous, dry
+sources = [{ fdc = 2708441, status = "estimated", moisture = true, note = "FNDDS Couscous plain cooked (scaled to dry): what SR does not report" }]
+proxy = true                    # Israeli (pearl) couscous is toasted pasta; FDC has only plain couscous
+volume = "cup"
+
+[[food]]
+name = "Italian chicken sausage (raw)"
+parent = "Poultry"
+fdc = 173880                    # SR: Sausage, chicken or turkey, Italian style, lower sodium
+proxy = true                    # HelloFresh's is not sold as lower sodium; its sodium is likely higher
+
+[[food]]
+name = "Italian seasoning"
+sources = [{ mean = [171328, 171317, 170938, 171333], status = "calculated", note = "equal parts dried oregano, basil, thyme and rosemary (ratio assumed)" }]
+volume = { portions = [[171317, "tbsp, leaves"], [170938, "tbsp, leaves"]] }
+
+[[food]]
+name = "Kale"
+fdc = 168421                    # SR: Kale, raw
+
+[[food]]
+name = "Pork breakfast sausage (raw)"
+fdc = 172934                    # SR: Pork sausage, link/patty, unprepared
+proxy = true                    # HelloFresh's is maple-flavored
+
+[[food]]
+name = "Mexican spice blend"    # HelloFresh's
+sources = [{ mean = [171319, 170923, 171325, 171327, 171329, 171328], status = "calculated", note = "equal parts chili powder, cumin, garlic powder, onion powder, paprika and oregano (assumed; HelloFresh publishes no ratio)" }]
+volume = { portions = [[171319, "tbsp"], [171325, "tbsp"]] }
+
+[[food]]
+name = "Mushroom stock concentrate"
+sources = [
+  { mean = [2434787, 2029037], status = "estimated", note = "the chicken broth concentrate labels: no mushroom concentrate label was found" },
+  { fdc = 171562, status = "estimated", note = "SR chicken bouillon dry: everything the labels do not report" },
+]
+each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
+
+[[food]]
+name = "Portobello mushroom"
+fdc = 169255                    # SR: Mushrooms, portabella, raw
+sources = [{ fdc = 2709793, status = "estimated", moisture = true, note = "FNDDS Mushrooms raw: what SR does not report" }]
+each = "piece whole"
+
+[[food]]
+name = "Powdered sugar"
+fdc = 169656                    # SR: Sugars, powdered
+
+[[food]]
+name = "Ricotta salata"
+fdc = 173420                    # SR: Cheese, feta
+proxy = true                    # a pressed salted ricotta; FDC has none, feta is the nearest
+
+[[food]]
+name = "Shredded coconut (sweetened)"
+fdc = 168586                    # SR: Nuts, coconut meat, dried (desiccated), sweetened, shredded
+volume = "cup, shredded"
+
+[[food]]
+name = "Cucumber"
+fdc = 168409                    # SR: Cucumber, with peel, raw
+each = 'cucumber (8-1/4")'
+
+[[food]]
+name = "Tuscan heat spice"      # HelloFresh's
+sources = [{ mean = [171317, 171317, 171317, 171317, 171333, 171333, 171328, 171328, 171325, 171325, 170932, 171323], status = "calculated", note = "basil, rosemary, oregano, garlic powder, cayenne and fennel 4:2:2:2:1:1, the ratio HelloFresh published (forktospoon.com)" }]
+volume = { portions = [[171317, "tbsp, leaves"], [171325, "tbsp"]] }
+
+[[food]]
+name = "Za'atar"
+sources = [{ mean = [170938, 170150], status = "calculated", note = "equal parts dried thyme and sesame (assumed; sumac is not in FDC and salt is left out)" }]
+volume = { portions = [[170938, "tsp, ground"], [170150, "tbsp"]] }
+
 # -- supplements (2026-09-27) ----------------------------------------------------------------------
 # A supplement states its figures per unit, as its label does (`label`); every nutrient it does not
 # state is loaded as none. These two are the owner's daily doses, not a product's label: replace
