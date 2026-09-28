@@ -16,7 +16,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner.connection import connect
-from mealplanner.structural_types import STRUCTURAL_TYPES
+from mealplanner.structural_types import STRUCTURAL_TYPES, parents_of
 
 
 # A real 7-level concrete chain from the tree, deliberately including
@@ -42,7 +42,7 @@ def main():
     existing_count = 0
     name_to_id: dict[str, str] = {}
     for name, is_abstract, parent in STRUCTURAL_TYPES:
-        inherited = [parent] if parent else None
+        inherited = parents_of(parent) or None
         node_id, created = client.ensure_type(name, is_abstract=is_abstract, inherited_traits=inherited)
         name_to_id[name] = node_id
         if created:

@@ -14,7 +14,8 @@ documents directly in `docs/`, in the same commit as the code they describe.
 
 ## What this is
 
-A BFO-grounded data model for a single-user meal planner, built on Structr 6 and Neo4j, plus the
+A BFO-grounded data model for a meal planner (single-user until 2026-09-28, now moving toward households
+of several people, `docs/data-model.md` §19), built on Structr 6 and Neo4j, plus the
 Python that computes over it: inventory, reservation, nutrition, a per-slot selector, and a
 plan-level planner (`mealplanner/planning/`). The public repository is used for external code
 review, so what the README and REVIEW.md claim has to be true.
@@ -41,7 +42,7 @@ review, so what the README and REVIEW.md claim has to be true.
   files live in `private/`, which git ignores: the repository is public, the owner's data is
   not. Never run a demo from `scripts/` against it (`connect()` refuses a marked instance), and
   never `down -v` it: nothing can rebuild it. The exception is a schema-only migration (such as
-  `30a`, `31a`, `32a`, `33a`), which declares `owner_data_ok=True` and must be run on the owner's instance as well,
+  `30a` to `34a`), which declares `owner_data_ok=True` and must be run on the owner's instance as well,
   then Structr restarted (hard rule 8).
 - **The development laptop has 8 GB and has frozen three times.** Run one stack at a time (stop
   one before starting another), stop a stack once its work is done, and check `free -m` before

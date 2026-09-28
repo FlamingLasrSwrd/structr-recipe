@@ -1,4 +1,4 @@
-# Meal Planning Tool — Data Model (Rev. 4.4)
+# Meal Planning Tool — Data Model (Rev. 4.5)
 
 Implementation-agnostic. **BFO is the controlling scheme**: where BFO (or its standard companions IAO, CCO, RO) already provides a class or relation, this model uses it. Bespoke terms exist only where nothing suitable does, and each is marked. Also draws on PROV-O, P-Plan, SKOS, OWL-Time, QUDT/UCUM, and published USDA/EuroFIR food-composition method.
 
@@ -48,13 +48,19 @@ Entity
 │   │   │   │   ├── ContainerObject            ⊐ Container-Type types
 │   │   │   │   │                              a jar, carton, tub. Contents are
 │   │   │   │   │                              `located in` it, NOT part of it
-│   │   │   │   └── EquipmentObject            ⊐ Equipment-Type types
+│   │   │   │   ├── EquipmentObject            ⊐ Equipment-Type types
+│   │   │   │   └── Person                     a human; the PROV agent of a check,
+│   │   │   │                                  a stock take, a purchase. Also a
+│   │   │   │                                  Structr User (§19)
 │   │   │   ├── Object Aggregate
 │   │   │   │   ├── FoodAggregate               `has member part` → any FoodObjects,
 │   │   │   │   │                               alike or not (a dozen eggs; a plated
 │   │   │   │   │                               meal). Members stay self-connected;
 │   │   │   │   │                               causally-unified wholes use has part
-│   │   │   │   └── UtensilSet
+│   │   │   │   ├── UtensilSet
+│   │   │   │   └── Household                   `has member part` → Persons sharing a
+│   │   │   │                                   kitchen, its stock and its meals. Also
+│   │   │   │                                   a Structr Group (§19)
 │   │   │   └── Fiat Object Part                [deferred — empty]
 │   │   └── Immaterial Entity                    [out of scope — empty]
 │   │
@@ -87,6 +93,8 @@ Entity
 │           │   │                                  QuantitySpecification (§8)
 │           │   ├── MealPlan
 │           │   ├── MealPlanEntry
+│           │   ├── MealShare                    one person's part of a shared entry:
+│           │   │                                who eats it, how many servings (§19)
 │           │   ├── PlanningConstraint             abstract — something a MealPlan
 │           │   │   │                              must satisfy, checked by rollup
 │           │   │   ├── StockPolicy
@@ -588,7 +596,7 @@ Most irreversibility is already implicit: a Process generating a **new instance 
 
 ## 13. Deferred / out of scope
 
-Fiat Object Part; Immaterial Entity and Site-based location; **Person/Agent** (single-user tool — note this is why no BFO agent relation is used anywhere); freezing/thawing as modeled transitions; non-linear recipe scaling; new top-level classes via ExtensionPropertyDefinition; splitting Food Identity into composition-vs-aggregation hierarchies; **MealServing** (per-serving customization — motivating scenario recorded, deferred); full OWL/DL reasoning.
+Fiat Object Part; Immaterial Entity and Site-based location; freezing/thawing as modeled transitions; non-linear recipe scaling; new top-level classes via ExtensionPropertyDefinition; splitting Food Identity into composition-vs-aggregation hierarchies; **MealServing** (per-serving customization — motivating scenario recorded, deferred; not the same as §19's MealShare, which gives each eater an amount of the same dish); full OWL/DL reasoning. **Person/Agent** was listed here until the owner reversed it (2026-09-28, §19): the tool was single-user, which is why no agent relation had been used anywhere.
 
 **Resolved by the implementation decision (Structr, §16)**: the two questions previously held pending implementation-capability research are settled, and — importantly — settled *differently* from each other, because the two cases are not symmetric.
 
@@ -704,3 +712,23 @@ Rev 4.3 recorded what building recipes turned up. This rev records what building
 | J27 | **A typical price is a default at a food Type; what a recipe costs is computed.** A price is a `DefaultSpecification` of kind `Unit Price`, keyed by a food Type and valued in dollars per 100 g (`USD_per_100g`), on a Type in the `Price Reference` hierarchy. Three public levels, each a child of the one before: USDA ERS Purchase to Plate 2017-18 prices brought forward by the CPI for food at home (`calculated`), BLS average prices for the U.S. city average (`sourced`), and the West region's where BLS publishes them. The owner's own prices are a level below the one they choose (`specified`), so resolution (§8, as for profiles) makes the nearest level win, and a food with no price takes its nearest ancestor food's. A recipe's cost a serving is its raw, non-optional inputs in grams (the ones nutrition counts, J5) times their price over its servings; an ingredient with no price is left out and named. It is not in the planner's objective | The owner asked for interim public prices "until I can either manually edit the values or we actually start tracking purchases". A default at the Type is §4.1's Type-level side, where a `PriceObservation` from a Purchase (§5.5), still unbuilt, is the instance-level side that would later suggest it. Purchase to Plate prices food as eaten, so a cooked price used for a raw food is `estimated`, as is a similar food's (`data/prices.toml`, `mealplanner/prices.py`, docs/prices.md) |
 
 **Still open from §17:** the systematic pass checking each invariant against whether every relation it references has a §7 entry has not been done. Separately, the implementation's invariant tracker (`mealplanner/domain_invariants.py`) omitted four of the thirty invariants (2, 10, 25, 27) until a self-audit before external review — a reminder that the tracker and this document are two places that must agree.
+
+---
+
+## 19. Rev 4.5 — people, households and shared meals
+
+The owner's decision, 2026-09-28: move toward several users with shared and private data, record who
+made each check, and let people "have different profiles but be in the same household and share
+meals". It reverses §13's "Person/Agent: out of scope". The design, with the options weighed, is
+docs/verification-and-sharing.md §3.3–3.6; this section records what the model now says. Three
+structural types are added (51 → 54), each new and with no instances, which is the safe case in
+Structr (CLAUDE.md hard rule 2).
+
+| # | Change | Reason and status |
+|---|---|---|
+| K1 | **`Person`**, a BFO object: a human, and the PROV agent (`Process -[WAS_ASSOCIATED_WITH]-> Person`) of a check, a stock take or a purchase. It also inherits Structr's `User`, so one node is the person in the model and the account Structr's login, ownership and grants check. A person who never signs in has no password | Verification by several people needs a "who", which the model never had. Probed first on a throwaway instance (structr-cheatsheet.md, "Users, groups and grants"): such a node is listed as a User, logs in, owns what it creates and is a group member, and is also an instance of our trait that satisfies relationships aimed at it. The alternative, a Person linked to a separate account, needs two nodes kept in step (`mealplanner/household_schema.py`, `scripts/34a`) |
+| K2 | **`Household`**, a BFO object aggregate whose members are Persons (`has member part`), as a `UtensilSet`'s are tools. It also inherits Structr's `Group`: its members are the group's members, and data granted to it is shared with them and hidden from everyone else. `MealPlan -[FOR_HOUSEHOLD]-> Household` | People share a kitchen, its stock and its meals. Probed the same way: a group grant reached both members and no one else. What is the household's (kitchen, stock, purchases, prices, meal plans) and what is each person's (K4) is docs/verification-and-sharing.md §3.4–3.5 |
+| K3 | **`MealShare`**, a Directive ICE: one person's part of a `MealPlanEntry`. `MealPlanEntry -[HAS_SHARE]-> MealShare -[EATEN_BY]-> Person`, and `-[HAS_PLANNED_CONSUMPTION]->` the servings they are to eat, as an entry states them today for its one eater. The cook makes the sum of its shares, plus planned leftovers; a person who eats out has no share | Everyone at a shared meal eats the same dish in different amounts. That is not §13's deferred MealServing, one serving made differently for one eater, which stays deferred |
+| K4 | **What is each person's**: `NutritionTarget -[TARGET_FOR]-> Person`, `ExclusionConstraint -[EXCLUSION_FOR]-> Person`, and `Person -[HAS_BASELINE]-> Plan` (J25's baseline, now per person). A person's nutrition is their own shares and their own baseline, against their own targets | Different people have different needs at the same table. `MealPlan -[HAS_BASELINE]->` remains for a one-person household until its data is moved |
+| K5 | **The planner's problem changes with it** (approved with this decision): a shared slot's recipe is chosen once, the portion once per eater from that person's portion levels, and every eater's hard targets must hold; the nutrition term sums over people, while variety and time stay per slot. A slot may also be one person's | **Not built yet.** Until it is, the planner reads one eater, as before |
+

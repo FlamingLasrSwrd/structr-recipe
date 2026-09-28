@@ -506,6 +506,12 @@
   "targetJsonName": "appliesTo",
   "targetMultiplicity": "1"
  },
+ "@schema | relationship ExclusionConstraint -[EXCLUSION_FOR]-> Person": {
+  "sourceJsonName": "exclusions",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "forPerson",
+  "targetMultiplicity": "1"
+ },
  "@schema | relationship FoodObject -[BEGINS_TO_EXIST_DURING]-> Process": {
   "sourceJsonName": "thingsBegunDuring",
   "sourceMultiplicity": "*",
@@ -554,6 +560,12 @@
   "targetJsonName": "isAbout",
   "targetMultiplicity": "1"
  },
+ "@schema | relationship MealPlan -[FOR_HOUSEHOLD]-> Household": {
+  "sourceJsonName": "mealPlans",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "forHousehold",
+  "targetMultiplicity": "1"
+ },
  "@schema | relationship MealPlan -[HAS_BASELINE]-> Plan": {
   "sourceJsonName": "baselineOf",
   "sourceMultiplicity": "*",
@@ -596,10 +608,28 @@
   "targetJsonName": "hasPlannedConsumption",
   "targetMultiplicity": "1"
  },
+ "@schema | relationship MealPlanEntry -[HAS_SHARE]-> MealShare": {
+  "sourceJsonName": "shareOf",
+  "sourceMultiplicity": "1",
+  "targetJsonName": "hasShare",
+  "targetMultiplicity": "*"
+ },
  "@schema | relationship MealPlanEntry -[REFERENCES]-> Plan": {
   "sourceJsonName": "referencedByEntries",
   "sourceMultiplicity": "*",
   "targetJsonName": "references",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship MealShare -[EATEN_BY]-> Person": {
+  "sourceJsonName": "mealShares",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "eatenBy",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship MealShare -[HAS_PLANNED_CONSUMPTION]-> QuantitySpecification": {
+  "sourceJsonName": "plannedConsumptionOfShares",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasPlannedConsumption",
   "targetMultiplicity": "1"
  },
  "@schema | relationship Measurement -[IS_ABOUT_QUALITY]-> Quality": {
@@ -637,6 +667,18 @@
   "sourceMultiplicity": "*",
   "targetJsonName": "hasTargetRange",
   "targetMultiplicity": "1"
+ },
+ "@schema | relationship NutritionTarget -[TARGET_FOR]-> Person": {
+  "sourceJsonName": "nutritionTargets",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "forPerson",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Person -[HAS_BASELINE]-> Plan": {
+  "sourceJsonName": "baselineOfPeople",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasBaseline",
+  "targetMultiplicity": "*"
  },
  "@schema | relationship Plan -[HAS_RECIPE_YIELD]-> QuantitySpecification": {
   "sourceJsonName": "recipeYieldOfPlans",
@@ -702,6 +744,12 @@
   "sourceJsonName": "realizedByProcesses",
   "sourceMultiplicity": "*",
   "targetJsonName": "realizes",
+  "targetMultiplicity": "*"
+ },
+ "@schema | relationship Process -[WAS_ASSOCIATED_WITH]-> Person": {
+  "sourceJsonName": "activities",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "wasAssociatedWith",
   "targetMultiplicity": "*"
  },
  "@schema | relationship RecipeIdentity -[HAS_MEAL_TYPE]-> Concept": {
@@ -938,6 +986,13 @@
   ],
   "isAbstract": true
  },
+ "@schema | type Household": {
+  "inheritedTraits": [
+   "Group",
+   "ObjectAggregate"
+  ],
+  "isAbstract": false
+ },
  "@schema | type Identifier": {
   "inheritedTraits": [
    "DesignativeICE"
@@ -980,6 +1035,12 @@
   ],
   "isAbstract": false
  },
+ "@schema | type MealShare": {
+  "inheritedTraits": [
+   "DirectiveICE"
+  ],
+  "isAbstract": false
+ },
  "@schema | type Measurement": {
   "inheritedTraits": [
    "DescriptiveICE"
@@ -1009,6 +1070,13 @@
    "Entity"
   ],
   "isAbstract": true
+ },
+ "@schema | type Person": {
+  "inheritedTraits": [
+   "BfoObject",
+   "User"
+  ],
+  "isAbstract": false
  },
  "@schema | type Plan": {
   "inheritedTraits": [

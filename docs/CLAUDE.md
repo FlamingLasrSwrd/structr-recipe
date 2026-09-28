@@ -4,13 +4,13 @@ Read this before touching anything else.
 
 ## What this is
 
-A single-user meal-planning tool. It generates a weekly plan satisfying difficulty, nutrition, meal-type coverage, time budgets, inventory and expiration awareness, and minimal ingredient waste. The data model is BFO-grounded and has been through four major revisions and two external adversarial reviews. **The modeling is done; the build is not.**
+A meal-planning tool, single-user until the owner chose (2026-09-28) to move toward households of several people who share meals, each with their own profile. It generates a weekly plan satisfying difficulty, nutrition, meal-type coverage, time budgets, inventory and expiration awareness, and minimal ingredient waste. The data model is BFO-grounded and has been through four major revisions and two external adversarial reviews. **The modeling is done; the build is not.**
 
 ## Document status — read this table first
 
 | File | Status | Use it for |
 |---|---|---|
-| `data-model.md` (Rev. 4.4) | ✅ **Authoritative** | the model. If anything contradicts it, it loses |
+| `data-model.md` (Rev. 4.5) | ✅ **Authoritative** | the model. If anything contradicts it, it loses |
 | `structr-build-sketch.md` | ✅ **Authoritative** | how the model maps onto Structr |
 | `structr-cheatsheet.md` | ✅ **Authoritative** | Structr mechanics. Empirically verified against a real instance — trust its ✅ items over the official docs |
 | `bfo-reference.md` | 📖 Reference | what BFO classes and relations mean, with domains/ranges |
@@ -18,7 +18,7 @@ A single-user meal-planning tool. It generates a weekly plan satisfying difficul
 | `recipe-format.md` | 📘 Guide | how a recipe is transcribed into a file and loaded |
 | `profiles.md` | 📘 Guide, as built; its last section is exploration | how dietary, kitchen and pantry profiles are defined, resolved and instantiated into the owner's data. Its table of other uses is a set of candidates, not a plan |
 | `prices.md` | 📘 Guide, as built | where the interim food prices come from, how they are layered, the owner's own prices, and what a recipe or a week costs |
-| `verification-and-sharing.md` | 📝 **Proposal, not built** | how checks by people (stock takes, purchases, confirmed or corrected figures) and several users with shared and private data would fit the model. It reverses "Person/Agent: out of scope" if accepted, so nothing in it is built until the owner decides |
+| `verification-and-sharing.md` | 📝 **Proposal, being built** | how checks by people (stock takes, purchases, confirmed or corrected figures) and several users with shared and private data fit the model. The owner accepted its Person (§3.3) and household (§3.5) designs on 2026-09-28; `data-model.md` §19 records what the model now says, and the proposal says what is still to build |
 | `design-review-document.md` | 🗄️ **Historical — do not follow** | records round-1 review findings, all since fixed |
 | `design-review-document-round2.md` | 🗄️ **Historical — do not follow** | same, round 2. Its §11 "not yet acted on" items **have** since been acted on |
 
@@ -28,7 +28,7 @@ The two review documents describe the model *as it was before fixes*. Reading th
 
 From the cheatsheet's empirically-verified findings. These are not stylistic.
 
-1. **Never rename a `SchemaNode`.** It orphans every existing instance — unreachable under both old and new names. Get the 51 structural type names right the first time.
+1. **Never rename a `SchemaNode`.** It orphans every existing instance — unreachable under both old and new names. Get the 54 structural type names right the first time.
 2. **Never add a trait to a type that already has instances.** A node's Neo4j label set is fixed at creation; existing instances silently fail polymorphic-target lookups forever. Only fixable with direct Cypher `SET n:<Label>`.
 3. **The structural trait layer is frozen after build.** Everything that varies at runtime is data — see the three-layer split in the build sketch. If a task seems to require a new structural type, stop and ask.
 4. **Every write sets visibility explicitly** (`visibleToAuthenticatedUsers` or `visibleToPublicUsers`). The default is owner-only and fails silently.
@@ -46,13 +46,14 @@ From the cheatsheet's empirically-verified findings. These are not stylistic.
 
 Each was considered and declined. Adding any of them is a regression, not an improvement.
 
-- **Person/Agent** — single-user by design. There are no agents in the model; equipment participates, it does not act. *Under review:* on 2026-09-28 the owner asked to move toward several users with shared and private data, and for checks recorded with who made them. `verification-and-sharing.md` proposes how; this line stands until the owner decides it.
 - **Per-serving customization** (`MealServing`) — deferred with its motivating scenario recorded.
 - **Freezing/thawing as modeled state transitions** — storage condition is a static tag.
 - **Non-linear recipe scaling** — scaling is uniform across ingredients, knowingly.
 - **Site-based location modeling** — shelf/cupboard is free text; storage *condition* is a Type.
 - **New top-level classes via `ExtensionPropertyDefinition`** — it adds typed properties to existing types only.
 - **OWL/DL reasoning** — BFO is design discipline here, not a runtime dependency.
+
+Once on this list, now in: **Person/Agent**. It was out while the tool was single-user; the owner reversed it on 2026-09-28 to have several users, households sharing meals, and checks recorded with who made them (`data-model.md` §19, `verification-and-sharing.md`).
 
 ## The optimizer
 
