@@ -179,7 +179,9 @@ def build_problem(
                 untrusted.add(nutrient_id)
             elif figure.amount is not None and figure.estimated:
                 estimated.add(nutrient_id)
-        if estimated:
+        if estimated == {n for n, amount in nutrients.items() if amount is not None}:
+            notes.append(f"recipe {plan['name']!r}: all its figures rest on estimates (J21)")
+        elif estimated:
             notes.append(f"recipe {plan['name']!r}: its {', '.join(sorted(name_of[n] for n in estimated))} "
                          f"figure(s) rest on estimates (J21)")
         demand: dict[str, float] = {}
