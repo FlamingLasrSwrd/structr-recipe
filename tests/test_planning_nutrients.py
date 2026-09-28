@@ -40,6 +40,12 @@ class Standings(unittest.TestCase):
         s = standing(protein_target(None, 30, hard=False, weight=0.1), ("lean", "lean"), baseline={"protein": 15.0})
         self.assertEqual((s.impossible, s.reach), (1, [(35.0, 115.0)]))
 
+    def test_portions_widen_what_is_possible(self):
+        p = problem([slot("lunch", when(28, 12)), slot("dinner", when(28, 18))], RECIPES,
+                    [protein_target(120, None, hard=False, weight=0.1)], units={"protein": "g"}, portions=(0.75, 1.0, 1.5))
+        (s,) = standings(p, evaluate(p, (Pick(candidate="rich", portion=1.0),) * 2))   # 100 g: short, but 150 is reachable
+        self.assertEqual((s.missed, s.impossible), (1, 0))
+
     def test_a_recipe_with_no_figure_rules_out_impossible(self):
         recipes = RECIPES + (cand("mystery", None, 20),)
         s = standing(protein_target(120, None, hard=False, weight=0.1), ("rich", "rich"), recipes=recipes)

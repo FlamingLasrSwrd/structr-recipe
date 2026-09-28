@@ -52,14 +52,15 @@ def _could_fill(problem: PlanningProblem, i: int):
 def slot_reach(problem: PlanningProblem, i: int, nutrient: str) -> tuple[float, float] | None:
     """(least, most) of `nutrient` open slot i could take in; None if a recipe with
     no figure could fill it (then nothing can be concluded), or if nothing can."""
-    eaten = slot_eaten(problem, i)
-    amounts = []
+    levels = problem.portion_levels() if problem.slots[i].fixed is None else (slot_eaten(problem, i),)
+    least, most = [], []
     for c in _could_fill(problem, i):
         amount = c.nutrients.get(nutrient)
         if amount is None:
             return None
-        amounts.append(amount * eaten)
-    return (min(amounts), max(amounts)) if amounts else None
+        least.append(amount * min(levels))
+        most.append(amount * max(levels))
+    return (min(least), max(most)) if least else None
 
 
 def _in_range(total: float, t: Target) -> bool:

@@ -32,9 +32,9 @@ def read(text):
 class TheWeekFile(unittest.TestCase):
     def test_every_problem_is_named(self):
         with self.assertRaises(tool.WeekError) as caught:
-            read('start = "Monday"\ntimezone = "Mountain"\nmeals = [{ type = "Dinner", at = "dinnertime" }]\n')
+            read('start = "Monday"\ntimezone = "Mountain"\nportions = [1, -2]\nmeals = [{ type = "Dinner", at = "dinnertime" }]\n')
         text = " ".join(caught.exception.args[0])
-        for fragment in ("start must be a date", "not an IANA zone", "must be a time"):
+        for fragment in ("start must be a date", "not an IANA zone", "must be a time", "portions must be"):
             self.assertIn(fragment, text)
 
     def test_local_times_and_a_committed_meal_keeps_its_slot(self):

@@ -40,7 +40,7 @@ class PlanResult:
 def plan_week(
     client, meal_plan_id: str, template: list[SlotSpec], now: datetime, *, method: str = "auto",
     commit: bool = False, name_prefix: str = "", servings_eaten: float = 1.0, max_difficulty: str | None = None,
-    leftover_days: float | None = None, leftovers: bool = True, **search_options,
+    leftover_days: float | None = None, leftovers: bool = True, portions: tuple = (), **search_options,
 ) -> PlanResult:
     """Read the MealPlan, search for the best week for the slots in `template`,
     and (only if asked, and only if a plan meets every hard constraint) write it
@@ -49,7 +49,7 @@ def plan_week(
     constraint."""
     problem = build_problem(
         client, meal_plan_id, template, now, servings_eaten=servings_eaten, max_difficulty=max_difficulty,
-        leftover_days=leftover_days, leftovers=leftovers,
+        leftover_days=leftover_days, leftovers=leftovers, portions=portions,
     )
     search = solve(problem, method, **search_options)
     if search.best is not None and search.best.feasible:

@@ -172,6 +172,25 @@ class DaysEndAtTheTargetsMidnight(unittest.TestCase):
         self.assertEqual([idx for _, idx in slot_groups(p, local)], [[0, 1]])
 
 
+class PortionsMayVary(unittest.TestCase):
+    """Three omelettes are 72 g of protein; at 1.5 servings each they are 108 g."""
+
+    def test_a_larger_portion_can_meet_what_one_serving_cannot(self):
+        fixed = day_of_three([protein_target(100, None)], candidates=(cand("omelette", 24, 20),))
+        self.assertIsNone(oracle(fixed).best)
+        varied = day_of_three([protein_target(100, None)], candidates=(cand("omelette", 24, 20),), portions=(1.0, 1.5))
+        best = oracle(varied).best
+        self.assertTrue(best.feasible)
+        self.assertEqual({p.portion for p in best.picks}, {1.5})
+        _, cooked = resolve(varied, list(best.picks))
+        self.assertEqual(cooked, [1.5, 1.5, 1.5])
+
+    def test_a_portion_must_be_one_of_the_levels(self):
+        p = day_of_three([], candidates=(cand("omelette", 24, 20),), portions=(1.0, 1.5))
+        ev = evaluate(p, (Pick(candidate="omelette", portion=2.0),) + (Pick(candidate="omelette", portion=1.0),) * 2)
+        self.assertIn("not one of", " ".join(ev.problems))
+
+
 class TheBaselineCountsEveryDay(unittest.TestCase):
     """Supplements or the morning coffee: an amount added to every day's total, outside the slots."""
 
