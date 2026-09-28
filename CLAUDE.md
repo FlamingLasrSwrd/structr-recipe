@@ -79,8 +79,10 @@ STRUCTR_URL=http://localhost:8085 python3 tools/import_recipe.py private/recipes
 STRUCTR_URL=http://localhost:8085 python3 tools/import_profiles.py     # data/profiles/*.toml; --check validates only
 STRUCTR_URL=http://localhost:8085 python3 tools/instantiate_profile.py kitchen --list   # or pantry --list; then nutrition|kitchen|pantry private/<file>.toml (docs/profiles.md)
 STRUCTR_URL=http://localhost:8085 python3 tools/import_recipe.py private/baseline.toml    # the daily baseline (supplements)
-STRUCTR_URL=http://localhost:8085 python3 tools/plan_week.py private/week.toml            # propose a week and report nutrients; --commit writes it
+STRUCTR_URL=http://localhost:8085 python3 tools/import_prices.py      # data/prices.toml; then instantiate_profile.py prices private/prices.toml (docs/prices.md)
+STRUCTR_URL=http://localhost:8085 python3 tools/plan_week.py private/week.toml            # propose a week, report nutrients and cost; --commit writes it
 python3 tools/fdc_extract.py        # after adding a food: re-pins data/fdc/ from the datasets in .cache/fdc/ (loads the FNDDS JSON, ~450 MB)
+python3 tools/price_extract.py      # after changing data/prices.toml: re-pins data/prices/ (--fetch asks the BLS API first)
 ```
 
 Both interpreters must pass the whole suite. `tools/expected_state.json` is a golden file: if a

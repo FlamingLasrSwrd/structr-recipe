@@ -3,12 +3,14 @@
     python3 tools/instantiate_profile.py nutrition private/nutrition.toml [--reset]
     python3 tools/instantiate_profile.py kitchen private/kitchen.toml
     python3 tools/instantiate_profile.py pantry private/pantry.toml [--reset]
+    python3 tools/instantiate_profile.py prices private/prices.toml
     python3 tools/instantiate_profile.py nutrition --show "Adult male 31-50 moderately active"
     python3 tools/instantiate_profile.py pantry --show "Basic pantry"
+    python3 tools/instantiate_profile.py prices --show "Home prices"
     python3 tools/instantiate_profile.py kitchen --list [--profile "Everyday home kitchen"]
     python3 tools/instantiate_profile.py pantry --list [--profile "Basic pantry"]
 
---show prints what a dietary or pantry profile resolves to. --list prints every
+--show prints what a dietary or pantry profile, or a price level, resolves to. --list prints every
 equipment type or food, grouped, marking those the profile includes: the list to
 choose from when editing private/kitchen.toml or private/pantry.toml. --reset
 replaces targets or amounts the owner changed in Structr with the profile's
@@ -27,6 +29,7 @@ from mealplanner.profiles import (
     EQUIPMENT_HIERARCHY, ProfileError, dietary_targets, instantiate_kitchen, instantiate_nutrition, instantiate_pantry,
     kitchen_items, pantry_stock,
 )
+from mealplanner.prices import instantiate_prices, price_table
 from mealplanner.vocabulary_import import FOOD_HIERARCHY
 
 
@@ -40,6 +43,17 @@ def show_targets(client, profile: str) -> None:
 def show_stock(client, profile: str) -> None:
     for name, qty in sorted(pantry_stock(client, profile).values()):
         print(f"  {name:40s} {qty['value']:>7g} {qty['unit']}")
+
+
+def show_prices(client, level: str) -> None:
+    """Every priced food as seen from a level: its price per 100 g, the level it comes from, and its status."""
+    rows = []
+    for food_id, default in price_table(client, level).items():
+        name = client.get_all("DomainType", food_id)["result"]["name"]
+        found = client.get_all("DomainType", default.found_at_type_id)["result"]["name"]
+        rows.append((name, default.quantity["value"], found, (default.spec or {}).get("provenance")))
+    for name, value, found, status in sorted(rows):
+        print(f"  {name:40s} ${value:7.3f} per 100 g   {status:10s} {found}")
 
 
 def list_types(client, what: str, profile: str | None) -> None:
@@ -66,7 +80,7 @@ def list_types(client, what: str, profile: str | None) -> None:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("what", choices=["nutrition", "kitchen", "pantry"])
+    parser.add_argument("what", choices=["nutrition", "kitchen", "pantry", "prices"])
     parser.add_argument("selection", nargs="?", help="the owner's selection file")
     parser.add_argument("--show", metavar="PROFILE", help="print a dietary profile's targets or a pantry profile's stock")
     parser.add_argument("--list", action="store_true", help="print the equipment or foods to choose from")
@@ -78,11 +92,11 @@ def main(argv=None) -> int:
     try:
         if args.show:
             if args.what == "kitchen":
-                parser.error("--show is for nutrition or pantry; use kitchen --list --profile")
-            (show_targets if args.what == "nutrition" else show_stock)(client, args.show)
+                parser.error("--show is for nutrition, pantry or prices; use kitchen --list --profile")
+            {"nutrition": show_targets, "pantry": show_stock, "prices": show_prices}[args.what](client, args.show)
             return 0
         if args.list:
-            if args.what == "nutrition":
+            if args.what in ("nutrition", "prices"):
                 parser.error("--list is for kitchen or pantry")
             list_types(client, args.what, args.profile)
             return 0
@@ -94,6 +108,8 @@ def main(argv=None) -> int:
             report = instantiate_nutrition(client, selection, reset=args.reset)
         elif args.what == "pantry":
             report = instantiate_pantry(client, selection, reset=args.reset)
+        elif args.what == "prices":
+            report = instantiate_prices(client, selection)
         else:
             report = instantiate_kitchen(client, selection)
     except ProfileError as exc:
@@ -106,7 +122,7 @@ def main(argv=None) -> int:
     for line in report.removed:
         print(f"  removed: {line}")
     history = {"nutrition": "a meal plan uses it", "kitchen": "a cook used it",
-               "pantry": "a cook used it or it was weighed"}[args.what]
+               "pantry": "a cook used it or it was weighed", "prices": ""}[args.what]
     for line in report.refused:
         print(f"  not removed, {history}: {line}")
     return 0

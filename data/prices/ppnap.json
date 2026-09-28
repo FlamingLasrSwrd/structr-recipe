@@ -1,0 +1,346 @@
+{
+ "foods": {
+  "12130100": {
+   "description": "Cream, heavy (Includes whipping cream; NS as to heavy or light)",
+   "price_100g": 0.620648
+  },
+  "12310100": {
+   "description": "Sour cream, regular",
+   "price_100g": 0.434684
+  },
+  "12350230": {
+   "description": "Ranch dip, regular",
+   "price_100g": 0.787624
+  },
+  "14104400": {
+   "description": "Cheese, Feta",
+   "price_100g": 2.02222
+  },
+  "14106200": {
+   "description": "Cheese, Monterey (Includes Monterey Jack cheese; Pepper Jack cheese)",
+   "price_100g": 1.12833
+  },
+  "14107030": {
+   "description": "Cheese, Mozzarella, part skim (Includes Chedarella Cheese; string cheese; cheese sticks, NS as to type of cheese; Poly-O; Stringsters; County Line; Richfood; Mootown Snackers; Sorrento; lowfat; reduced fat; made with 2% milk)",
+   "price_100g": 1.064843
+  },
+  "14108010": {
+   "description": "Cheese, Parmesan, dry grated (Includes Romano, grated; Asiago, aged)",
+   "price_100g": 1.91342
+  },
+  "14301010": {
+   "description": "Cream cheese, regular, plain",
+   "price_100g": 0.834458
+  },
+  "24207000": {
+   "description": "Turkey, ground",
+   "price_100g": 1.424761
+  },
+  "25221405": {
+   "description": "Pork sausage (Includes fresh, smoked, heat and serve, brown and serve, pre-cooked, or NFS; bulk, crumbled, link, patty, or stick; breakfast sausage, NS as to meat; brown and serve sausage, NFS; smoked sausage, NFS; Half smoke)",
+   "price_100g": 0.953211
+  },
+  "25221830": {
+   "description": "Turkey or chicken sausage (Includes fresh, smoked, heat and serve, brown and serve, pre-cooked, or NFS; bulk, crumbled, link, patty, or stick; breakfast sausage)",
+   "price_100g": 1.055667
+  },
+  "26319110": {
+   "description": "Shrimp, cooked, NS as to cooking method (Includes prawn)",
+   "price_100g": 2.368521
+  },
+  "26319170": {
+   "description": "Shrimp, dried",
+   "price_100g": 4.161635
+  },
+  "27150210": {
+   "description": "Fish sauce (Includes Bagoong; shrimp sauce)",
+   "price_100g": 1.402549
+  },
+  "28340110": {
+   "description": "Chicken or turkey broth, bouillon, or consomme (Includes chicken broth powder, reconstituted; canned or ready-to-serve)",
+   "price_100g": 0.151265
+  },
+  "41102080": {
+   "description": "Black beans, from canned, no added fat",
+   "price_100g": 0.313588
+  },
+  "41205070": {
+   "description": "Hummus, plain (Includes chickpea or garbanzo bean dip)",
+   "price_100g": 1.14818
+  },
+  "41301990": {
+   "description": "Chickpeas, NFS (Includes garbanzos; ceci)",
+   "price_100g": 0.32108
+  },
+  "41420010": {
+   "description": "Soybean curd (Includes stir fried; bean curd; tofu)",
+   "price_100g": 0.598821
+  },
+  "41420300": {
+   "description": "Soy sauce (Includes shoyu; tamari)",
+   "price_100g": 0.5864
+  },
+  "41420450": {
+   "description": "Worcestershire sauce",
+   "price_100g": 0.818159
+  },
+  "42101000": {
+   "description": "Almonds, unroasted (Includes raw)",
+   "price_100g": 1.92994
+  },
+  "42106020": {
+   "description": "Coconut, packaged (Includes flaked or shredded)",
+   "price_100g": 0.874141
+  },
+  "42111200": {
+   "description": "Peanuts, dry roasted, salted (Includes NS as to salt; plain; not coated; sea salt)",
+   "price_100g": 0.627553
+  },
+  "42112100": {
+   "description": "Pecans, unroasted (Includes raw)",
+   "price_100g": 2.465712
+  },
+  "42114140": {
+   "description": "Pistachio nuts, salted (Includes NS as to salt; sea salt)",
+   "price_100g": 1.975905
+  },
+  "51107010": {
+   "description": "Bread, French or Vienna (Includes baguette; pre-sliced or not)",
+   "price_100g": 0.552128
+  },
+  "51150000": {
+   "description": "Roll, white, soft (Includes potato roll; onion roll; roll made from mix; soft, seeded roll; brown 'n' serve; white roll, NS as to soft or hard; dinner roll)",
+   "price_100g": 0.65252
+  },
+  "51153000": {
+   "description": "Roll, white, hard (Includes Kaiser; Pan de sal / Pandisal Filipino bread)",
+   "price_100g": 0.644114
+  },
+  "51154100": {
+   "description": "Roll, white, hamburger bun (Includes potato bun)",
+   "price_100g": 0.443382
+  },
+  "51301600": {
+   "description": "Bread, pita, whole wheat (Includes whole grain)",
+   "price_100g": 0.873114
+  },
+  "52215200": {
+   "description": "Tortilla, flour (Includes spinach, tomato, and other flavors)",
+   "price_100g": 0.466047
+  },
+  "54401075": {
+   "description": "Tortilla chips, plain (Includes original; Tostitos; tostada chips; multigrain; plain nacho chips)",
+   "price_100g": 0.771015
+  },
+  "61113010": {
+   "description": "Lemon, raw",
+   "price_100g": 0.838227
+  },
+  "61116010": {
+   "description": "Lime, raw",
+   "price_100g": 0.4208
+  },
+  "61119010": {
+   "description": "Orange, raw (Includes Orange, NFS)",
+   "price_100g": 0.369438
+  },
+  "61210010": {
+   "description": "Orange juice, 100%,  freshly squeezed",
+   "price_100g": 0.180944
+  },
+  "62104100": {
+   "description": "Apricot, dried",
+   "price_100g": 1.547966
+  },
+  "62109100": {
+   "description": "Cranberries, dried (Includes Craisins; cranberries, NFS; all flavors)",
+   "price_100g": 1.137705
+  },
+  "62126000": {
+   "description": "Tamarind, dried (Includes pulpitas)",
+   "price_100g": 1.156588
+  },
+  "63101000": {
+   "description": "Apple, raw (Includes apple, NFS)",
+   "price_100g": 0.40851
+  },
+  "63105010": {
+   "description": "Avocado, raw",
+   "price_100g": 0.773366
+  },
+  "63123000": {
+   "description": "Grapes, raw",
+   "price_100g": 0.495558
+  },
+  "64401000": {
+   "description": "Vinegar",
+   "price_100g": 0.518415
+  },
+  "72119190": {
+   "description": "Kale, raw",
+   "price_100g": 0.681039
+  },
+  "72125100": {
+   "description": "Spinach, raw",
+   "price_100g": 0.989603
+  },
+  "72201100": {
+   "description": "Broccoli, raw",
+   "price_100g": 0.742143
+  },
+  "73101010": {
+   "description": "Carrots, raw",
+   "price_100g": 0.301321
+  },
+  "73401000": {
+   "description": "Sweet potato, NFS",
+   "price_100g": 0.394991
+  },
+  "74201003": {
+   "description": "Tomatoes, canned, cooked (Includes with or without fat)",
+   "price_100g": 0.237013
+  },
+  "74401010": {
+   "description": "Ketchup (Includes catsup)",
+   "price_100g": 0.272219
+  },
+  "74403000": {
+   "description": "Hot Thai sauce (Includes hot chilli sauce; Sriracha sauce; red pepper paste; chilli pepper paste)",
+   "price_100g": 0.608213
+  },
+  "75101000": {
+   "description": "Bean sprouts, raw (Includes soybean or mung)",
+   "price_100g": 0.775202
+  },
+  "75102750": {
+   "description": "Brussels sprouts, raw",
+   "price_100g": 0.69464
+  },
+  "75103000": {
+   "description": "Cabbage, green, raw (Includes cabbage, NS as to color)",
+   "price_100g": 0.205682
+  },
+  "75104000": {
+   "description": "Cabbage, Chinese, raw (Includes Napa; Pa-tsai; Pak-choi / Bok choy)",
+   "price_100g": 0.427058
+  },
+  "75109400": {
+   "description": "Basil, raw",
+   "price_100g": 6.719017
+  },
+  "75109500": {
+   "description": "Chives, raw (Includes chives, NFS)",
+   "price_100g": 5.854104
+  },
+  "75109550": {
+   "description": "Cilantro, raw (Includes coriander leaves; Chinese parsley)",
+   "price_100g": 0.247132
+  },
+  "75111000": {
+   "description": "Cucumber, raw (Includes cucumber, NFS)",
+   "price_100g": 0.351319
+  },
+  "75111500": {
+   "description": "Garlic, raw",
+   "price_100g": 0.967773
+  },
+  "75113080": {
+   "description": "Lettuce, arugula, raw",
+   "price_100g": 2.039537
+  },
+  "75114000": {
+   "description": "Mixed salad greens, raw",
+   "price_100g": 1.345293
+  },
+  "75115000": {
+   "description": "Mushrooms, raw",
+   "price_100g": 0.87044
+  },
+  "75117010": {
+   "description": "Onions, green, raw (Includes scallions; spring onions)",
+   "price_100g": 0.603579
+  },
+  "75117020": {
+   "description": "Onions, raw (Includes red onions; onions, NFS)",
+   "price_100g": 0.260675
+  },
+  "75119000": {
+   "description": "Parsley, raw",
+   "price_100g": 1.1096
+  },
+  "75121000": {
+   "description": "Pepper, hot chili, raw (Includes Jalapeno)",
+   "price_100g": 0.501985
+  },
+  "75122100": {
+   "description": "Pepper, sweet, green, raw",
+   "price_100g": 0.381545
+  },
+  "75122200": {
+   "description": "Pepper, sweet, red, raw",
+   "price_100g": 0.584259
+  },
+  "75216113": {
+   "description": "Corn, canned, cooked, no added fat (Includes cooking spray)",
+   "price_100g": 0.290786
+  },
+  "75506010": {
+   "description": "Mustard",
+   "price_100g": 0.490541
+  },
+  "75511010": {
+   "description": "Hot pepper sauce (Includes Tabasco sauce; Lousianna Hot Sauce; hot sauce, NFS)",
+   "price_100g": 0.742085
+  },
+  "82101000": {
+   "description": "Vegetable oil, NFS (Includes oil, NFS; oil blend, NFS)",
+   "price_100g": 0.418343
+  },
+  "82104000": {
+   "description": "Olive oil",
+   "price_100g": 1.036723
+  },
+  "82107000": {
+   "description": "Sesame oil",
+   "price_100g": 2.252267
+  },
+  "83105500": {
+   "description": "Honey mustard dressing (Includes Honey mustard dressing, NFS; Honey dijon dressing)",
+   "price_100g": 0.531015
+  },
+  "83106000": {
+   "description": "Italian dressing, made with vinegar and oil (Includes vinaigrette dressing; vinegar and oil; Italian dressing, NFS; Greek dressing; Feta cheese dressing; Champagne dressing; celery seed dressing; onion or Vidalia onion dressing; red wine, balsamic, or raspberry vinegar dressing)",
+   "price_100g": 0.583214
+  },
+  "83107000": {
+   "description": "Mayonnaise, regular (Includes mayonnaise, NFS)",
+   "price_100g": 0.465946
+  },
+  "91101020": {
+   "description": "Sugar, white, confectioner's, powdered",
+   "price_100g": 0.227782
+  },
+  "91102010": {
+   "description": "Sugar, brown",
+   "price_100g": 0.237319
+  },
+  "91300100": {
+   "description": "Pancake syrup (Includes cane; buttered blends; maple; maple cream)",
+   "price_100g": 0.404412
+  },
+  "91302010": {
+   "description": "Honey",
+   "price_100g": 1.032151
+  },
+  "91361010": {
+   "description": "Sweet and sour sauce",
+   "price_100g": 0.628979
+  },
+  "91402000": {
+   "description": "Jam, preserve, all flavors (Includes NS as to type)",
+   "price_100g": 0.565964
+  }
+ },
+ "source": "USDA Economic Research Service, Purchase to Plate National Average Prices for NHANES (PP-NAP), March 2023; price per 100 edible grams in nominal dollars of the scanner data's year",
+ "year": "2017/2018"
+}
