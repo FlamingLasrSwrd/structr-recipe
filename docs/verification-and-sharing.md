@@ -1,6 +1,6 @@
 # Verification and sharing: a proposal
 
-**Status: proposal for the owner's review, 2026-09-28, with the owner's first answers in §6. Nothing structural in it is built.** Part of it
+**Status: accepted in part, 2026-09-28** (§6): the Person and household designs are now the model's (data-model.md §19), and their schema is built (`scripts/34a`); the rest is still a proposal. Part of it
 reverses a decision CLAUDE.md records ("Person/Agent: single-user by design"), and CLAUDE.md says to
 stop and ask before adding a structural type. Sections 6 and 7 are the decisions to make.
 
@@ -221,14 +221,12 @@ Decided by the owner, 2026-09-28:
 - **Curation is needed**, with a move to group consensus if there are enough users later (§3.6).
 - **Households**: people with their own profiles share a household and its meals (§3.5).
 
+- **Person** is one node that is also the Structr account (§3.3, option A).
+- **§3.5 is the household model**, with the planner change it brings.
+
 Still for the owner:
 
-1. **Person** as one node that is also the Structr account (§3.3, option A, recommended; verified
-   to work), or linked to one (option B).
-2. **Accept §3.5 as the household model**: a person's own targets, baseline, exclusions and
-   portions; the household's kitchen, stock, prices and meals; a meal share per eater. And the
-   planner change it brings.
-3. **The first consensus rule**, when it is time: the proposal is seconds from three households
+1. **The first consensus rule**, when it is time: the proposal is seconds from three households
    and no curator rejection.
 
 ## 7. What this reverses

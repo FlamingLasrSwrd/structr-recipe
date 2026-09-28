@@ -32,10 +32,12 @@ Entity
 │   │   │   │   │   ├── DiscreteWholeItem      ● concrete
 │   │   │   │   │   └── PortionOfSubstance     ● concrete
 │   │   │   │   ├── ContainerObject            ● concrete
-│   │   │   │   └── EquipmentObject            ● concrete
+│   │   │   │   ├── EquipmentObject            ● concrete
+│   │   │   │   └── Person                     ● concrete  (also Structr's User, §19 of the model)
 │   │   │   └── ObjectAggregate
 │   │   │       ├── FoodAggregate              ● concrete
-│   │   │       └── UtensilSet                 ● concrete
+│   │   │       ├── UtensilSet                 ● concrete
+│   │   │       └── Household                  ● concrete  (also Structr's Group)
 │   ├── SpecificallyDependentContinuant
 │   │   ├── Quality                            ● concrete  (kind-reified, §3)
 │   │   └── RealizableEntity
@@ -56,6 +58,7 @@ Entity
 │           │   ├── DefaultSpecification       ● concrete  (kind-reified, §3)
 │           │   ├── MealPlan                   ● concrete
 │           │   ├── MealPlanEntry              ● concrete
+│           │   ├── MealShare                  ● concrete
 │           │   ├── PlanningConstraint         (abstract trait)
 │           │   │   ├── StockPolicy            ● concrete
 │           │   │   └── NutritionTarget        ● concrete
@@ -75,7 +78,7 @@ Entity
     └── TemporalRegion                         ● concrete
 ```
 
-51 types (35 concrete, 16 abstract scaffolding; `mealplanner/structural_types.py` is the canonical list and the source of that count). This is the whole schema and it should never change after build.
+54 types (38 concrete, 16 abstract scaffolding; `mealplanner/structural_types.py` is the canonical list and the source of that count). This is the whole schema and it should never change after build; the one change since, by the owner's decision (2026-09-28, data-model.md §19), added `Person`, `Household` and `MealShare` as new types, the safe case. `Person` and `Household` also inherit Structr's own `User` and `Group`, so they are accounts and groups as well as model types.
 
 **Polymorphic targeting pays for itself here.** `Allocation -[ABOUT]-> Entity` and `Identifier -[DENOTES]-> Entity` are single declarations that accept anything, because every concrete type in the tree above inherits `Entity`. That is exactly the model's deliberately-unrestricted range, and it works natively — provided every concrete type has its traits from creation, which the no-runtime-schema-change rule guarantees.
 
@@ -196,7 +199,7 @@ Write one throwaway relationship first and read the resulting property names bac
 - **Trait-level `unique` is global across subtypes.** Do **not** put `unique` on `Identifier.identifierValue` — invariant 11 needs UUIDs unique within their scheme while GTINs are shared. Enforce in an `onCreate` method instead.
 - **`Date` properties come back as real objects**, not strings — call `.getTime()`/`.toISOString()`. Relevant everywhere `hasTime` is compared.
 - **New nodes default to owner-only visibility.** Every write needs an explicit `visibleToAuthenticatedUsers`.
-- **Renaming a `SchemaNode` orphans its instances.** Get the 51 structural names right the first time; there is no cheap rename later.
+- **Renaming a `SchemaNode` orphans its instances.** Get the 54 structural names right the first time; there is no cheap rename later.
 
 ---
 
