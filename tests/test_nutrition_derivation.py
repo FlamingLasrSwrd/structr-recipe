@@ -11,11 +11,13 @@ The kitchen, and the figures worked out by hand from it:
 """
 
 import unittest
+from unittest import mock
 
 from mealplanner.nutrition_scope import (
-    AmbiguousProfileError, NutrientUnitError, convert_nutrient, nutrition_report, serving_nutrient,
+    AmbiguousProfileError, NutrientUnitError, convert_nutrient, nutrition_report, profile_figure, serving_nutrient,
     serving_nutrient_figure,
 )
+from structr_client import ReadCache
 from tests.fakegraph import FakeGraph, Ref, at
 
 
@@ -277,6 +279,20 @@ class FromIngredients(unittest.TestCase):
         g.nodes["Carrot"]["nutrientProfilesAbout"].append(Ref("second"))
         with self.assertRaises(AmbiguousProfileError):
             serving_nutrient(g, stew(g), "Protein")
+        with self.assertRaises(AmbiguousProfileError):
+            serving_nutrient(ReadCache(g), stew(g), "Protein")
+
+    def test_through_a_read_cache_a_foods_profiles_are_read_once_for_every_nutrient(self):
+        g = kitchen()
+        profile(g, "Carrot", "Sodium", 69.0, "mg")
+        asked = ("Protein", "Sodium", "Parsley", "Protein")                 # Parsley: no profile for it
+        cache = ReadCache(g)
+        with mock.patch.object(cache, "get_all", wraps=cache.get_all) as reads:
+            got = [profile_figure(cache, "Carrot", n) for n in asked]
+        self.assertEqual(got, [profile_figure(g, "Carrot", n) for n in asked])
+        self.assertEqual((got[0].amount, got[1].amount, got[1].unit, got[2]), (1.0, 69.0, "mg", None))
+        profile_reads = [c for c in reads.call_args_list if c.args[0] == "NutrientProfile"]
+        self.assertEqual(len(profile_reads), len(g.nodes["Carrot"]["nutrientProfilesAbout"]))
 
 
 class DishFirst(unittest.TestCase):

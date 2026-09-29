@@ -72,7 +72,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from mealplanner.defaults import resolve_default
 from mealplanner.material_accounting import candidate_outputs, recipe_servings_strict
 from mealplanner.unit_conversion import QuantityError, convert_to_grams
-from structr_client import ReadCache
+from structr_client import ReadCache, memoized
 
 FMT = "%Y-%m-%dT%H:%M:%S%z"
 DEFAULT_SERVINGS_EATEN = 1.0
@@ -126,22 +126,32 @@ class ProfileFigure:
     provenance: str | None     # "placeholder", "sourced", "estimated", "calculated", or None if never set
 
 
+def _own_profiles(client, type_id: str) -> tuple[str | None, dict]:
+    """A Type's name and its own NutrientProfiles by (nutrient id, basis), read once per
+    ReadCache: a week's extraction otherwise scanned a food's hundred-odd profiles once
+    for every nutrient of every recipe using it. Shared, so not to be changed."""
+    def read():
+        node = client.get_all("DomainType", type_id)["result"]
+        found: dict = {}
+        for profile_ref in node.get("nutrientProfilesAbout", []):
+            profile = client.get_all("NutrientProfile", profile_ref["id"])["result"]
+            found.setdefault(((profile.get("forNutrient") or {}).get("id"), profile.get("basis")), []).append(profile)
+        return node.get("name"), found
+    return memoized(client, ("own nutrient profiles", type_id), read)
+
+
 def profile_figure(client, type_id: str, nutrient_id: str, basis: str = "per_100g") -> ProfileFigure | None:
     """A Type's OWN NutrientProfile for this nutrient on `basis` ("per_100g", or
     "per_unit" for a food counted in units, as a supplement's label is), or None
     if it has none. Profiles are not inherited down the hierarchy: a parent's
     figure is not a measurement of its child. Two profiles for one nutrient and
     basis on one Type raise rather than one being picked."""
-    node = client.get_all("DomainType", type_id)["result"]
-    found = []
-    for profile_ref in node.get("nutrientProfilesAbout", []):
-        profile = client.get_all("NutrientProfile", profile_ref["id"])["result"]
-        if (profile.get("forNutrient") or {}).get("id") == nutrient_id and profile.get("basis") == basis:
-            found.append(profile)
+    name, profiles = _own_profiles(client, type_id)
+    found = profiles.get((nutrient_id, basis), [])
     if not found:
         return None
     if len(found) > 1:
-        raise AmbiguousProfileError(f"{node.get('name')!r} has {len(found)} {basis} profiles for one nutrient: "
+        raise AmbiguousProfileError(f"{name!r} has {len(found)} {basis} profiles for one nutrient: "
                                     f"{sorted(p['name'] for p in found)}")
     profile = found[0]
     if profile.get("amount") is None:

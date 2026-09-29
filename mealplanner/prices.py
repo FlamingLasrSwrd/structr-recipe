@@ -35,6 +35,7 @@ from mealplanner.profiles import ProfileError, Report, _name_ok, _one_id, food_t
 from mealplanner.typetree import ancestors_or_self
 from mealplanner.unit_conversion import UNIT_TABLE, convert_to_grams
 from mealplanner.vocabulary_import import Sync
+from structr_client import ReadCache
 
 PRICES = "data/prices.toml"
 BLS_PIN = "data/prices/bls.json"
@@ -351,6 +352,7 @@ def describe_cost(client, problem, evaluation, level: str, days: int) -> str:
     """The week's cost in words: what the meals it cooks cost, a day's average, each recipe's
     cost a serving, and what could not be priced. A cook costs its servings cooked, so
     leftovers cost nothing more; a meal already committed counts like a proposed one."""
+    client = ReadCache(client)          # read-only: each node is fetched once for the whole report
     table = price_table(client, level)
     details = {d["slot"]: d for d in evaluation.slot_details}
     costs: dict[str, tuple[str, RecipeCost]] = {}
