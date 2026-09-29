@@ -166,7 +166,8 @@ def build_problem(
                      f"(a ShelfLife default for {LEFTOVER_CLASS!r}, or leftover_days)")
 
     raw_plans: list[tuple[dict, list]] = []
-    baseline_ids = {ref["id"] for ref in meal_plan.get("hasBaseline", [])}
+    week_baseline = {ref["id"] for ref in meal_plan.get("hasBaseline", [])}
+    baseline_ids = set(week_baseline)
     for person in people.values():
         baseline_ids |= {ref["id"] for ref in person.get("hasBaseline", [])}
     for plan in client.get_all("Plan")["result"]:
@@ -246,7 +247,7 @@ def build_problem(
         slots.append(Slot(payload["name"], start, None, fixed, eaters=tuple(e for e, _ in shares) or None))
 
     baseline: dict[str, float | None] = {}
-    if baseline_ids:
+    if week_baseline:
         for nutrient_id, unit in unit_of.items():
             per_day, unknown = baseline_day_intake(client, meal_plan, nutrient_id, unit)
             baseline[nutrient_id] = None if unknown else per_day
