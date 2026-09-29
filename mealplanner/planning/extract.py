@@ -80,6 +80,9 @@ def build_problem(
     simply not planned. leftovers=False plans no leftovers at all. eater_portions:
     a person's own portion levels, by name."""
     client = ReadCache(client)
+    # Read in bulk what the recipes' figures read node by node: profiled on the owner's week,
+    # these four types were 21,297 of 21,804 requests, one node each (552 of 589 s of reading).
+    client.prefetch("NutrientProfile", "Specification", "QuantitySpecification", "DomainType")
     notes: list[str] = []
     meal_plan = client.get_all("MealPlan", meal_plan_id)["result"]
     people = _household(client, meal_plan)                       # person id -> Person, in name order

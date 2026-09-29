@@ -6,7 +6,7 @@ import unittest
 
 import requests
 
-from structr_client import DuplicateMatchError, ReadCache, StructrClient, StructrError, validate_exact_match_value
+from structr_client import DuplicateMatchError, ReadCache, StructrClient, StructrError, memoized, validate_exact_match_value
 
 
 class Recording(StructrClient):
@@ -240,6 +240,26 @@ class ReadCaching(unittest.TestCase):
     def test_it_is_read_only(self):
         for write in ("post", "patch", "delete", "upsert"):
             self.assertFalse(hasattr(self.cache, write), write)
+
+    def test_a_prefetched_listing_answers_lookups_by_id_and_is_read_once(self):
+        self.cache.prefetch("Quality")
+        self.cache.prefetch("Quality")
+        self.assertEqual(self.source.calls, [("get_all", "Quality", None)])
+        self.assertEqual(self.cache.get_all("Quality", "q2")["result"]["name"], "two")
+        self.assertEqual(len(self.cache.get_all("Quality")["result"]), 2)
+        self.assertEqual(len(self.source.calls), 1)
+
+    def test_a_memo_is_computed_once_per_cache_and_every_time_without_one(self):
+        computed = []
+
+        def compute():
+            computed.append(1)
+            return len(computed)
+
+        self.assertEqual([memoized(self.cache, "k", compute) for _ in range(3)], [1, 1, 1])
+        self.assertEqual(memoized(self.cache, "other", compute), 2)
+        self.assertEqual([memoized(self.source, "k", compute) for _ in range(2)], [3, 4])
+        self.assertEqual(memoized(ReadCache(self.source), "k", compute), 5)     # a new cache starts empty
 
 
 if __name__ == "__main__":
