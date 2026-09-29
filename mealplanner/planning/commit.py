@@ -8,7 +8,8 @@ leftover entry only names its source).
 
 The servings a fresh cook is planned for are derived: what is eaten at that slot
 plus what the leftover slots pointing at it eat. Entries are upserted by name, so
-running the same plan twice is harmless.
+running the same plan twice is harmless. In a household's week each entry also gets
+a MealShare per person who eats it: who, and how many servings (data-model.md Sec 19 K3).
 """
 
 from __future__ import annotations
@@ -55,4 +56,11 @@ def commit_plan(client, meal_plan_id: str, problem: PlanningProblem, evaluation:
                 "value": r.eaten, "unit": "servings", "status": "specified"})
         entry_ids[i] = client.upsert("MealPlanEntry", "name", name, fields)
         created.append(entry_ids[i])
+        if problem.eaters:
+            for eater, servings in r.shares:
+                who = problem.eater_label(eater)
+                qty = client.upsert("QuantitySpecification", "name", f"{name} -- {who} servings", {
+                    "value": servings, "unit": "servings", "status": "specified"})
+                client.upsert("MealShare", "name", f"{name} -- {who}", {
+                    "shareOf": entry_ids[i], "eatenBy": eater, "hasPlannedConsumption": qty})
     return created

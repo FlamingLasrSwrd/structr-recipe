@@ -7,12 +7,16 @@ private/week.toml:
     start = 2026-10-05                  # the first day
     days = 7
     timezone = "America/Denver"         # the meal times are local
-    meals = [{ type = "Breakfast", at = "08:00" }, { type = "Lunch", at = "12:30" }, { type = "Dinner", at = "18:30" }]
-    baseline = ["Daily supplements"]    # counted every day (recipe files with baseline = true)
+    household = "Home"                  # the household the week feeds (tools/instantiate_household.py):
+                                        # its people, each with their own targets and baseline
+    meals = [{ type = "Breakfast", at = "08:00", eaters = ["Elijah"] },    # eaters: who eats it (default: all)
+             { type = "Lunch", at = "12:30" }, { type = "Dinner", at = "18:30" }]
     targets = "Daily "                  # the standing NutritionTargets: names starting with this
     leftovers = true
     leftover_days = 3                   # how long cooked food keeps, if the data gives no ShelfLife for it
     portions = [0.75, 1, 1.25, 1.5]     # servings a meal may be; default: one serving each
+    [portions_by_person]                # someone's own levels, where they differ
+    Cass = [0.5, 0.75, 1]
     time_limit_s = 30
     prices = "Home prices"              # optional: report the week's cost at this price level
     [weights]                           # optional: written onto the MealPlan (optimizer-design Sec 4.5)
@@ -20,6 +24,8 @@ private/week.toml:
     variety = 0.5
     time_budget_minutes = 60
 
+Without `household`, the week has one eater, as before households: `baseline = [...]` names
+what is counted every day, and the targets are those with the prefix that belong to no one.
 The week's MealPlan is "Week of <start>", about a TemporalRegion spanning its days, with
 the targets and the baseline attached. Meals already committed to it are kept and planned
 around (a slot they hold is not proposed again). After the plan, the nutrient report
@@ -38,6 +44,8 @@ from zoneinfo import ZoneInfo
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner.connection import connect
+from mealplanner.household import latest_plan as household_latest_plan
+from mealplanner.profiles import ProfileError
 from mealplanner.nutrition_scope import active_entries, entry_start, nutrition_report
 from mealplanner.planning.extract import SlotSpec
 from mealplanner.planning.nutrients import describe_nutrients
@@ -67,9 +75,25 @@ def read_week(path: str) -> dict:
             meal["time"] = time.fromisoformat(meal["at"])
         except (KeyError, ValueError):
             problems.append(f"meal {meal!r}: `at` must be a time like \"18:30\"")
+    def servings_list(value) -> bool:
+        return isinstance(value, list) and all(isinstance(x, (int, float)) and not isinstance(x, bool) and x > 0 for x in value)
+
     portions = week.get("portions", [])
-    if not isinstance(portions, list) or not all(isinstance(x, (int, float)) and not isinstance(x, bool) and x > 0 for x in portions):
+    if not servings_list(portions):
         problems.append(f"portions must be a list of servings above 0, like [0.75, 1, 1.5], not {portions!r}")
+    for person, levels in week.get("portions_by_person", {}).items():
+        if not servings_list(levels) or not levels:
+            problems.append(f"portions_by_person {person!r} must be a list of servings above 0, not {levels!r}")
+    household = week.get("household")
+    if household is None:
+        if week.get("portions_by_person") or any("eaters" in meal for meal in week.get("meals", [])):
+            problems.append("eaters and portions_by_person need a household (household = \"Home\")")
+    elif week.get("baseline"):
+        problems.append("in a household's week each person's baseline is their own (private/household.toml), not the week's")
+    for meal in week.get("meals", []):
+        eaters = meal.get("eaters")
+        if eaters is not None and (not isinstance(eaters, list) or not eaters or not all(isinstance(e, str) for e in eaters)):
+            problems.append(f"meal {meal!r}: eaters is a list of names")
     if not week.get("meals"):
         problems.append("meals: give at least one, like { type = \"Dinner\", at = \"18:30\" }")
     if problems:
@@ -79,11 +103,10 @@ def read_week(path: str) -> dict:
 
 def latest_plan(client, name: str) -> dict:
     """The newest version of the recipe (or baseline) with this name: "<name> v<n>"."""
-    versions = [p for p in client.get_all("Plan")["result"] if p["name"].rsplit(" v", 1)[0] == name
-                and p["name"].rsplit(" v", 1)[-1].isdigit()]
-    if not versions:
-        raise WeekError([f"no recipe or baseline named {name!r} (load it with tools/import_recipe.py)"])
-    return max(versions, key=lambda p: int(p["name"].rsplit(" v", 1)[1]))
+    try:
+        return household_latest_plan(client, name)
+    except ProfileError as exc:
+        raise WeekError(exc.problems) from exc
 
 
 def ensure_week(client, week: dict) -> str:
@@ -96,11 +119,23 @@ def ensure_week(client, week: dict) -> str:
     region = sync.ensure("TemporalRegion", f"{name} region", {
         "hasBeginning": begin.strftime(STRUCTR_TIME), "hasEnd": end.strftime(STRUCTR_TIME)})
     prefix = week.get("targets", "Daily ")
-    targets = sorted(r["id"] for r in sync.rows("NutritionTarget").values() if r["name"].startswith(prefix))
+    household = None
+    if week.get("household"):
+        household = sync.rows("Household").get(week["household"])
+        if household is None:
+            raise WeekError([f"no household {week['household']!r} (tools/instantiate_household.py)"])
+        members = {m["id"] for m in client.get_all("Household", household["id"])["result"].get("members", [])}
+        targets = sorted(r["id"] for r in sync.rows("NutritionTarget").values()
+                         if r["name"].startswith(prefix) and (r.get("forPerson") or {}).get("id") in members)
+    else:
+        targets = sorted(r["id"] for r in sync.rows("NutritionTarget").values()
+                         if r["name"].startswith(prefix) and not r.get("forPerson"))
     if not targets:
-        raise WeekError([f"no NutritionTarget named {prefix!r}... (tools/instantiate_profile.py nutrition)"])
+        raise WeekError([f"no NutritionTarget named {prefix!r}... for this week's eaters "
+                         f"(tools/instantiate_profile.py nutrition, or tools/instantiate_household.py)"])
     baseline = sorted(latest_plan(client, b)["id"] for b in week.get("baseline", []))
-    fields = {"isAbout": region, "hasConstraint": targets, "hasBaseline": baseline}
+    fields = {"isAbout": region, "hasConstraint": targets, "hasBaseline": baseline,
+              "forHousehold": household["id"] if household else None}
     weights = week.get("weights", {})
     for key, field_name in (("time", "timeBudgetWeight"), ("variety", "varietyWeight"),
                             ("time_budget_minutes", "timeBudgetMinutes")):
@@ -120,7 +155,8 @@ def template(client, meal_plan_id: str, week: dict) -> list[SlotSpec]:
             start = datetime.combine(day, meal["time"], week["zone"])
             if start.astimezone(timezone.utc) in {t.astimezone(timezone.utc) for t in taken if t}:
                 continue
-            slots.append(SlotSpec(start, meal["type"], f"{day.strftime('%a %d %b')} {meal['type']}"))
+            eaters = tuple(meal["eaters"]) if meal.get("eaters") else None
+            slots.append(SlotSpec(start, meal["type"], f"{day.strftime('%a %d %b')} {meal['type']}", eaters))
     return slots
 
 
@@ -165,6 +201,7 @@ def main(argv=None) -> int:
     result = plan_week(client, meal_plan_id, slots, datetime.now(timezone.utc), commit=args.commit,
                        leftovers=week.get("leftovers", True), leftover_days=week.get("leftover_days"),
                        portions=tuple(week.get("portions", [])),
+                       eater_portions={p: tuple(v) for p, v in week.get("portions_by_person", {}).items()},
                        time_limit_s=float(week.get("time_limit_s", 30)))
     print(result.text())
     if result.evaluation is not None:

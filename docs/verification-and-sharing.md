@@ -1,6 +1,6 @@
 # Verification and sharing: a proposal
 
-**Status: accepted in part, 2026-09-28** (§6): the Person and household designs are now the model's (data-model.md §19), and their schema is built (`scripts/34a`); the rest is still a proposal. Part of it
+**Status: accepted in part, 2026-09-28** (§6): the Person and household designs are now the model's (data-model.md §19), and built: the schema (`scripts/34a`), a household's people with their own targets and baselines (`tools/instantiate_household.py`), and planning a shared week with a portion per person. Checks, purchases, curation and access control are still a proposal. Part of it
 reverses a decision CLAUDE.md records ("Person/Agent: single-user by design"), and CLAUDE.md says to
 stop and ask before adding a structural type. Sections 6 and 7 are the decisions to make.
 

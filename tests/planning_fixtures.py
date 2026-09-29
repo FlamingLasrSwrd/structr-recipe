@@ -17,8 +17,8 @@ def cand(name: str, protein: float | None = None, minutes: float | None = None, 
     return Candidate(id=name, name=name, minutes=minutes, nutrients=nutrients, **kw)
 
 
-def slot(key: str, start, meal_type=None, fixed: Fixed | None = None) -> Slot:
-    return Slot(key=key, start=start, meal_type=meal_type, fixed=fixed)
+def slot(key: str, start, meal_type=None, fixed: Fixed | None = None, eaters: tuple | None = None) -> Slot:
+    return Slot(key=key, start=start, meal_type=meal_type, fixed=fixed, eaters=eaters)
 
 
 def protein_target(minimum=None, maximum=None, *, hard=True, scope="daily", weight=0.0) -> Target:

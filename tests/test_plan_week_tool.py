@@ -48,6 +48,49 @@ class TheWeekFile(unittest.TestCase):
         self.assertEqual(slots[0].start.astimezone(timezone.utc).isoformat(), "2026-10-05T14:00:00+00:00")
 
 
+class Households(unittest.TestCase):
+    def test_eaters_and_baselines_follow_the_household(self):
+        for text, fragment in (
+                (WEEK + 'portions_by_person = { Cass = [0.5] }\n', "need a household"),
+                (WEEK.replace('meals = [{ type = "Breakfast", at = "08:00" }', 'meals = [{ type = "Breakfast", at = "08:00", eaters = ["Cass"] }'), "need a household"),
+                (WEEK + 'household = "Home"\nbaseline = ["Daily supplements"]\n', "each person's baseline is their own"),
+                (WEEK + 'household = "Home"\nportions_by_person = { Cass = [0, 1] }\n', "portions_by_person 'Cass'")):
+            with self.subTest(fragment=fragment), self.assertRaises(tool.WeekError) as caught:
+                read(text)
+            self.assertIn(fragment, " ".join(caught.exception.args[0]))
+
+    def graph(self):
+        from tests.fakegraph import WritableGraph
+        g = WritableGraph()
+        g.add("Person", "p-eli", "Elijah")
+        g.add("Person", "p-cass", "Cass")
+        g.add("Person", "p-robin", "Robin")
+        g.add("Household", "home", "Home", members=[Ref("p-eli"), Ref("p-cass")])
+        for name, person in (("Daily Protein target (Elijah)", "p-eli"), ("Daily Protein target (Cass)", "p-cass"),
+                             ("Daily Protein target (Robin)", "p-robin"), ("Daily Protein target", None)):
+            g.add("NutritionTarget", name, name, **({"forPerson": Ref(person)} if person else {}))
+        return g
+
+    def test_a_household_week_takes_its_members_targets_and_a_single_week_the_unowned(self):
+        g = self.graph()
+        week = read(WEEK + 'household = "Home"\n')
+        plan = g.nodes[tool.ensure_week(g, week)]
+        self.assertEqual(sorted(getattr(r, "id", r) for r in plan["hasConstraint"]), ["Daily Protein target (Cass)", "Daily Protein target (Elijah)"])
+        self.assertEqual(getattr(plan["forHousehold"], "id", plan["forHousehold"]), "home")
+        single = g.nodes[tool.ensure_week(g, read(WEEK.replace("2026-10-05", "2026-10-12")))]
+        self.assertEqual([getattr(r, "id", r) for r in single["hasConstraint"]], ["Daily Protein target"])
+        with self.assertRaises(tool.WeekError):
+            tool.ensure_week(g, read(WEEK + 'household = "Away"\n'))
+
+    def test_a_meal_can_be_one_persons(self):
+        week = read(WEEK.replace('{ type = "Breakfast", at = "08:00" }', '{ type = "Breakfast", at = "08:00", eaters = ["Elijah"] }')
+                    + 'household = "Home"\n')
+        g = FakeGraph()
+        g.add("MealPlan", "week", hasEntry=[])
+        slots = tool.template(g, "week", week)
+        self.assertEqual([s.eaters for s in slots], [("Elijah",), None, ("Elijah",), None])
+
+
 class History(unittest.TestCase):
     """What keeps being missed: every committed week's days, judged against its targets."""
 
