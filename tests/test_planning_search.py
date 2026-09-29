@@ -146,6 +146,54 @@ class PortionsStartFromOneServing(unittest.TestCase):
                 self.assertGreaterEqual(got.best.objective, base.best.objective - TOL, f"seed {seed}")
 
 
+class TheTimeLimitHolds(unittest.TestCase):
+    """The owner's decision (2026-09-28): the time limit bounds every search, the beam search included."""
+
+    def test_a_beam_out_of_time_still_finishes_a_plan_greedily(self):
+        p = day_of_three([protein_target(70, 140, weight=0.2)])
+        full = beam(p, width=40)
+        capped = beam(p, width=40, time_limit_s=0.0)             # out of time before the first slot
+        self.assertTrue(capped.best is not None and capped.best.legal)
+        self.assertEqual(len(capped.best.picks), 3)
+        self.assertEqual(capped.nodes, 5 + 5 + 5)                 # one partial plan, five recipes a slot
+        self.assertGreater(full.nodes, capped.nodes)
+        stopped = beam(p, width=40, time_limit_s=0.0, finish=False)   # a caller that already has a plan
+        self.assertEqual((stopped.best, stopped.nodes), (None, 0))
+
+    def test_the_beam_narrows_when_its_pace_says_full_width_will_not_fit(self):
+        from mealplanner.planning import search
+        clock = iter(range(1, 1000))                               # each reading of the clock is a second later
+        p = day_of_three([protein_target(70, 140, weight=0.2)])
+        with mock.patch.object(search.time, "monotonic", lambda: float(next(clock))):
+            narrowed = beam(p, width=40, time_limit_s=10.0)
+        # the first slot's one partial plan took a second; 40 plans for 2 slots would take 80 of the 6 left
+        self.assertEqual(narrowed.nodes, 5 + 5 + 5)
+        self.assertTrue(narrowed.best.legal)
+
+    def test_cp_sat_has_two_thirds_of_the_time_left_and_the_beam_the_rest(self):
+        from mealplanner.planning import cpsat, search
+        p = day_of_three([protein_target(70, 140, weight=0.2)])
+        given = {}
+
+        def fake_cpsat(problem, **kw):
+            given["cpsat"] = kw["time_limit_s"]
+            return search.SearchResult(None, False, 0, "cpsat")
+
+        real_beam = search.beam
+
+        def recording_beam(problem, **kw):
+            given["beam"] = kw["time_limit_s"]
+            return real_beam(problem, **kw)
+
+        with mock.patch.object(cpsat, "available", return_value=True), mock.patch.object(cpsat, "solve", fake_cpsat), \
+                mock.patch.object(search, "beam", recording_beam):
+            result = auto(p, time_limit_s=6.0, node_limit=1)      # node_limit=1: the exact search cannot prove it
+        self.assertAlmostEqual(given["cpsat"], 4.0, delta=0.3)
+        self.assertLessEqual(given["beam"], 6.0)
+        self.assertGreater(given["beam"], 5.0)                    # CP-SAT returned at once, so the beam has nearly all of it
+        self.assertIsNotNone(result.best)                        # the beam finishes its plan
+
+
 class Facade(unittest.TestCase):
     def test_solve_dispatches(self):
         p = day_of_three([protein_target(70, 140, weight=0.2)])

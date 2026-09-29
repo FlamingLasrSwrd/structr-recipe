@@ -150,12 +150,31 @@ def exact(
     return SearchResult(state["best"], proven, state["nodes"], "exact")
 
 
-def beam(problem: PlanningProblem, *, relaxed: bool = False, width: int = 40) -> SearchResult:
+def beam(problem: PlanningProblem, *, relaxed: bool = False, width: int = 40,
+         time_limit_s: float | None = None, finish: bool = True) -> SearchResult:
+    """Keep the `width` best partial plans, slot by slot. Under a time limit the beam
+    narrows to one, finishing greedily (extending only the best partial plan), as soon
+    as the time left looks too short for the remaining slots at full width, judged by
+    how long one partial plan has taken to extend so far. With `finish` it then still
+    ends with a complete plan, possibly after the limit; without, it stops at the limit
+    and returns none, for a caller that already has a plan."""
+    deadline = None if time_limit_s is None else time.monotonic() + time_limit_s
     states = [initial_partial(problem)]
-    nodes = 0
-    for i in problem.open_slots():
+    nodes, spent, extended_states = 0, 0.0, 0
+    open_slots = problem.open_slots()
+    for k, i in enumerate(open_slots):
+        if deadline is not None:
+            left = deadline - time.monotonic()
+            if left <= 0 and not finish:
+                return SearchResult(None, False, nodes, "beam")
+            per_state = spent / extended_states if extended_states else 0.0
+            if width > 1 and per_state * width * (len(open_slots) - k) > left:
+                width, states = 1, states[:1]      # not enough time at full width: finish greedily
         candidates = []
-        for partial in states:
+        for n, partial in enumerate(states):
+            if n and deadline is not None and time.monotonic() > deadline:
+                break          # out of time: extend only the best partial plans (they come first), at least one
+            started = time.monotonic()
             for pick in options(problem, partial, i):
                 nodes += 1
                 extended = list(partial)
@@ -164,6 +183,8 @@ def beam(problem: PlanningProblem, *, relaxed: bool = False, width: int = 40) ->
                 if not relaxed and bound.violation > EPS:
                     continue
                 candidates.append((bound, extended))
+            spent += time.monotonic() - started
+            extended_states += 1
         candidates.sort(key=lambda item: (item[0].violation, -item[0].objective))
         states = [extended for _, extended in candidates[:width]]
         if not states:
@@ -181,6 +202,7 @@ def beam(problem: PlanningProblem, *, relaxed: bool = False, width: int = 40) ->
 
 
 SHORT_EXACT_S = 2.0
+CPSAT_SHARE = 2 / 3             # of the time left after the short exact search; the beam search has the rest
 
 
 def auto(
@@ -193,15 +215,19 @@ def auto(
     (docs/optimizer-design.md Sec 12): the dependency-free exact search proves some
     weeks in a fraction of a second that CP-SAT takes many seconds over, and
     CP-SAT proves others the exact search cannot. So: a short exact search first;
-    then, if OR-tools is installed, CP-SAT under the time limit; then a beam search;
-    and the best plan found by any of them. A proof from either solver is returned
-    as soon as it exists; an unfinished result says it is not proven, and carries
-    CP-SAT's ceiling when it has one. This is what plan_week uses."""
+    then, if OR-tools is installed, CP-SAT with two thirds of the time left; then a
+    beam search with the rest, finishing greedily if it runs out; and the best plan
+    found by any of them. The whole takes about `time_limit_s` (the owner's decision,
+    2026-09-28: the beam search had no limit, and a household's week took an hour).
+    A proof from either solver is returned as soon as it exists; an unfinished result
+    says it is not proven, and carries CP-SAT's ceiling when it has one. This is what
+    plan_week uses."""
     from mealplanner.planning import cpsat
 
     def keyed(result):
         return None if result is None or result.best is None else _key(result.best, relaxed)
 
+    deadline = time.monotonic() + time_limit_s
     seed = None
     default = problem.servings_eaten
     levels = [problem.portion_levels(e) for e in problem.eater_keys()]
@@ -226,7 +252,7 @@ def auto(
     if seed is not None and _beats(keyed(seed), keyed(found)):
         found, label = seed, ["one portion", "exact"]
     if cpsat.available():
-        solved = cpsat.solve(problem, relaxed=relaxed, time_limit_s=time_limit_s,
+        solved = cpsat.solve(problem, relaxed=relaxed, time_limit_s=max(0.1, (deadline - time.monotonic()) * CPSAT_SHARE),
                              hint=seed.best.picks if seed is not None else None)
         if solved.proven:
             return solved
@@ -234,7 +260,9 @@ def auto(
         label.append("cpsat")
         if solved.best is not None and _beats(keyed(solved), keyed(found)):
             found = solved
-    second = beam(problem, relaxed=relaxed, width=beam_width)
+    # the beam narrows to finish in its time, and completes its plan even if that runs over:
+    # measured on households, its greedy plan beat CP-SAT's in the same time
+    second = beam(problem, relaxed=relaxed, width=beam_width, time_limit_s=max(0.0, deadline - time.monotonic()))
     label.append("beam")
     if second.best is not None and _beats(keyed(second), keyed(found)):
         found = second
