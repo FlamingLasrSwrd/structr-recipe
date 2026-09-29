@@ -89,6 +89,23 @@ def solve(
     return _result(problem, built, first, relaxed)
 
 
+def first_plan(problem: PlanningProblem, *, time_limit_s: float = 10.0) -> SearchResult:
+    """The first plan CP-SAT finds that meets every hard target, with no regard to its score.
+    Asked for nothing more, CP-SAT found one for the owner's household in 4 s, where the
+    full solve found none in 30 (docs/optimizer-design.md Sec 12). `proven` with no plan:
+    no plan meets them all. A plan found is never called optimal."""
+    if not available():
+        raise RuntimeError("OR-tools is not installed (pip install -r requirements-solver.txt)")
+    built = _build(problem, False)
+    run = _run(built, problem, time_limit_s, 1, minimise_violation=None)
+    if run["status"] == "INFEASIBLE":
+        return SearchResult(None, True, 0, "cpsat")
+    if "picks" not in run:
+        return SearchResult(None, False, 0, "cpsat")
+    ev = evaluate(problem, run["picks"])
+    return SearchResult(ev if ev.feasible else None, False, 0, "cpsat")
+
+
 # ---------------------------------------------------------------- the model
 
 def _build(problem: PlanningProblem, relaxed: bool) -> dict:
@@ -335,13 +352,14 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
 
 # ---------------------------------------------------------------- solving
 
-def _run(built: dict, problem: PlanningProblem, time_limit_s: float, workers: int, minimise_violation: bool) -> dict:
+def _run(built: dict, problem: PlanningProblem, time_limit_s: float, workers: int, minimise_violation: bool | None) -> dict:
+    """minimise_violation None: no objective, so the first plan the model allows ends the solve."""
     from ortools.sat.python import cp_model
 
     m = built["model"]
     if minimise_violation:
         m.minimize(built["violation"])
-    else:
+    elif minimise_violation is not None:
         m.maximize(built["objective"])
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = time_limit_s

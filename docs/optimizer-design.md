@@ -263,4 +263,18 @@ So `plan_week` defaults to `auto`, a portfolio: a short exact search, then CP-SA
 
 **The time limit now bounds the beam search too** (the owner's decision, 2026-09-28). `auto` had given the exact search and CP-SAT a time limit and then run the beam search to the end: the owner's first portioned week took 12 minutes against `time_limit_s = 30`, and a synthetic two-person week 23 minutes (20 in the beam), for a plan 0.2% better than CP-SAT's. The owner first chose to leave it (the plans were best), then, with households, to cap it. Now CP-SAT has two thirds of the time left after the short exact search and the beam search the rest; the beam narrows to one partial plan, finishing greedily, as soon as its pace says the remaining slots will not fit at full width, and it always completes its plan. Measured at 30 s on synthetic weeks of the owner's shape: one person 28.5 s, score 38.39 against 38.50 uncapped (−0.3%); two people 66 s (the greedy finish runs past the limit), 54.18 against 55.94 (−3.1%), where CP-SAT alone reached 51.4 in the same time. A longer `time_limit_s` buys a wider beam.
 
+**A household's week starts from any plan that meets everyone's hard targets** (2026-09-28, found on the owner's first household week). The week: two people, 21 shared meals, 40 recipes, hard energy, protein and carbohydrate targets for each, portions 0.75-1.5 each. At `time_limit_s = 30` no search found a plan, and the planner reported none within its limit, yet each day alone had one and CP-SAT alone found the week in 60 s. There were two causes:
+- The one-portion start that serves a one-eater week cannot help. At the same portion both people eat the same amount, and one person's 2,400 kcal floor is above the other's 2,200 ceiling. It still took 40% of the time.
+- CP-SAT's presolve of the scored model took 12 of its 16 s.
+
+Asked only for a plan meeting the hard targets, with no objective, CP-SAT found one in 3.9 s. So for a household (with OR-tools installed), `auto` now asks for that first (`cpsat.first_plan`, with at most 40% of the time). It starts every solver from that plan, and it returns at once if CP-SAT proves no such plan exists.
+
+On the owner's week the result is feasible, scoring 45.66, in 27 s. For comparison:
+- CP-SAT alone reached 47.51 in 60 s and again in 120 s (ceiling 55.3).
+- Started from the first plan, CP-SAT improved nothing in 20 s: the model's fit variables rose, the plan did not.
+- Several workers found no plan in 20 s, with or without the start.
+- Turning probing off did not help either.
+
+The objective is unchanged.
+
 **Not built:** a tighter variety formulation or stock as flows for the solver; hard stock ("only cook from what I have"); a per-day time budget; a penalty for unused near-expiry stock; a soft difficulty term; a persistent "locked" flag on entries beyond what an existing entry already is; the parent link that would carry a leftover's purchase date through a division (J12).

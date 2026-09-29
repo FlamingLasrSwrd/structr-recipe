@@ -217,7 +217,9 @@ def auto(
     CP-SAT proves others the exact search cannot. So: a short exact search first;
     then, if OR-tools is installed, CP-SAT with two thirds of the time left; then a
     beam search with the rest, finishing greedily if it runs out; and the best plan
-    found by any of them. The whole takes about `time_limit_s` (the owner's decision,
+    found by any of them. Each solver starts from a plan when there is one to start
+    from: a household's first plan meeting everyone's hard targets, or a one-eater
+    week solved at one portion. The whole takes about `time_limit_s` (the owner's decision,
     2026-09-28: the beam search had no limit, and a household's week took an hour).
     A proof from either solver is returned as soon as it exists; an unfinished result
     says it is not proven, and carries CP-SAT's ceiling when it has one. This is what
@@ -231,7 +233,17 @@ def auto(
     seed = None
     default = problem.servings_eaten
     levels = [problem.portion_levels(e) for e in problem.eater_keys()]
-    if any(len(lv) > 1 for lv in levels) and all(default in lv for lv in levels):
+    if len(levels) > 1 and not relaxed and cpsat.available():
+        # Several eaters: meeting everyone's hard targets at once is the hard part. On the
+        # owner's household (2026-09-28) no search found a plan in 30 s, and none exists at
+        # one portion each (one person's energy floor is above the other's ceiling); CP-SAT
+        # asked for any plan meeting them found one in 4 s. So start from that.
+        start = cpsat.first_plan(problem, time_limit_s=time_limit_s * 0.4)
+        if start.proven:
+            return start                     # no plan meets every hard target
+        if start.best is not None:
+            seed = SearchResult(start.best, False, 0, "first plan")
+    elif any(len(lv) > 1 for lv in levels) and all(default in lv for lv in levels):
         # Portions multiply every slot's choices, and on a real week no search found a
         # first plan in the time left. So solve the week at the default portion first,
         # and start from it: varying the portions can then only improve on it.
@@ -242,7 +254,7 @@ def auto(
             picks = base.best.picks
             ev = evaluate(problem, picks)
             if ev.legal:
-                seed = SearchResult(ev, False, base.nodes, base.method + " at one portion")
+                seed = SearchResult(ev, False, base.nodes, "one portion")
         time_limit_s *= 0.6
 
     first = exact(problem, relaxed=relaxed, node_limit=node_limit, time_limit_s=min(SHORT_EXACT_S, time_limit_s))
@@ -250,7 +262,7 @@ def auto(
         return SearchResult(first.best, True, first.nodes, "exact")
     found, nodes, ceiling, label = first, first.nodes, None, ["exact"]
     if seed is not None and _beats(keyed(seed), keyed(found)):
-        found, label = seed, ["one portion", "exact"]
+        found, label = seed, [seed.method, "exact"]
     if cpsat.available():
         solved = cpsat.solve(problem, relaxed=relaxed, time_limit_s=max(0.1, (deadline - time.monotonic()) * CPSAT_SHARE),
                              hint=seed.best.picks if seed is not None else None)

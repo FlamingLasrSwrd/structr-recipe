@@ -11,14 +11,15 @@ The only feasible plan is stew with shares (1.5, 0.5): 2.0 servings cooked.
 
 import unittest
 from dataclasses import replace
+from unittest import mock
 
-from mealplanner.planning import cpsat
+from mealplanner.planning import cpsat, search
 from mealplanner.planning.evaluate import evaluate, group_states, options, resolve, slot_max_intake
 from mealplanner.planning.nutrients import slot_reach, standings
 from mealplanner.planning.model import Fixed, Pick, Target
 from mealplanner.planning.nutrients import describe_nutrients
 from mealplanner.planning.report import describe_plan
-from mealplanner.planning.search import auto, exact, oracle
+from mealplanner.planning.search import SearchResult, auto, exact, oracle
 from tests.planning_fixtures import cand, problem, slot, when
 
 STEW, SALAD = cand("stew", 20, 30, leftover_days=3.0, meal_types=frozenset({"Dinner", "Lunch"})), cand("salad", 10, 10, meal_types=frozenset({"Dinner"}))
@@ -113,6 +114,77 @@ class CpSat(unittest.TestCase):
         got = cpsat.solve(household())
         self.assertEqual(got.best.picks, (Pick(candidate="stew", shares=(1.5, 0.5)),))
         self.assertTrue(got.proven)
+
+    def test_its_first_plan_meets_every_hard_target_and_is_not_called_optimal(self):
+        got = cpsat.first_plan(household())
+        self.assertEqual(got.best.picks, (Pick(candidate="stew", shares=(1.5, 0.5)),))
+        self.assertTrue(got.best.feasible)
+        self.assertFalse(got.proven)
+
+    def test_with_no_plan_to_find_it_proves_there_is_none(self):
+        got = cpsat.first_plan(household(targets=(replace(A_MIN, minimum=31), B_MAX)))   # stew at 1.5 gives A 30 g
+        self.assertEqual((got.best, got.proven), (None, True))
+
+    def test_the_first_plan_is_asked_for_nothing_but_the_hard_targets(self):
+        p = household()
+        built = cpsat._build(p, False)
+        cpsat._run(built, p, 5.0, 1, None)
+        self.assertFalse(built["model"].has_objective())
+        with mock.patch.object(cpsat, "_run", wraps=cpsat._run) as run:
+            cpsat.first_plan(p)
+        self.assertIsNone(run.call_args.kwargs["minimise_violation"])
+
+    def test_no_plan_in_time_or_one_evaluate_refuses_is_no_first_plan(self):
+        p = household()
+        with mock.patch.object(cpsat, "_run", return_value={"status": "UNKNOWN", "proven": False}):
+            self.assertEqual((cpsat.first_plan(p).best, cpsat.first_plan(p).proven), (None, False))
+        salad = (Pick(candidate="salad", shares=(1.5, 0.5)),)                           # A short of 25 g
+        with mock.patch.object(cpsat, "_run", return_value={"status": "FEASIBLE", "proven": False, "picks": salad}):
+            self.assertEqual((cpsat.first_plan(p).best, cpsat.first_plan(p).proven), (None, False))
+
+
+class Portfolio(unittest.TestCase):
+    """auto() starts a household's week from CP-SAT's first plan meeting everyone's hard targets.
+    At one portion each, where a one-eater week starts, there is none here: stew gives A 20 g."""
+
+    def run_auto(self, p, first, **kw):
+        given = {}
+
+        def fake_solve(problem, **k):
+            given["hint"] = k.get("hint")
+            return SearchResult(None, False, 0, "cpsat")
+
+        with mock.patch.object(cpsat, "available", return_value=True), \
+                mock.patch.object(cpsat, "first_plan", return_value=first) as fp, mock.patch.object(cpsat, "solve", fake_solve), \
+                mock.patch.object(search, "exact", return_value=SearchResult(None, False, 0, "exact")):
+            result = auto(p, time_limit_s=2.0, **kw)
+        return result, fp, given
+
+    def test_a_household_starts_from_the_first_plan(self):
+        p = household()
+        start = evaluate(p, (Pick(candidate="stew", shares=(1.5, 0.5)),))
+        result, fp, given = self.run_auto(p, SearchResult(start, False, 0, "cpsat"))
+        self.assertAlmostEqual(fp.call_args.kwargs["time_limit_s"], 0.8)        # at most 40% of the time
+        self.assertEqual(given["hint"], start.picks)
+        self.assertEqual(result.best.picks, start.picks)
+        self.assertEqual(result.method, "first plan+exact+cpsat+beam")
+
+    def test_a_household_with_no_plan_is_proven_at_once(self):
+        result, _, given = self.run_auto(household(), SearchResult(None, True, 0, "cpsat"))
+        self.assertEqual((result.best, result.proven), (None, True))
+        self.assertEqual(given, {})                                            # nothing else was searched
+
+    def test_the_closest_plan_and_a_one_eater_week_do_not_ask_for_it(self):
+        _, fp, _ = self.run_auto(household(), None, relaxed=True)
+        fp.assert_not_called()
+        one = problem([slot("dinner", when(28, 18), "Dinner")], [STEW, SALAD], [replace(A_MIN, eater="")], portions=(1.0, 1.5))
+        _, fp, _ = self.run_auto(one, None)
+        fp.assert_not_called()
+
+    def test_without_ortools_a_household_is_still_planned(self):
+        with mock.patch.object(cpsat, "available", return_value=False):
+            result = auto(household(), time_limit_s=2.0)
+        self.assertEqual(result.best.picks, (Pick(candidate="stew", shares=(1.5, 0.5)),))
 
 
 class Checks(unittest.TestCase):

@@ -45,6 +45,8 @@ class Extract(unittest.TestCase):
         self.assertEqual({t.name: t.eater for t in p.targets}, {"eli floor": "p-eli", "cass cap": "p-cass"})
         self.assertTrue(any("nobody's" in n and "for no one in the household" in n for n in p.notes))
         self.assertEqual(p.baselines, {"p-eli": {"Protein": 5.0}})
+        self.assertEqual(p.baseline, {})                             # the week itself has none
+        self.assertFalse(any(n.startswith("baseline counted") for n in p.notes))
         self.assertNotIn("shake", p.candidates)                      # a baseline is not a meal
 
     def test_meal_eaters_and_portions_are_named_by_person(self):
