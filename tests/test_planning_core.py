@@ -293,6 +293,13 @@ class Leftovers(unittest.TestCase):
         self.assertEqual([d["cooked_servings"] for d in ev.slot_details], [2.0, 0.0])
 
 
+def three_days(fixed_a=None, fixed_b=None, salad=True):
+    """Soup keeps three days; salad is the other dish. Dinners on days 28, 29 and 30; variety only."""
+    return problem([slot("a", when(28, 18), fixed=fixed_a), slot("b", when(29, 18), fixed=fixed_b), slot("c", when(30, 18))],
+                   [cand("soup", 10, 10, leftover_days=3.0)] + ([cand("salad", 10, 10)] if salad else []),
+                   weights=Weights(time=0.0, variety=1.0, time_budget_minutes=30.0))
+
+
 class Variety(unittest.TestCase):
     def two_slots(self, gap_days, uses=()):
         soup = cand("soup", 10, 10, uses=tuple(uses))
@@ -314,6 +321,35 @@ class Variety(unittest.TestCase):
     def test_the_nearest_use_decides(self):
         p = problem([slot("a", when(28, 18))], [cand("soup", 10, 10, uses=(when(25, 18), when(27, 18)))], weights=Weights(time=0.0, variety=1.0))
         self.assertAlmostEqual(evaluate(p, picks("soup")).terms["variety"], 1 / 14)
+
+    def test_a_cook_and_the_first_meal_of_its_leftovers_are_one_use(self):
+        p = three_days()
+        cook_once = evaluate(p, (Pick(candidate="soup"), Pick(source=0), Pick(candidate="salad")))
+        cook_twice = evaluate(p, (Pick(candidate="soup"), Pick(candidate="soup"), Pick(candidate="salad")))
+        self.assertAlmostEqual(cook_once.terms["variety"], 3.0)
+        self.assertAlmostEqual(cook_twice.terms["variety"], 1 / 14 + 1 / 14 + 1.0)
+
+    def test_a_second_meal_of_the_same_leftovers_is_a_repeat(self):
+        # a and b are one use; c, the second meal of a's leftovers, is 2 days from a and 1 from b
+        ev = evaluate(three_days(), (Pick(candidate="soup"), Pick(source=0), Pick(source=0)))
+        for got, want in zip([d["variety"] for d in ev.slot_details], [2 / 14, 1 / 14, 1 / 14]):
+            self.assertAlmostEqual(got, want)
+
+    def test_the_first_meal_of_the_leftovers_is_the_earliest_whatever_else_is_cooked(self):
+        # a cooks soup, b cooks it again, c eats a's leftovers: a and c are one use, b repeats both
+        ev = evaluate(three_days(), (Pick(candidate="soup"), Pick(candidate="soup"), Pick(source=0)))
+        for got, want in zip([d["variety"] for d in ev.slot_details], [1 / 14, 1 / 14, 1 / 14]):
+            self.assertAlmostEqual(got, want)
+        ev = evaluate(three_days(), (Pick(candidate="soup"), Pick(candidate="salad"), Pick(source=0)))
+        self.assertAlmostEqual(ev.terms["variety"], 3.0)
+
+    def test_a_committed_cook_and_the_first_meal_of_its_leftovers_are_one_use(self):
+        p = three_days(fixed_a=Fixed(eaten=1.0, candidate="soup"))
+        ev = evaluate(p, (Pick(candidate="soup"), Pick(source=0), Pick(candidate="salad")))
+        self.assertAlmostEqual(ev.terms["variety"], 2.0)                     # the committed cook scores nothing
+        p = three_days(fixed_a=Fixed(eaten=1.0, candidate="soup"), fixed_b=Fixed(eaten=1.0, source=0))
+        ev = evaluate(p, (Pick(candidate="soup"), Pick(source=0), Pick(source=0)))
+        self.assertAlmostEqual(ev.terms["variety"], 1 / 14)                 # c is the second meal: 1 day from b
 
     def test_soft_exclusion_costs_its_weight_per_use(self):
         p = problem([slot("a", when(28, 18)), slot("b", when(29, 18))], [cand("nutty", 10, 10, soft_penalty=0.3)],

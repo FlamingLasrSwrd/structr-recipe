@@ -224,6 +224,7 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
     # ---- variety
     if w.variety > 0:
         cap = round(w.variety * OS)
+        first = _first_leftover_literals(m, y)
         for s in open_slots:
             b = m.new_int_var(0, cap, f"variety_{s}")
             objective.append((b, 1))
@@ -242,12 +243,15 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
                     days = _days(start, problem.slots[t].start) / VARIETY_CAP_DAYS
                     if days >= 1.0:
                         continue
+                    # unless one is the cook and the other the first meal of its leftovers
+                    one_use = first.get((min(s, t), max(s, t), c.id))
+                    apart = [one_use.negated()] if one_use is not None else []
                     if t in open_set:
                         theirs = use(t, c.id)
                         if theirs is not None:
-                            m.add(b <= round(days * cap)).only_enforce_if([mine, theirs])
+                            m.add(b <= round(days * cap)).only_enforce_if([mine, theirs] + apart)
                     elif fixed_resolved[t] is not None and fixed_resolved[t].candidate == c.id:
-                        m.add(b <= round(days * cap)).only_enforce_if(mine)
+                        m.add(b <= round(days * cap)).only_enforce_if([mine] + apart)
 
     # ---- nutrition targets
     violation_terms: list = []             # (variable or None, coefficient) for the relaxed measure
@@ -351,6 +355,24 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
 
 
 # ---------------------------------------------------------------- solving
+
+def _first_leftover_literals(m, y: dict) -> dict:
+    """{(cook slot j, open slot i, recipe): a literal that may be true only when i eats the
+    leftovers of the cook at j and no open slot between them does}: the pair that counts
+    as one use for variety (evaluate.variety_bonuses). Setting one only lifts a cap on the
+    score, so the solver sets it wherever it may. A committed meal between them that ate
+    the leftovers first needs no rule: it is nearer to i than j is, so it caps i's bonus
+    anyway, and a committed cook has no bonus of its own."""
+    out = {}
+    for (i, j, cid), eats in y.items():
+        lit = m.new_bool_var(f"first_leftover_{j}_{i}_{cid}")
+        m.add_implication(lit, eats)
+        for u in range(j + 1, i):
+            if (u, j, cid) in y:
+                m.add_implication(lit, y[u, j, cid].negated())
+        out[j, i, cid] = lit
+    return out
+
 
 def _run(built: dict, problem: PlanningProblem, time_limit_s: float, workers: int, minimise_violation: bool | None) -> dict:
     """minimise_violation None: no objective, so the first plan the model allows ends the solve."""

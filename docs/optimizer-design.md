@@ -101,7 +101,7 @@ There is no numeric definition of a good week. This section proposes one, delibe
 | Term | Per | Definition | Reuses |
 |---|---|---|---|
 | Time fit | slot | 1 within budget, falling linearly to 0 at twice the budget | `time_fit_score` |
-| Variety | pair of slots | nearer than 14 days apart with the same recipe costs `1 − days/14`; a recipe already used in past entries counts against the same scale (J14) | `variety_score` |
+| Variety | pair of slots | nearer than 14 days apart with the same recipe costs `1 − days/14`; a recipe already used in past entries counts against the same scale (J14); a cook and the first meal of its leftovers are one use, not a pair (as built, §12) | `variety_score` |
 | Soft nutrition fit | (target, scope) | judged **once**, on the scope's final total, by the selector's existing shape (1 in range; falling with relative deviation) | `nutrition_fit_score` |
 | Stock coverage | plan | fraction of ingredient demand met from stock rather than bought | `net_requirements` |
 | Waste | cook | the selector's urgency: 1 if the soonest-expiring stock still good at the cook expires that day, falling to 0 at five days; rewards cooking what uses it (as built, §12; a penalty for stock left unused is not built) | `waste_urgency` |
@@ -277,4 +277,20 @@ On the owner's week the result is feasible, scoring 45.66, in 27 s. For comparis
 
 The objective is unchanged.
 
-**Not built:** a tighter variety formulation or stock as flows for the solver; hard stock ("only cook from what I have"); a per-day time budget; a penalty for unused near-expiry stock; a soft difficulty term; a persistent "locked" flag on entries beyond what an existing entry already is; the parent link that would carry a leftover's purchase date through a division (J12).
+**A cook and the first meal of its leftovers are one use of the dish** (the owner's decision, 2026-09-29: "cook once, eat twice"). Before this, a leftover meal counted as a repeat of its dish exactly as cooking it again did, and it scored the same for time as any fresh cook within the budget. So no plan was better for using leftovers: the owner's household week cooked the same soup fresh four times over a weekend and ate none.
+
+Three ways of counting leftovers were measured on that week, each improving the first plan one meal at a time for 90 s:
+
+| Rule | Leftover meals | Cooks | Recipes |
+|---|---|---|---|
+| A cook and all its leftovers are one use | 7 | 14 | 10 |
+| A cook and its first leftover meal are one use | 5 | 16 | 13 |
+| A credit of the time weight per leftover meal | 3 | 18 | 15 |
+
+The first let one dish fill every slot until it expired (chilaquiles four breakfasts running). The owner chose the second.
+
+`evaluate.variety_bonuses` leaves that pair out. In CP-SAT, each possible pair has a literal that lifts the pair's variety cap. The literal may be true only when the slot eats that cook's leftovers and no open slot between them does. Checked with hand-worked weeks, CP-SAT against the oracle on them and on the random problems, and 11 mutants.
+
+What the rule changes in practice depends on the search. At `time_limit_s = 30` the household week is still CP-SAT's first plan, which ignores the score, so it has no leftovers. At 120 s it scored 47.44 with 2 leftover meals, against 46.70 with none before.
+
+**Not built:** an improvement step after the first plan (one meal at a time, measured above; the owner's decision, 2026-09-29: not now); a tighter variety formulation or stock as flows for the solver; hard stock ("only cook from what I have"); a per-day time budget; a penalty for unused near-expiry stock; a soft difficulty term; a persistent "locked" flag on entries beyond what an existing entry already is; the parent link that would carry a leftover's purchase date through a division (J12).
