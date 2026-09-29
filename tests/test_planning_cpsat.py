@@ -17,6 +17,7 @@ from mealplanner.planning import cpsat
 from mealplanner.planning.search import SearchResult, auto, oracle, solve
 from mealplanner.planning.model import Fixed
 from tests.planning_fixtures import cand, day_of_three, problem, protein_target, slot, when
+from tests.test_planning_core import three_days
 from tests.test_planning_search import SEEDS, random_problem
 
 TOL = 1e-4
@@ -99,6 +100,24 @@ class UnknownFiguresAreNeutralInTheModelToo(unittest.TestCase):
         got, want = cpsat.solve(p), oracle(p)            # 10 + 10 fits 0.33; any mystery scores 0.5
         self.assertTrue(got.proven)
         self.assertAlmostEqual(got.best.objective, want.best.objective, delta=TOL)
+
+
+@unittest.skipUnless(cpsat.available(), "OR-tools is not installed")
+class LeftoversInTheModel(unittest.TestCase):
+    """A cook and the first meal of its leftovers are one use for variety (test_planning_core.three_days)."""
+
+    def test_it_agrees_with_the_oracle(self):
+        weeks = {
+            "open": (three_days(), 3.0),
+            "soup only": (three_days(salad=False), 4 / 14),     # cook, leftovers, leftovers: 2/14 + 1/14 + 1/14
+            "committed cook": (three_days(fixed_a=Fixed(eaten=1.0, candidate="soup")), 2.0),
+            "committed first leftovers": (three_days(fixed_a=Fixed(eaten=1.0, candidate="soup"), fixed_b=Fixed(eaten=1.0, source=0)), 1.0),
+        }
+        for label, (p, best) in weeks.items():
+            want, got = oracle(p), cpsat.solve(p)
+            self.assertAlmostEqual(want.best.objective, best, msg=label)
+            self.assertAlmostEqual(got.best.objective, best, msg=label)
+            self.assertTrue(got.proven, label)
 
 
 @unittest.skipUnless(cpsat.available(), "OR-tools is not installed")

@@ -382,13 +382,27 @@ def group_violation(g: GroupState) -> tuple[str | None, float, float | None]:
 
 # ---------------------------------------------------------------- variety, stock
 
+def first_leftovers(resolved) -> dict[int, int]:
+    """{cook slot: the first slot that eats its leftovers}. Slots are in time order."""
+    first: dict[int, int] = {}
+    for i, r in enumerate(resolved):
+        if r is not None and r.kind == "leftover" and r.source is not None:
+            first.setdefault(r.source, i)
+    return first
+
+
 def variety_bonuses(problem: PlanningProblem, resolved) -> dict[int, float]:
     """For each open, assigned slot: the variety bonus, from the distance in days
     to the nearest OTHER use of the same recipe, whether another slot of this
-    plan (fresh or leftover) or an outside use (`Candidate.uses`). Adding a use
-    can only shrink it, which is what makes the value at a partial assignment an
-    upper bound."""
+    plan (fresh or leftover) or an outside use (`Candidate.uses`). A cook and the
+    first meal of its leftovers are one use, so neither counts against the other
+    (the owner's decision, 2026-09-29: "cook once, eat twice"); a later meal of
+    the same leftovers is a repeat like any other. Adding a use can only shrink
+    a bonus (an earlier leftover meal assigned later takes over as the first, and
+    the one it displaces becomes a repeat), which is what makes the value at a
+    partial assignment an upper bound."""
     uses = [(i, r.candidate) for i, r in enumerate(resolved) if r is not None and r.candidate is not None]
+    one_use = set(first_leftovers(resolved).items())
     out = {}
     for i, r in enumerate(resolved):
         if r is None or r.candidate is None or problem.slots[i].fixed is not None:
@@ -396,7 +410,7 @@ def variety_bonuses(problem: PlanningProblem, resolved) -> dict[int, float]:
         start = problem.slots[i].start
         nearest = None
         for j, candidate in uses:
-            if j != i and candidate == r.candidate:
+            if j != i and candidate == r.candidate and (i, j) not in one_use and (j, i) not in one_use:
                 days = abs((start - problem.slots[j].start).total_seconds()) / 86400.0
                 nearest = days if nearest is None else min(nearest, days)
         for used in problem.candidates[r.candidate].uses:
