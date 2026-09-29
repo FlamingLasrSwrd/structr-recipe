@@ -14,6 +14,11 @@ respects and cannot change.
 What is left out is recorded in `problem.notes` rather than dropped silently: a
 recipe with no yield stated in servings, an entry with no start time, a target
 that cannot be evaluated at its scope.
+
+A MealPlan for a household (MealPlan.forHousehold, data-model.md Sec 19) feeds its
+members: they are the problem's eaters, each target is its person's, each person's
+baseline is their own, and a committed entry's meal shares say who ate what.
+Without a household there is one unnamed eater, as before households.
 """
 
 from __future__ import annotations
@@ -47,6 +52,7 @@ class SlotSpec:
     start: datetime
     meal_type: str | None = None
     key: str | None = None
+    eaters: tuple | None = None      # the names of who eats it; None: the whole household
 
     def label(self) -> str:
         return self.key or (self.start.strftime("%a %d %b %H:%M") + (f" {self.meal_type}" if self.meal_type else ""))
@@ -64,17 +70,20 @@ def _leftover_days(client, override: float | None) -> float | None:
 def build_problem(
     client, meal_plan_id: str, template, now: datetime, *,
     servings_eaten: float = 1.0, max_difficulty: str | None = None, leftover_days: float | None = None,
-    leftovers: bool = True, portions: tuple = (),
+    leftovers: bool = True, portions: tuple = (), eater_portions: dict | None = None,
 ) -> PlanningProblem:
     """Read the MealPlan, the recipes, the stock and the constraints into a
     PlanningProblem for the slots in `template` (an iterable of SlotSpec).
 
     leftover_days: how long cooked food keeps. Defaults to the ShelfLife default of
     the "Cooked Leftover" class (Fridge, Sealed); if none resolves, leftovers are
-    simply not planned. leftovers=False plans no leftovers at all."""
+    simply not planned. leftovers=False plans no leftovers at all. eater_portions:
+    a person's own portion levels, by name."""
     client = ReadCache(client)
     notes: list[str] = []
     meal_plan = client.get_all("MealPlan", meal_plan_id)["result"]
+    people = _household(client, meal_plan)                       # person id -> Person, in name order
+    id_of = {p["name"]: pid for pid, p in people.items()}
     weights = Weights(
         time=number(meal_plan.get("timeBudgetWeight"), 0.5), variety=number(meal_plan.get("varietyWeight"), 0.5),
         stock=number(meal_plan.get("stockWeight"), 0.0), waste=number(meal_plan.get("wasteWeight"), 0.0),
@@ -103,10 +112,16 @@ def build_problem(
                          f"{unit!r}, the unit of another target on {nutrient['name']}")
             continue
         scaled = [None if v is None else v * factor for v in (rng.get("minValue"), rng.get("maxValue"))]
+        eater = ""
+        if people:
+            eater = (raw.get("forPerson") or {}).get("id") or ""
+            if eater not in people:
+                notes.append(f"target {raw.get('name')!r} is not evaluated: it is for no one in the household")
+                continue
         targets.append(Target(
             name=raw["name"], nutrient=nutrient["id"], scope=raw["hasTimeScope"], minimum=scaled[0],
             maximum=scaled[1], hard=raw.get("strictness") == "hard", weight=number(raw.get("weight"), 0.0),
-            nutrient_name=nutrient["name"], day_boundary=raw.get("dayBoundaryRule") or "midnight",
+            nutrient_name=nutrient["name"], day_boundary=raw.get("dayBoundaryRule") or "midnight", eater=eater,
         ))
 
     # Entries already in the MealPlan: fixed slots. A leftover entry is kept only if
@@ -152,6 +167,8 @@ def build_problem(
 
     raw_plans: list[tuple[dict, list]] = []
     baseline_ids = {ref["id"] for ref in meal_plan.get("hasBaseline", [])}
+    for person in people.values():
+        baseline_ids |= {ref["id"] for ref in person.get("hasBaseline", [])}
     for plan in client.get_all("Plan")["result"]:
         if plan["id"] in baseline_ids:
             continue                          # eaten every day already, not a meal to plan
@@ -208,16 +225,25 @@ def build_problem(
     slots: list[Slot] = []
     for start, _, kind, payload in rows:
         if kind == "open":
-            slots.append(Slot(payload.label(), start, payload.meal_type))
+            eaters = None
+            if payload.eaters is not None:
+                unknown = [name for name in payload.eaters if name not in id_of]
+                if unknown or not people:
+                    raise ValueError(f"{payload.label()}: {unknown or list(payload.eaters)} are not in the week's household")
+                eaters = tuple(id_of[name] for name in payload.eaters)
+            slots.append(Slot(payload.label(), start, payload.meal_type, eaters=eaters))
             continue
         eaten, _ = entry_servings_eaten(client, payload)
+        shares = _entry_shares(client, payload, people) if people else ()
+        if people and not shares:
+            first = next(iter(people.values()))["name"]
+            notes.append(f"entry {payload['name']!r} says nothing of who ate it: counted as {first}'s")
+        common = dict(name=payload["name"], entry_id=payload["id"], shares=shares)
         if payload.get("references"):
-            fixed = Fixed(eaten=eaten, candidate=payload["references"]["id"], cooked=payload.get("hasPlannedServings"),
-                          name=payload["name"], entry_id=payload["id"])
+            fixed = Fixed(eaten=eaten, candidate=payload["references"]["id"], cooked=payload.get("hasPlannedServings"), **common)
         else:
-            fixed = Fixed(eaten=eaten, source=index_of_entry[payload["consumesLeftoverFrom"]["id"]],
-                          name=payload["name"], entry_id=payload["id"])
-        slots.append(Slot(payload["name"], start, None, fixed))
+            fixed = Fixed(eaten=eaten, source=index_of_entry[payload["consumesLeftoverFrom"]["id"]], **common)
+        slots.append(Slot(payload["name"], start, None, fixed, eaters=tuple(e for e, _ in shares) or None))
 
     baseline: dict[str, float | None] = {}
     if baseline_ids:
@@ -228,6 +254,20 @@ def build_problem(
         notes.append(f"baseline counted every day: {', '.join(names)} ("
                      + "; ".join(f"{name_of[n]} {'unknown' if v is None else f'{v:g} {unit_of[n]}'}"
                                  for n, v in sorted(baseline.items(), key=lambda kv: name_of[kv[0]])) + ")")
+    baselines: dict[str, dict] = {}
+    for pid, person in people.items():
+        if not person.get("hasBaseline"):
+            continue
+        mine = {}
+        for nutrient_id, unit in unit_of.items():
+            per_day, unknown = baseline_day_intake(client, person, nutrient_id, unit)
+            mine[nutrient_id] = None if unknown else per_day
+        baselines[pid] = mine
+        names = sorted(p["name"] for p in baseline_plans(client, person))
+        notes.append(f"{person['name']}'s baseline counted every day: {', '.join(names)}")
+    unknown = sorted(set(eater_portions or {}) - set(id_of))
+    if unknown:
+        raise ValueError(f"portions are given for {unknown}, who are not in the week's household")
     lots = tuple(
         Lot(pool=root, grams=lot.grams, expires=lot.expires, name=lot.name)
         for root, pool_lots in lots_by_pool.items() for lot in pool_lots
@@ -235,5 +275,29 @@ def build_problem(
     return PlanningProblem(
         slots=tuple(slots), candidates=candidates, targets=tuple(targets), lots=lots, weights=weights, now=now,
         max_difficulty=max_difficulty, servings_eaten=servings_eaten, notes=notes, baseline=baseline, units=dict(unit_of),
-        portions=tuple(portions),
+        portions=tuple(portions), eaters=tuple(people), baselines=baselines,
+        eater_portions={id_of[name]: tuple(levels) for name, levels in (eater_portions or {}).items()},
+        eater_names={pid: p["name"] for pid, p in people.items()},
     )
+
+
+def _household(client, meal_plan: dict) -> dict:
+    """The week's household members (Person id -> Person), in name order; empty without a household."""
+    ref = meal_plan.get("forHousehold")
+    if not ref:
+        return {}
+    members = client.get_all("Household", ref["id"])["result"].get("members", [])
+    people = [client.get_all("Person", m["id"])["result"] for m in members]
+    return {p["id"]: p for p in sorted(people, key=lambda p: (p["name"], p["id"]))}
+
+
+def _entry_shares(client, entry: dict, people: dict) -> tuple:
+    """((person id, servings), ...) from an entry's meal shares (Sec 19 K3), in the household's order."""
+    shares = {}
+    for ref in entry.get("hasShare", []):
+        share = client.get_all("MealShare", ref["id"])["result"]
+        eater = (share.get("eatenBy") or {}).get("id")
+        servings, _ = entry_servings_eaten(client, share)
+        if eater in people:
+            shares[eater] = shares.get(eater, 0.0) + servings
+    return tuple((pid, shares[pid]) for pid in people if pid in shares)

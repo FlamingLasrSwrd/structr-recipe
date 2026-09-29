@@ -10,6 +10,9 @@ The model, per open slot s: exactly one of
   x[s,c]    cook recipe c fresh (only recipes legal for the slot);
   y[s,j,c]  eat the leftovers of recipe c, cooked at slot j (only where the cook
             has finished, the food still keeps, and j itself cooks c).
+With several eaters (a household, data-model.md Sec 19 K5) each eats one of their own
+portion levels at each slot they eat (q[s, e, k]), and each person's targets count
+their own servings only.
 Everything else is linear in these: the day's intake of a nutrient, each hard
 target as a bound on it, the time and soft-exclusion terms, and the piecewise
 nutrition fit (a variable capped by its linear pieces, clamped at zero with one
@@ -142,33 +145,35 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
         else:
             m.add_bool_or([])              # nothing may fill this slot: the problem is infeasible
 
-    # ---- portions: when they vary, each open slot eats one level (a one-hot q[s, k]),
-    # and "slot s eats recipe c at level k" is the product of the two, z[s, c, k]
-    levels = problem.portion_levels()
+    # ---- portions: when they vary, each eater of an open slot eats one of their levels (a
+    # one-hot q[s, e, k]), and "eater e eats recipe c at level k at slot s" is the product
+    # of the two, z[s, c, e, k]
+    levels = {e: problem.portion_levels(e) for e in problem.eater_keys()}
     q: dict = {}
-    if len(levels) > 1:
-        for s in open_slots:
-            for k in range(len(levels)):
-                q[s, k] = m.new_bool_var(f"q_{s}_{k}")
-            m.add_exactly_one(q[s, k] for k in range(len(levels)))
+    for s in open_slots:
+        for e in problem.slot_eaters(s):
+            if len(levels[e]) > 1:
+                for k in range(len(levels[e])):
+                    q[s, e, k] = m.new_bool_var(f"q_{s}_{e}_{k}")
+                m.add_exactly_one(q[s, e, k] for k in range(len(levels[e])))
     portioned_var: dict = {}
 
-    def portioned(s: int, cid: str) -> list:
-        """(variable, servings eaten) pairs whose sum is what slot s eats of recipe cid."""
-        if (s, cid) not in uses_of:
+    def portioned(s: int, cid: str, eater: str) -> list:
+        """(variable, servings eaten) pairs whose sum is what an eater eats of recipe cid at slot s."""
+        if (s, cid) not in uses_of or eater not in problem.slot_eaters(s):
             return []
-        if not q:
-            return [(var, levels[0]) for var in uses_of[s, cid]]
-        if (s, cid) not in portioned_var:
+        if (s, eater, 0) not in q:
+            return [(var, levels[eater][0]) for var in uses_of[s, cid]]
+        if (s, cid, eater) not in portioned_var:
             u = use(s, cid)
             pairs = []
-            for k, level in enumerate(levels):
-                z = m.new_bool_var(f"z_{s}_{cid}_{k}")
-                m.add_bool_and([u, q[s, k]]).only_enforce_if(z)
-                m.add_bool_or([u.negated(), q[s, k].negated(), z])
+            for k, level in enumerate(levels[eater]):
+                z = m.new_bool_var(f"z_{s}_{cid}_{eater}_{k}")
+                m.add_bool_and([u, q[s, eater, k]]).only_enforce_if(z)
+                m.add_bool_or([u.negated(), q[s, eater, k].negated(), z])
                 pairs.append((z, level))
-            portioned_var[s, cid] = pairs
-        return portioned_var[s, cid]
+            portioned_var[s, cid, eater] = pairs
+        return portioned_var[s, cid, eater]
 
     use_var: dict = {}
 
@@ -236,6 +241,8 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
             terms, has_open, most = [], False, 0
             unknown_uses = []                  # choices that would put an entry with no figure in the group
             for i in indices:
+                if target.eater not in problem.slot_eaters(i):
+                    continue                   # this person does not eat this meal
                 if i in open_set:
                     has_open = True
                     best = 0
@@ -244,13 +251,13 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
                         if amount is None:
                             unknown_uses.extend(uses_of.get((i, c.id), []))
                             continue
-                        for var, eaten in (portioned(i, c.id) if amount else []):
+                        for var, eaten in (portioned(i, c.id, target.eater) if amount else []):
                             coef = round(amount * eaten * NS)
                             best = max(best, coef)
                             terms.append((var, coef))
                     most += best
                 else:
-                    value = intake(problem, fixed_resolved[i], target.nutrient)
+                    value = intake(problem, fixed_resolved[i], target.nutrient, target.eater)
                     if value is None:
                         unknown_fixed = True
                     else:
@@ -360,24 +367,31 @@ def _hint(built: dict, problem: PlanningProblem, picks) -> None:
         var = built["x"].get((s, r.candidate)) if pick.candidate is not None else built["y"].get((s, pick.source, r.candidate))
         if var is not None:
             m.add_hint(var, 1)
-        if built["q"]:
-            portion = pick.portion if pick.portion is not None else problem.servings_eaten
-            for k, level in enumerate(levels):
-                m.add_hint(built["q"][s, k], int(abs(level - portion) < 1e-9))
+        for e, servings in r.shares:
+            for k, level in enumerate(levels[e]):
+                if (s, e, k) in built["q"]:
+                    m.add_hint(built["q"][s, e, k], int(abs(level - servings) < 1e-9))
 
 
 def _picks(built: dict, problem: PlanningProblem, solver) -> tuple:
     picks = initial_partial(problem)
-    portion = {}
-    for (s, k), var in built["q"].items():
+    chosen = {}                                        # (slot, eater) -> the level eaten
+    for (s, e, k), var in built["q"].items():
         if solver.boolean_value(var):
-            portion[s] = built["levels"][k]
+            chosen[s, e] = built["levels"][e][k]
+
+    def amounts(s: int) -> dict:
+        eaters = problem.slot_eaters(s)
+        if len(eaters) == 1:
+            return {"portion": chosen.get((s, eaters[0]))}
+        return {"shares": tuple(chosen.get((s, e), built["levels"][e][0]) for e in eaters)}
+
     for (s, cid), var in built["x"].items():
         if solver.boolean_value(var):
-            picks[s] = Pick(candidate=cid, portion=portion.get(s))
+            picks[s] = Pick(candidate=cid, **amounts(s))
     for (s, j, cid), var in built["y"].items():
         if solver.boolean_value(var):
-            picks[s] = Pick(source=j, portion=portion.get(s))
+            picks[s] = Pick(source=j, **amounts(s))
     return tuple(picks)
 
 

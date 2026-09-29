@@ -204,15 +204,16 @@ def auto(
 
     seed = None
     default = problem.servings_eaten
-    if len(problem.portion_levels()) > 1 and default in problem.portion_levels():
+    levels = [problem.portion_levels(e) for e in problem.eater_keys()]
+    if any(len(lv) > 1 for lv in levels) and all(default in lv for lv in levels):
         # Portions multiply every slot's choices, and on a real week no search found a
         # first plan in the time left. So solve the week at the default portion first,
         # and start from it: varying the portions can then only improve on it.
-        base = auto(replace(problem, portions=(), _cache={}), relaxed=relaxed, time_limit_s=time_limit_s * 0.4,
-                    node_limit=node_limit, beam_width=beam_width)
+        base = auto(replace(problem, portions=(), eater_portions={}, _cache={}), relaxed=relaxed,
+                    time_limit_s=time_limit_s * 0.4, node_limit=node_limit, beam_width=beam_width)
         if base.best is not None:
-            picks = tuple(p if problem.slots[i].fixed is not None else replace(p, portion=default)
-                          for i, p in enumerate(base.best.picks))
+            # its picks eat the default everywhere: one eater's portion unset, several eaters' shares at it
+            picks = base.best.picks
             ev = evaluate(problem, picks)
             if ev.legal:
                 seed = SearchResult(ev, False, base.nodes, base.method + " at one portion")

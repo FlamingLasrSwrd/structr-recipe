@@ -408,16 +408,38 @@ def entry_servings_eaten(client, entry: dict) -> tuple[float, bool]:
     return DEFAULT_SERVINGS_EATEN, True
 
 
-def entry_nutrient_intake(client, entry: dict, nutrient_id: str, unit: str = "g") -> tuple[float | None, bool]:
+def entry_person_servings(client, entry: dict, person_id: str) -> tuple[float, bool]:
+    """(servings one person eats at this entry, whether the default was assumed). An entry
+    with meal shares (data-model.md Sec 19 K3) gives each person theirs, and nothing to one
+    without a share; an entry from before households, with none, is its one eater's."""
+    shares = entry.get("hasShare", [])
+    if not shares:
+        return entry_servings_eaten(client, entry)
+    total, assumed = 0.0, False
+    for ref in shares:
+        share = client.get_all("MealShare", ref["id"])["result"]
+        if (share.get("eatenBy") or {}).get("id") == person_id:
+            servings, was = entry_servings_eaten(client, share)
+            total, assumed = total + servings, assumed or was
+    return total, assumed
+
+
+def entry_nutrient_intake(client, entry: dict, nutrient_id: str, unit: str = "g",
+                          person_id: str | None = None) -> tuple[float | None, bool]:
     """(the nutrient eaten at this entry, in `unit`, or None if unknown,
-    whether the default servings was assumed)."""
+    whether the default servings was assumed): by everyone, or by one person."""
+    if person_id is not None:
+        servings, assumed = entry_person_servings(client, entry, person_id)
+        if servings == 0:
+            return 0.0, False                     # this person does not eat it
+    else:
+        servings, assumed = entry_servings_eaten(client, entry)
     plan = _source_plan(client, entry)
     if plan is None:
         return None, False
     per_serving = serving_nutrient_amount(client, plan, nutrient_id, unit)
     if per_serving is None:
         return None, False
-    servings, assumed = entry_servings_eaten(client, entry)
     return per_serving * servings, assumed
 
 
@@ -561,7 +583,9 @@ def nutrition_report(client, meal_plan_id: str) -> list[dict]:
     Status: ok / below_min / above_max / indeterminate (some entry has no
     nutrient data, so the total is a lower bound and a shortfall can't be
     concluded). Totals cover the planned meals and the baseline (a day's worth
-    for each day judged, none for a single meal)."""
+    for each day judged, none for a single meal). A person's target
+    (NutritionTarget.forPerson, Sec 19 K4) counts their meal shares and their
+    own baseline."""
     client = ReadCache(client)      # read-only: each node is fetched once for the whole report
     meal_plan = client.get_all("MealPlan", meal_plan_id)["result"]
     targets = [
@@ -597,8 +621,10 @@ def nutrition_report(client, meal_plan_id: str) -> list[dict]:
                 key = calendar_day(start, day_zone(target.get("dayBoundaryRule")) or timezone.utc).isoformat()
             groups.setdefault(key, []).append(entry)
 
-        per_day, baseline_unknown = (baseline_day_intake(client, meal_plan, nutrient["id"], rng["unit"])
-                                     if meal_plan.get("hasBaseline") and scope != "per_meal" else (0.0, []))
+        person_id = (target.get("forPerson") or {}).get("id")
+        holder = client.get_all("Person", person_id)["result"] if person_id else meal_plan    # whose baseline
+        per_day, baseline_unknown = (baseline_day_intake(client, holder, nutrient["id"], rng["unit"])
+                                     if holder.get("hasBaseline") and scope != "per_meal" else (0.0, []))
         zone = day_zone(target.get("dayBoundaryRule")) or timezone.utc
         for key in sorted(groups):
             days = 1 if scope == "daily" else len({calendar_day(s, zone) for s in (entry_start(client, e) for e in groups[key]) if s})
@@ -606,7 +632,7 @@ def nutrition_report(client, meal_plan_id: str) -> list[dict]:
             unknown = [f"{name} (baseline)" for name in baseline_unknown]
             assumed = []
             for entry in groups[key]:
-                intake, was_assumed = entry_nutrient_intake(client, entry, nutrient["id"], rng["unit"])
+                intake, was_assumed = entry_nutrient_intake(client, entry, nutrient["id"], rng["unit"], person_id)
                 if intake is None:
                     unknown.append(entry["name"])
                     continue

@@ -50,8 +50,18 @@ def random_problem(seed: int):
     weights = Weights(*(round(rnd.random(), 2) for _ in range(4)), time_budget_minutes=30.0)
     baseline = {"protein": rnd.choice([None, 10.0, 40.0])} if rnd.random() < 0.4 else {}
     portions = (1.0, 1.5) if rnd.random() < 0.25 else ()
+    eaters, baselines, eater_portions = (), {}, {}
+    if rnd.random() < 0.3:                  # a household of two (data-model.md Sec 19): drawn last, so other seeds are unchanged
+        eaters = ("a", "b")
+        targets = [replace(t, eater=rnd.choice(eaters)) for t in targets]
+        slots = [s if s.fixed is not None else replace(s, eaters=rnd.choice([None, ("a",), ("b",), ("a", "b")])) for s in slots]
+        if rnd.random() < 0.4:
+            baselines = {"a": {"protein": rnd.choice([None, 10.0])}}
+        if rnd.random() < 0.5:
+            eater_portions = {"b": (0.5, 1.0)}           # one person with their own portion levels
     return problem(slots, candidates, targets, lots, weights=weights,
-                   max_difficulty=None, baseline=baseline, portions=portions)
+                   max_difficulty=None, baseline=baseline, portions=portions, eaters=eaters, baselines=baselines,
+                   eater_portions=eater_portions)
 
 
 class ExactAgreesWithTheOracle(unittest.TestCase):
@@ -128,7 +138,8 @@ class PortionsStartFromOneServing(unittest.TestCase):
     def test_varying_portions_never_does_worse_than_one_serving(self):
         for seed in range(0, 80, 8):
             p = random_problem(seed)
-            one, varied = replace(p, portions=(), _cache={}), replace(p, portions=(0.75, 1.0, 1.5), _cache={})
+            one = replace(p, portions=(), eater_portions={}, _cache={})
+            varied = replace(p, portions=(0.75, 1.0, 1.5), eater_portions={}, _cache={})
             base, got = auto(one, time_limit_s=2.0), auto(varied, time_limit_s=2.0)
             if base.best is not None and base.best.feasible:
                 self.assertIsNotNone(got.best, f"seed {seed}")

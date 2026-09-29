@@ -63,6 +63,7 @@ class Target:
     weight: float = 0.0
     nutrient_name: str = ""
     day_boundary: str = "midnight"     # a daily scope's dayBoundaryRule: "midnight" (UTC) or "midnight <IANA zone>"
+    eater: str = ""                    # whose target it is (data-model.md Sec 19 K4); "" is the one eater of a problem without named eaters
 
 
 @dataclass(frozen=True)
@@ -91,7 +92,8 @@ class Fixed:
     """An entry already in the MealPlan, which the planner respects and cannot change.
 
     Either a fresh cook (`candidate`, with `cooked` servings planned) or a
-    leftover of the fixed slot at index `source`. `eaten` is the servings eaten."""
+    leftover of the fixed slot at index `source`. `eaten` is the servings eaten;
+    `shares`, where the entry has them (Sec 19 K3), is who ate how much of it."""
 
     eaten: float = 1.0
     candidate: str | None = None
@@ -99,6 +101,7 @@ class Fixed:
     cooked: float | None = None
     name: str = ""
     entry_id: str | None = None       # the MealPlanEntry it came from, so a new leftover can point at it
+    shares: tuple = ()                # ((eater, servings), ...); empty: `eaten`, by the slot's first eater
 
 
 @dataclass(frozen=True)
@@ -109,17 +112,21 @@ class Slot:
     start: datetime
     meal_type: str | None = None
     fixed: Fixed | None = None
+    eaters: tuple | None = None       # who eats this meal; None: every eater of the problem
 
 
 @dataclass(frozen=True)
 class Pick:
     """What fills a slot: a fresh cook of `candidate`, or the leftovers of the
     cook at slot index `source`. Exactly one is set. `portion` is the servings
-    eaten, one of the problem's portion levels; None means the problem's default."""
+    eaten by a slot's one eater, one of their portion levels; None means the
+    default. A slot with several eaters takes `shares` instead: one portion per
+    eater, in the order of `slot_eaters` (data-model.md Sec 19 K5)."""
 
     candidate: str | None = None
     source: int | None = None
     portion: float | None = None
+    shares: tuple | None = None
 
     def __post_init__(self):
         if (self.candidate is None) == (self.source is None):
@@ -144,12 +151,28 @@ class PlanningProblem:
     # The servings an open slot may eat, when portions vary (the owner's decision 2026-09-27);
     # empty means every open slot eats `servings_eaten`.
     portions: tuple = ()
+    # The people a household's week feeds (data-model.md Sec 19). Empty: one eater, "", as
+    # before households. Each may have their own portion levels and their own baseline;
+    # one without falls back to `portions` and to no baseline.
+    eaters: tuple = ()
+    eater_portions: Mapping = field(default_factory=dict)
+    baselines: Mapping = field(default_factory=dict)
+    eater_names: Mapping = field(default_factory=dict)  # eater -> a name to show
     _cache: dict = field(default_factory=dict, repr=False, compare=False)
 
     def __post_init__(self):
         self.slots = tuple(self.slots)
         self.targets = tuple(self.targets)
         self.portions = tuple(sorted(float(x) for x in self.portions))
+        self.eaters = tuple(self.eaters)
+        self.eater_portions = {e: tuple(sorted(float(x) for x in levels)) for e, levels in self.eater_portions.items()}
+        known = set(self.eater_keys())
+        for slot in self.slots:
+            if slot.eaters is not None and (not slot.eaters or not set(slot.eaters) <= known):
+                raise ValueError(f"slot {slot.key!r} names eaters {list(slot.eaters)} that are not the problem's {sorted(known)}")
+        for target in self.targets:
+            if target.eater not in known:
+                raise ValueError(f"target {target.name!r} is for {target.eater!r}, who is not one of the problem's eaters")
         self.lots = tuple(self.lots)
         for slot in self.slots:
             if slot.start.tzinfo is None:
@@ -180,6 +203,23 @@ class PlanningProblem:
     def open_slots(self) -> list[int]:
         return [i for i, s in enumerate(self.slots) if s.fixed is None]
 
-    def portion_levels(self) -> tuple:
-        """The servings an open slot may eat: the portion levels, or the one default."""
-        return self.portions or (self.servings_eaten,)
+    def portion_levels(self, eater: str = "") -> tuple:
+        """The servings an eater may eat at an open slot: their own levels, the problem's, or the one default."""
+        return self.eater_portions.get(eater) or self.portions or (self.servings_eaten,)
+
+    def eater_keys(self) -> tuple:
+        """Who eats: the named eaters, or the one unnamed eater of a problem without them."""
+        return self.eaters or ("",)
+
+    def slot_eaters(self, i: int) -> tuple:
+        """Who eats slot i, in a fixed order (a Pick's `shares` follow it)."""
+        return self.slots[i].eaters or self.eater_keys()
+
+    def baseline_of(self, eater: str) -> Mapping:
+        """What an eater takes every day outside the meals: nutrient -> amount a day, None if unknown."""
+        if eater in self.baselines:
+            return self.baselines[eater]
+        return self.baseline if eater == "" else {}
+
+    def eater_label(self, eater: str) -> str:
+        return self.eater_names.get(eater, eater)

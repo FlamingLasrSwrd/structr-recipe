@@ -11,6 +11,9 @@ leftovers of an earlier cook. From it everything else is derived, never chosen
     of a 4-serving recipe uses half of it; nothing is wasted by rounding.
   - a nutrient's intake at a slot = servings eaten x the recipe's grams per
     serving. A leftover slot eats the source's recipe.
+  - with several eaters (a household, data-model.md Sec 19 K5) a slot's pick says
+    how much each eats (`shares`); the servings eaten are their sum, and each
+    person's targets count only their own shares and their own baseline.
 
 Semantics carried over unchanged from the selector (scoring.py): time fit,
 nutrition fit, variety, soft exclusion, stock coverage and waste urgency. What
@@ -20,6 +23,7 @@ once per pick against a running total (Sec 2.3).
 
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass, field
 from datetime import timedelta, timezone
 
@@ -46,9 +50,26 @@ def initial_partial(problem: PlanningProblem) -> list:
     return partial
 
 
-def slot_eaten(problem: PlanningProblem, i: int) -> float:
+def pick_shares(problem: PlanningProblem, i: int, pick: Pick | None) -> tuple:
+    """((eater, servings), ...): who eats how much at slot i, in slot_eaters order.
+    A fixed entry says so itself (its shares, or all it eats by the slot's first
+    eater); an open slot's pick gives one eater's `portion` or several eaters'
+    `shares`, and whoever it does not name eats the default."""
+    eaters = problem.slot_eaters(i)
     fixed = problem.slots[i].fixed
-    return fixed.eaten if fixed else problem.servings_eaten
+    if fixed is not None:
+        return tuple(fixed.shares) if fixed.shares else ((eaters[0], fixed.eaten),)
+    if pick is not None and pick.shares is not None:
+        return tuple(zip(eaters, pick.shares))
+    if len(eaters) == 1:
+        portion = None if pick is None else pick.portion
+        return ((eaters[0], problem.servings_eaten if portion is None else portion),)
+    return tuple((e, problem.servings_eaten) for e in eaters)
+
+
+def slot_eaten(problem: PlanningProblem, i: int) -> float:
+    """The servings a fixed slot eats, or the default an open one does, over all its eaters."""
+    return sum(servings for _, servings in pick_shares(problem, i, None))
 
 
 @dataclass(frozen=True)
@@ -56,7 +77,12 @@ class Resolved:
     kind: str                     # "cook" or "leftover"
     candidate: str | None         # the recipe eaten (a leftover's is its source's)
     source: int | None
-    eaten: float
+    eaten: float                  # over everyone who eats it
+    shares: tuple = ()            # ((eater, servings), ...)
+
+
+def share_of(r: Resolved, eater: str) -> float:
+    return sum(servings for e, servings in r.shares if e == eater)
 
 
 def resolve(problem: PlanningProblem, partial) -> tuple[list, list]:
@@ -66,12 +92,13 @@ def resolve(problem: PlanningProblem, partial) -> tuple[list, list]:
     for i, pick in enumerate(partial):
         if pick is None:
             continue
-        eaten = slot_eaten(problem, i) if pick.portion is None or problem.slots[i].fixed is not None else pick.portion
+        shares = pick_shares(problem, i, pick)
+        eaten = sum(servings for _, servings in shares)
         if pick.candidate is not None:
-            resolved[i] = Resolved("cook", pick.candidate, None, eaten)
+            resolved[i] = Resolved("cook", pick.candidate, None, eaten, shares)
         else:
             source = resolved[pick.source] if 0 <= pick.source < i else None
-            resolved[i] = Resolved("leftover", source.candidate if source else None, pick.source, eaten)
+            resolved[i] = Resolved("leftover", source.candidate if source else None, pick.source, eaten, shares)
     cooked = [0.0] * n
     for i, r in enumerate(resolved):
         if r is None:
@@ -184,29 +211,46 @@ def options(problem: PlanningProblem, partial, i: int) -> list:
     """Every legal Pick for open slot i given the picks before it, in a fixed
     order (recipes by name, then leftovers by source) so results are deterministic."""
     key = ("cooks", i)
-    levels = problem.portions or (None,)          # no portion levels: every pick eats the default
+    variants = portion_variants(problem, i)
     if key not in problem._cache:
         problem._cache[key] = tuple(
-            Pick(candidate=c.id, portion=p)
+            Pick(candidate=c.id, **v)
             for c in sorted(problem.candidates.values(), key=lambda c: (c.name, c.id))
             if ineligible_reason(problem, i, c) is None
-            for p in levels
+            for v in variants
         )
     picks = list(problem._cache[key])
     if any(c.leftover_days is not None for c in problem.candidates.values()):
         resolved, _ = resolve(problem, partial[:i] + [None] * (len(partial) - i))
         for j in range(i):
             if leftover_reason(problem, resolved, j, i) is None:
-                picks.extend(Pick(source=j, portion=p) for p in levels)
+                picks.extend(Pick(source=j, **v) for v in variants)
     return picks
 
 
-def slot_max_intake(problem: PlanningProblem, i: int, nutrient: str) -> float:
-    """The most of `nutrient` open slot i could possibly take in: an upper bound,
-    so pruning on it is safe."""
-    key = ("max_intake", i, nutrient)
+def portion_variants(problem: PlanningProblem, i: int) -> list[dict]:
+    """How much each eater of open slot i may eat, as Pick arguments: one eater's
+    `portion` (None: the default, when no levels are set), or for several eaters
+    every combination of their levels as `shares`."""
+    eaters = problem.slot_eaters(i)
+    if len(eaters) == 1:
+        levels = problem.eater_portions.get(eaters[0]) or problem.portions or (None,)
+        return [{"portion": p} for p in levels]
+    return [{"shares": combo} for combo in itertools.product(*(problem.portion_levels(e) for e in eaters))]
+
+
+def slot_max_intake(problem: PlanningProblem, i: int, nutrient: str, eater: str = "") -> float:
+    """The most of `nutrient` an eater could possibly take in at open slot i: an
+    upper bound, so pruning on it is safe. Nothing, for one who does not eat there."""
+    key = ("max_intake", i, nutrient, eater)
     if key not in problem._cache:
-        eaten = slot_eaten(problem, i) if problem.slots[i].fixed is not None else max(problem.portion_levels())
+        if eater not in problem.slot_eaters(i):
+            problem._cache[key] = 0.0
+            return 0.0
+        if problem.slots[i].fixed is not None:
+            eaten = sum(servings for e, servings in pick_shares(problem, i, None) if e == eater)
+        else:
+            eaten = max(problem.portion_levels(eater))
         best = 0.0
         for c in problem.candidates.values():
             amount = c.nutrients.get(nutrient)
@@ -232,11 +276,16 @@ def slot_groups(problem: PlanningProblem, target: Target) -> list[tuple[str, lis
     return sorted(days.items())
 
 
-def intake(problem: PlanningProblem, r: Resolved, nutrient: str) -> float | None:
+def intake(problem: PlanningProblem, r: Resolved, nutrient: str, eater: str | None = None) -> float | None:
+    """What a resolved slot provides of a nutrient: to everyone who eats it, or to
+    one eater (nothing, whatever the recipe, to one who does not eat there)."""
+    servings = r.eaten if eater is None else share_of(r, eater)
+    if eater is not None and servings == 0:
+        return 0.0
     if r.candidate is None:
         return None
     amount = problem.candidates[r.candidate].nutrients.get(nutrient)
-    return None if amount is None else amount * r.eaten
+    return None if amount is None else amount * servings
 
 
 @dataclass
@@ -252,12 +301,13 @@ class GroupState:
 
 
 def baseline_in(problem: PlanningProblem, target: Target, indices) -> tuple[float, bool]:
-    """(amount, unknown) the MealPlan's baseline adds to one of a target's scopes:
+    """(amount, unknown) the target's eater's baseline adds to one of its scopes:
     a day's worth to a daily scope, one per calendar day of its slots to a weekly
     one, nothing to a single meal."""
-    if target.scope == "per_meal" or target.nutrient not in problem.baseline:
+    baseline = problem.baseline_of(target.eater)
+    if target.scope == "per_meal" or target.nutrient not in baseline:
         return 0.0, False
-    per_day = problem.baseline[target.nutrient]
+    per_day = baseline[target.nutrient]
     if per_day is None:
         return 0.0, True
     zone = day_zone(target.day_boundary) or timezone.utc
@@ -266,25 +316,27 @@ def baseline_in(problem: PlanningProblem, target: Target, indices) -> tuple[floa
 
 
 def group_states(problem: PlanningProblem, resolved) -> list[GroupState]:
+    """Each target over each of its scopes, counting only the slots its eater eats."""
     states = []
     for target in problem.targets:
         for label, indices in slot_groups(problem, target):
             total, unknown = baseline_in(problem, target, indices)
             unassigned, gain, has_open = 0, 0.0, False
-            for i in indices:
+            mine = [i for i in indices if target.eater in problem.slot_eaters(i)]
+            for i in mine:
                 open_slot = problem.slots[i].fixed is None
                 has_open = has_open or open_slot
                 r = resolved[i]
                 if r is None:
                     unassigned += 1
-                    gain += slot_max_intake(problem, i, target.nutrient)
+                    gain += slot_max_intake(problem, i, target.nutrient, target.eater)
                     continue
-                value = intake(problem, r, target.nutrient)
+                value = intake(problem, r, target.nutrient, target.eater)
                 if value is None:
                     unknown = True
                 else:
                     total += value
-            states.append(GroupState(target, label, indices, total, unknown, unassigned, gain, has_open))
+            states.append(GroupState(target, label, mine, total, unknown, unassigned, gain, has_open))
     return states
 
 
@@ -460,8 +512,21 @@ def evaluate(problem: PlanningProblem, picks) -> Evaluation:
             if pick != fixed_picks[i]:
                 problems.append(f"{slot.key}: a fixed entry cannot be changed")
             continue
-        if pick.portion is not None and pick.portion not in problem.portion_levels():
-            problems.append(f"{slot.key}: a portion of {pick.portion:g} is not one of {list(problem.portion_levels())}")
+        eaters = problem.slot_eaters(i)
+        if pick.shares is not None:
+            if pick.portion is not None:
+                problems.append(f"{slot.key}: give a portion or shares, not both")
+            if len(pick.shares) != len(eaters):
+                problems.append(f"{slot.key}: {len(pick.shares)} shares for {len(eaters)} eaters")
+            for e, servings in zip(eaters, pick.shares):
+                if servings not in problem.portion_levels(e):
+                    problems.append(f"{slot.key}: a share of {servings:g} for {problem.eater_label(e)} is not one of "
+                                    f"{list(problem.portion_levels(e))}")
+        elif pick.portion is not None:
+            if len(eaters) != 1:
+                problems.append(f"{slot.key}: {len(eaters)} people eat this meal, so give shares, not one portion")
+            elif pick.portion not in problem.portion_levels(eaters[0]):
+                problems.append(f"{slot.key}: a portion of {pick.portion:g} is not one of {list(problem.portion_levels(eaters[0]))}")
         if pick.candidate is not None:
             candidate = problem.candidates.get(pick.candidate)
             if candidate is None:
@@ -499,6 +564,8 @@ def evaluate(problem: PlanningProblem, picks) -> Evaluation:
             "time_fit": time_fit, "variety": bonuses.get(i, 1.0), "coverage": coverage, "urgency": urgency,
             "cooked_servings": cooked[i] if r.kind == "cook" else 0.0, "eaten": r.eaten,
         })
+        if problem.eaters:
+            details[-1]["shares"] = {e: servings for e, servings in r.shares}
     for g in groups:
         if g.has_open:
             terms["nutrition"] += g.target.weight * soft_fit(g)

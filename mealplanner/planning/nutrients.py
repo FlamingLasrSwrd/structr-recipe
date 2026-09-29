@@ -19,8 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from mealplanner.planning.evaluate import (
-    Evaluation, basic_reason, baseline_in, group_states, ineligible_reason, intake, meal_type_reason, resolve,
-    slot_eaten,
+    Evaluation, basic_reason, baseline_in, group_states, ineligible_reason, intake, meal_type_reason, pick_shares, resolve,
 )
 from mealplanner.planning.model import PlanningProblem, Target
 
@@ -49,10 +48,15 @@ def _could_fill(problem: PlanningProblem, i: int):
             yield c
 
 
-def slot_reach(problem: PlanningProblem, i: int, nutrient: str) -> tuple[float, float] | None:
-    """(least, most) of `nutrient` open slot i could take in; None if a recipe with
-    no figure could fill it (then nothing can be concluded), or if nothing can."""
-    levels = problem.portion_levels() if problem.slots[i].fixed is None else (slot_eaten(problem, i),)
+def slot_reach(problem: PlanningProblem, i: int, nutrient: str, eater: str = "") -> tuple[float, float] | None:
+    """(least, most) of `nutrient` an eater could take in at open slot i; None if a
+    recipe with no figure could fill it (then nothing can be concluded), or if nothing can."""
+    if eater not in problem.slot_eaters(i):
+        return (0.0, 0.0)
+    if problem.slots[i].fixed is None:
+        levels = problem.portion_levels(eater)
+    else:
+        levels = (sum(servings for e, servings in pick_shares(problem, i, None) if e == eater),)
     least, most = [], []
     for c in _could_fill(problem, i):
         amount = c.nutrients.get(nutrient)
@@ -85,10 +89,10 @@ def standings(problem: PlanningProblem, evaluation: Evaluation) -> list[Standing
         bounded = True
         for i in g.slots:
             if problem.slots[i].fixed is not None:
-                value = intake(problem, resolved[i], t.nutrient) or 0.0
+                value = intake(problem, resolved[i], t.nutrient, t.eater) or 0.0
                 least, most = least + value, most + value
                 continue
-            r = slot_reach(problem, i, t.nutrient)
+            r = slot_reach(problem, i, t.nutrient, t.eater)
             if r is None:
                 bounded = False
                 break
@@ -130,6 +134,8 @@ def describe_nutrients(problem: PlanningProblem, evaluation: Evaluation) -> str:
     for s in order:
         t, unit = s.target, units.get(s.target.nutrient, "")
         label = t.nutrient_name or t.name
+        if problem.eaters:
+            label += f" ({problem.eater_label(t.eater)})"
         if s.unknown == s.scopes:
             unknown_all.append(label)
             continue
