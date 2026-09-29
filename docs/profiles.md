@@ -94,6 +94,33 @@ Rules for re-running:
   target a `MealPlan` uses stays, and is reported. History is never removed to make the data match
   a file.
 
+## People in a household
+
+Since 2026-09-28 a household may hold several people, each with their own dietary profile
+(data-model.md §19). `private/household.toml` names the household, its people, each person's
+dietary selection file (the `private/nutrition.toml` form above) and their daily baseline:
+
+```toml
+name = "Home"
+[[person]]
+name = "Elijah"                          # also a Structr login name; no password is set by the tool
+nutrition = "private/nutrition.toml"
+baseline = ["Daily supplements"]
+adopts = true                            # the targets set up before there were people are this person's
+[[person]]
+name = "Cass"
+nutrition = "private/nutrition-cass.toml"
+```
+
+```bash
+python3 tools/instantiate_household.py private/household.toml
+```
+
+Each person's targets are named "Daily Protein target (Cass)" and linked to them. With `adopts`,
+the targets instantiated before there were people ("Daily Protein target") become that person's,
+renamed in place, so a MealPlan that uses them is undisturbed. A person no longer listed leaves
+the household but is not deleted. The kitchen, pantry and prices stay the household's.
+
 ## The dietary profiles (`data/profiles/dietary.toml`)
 
 29 profiles from the *Dietary Guidelines for Americans 2020-2025*: Appendix 1 Table A1-2 (the

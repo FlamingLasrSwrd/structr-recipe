@@ -450,13 +450,40 @@ class Report:
     kept: list[str] = field(default_factory=list)       # owner's own values, not overwritten
     removed: list[str] = field(default_factory=list)
     refused: list[str] = field(default_factory=list)    # would have removed something with history
+    adopted: list[str] = field(default_factory=list)    # a single user's targets, now a person's
     counts: dict = field(default_factory=dict)
 
 
 OWNER_SET = "set by the owner in the selection file (private/nutrition.toml)"
 
 
-def instantiate_nutrition(client, selection: dict, *, reset: bool = False) -> Report:
+def target_name(nutrient: str, person: str | None = None) -> str:
+    """A standing daily target's name: "Daily Protein target", or a person's "Daily Protein target (Cass)"."""
+    return f"Daily {nutrient} target" + (f" ({person})" if person else "")
+
+
+def _adopt(client, sync: Sync, nutrients, person: str, person_id: str, report: Report) -> None:
+    """Make the targets set up before there were people (named "Daily X target", for no one) this
+    person's: renamed in place with their range, and linked to them. The nodes stay the same, so
+    whatever uses them (a MealPlan's constraints) is undisturbed. One that is already someone's,
+    or whose person-scoped name is taken, is left alone."""
+    targets, ranges = sync.rows("NutritionTarget"), sync.rows("QuantitySpecification")
+    for nutrient in sorted(nutrients):
+        old, new = target_name(nutrient), target_name(nutrient, person)
+        row = targets.get(old)
+        if row is None or new in targets or row.get("forPerson"):
+            continue
+        client.patch(f"/structr/rest/NutritionTarget/{row['id']}", {"name": new, "forPerson": person_id})
+        targets[new] = {**targets.pop(old), "name": new, "forPerson": {"id": person_id}}
+        rng = ranges.get(f"{old} range")
+        if rng is not None and f"{new} range" not in ranges:
+            client.patch(f"/structr/rest/QuantitySpecification/{rng['id']}", {"name": f"{new} range"})
+            ranges[f"{new} range"] = {**ranges.pop(f"{old} range"), "name": f"{new} range"}
+        report.adopted.append(new)
+
+
+def instantiate_nutrition(client, selection: dict, *, reset: bool = False, person: tuple[str, str] | None = None,
+                          adopt: bool = False) -> Report:
     """The owner's standing daily NutritionTargets from their selection file:
 
         profile = "Adult male 31-50 moderately active"
@@ -470,6 +497,10 @@ def instantiate_nutrition(client, selection: dict, *, reset: bool = False) -> Re
 
     Targets are named "Daily <nutrient> target" and are standing rules, attached
     to a MealPlan when one is planned (MealPlan.hasConstraint is many-to-many).
+    For a person of a household (`person` = (name, Person id), data-model.md Sec 19
+    K4) they are "Daily <nutrient> target (<name>)" and linked to them
+    (TARGET_FOR); with `adopt`, the targets set up before there were people become
+    this person's first, renamed in place.
     A range that differs from the profile is kept unless reset: the owner may
     have changed it in Structr. One that came from an override the file no
     longer has goes back to the profile. A target left out is deleted, unless a
@@ -486,19 +517,22 @@ def instantiate_nutrition(client, selection: dict, *, reset: bool = False) -> Re
         day_boundary = f"midnight {selection['timezone']}"
         if day_zone(day_boundary) is None:
             raise ProfileError([f"timezone {selection['timezone']!r} is not an IANA zone name (for example America/Denver)"])
+    person_name, person_id = person or (None, None)
     sync = Sync(client)
+    if person_id and adopt:
+        _adopt(client, sync, targets, person_name, person_id, report)
     for name, t in sorted(targets.items()):
-        target_name = f"Daily {name} target"
-        existing = sync.rows("NutritionTarget").get(target_name)
+        tname = target_name(name, person_name)
+        existing = sync.rows("NutritionTarget").get(tname)
         if name in selection.get("leave_out", []):
             if existing and existing.get("constrainedPlans"):
-                report.refused.append(target_name)
+                report.refused.append(tname)
             elif existing:
-                rng = sync.rows("QuantitySpecification").get(f"{target_name} range")
+                rng = sync.rows("QuantitySpecification").get(f"{tname} range")
                 sync.delete("NutritionTarget", existing)
                 if rng:
                     sync.delete("QuantitySpecification", rng)
-                report.removed.append(target_name)
+                report.removed.append(tname)
             continue
         override = selection.get("overrides", {}).get(name)
         lo, hi, unit, status = t.minimum, t.maximum, t.unit, "default"
@@ -510,17 +544,19 @@ def instantiate_nutrition(client, selection: dict, *, reset: bool = False) -> Re
                 and existing.get("hasTargetRange"):
             current = client.get_all("QuantitySpecification", existing["hasTargetRange"]["id"])["result"]
             if (current.get("minValue"), current.get("maxValue"), current.get("unit")) != (lo, hi, unit):
-                report.kept.append(f"{target_name}: {current.get('minValue')}-{current.get('maxValue')} "
+                report.kept.append(f"{tname}: {current.get('minValue')}-{current.get('maxValue')} "
                                    f"{current.get('unit')} (the profile says {lo}-{hi} {unit})")
                 continue
-        rng = sync.ensure("QuantitySpecification", f"{target_name} range", {
+        rng = sync.ensure("QuantitySpecification", f"{tname} range", {
             "minValue": lo, "maxValue": hi, "unit": unit, "status": status})
         hard = name in selection.get("hard", [])
-        sync.ensure("NutritionTarget", target_name, {
-            "forNutrient": t.nutrient_id, "hasTargetRange": rng, "hasTimeScope": "daily",
-            "dayBoundaryRule": day_boundary, "strictness": "hard" if hard else strictness,
-            "weight": None if hard else weight, "source": source})
-        report.written.append(target_name)
+        fields = {"forNutrient": t.nutrient_id, "hasTargetRange": rng, "hasTimeScope": "daily",
+                  "dayBoundaryRule": day_boundary, "strictness": "hard" if hard else strictness,
+                  "weight": None if hard else weight, "source": source}
+        if person_id:
+            fields["forPerson"] = person_id
+        sync.ensure("NutritionTarget", tname, fields)
+        report.written.append(tname)
     report.counts = sync.counts
     return report
 
