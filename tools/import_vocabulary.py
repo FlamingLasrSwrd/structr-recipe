@@ -3,7 +3,8 @@
     python3 tools/import_vocabulary.py            # load
     python3 tools/import_vocabulary.py --check    # validate the file against the pinned FDC subset; write nothing
 
-Idempotent: a second run changes nothing. --check also lists every food that lacks a
+Idempotent: a second run changes nothing. When a run changes anything, every
+recipe's stored nutrition per serving is worked out again (J28). --check also lists every food that lacks a
 Nutrition Facts figure (vocabulary_import.CORE_NUTRIENTS). Meant for the owner's instance as well
 as any other; needs STRUCTR_SUPERUSER_PASSWORD and STRUCTR_URL.
 """
@@ -15,6 +16,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner.connection import connect
+from mealplanner.recipe_nutrition import calculate, schema_ready
 from mealplanner.vocabulary_import import VOCABULARY, VocabularyError, core_gaps, import_vocabulary, read_vocabulary
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -47,6 +49,11 @@ def main(argv=None) -> int:
             print(f"problem: {problem}")
         return 1
     print(", ".join(f"{k} {v}" for k, v in counts.items()))
+    if (counts["created"] or counts["changed"] or counts["deleted"]) and schema_ready(client):
+        # a food, a density, a weight per item or a retention factor changed: every recipe's
+        # stored nutrition per serving is worked out again (J28)
+        report = calculate(client)
+        print(f"recipe nutrition per serving, {report.plans} recipe(s): " + ", ".join(f"{k} {v}" for k, v in report.counts.items()))
     return 0
 
 

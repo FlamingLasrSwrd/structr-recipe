@@ -5,7 +5,9 @@
 
 Each file is checked in full before anything is written: every problem in it
 is listed, and a name that is not in the vocabulary stops that file. A file
-already loaded changes nothing. Exits 1 if any file failed.
+already loaded changes nothing. Exits 1 if any file failed. Each recipe loaded
+then has its nutrition per serving worked out again and stored, where the
+instance can store it (mealplanner/recipe_nutrition.py, J28).
 
 Needs STRUCTR_SUPERUSER_PASSWORD (and optionally STRUCTR_URL) in the
 environment: `set -a && source .env && set +a`.
@@ -21,6 +23,7 @@ from mealplanner.connection import connect
 from mealplanner.recipe_import import (
     RecipeFormatError, RecipeFrozenError, RecipeResolutionError, import_recipe, read_recipe,
 )
+from mealplanner.recipe_nutrition import calculate, schema_ready
 
 
 def main(argv=None) -> int:
@@ -32,6 +35,7 @@ def main(argv=None) -> int:
     client = connect(owner_data_ok=True)        # this tool is how the owner's recipes get in
     client.wait_until_ready()
     failed = 0
+    loaded = []
     for path in args.files:
         print(f"== {path}")
         try:
@@ -51,6 +55,7 @@ def main(argv=None) -> int:
                   f"{sum(1 for v in result.products.values() if v is None)} new product type(s)")
             continue
         print(f"   {'unchanged' if result.plan_unchanged else 'loaded'}: {doc.plan_name}")
+        loaded.append(result.plan_id)
         for name in result.created_types:
             print(f"   new food type: {name}")
         for name in result.removed:
@@ -59,6 +64,10 @@ def main(argv=None) -> int:
             print(f"   no conversion to grams (nutrition unknown until the food has a Density or MassPerUnit): {text}")
         for food in result.without_profiles:
             print(f"   no nutrient profile yet: {food}")
+    if loaded and schema_ready(client):
+        # their nutrition per serving, stored for the planner (J28): worked out again, kept if unchanged
+        report = calculate(client, loaded)
+        print("recipe nutrition per serving: " + ", ".join(f"{k} {v}" for k, v in report.counts.items()))
     return 1 if failed else 0
 
 

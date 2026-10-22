@@ -382,7 +382,7 @@ class StructrClient:
         created = self.post(f"/structr/rest/{type_name}", payload)
         return created["result"][0]
 
-    def get_all(self, type_name: str, node_id: str | None = None, page_size: int = 500) -> dict:
+    def get_all(self, type_name: str, node_id: str | None = None, page_size: int = 500, where: dict | None = None) -> dict:
         """GET with the /all view suffix - the default view omits custom
         properties and relationship collections.
 
@@ -397,20 +397,26 @@ class StructrClient:
         page_count reading goes on until a page comes back short. Taking a
         missing count to mean one page once returned 500 of 13,000 profiles,
         and an importer that found nothing created every one again.
+
+        `where`: exact-match filters on a collection (`{"basis": "per_serving"}`),
+        read with the same paging (checked on Structr 6, 2026-10-22: a filtered
+        `/all` read pages and keeps every property).
         """
         if node_id:
             return self.get(f"/structr/rest/{type_name}/{node_id}/all")
         path = f"/structr/rest/{type_name}/all"
-        first = self.get(path, params={"_page": 1, "_pageSize": page_size})
+        for key, value in (where or {}).items():
+            validate_exact_match_value(f"get_all({type_name!r}, where {key!r})", value)
+        first = self.get(path, params={**(where or {}), "_page": 1, "_pageSize": page_size})
         rows = list(first["result"])
         if first.get("page_count") is not None:
             for page in range(2, int(first["page_count"]) + 1):
-                rows.extend(self.get(path, params={"_page": page, "_pageSize": page_size})["result"])
+                rows.extend(self.get(path, params={**(where or {}), "_page": page, "_pageSize": page_size})["result"])
         else:
             page, last = 1, len(first["result"])
             while last == page_size:
                 page += 1
-                chunk = self.get(path, params={"_page": page, "_pageSize": page_size})["result"]
+                chunk = self.get(path, params={**(where or {}), "_page": page, "_pageSize": page_size})["result"]
                 rows.extend(chunk)
                 last = len(chunk)
         first["result"] = rows

@@ -26,11 +26,16 @@ microgram vitamin; J17 records the change.
 
 PROVENANCE_FORMAT = "placeholder,sourced,estimated,calculated"
 OLD_PROVENANCE_FORMAT = "placeholder,sourced"
+# per_serving: a recipe version's own figure for one serving, stored by
+# tools/calculate_recipe_nutrition.py (data-model.md Sec 18 J28); scripts/35a widens
+# an instance built before it.
+BASIS_FORMAT = "per_100g,per_unit,per_serving"
+OLD_BASIS_FORMAT = "per_100g,per_unit"
 
 PROPERTIES: dict[str, list[dict]] = {
     "NutrientProfile": [
         {"name": "amount", "propertyType": "Double"},
-        {"name": "basis", "propertyType": "Enum", "format": "per_100g,per_unit"},
+        {"name": "basis", "propertyType": "Enum", "format": BASIS_FORMAT},
         # Where the number came from. Left unset, a profile is treated as
         # untrusted: the planner will not let a hard NutritionTarget be decided
         # on data that is placeholder or of unknown origin (REVIEW.md round 1
