@@ -89,6 +89,9 @@ class Units(unittest.TestCase):
         self.assertAlmostEqual(convert_nutrient(150.0, "ug", "mg"), 0.15)
         self.assertAlmostEqual(convert_nutrient(100.0, "kcal", "kJ"), 418.4)
         self.assertEqual(convert_nutrient(400.0, "IU", "IU"), 400.0)
+        # one unit is the identity, exactly: 1.96 * 1e-3 / 1e-3 is not 1.96 in floating point
+        self.assertEqual([convert_nutrient(1.9600000000000002, u, v) for u, v in (("mg", "mg"), ("ug", "µg"))],
+                         [1.9600000000000002] * 2)
 
     def test_across_dimensions_is_not_a_number(self):
         self.assertIsNone(convert_nutrient(1.0, "g", "kcal"))

@@ -164,7 +164,31 @@ class ServerThatStopsCounting(ServerWithASmallDefaultPage):
         return {"result": response["result"], "page": response["page"]}
 
 
+class FilteringServer(ServerWithASmallDefaultPage):
+    """Applies the exact-match filters it is given before paging, as Structr does."""
+
+    def get(self, path, params=None):
+        where = {k: v for k, v in (params or {}).items() if not k.startswith("_")}
+        everything = self.rows
+        self.rows = [r for r in everything if all(r.get(k) == v for k, v in where.items())]
+        try:
+            return super().get(path, params)
+        finally:
+            self.rows = everything
+
+
 class CollectionReadsAreComplete(unittest.TestCase):
+    def test_a_filtered_read_keeps_its_filter_on_every_page(self):
+        rows = [{"id": str(i), "basis": "per_serving" if i % 2 else "per_100g"} for i in range(9)]
+        server = FilteringServer(rows)
+        got = server.get_all("NutrientProfile", page_size=2, where={"basis": "per_serving"})["result"]
+        self.assertEqual([r["id"] for r in got], ["1", "3", "5", "7"])
+        self.assertEqual(len(server.requests), 2)
+        self.assertTrue(all(p.get("basis") == "per_serving" for _, p in server.requests))
+        self.assertTrue(all(path == "/structr/rest/NutrientProfile/all" for path, _ in server.requests))
+        with self.assertRaises(ValueError):
+            server.get_all("NutrientProfile", where={"name": "a, b"})
+
     def test_every_row_comes_back_when_the_server_gives_no_counts(self):
         rows = [{"id": str(i)} for i in range(7)]
         server = ServerThatStopsCounting(rows)
@@ -198,11 +222,11 @@ class CountingReader:
     def __init__(self, rows_by_type):
         self.rows, self.calls = rows_by_type, []
 
-    def get_all(self, type_name, node_id=None):
-        self.calls.append(("get_all", type_name, node_id))
+    def get_all(self, type_name, node_id=None, where=None):
+        self.calls.append(("get_all", type_name, node_id) + ((tuple(sorted(where.items())),) if where else ()))
         rows = self.rows[type_name]
         if node_id is None:
-            return {"result": [dict(r) for r in rows]}
+            return {"result": [dict(r) for r in rows if all(r.get(k) == v for k, v in (where or {}).items())]}
         return {"result": dict(next(r for r in rows if r["id"] == node_id))}
 
     def get(self, path, params=None):
@@ -248,6 +272,15 @@ class ReadCaching(unittest.TestCase):
         self.assertEqual(self.cache.get_all("Quality", "q2")["result"]["name"], "two")
         self.assertEqual(len(self.cache.get_all("Quality")["result"]), 2)
         self.assertEqual(len(self.source.calls), 1)
+
+    def test_a_filtered_prefetch_answers_lookups_of_its_rows_and_nothing_else(self):
+        self.cache.prefetch_where("Quality", name="two")
+        self.cache.prefetch_where("Quality", name="two")
+        self.assertEqual(self.cache.get_all("Quality", "q2")["result"]["name"], "two")
+        self.assertEqual(len(self.source.calls), 1)
+        self.assertEqual(len(self.cache.get_all("Quality")["result"]), 2)      # not the whole type: read in full
+        self.assertEqual(self.cache.get_all("Quality", "q1")["result"]["name"], "one")
+        self.assertEqual(len(self.source.calls), 2)
 
     def test_a_memo_is_computed_once_per_cache_and_every_time_without_one(self):
         computed = []

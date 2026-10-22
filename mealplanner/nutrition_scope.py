@@ -116,6 +116,8 @@ def convert_nutrient(amount: float, from_unit: str, to_unit: str) -> float | Non
     to_dim, to_factor = nutrient_unit(to_unit)
     if from_dim != to_dim:
         return None
+    if from_factor == to_factor:
+        return amount              # one unit: x * f / f is not always exactly x (a stored figure read back, J28)
     return amount * from_factor / to_factor
 
 
@@ -179,7 +181,7 @@ class ServingFigure:
 
     amount: float | None           # in the unit asked for; None if unknown
     trusted: bool                  # may a hard target be decided on it (J15, J21)
-    method: str | None = None      # "dish" (rule 7(a)) or "ingredients" (rule 7(b))
+    method: str | None = None      # "dish" (rule 7(a)), "ingredients" (rule 7(b)) or "stored" (J28)
     reason: str | None = None      # why it is unknown, untrusted or estimated
     unadjusted: tuple[str, ...] = ()   # ingredients no retention factor resolved for
     estimated: bool = False        # usable, but rests on an estimate somewhere (J21)
@@ -189,8 +191,52 @@ def _unknown(reason: str, method: str | None = None) -> ServingFigure:
     return ServingFigure(None, False, method, reason)
 
 
-def serving_nutrient_figure(client, plan: dict, nutrient_id: str, unit: str = "g") -> ServingFigure:
+SERVING_BASIS = "per_serving"
+
+
+def stored_serving_profiles(client, plan: dict) -> dict[str, list[dict]]:
+    """A Plan's stored per-serving NutrientProfiles by nutrient id (J28), read once per
+    ReadCache. Empty on an instance without them (scripts/35a)."""
+    def read():
+        found: dict = {}
+        for ref in plan.get("servingProfiles") or []:
+            profile = client.get_all("NutrientProfile", ref["id"])["result"]
+            if profile.get("basis") == SERVING_BASIS:
+                found.setdefault((profile.get("forNutrient") or {}).get("id"), []).append(profile)
+        return found
+    return memoized(client, ("stored serving profiles", plan["id"]), read)
+
+
+def stored_figure(client, plan: dict, nutrient_id: str, unit: str = "g") -> ServingFigure | None:
+    """The figure tools/calculate_recipe_nutrition.py stored for one serving of this Plan,
+    or None if it stored none for this nutrient. It holds what serving_nutrient_figure
+    worked out from the ingredients: provenance `calculated` for a figure on published
+    data throughout, `estimated` or `placeholder` with the reason in `source`, and no
+    amount, with the reason, for an unknown one (recipe_nutrition.stored_fields)."""
+    found = stored_serving_profiles(client, plan).get(nutrient_id, [])
+    if not found:
+        return None
+    if len(found) > 1:
+        raise AmbiguousProfileError(f"{plan.get('name')!r} has {len(found)} stored figures for one nutrient: "
+                                    f"{sorted(p['name'] for p in found)}")
+    profile = found[0]
+    provenance, source = profile.get("provenance"), profile.get("source")
+    if profile.get("amount") is None:
+        return _unknown(source or "unknown", "stored")
+    nutrient_unit(profile.get("unit"), f"NutrientProfile {profile['name']!r}")
+    amount = convert_nutrient(profile["amount"], profile["unit"], unit)
+    if amount is None:
+        return _unknown(f"the stored figure is in {profile['unit']}, not comparable with {unit}", "stored")
+    reason = None if provenance == "calculated" else source
+    return ServingFigure(amount, provenance in USABLE, "stored", reason, (), provenance == "estimated")
+
+
+def serving_nutrient_figure(client, plan: dict, nutrient_id: str, unit: str = "g", *, stored: bool = True) -> ServingFigure:
     """The nutrient in ONE serving of a Plan's output, in `unit`.
+
+    A figure stored for this Plan is used as it is (stored_figure, J28): it was
+    worked out by this function, with stored=False, and is worked out again by the
+    tools that change what it rests on. Otherwise:
 
     Rule 7(a), the dish's own profiles: used when every final output
     (material_accounting.candidate_outputs) has a per-100 g profile for this
@@ -209,6 +255,10 @@ def serving_nutrient_figure(client, plan: dict, nutrient_id: str, unit: str = "g
     decision: a placeholder or unmarked profile is not); it is `estimated` when
     any of them is not sourced or, from ingredients, an ingredient had no
     retention factor."""
+    if stored:
+        kept = stored_figure(client, plan, nutrient_id, unit)
+        if kept is not None:
+            return kept
     outputs = candidate_outputs(client, plan)
     if not outputs:
         return _unknown("the recipe has no final output")

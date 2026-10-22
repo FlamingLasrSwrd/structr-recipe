@@ -32,8 +32,8 @@ from mealplanner.candidates import (
 from mealplanner.inventory import shelf_life_days
 from mealplanner.material_accounting import candidate_input_requirements, recipe_servings_strict
 from mealplanner.nutrition_scope import (
-    active_entries, baseline_day_intake, baseline_plans, convert_nutrient, entry_servings_eaten, entry_start,
-    serving_nutrient_figure, target_scope_problem,
+    SERVING_BASIS, active_entries, baseline_day_intake, baseline_plans, convert_nutrient, entry_servings_eaten,
+    entry_start, serving_nutrient_figure, stored_serving_profiles, target_scope_problem,
 )
 from mealplanner.planning.model import Candidate, Fixed, Lot, PlanningProblem, Slot, Target, Weights
 from mealplanner.reservation import stock_pools
@@ -80,9 +80,10 @@ def build_problem(
     simply not planned. leftovers=False plans no leftovers at all. eater_portions:
     a person's own portion levels, by name."""
     client = ReadCache(client)
-    # Read in bulk what the recipes' figures read node by node: profiled on the owner's week,
-    # these four types were 21,297 of 21,804 requests, one node each (552 of 589 s of reading).
-    client.prefetch("NutrientProfile", "Specification", "QuantitySpecification", "DomainType")
+    # Read in bulk what the recipes read node by node: profiled on the owner's week, these
+    # types were 21,297 of 21,804 requests, one node each (552 of 589 s of reading). Every
+    # food's NutrientProfiles are read only if a recipe's figures must be worked out (below).
+    client.prefetch("Specification", "QuantitySpecification", "DomainType")
     notes: list[str] = []
     meal_plan = client.get_all("MealPlan", meal_plan_id)["result"]
     people = _household(client, meal_plan)                       # person id -> Person, in name order
@@ -173,7 +174,11 @@ def build_problem(
     baseline_ids = set(week_baseline)
     for person in people.values():
         baseline_ids |= {ref["id"] for ref in person.get("hasBaseline", [])}
-    for plan in client.get_all("Plan")["result"]:
+    all_plans = client.get_all("Plan")["result"]
+    stored_in_use = any(plan.get("servingProfiles") for plan in all_plans)
+    if stored_in_use:
+        client.prefetch_where("NutrientProfile", basis=SERVING_BASIS)
+    for plan in all_plans:
         if plan["id"] in baseline_ids:
             continue                          # eaten every day already, not a meal to plan
         recipe_ref = plan.get("specializationOf")
@@ -181,6 +186,16 @@ def build_problem(
         if retired and plan["id"] not in forced:
             continue
         raw_plans.append((plan, candidate_input_requirements(client, plan)))
+    # A recipe's nutrition per serving is read as stored when it is (J28); one without a
+    # stored figure for every targeted nutrient has its figures worked out from its ingredients.
+    used = [plan for plan, _ in raw_plans] + [plan for plan in all_plans if plan["id"] in baseline_ids]
+    worked_out = sorted(plan["name"] for plan in used if set(unit_of) - set(stored_serving_profiles(client, plan)))
+    if worked_out:
+        client.prefetch("NutrientProfile")
+        if stored_in_use:
+            notes.append(f"{len(worked_out)} recipe(s) have no stored figure for every targeted nutrient, so theirs were "
+                         f"worked out from their ingredients (tools/calculate_recipe_nutrition.py stores them): "
+                         + ", ".join(worked_out[:5]) + (", ..." if len(worked_out) > 5 else ""))
     pool_of, lots_by_pool = stock_pools(client, {t for _, reqs in raw_plans for t, _ in reqs}, now)
 
     candidates: dict[str, Candidate] = {}

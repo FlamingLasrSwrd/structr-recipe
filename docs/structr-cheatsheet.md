@@ -690,6 +690,11 @@ workaround actively dangerous rather than just slow:
   confirm this combines with pagination correctly before relying on it
   (it does: `GET /structr/rest/{Type}/all?_page=2&_pageSize=50` works as
   expected).
+  ✅ **A filtered `/all` read pages too** (verified 2026-10-22):
+  `GET /structr/rest/NutrientProfile/all?basis=per_100g&_page=2&_pageSize=3`
+  returned only matching rows, with every property, `result_count` and
+  `page_count` counting the matches, and the last page short.
+  `StructrClient.get_all(..., where=...)` reads that way.
 
 📖 **Custom-type ↔ built-in-type relationships are broken in 6.0.0
 Community** — ✅ independently confirmed empirically in this project:

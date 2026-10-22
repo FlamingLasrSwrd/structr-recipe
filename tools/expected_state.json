@@ -197,7 +197,7 @@
   "unique": false
  },
  "@schema | property NutrientProfile.basis": {
-  "format": "per_100g,per_unit",
+  "format": "per_100g,per_unit,per_serving",
   "indexed": false,
   "notNull": false,
   "propertyType": "Enum",
@@ -654,6 +654,12 @@
   "sourceJsonName": "nutrientProfilesForNutrient",
   "sourceMultiplicity": "*",
   "targetJsonName": "forNutrient",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship NutrientProfile -[SERVING_OF]-> Plan": {
+  "sourceJsonName": "servingProfiles",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "servingOf",
   "targetMultiplicity": "1"
  },
  "@schema | relationship NutritionTarget -[FOR_NUTRIENT]-> DomainType": {

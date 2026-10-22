@@ -48,10 +48,11 @@ class FakeGraph:
     def _row(self, node: dict) -> dict:
         return {k: self._render(v) for k, v in node.items()}
 
-    def get_all(self, type_name: str, node_id: str | None = None) -> dict:
+    def get_all(self, type_name: str, node_id: str | None = None, where: dict | None = None) -> dict:
         if node_id is not None:
             return {"result": self._row(self.nodes[node_id])}
-        return {"result": [self._row(n) for n in self.nodes.values() if n["type"] == type_name]}
+        return {"result": [self._row(n) for n in self.nodes.values() if n["type"] == type_name
+                           and all(n.get(k) == v for k, v in (where or {}).items())]}
 
     def get(self, path: str, params: dict | None = None) -> dict:
         """A query: rows filtered on their properties, then rendered as Structr's default view
@@ -78,10 +79,10 @@ class WritableGraph(FakeGraph):
 
     RELATIONS = {"hierarchy", "parent", "isAbout", "forNutrient", "identifierScheme", "denotesType", "inScheme",
                  "forType", "hasKind", "hasValue", "keyedBy", "hasTargetRange", "instanceOf", "memberOfSet",
-                 "inheresIn", "isAboutQuality", "wasDerivedFrom", "forPerson", "members", "hasBaseline"}
+                 "inheresIn", "isAboutQuality", "wasDerivedFrom", "forPerson", "members", "hasBaseline", "servingOf"}
     REVERSES = {"forType": "defaultSpecifications", "memberOfSet": "hasMemberPart", "parent": "children",
                 "inheresIn": "bearerOf", "isAboutQuality": "measurements", "wasDerivedFrom": "imputedMeasurements",
-                "forPerson": "nutritionTargets"}
+                "forPerson": "nutritionTargets", "servingOf": "servingProfiles"}
 
     def __init__(self):
         super().__init__()

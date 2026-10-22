@@ -40,7 +40,7 @@ From the cheatsheet's empirically-verified findings. These are not stylistic.
 ## Two principles that decide most modeling questions
 
 - **Reify what varies within a populated type; subclass what varies across types.** Quality, Role, Process, and DefaultSpecification all take `hasKind → DomainType`. PlanningConstraint uses concrete subtypes instead, because its members' attributes genuinely differ.
-- **Compute, don't store.** Current magnitudes, on-hand quantities, acquisition lists, nutrient rollups, and similarity scores are all derived at query time. If a task asks you to add a stored field for something derivable, question it.
+- **Compute, don't store.** Current magnitudes, on-hand quantities, acquisition lists, nutrient rollups, and similarity scores are all derived at query time. If a task asks you to add a stored field for something derivable, question it. One knowing exception, the owner's decision of 2026-10-22: a recipe version's nutrition per serving is worked out once and stored, and worked out again by the tools that change what it rests on (`data-model.md` J28).
 
 ## Deliberately out of scope — do not helpfully add these
 
