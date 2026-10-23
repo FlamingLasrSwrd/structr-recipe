@@ -30,8 +30,6 @@ Balas and Zemel's for large knapsack problems).
 from __future__ import annotations
 
 import math
-from collections import Counter
-
 from mealplanner.planning.evaluate import ineligible_reason
 from mealplanner.planning.model import PlanningProblem
 from mealplanner.scoring import NEUTRAL, time_fit_score
@@ -100,15 +98,14 @@ def choose(problem: PlanningProblem, factor: float = FACTOR, coverage: int = COV
         if recipe not in seen:                     # one version per recipe: its best-ranked
             seen.add(recipe)
             order.append(c)
-    open_slots = problem.open_slots()
-    needed = Counter(problem.slots[i].meal_type for i in open_slots)
-    standing = {}                                  # a slot standing for each meal type
-    for i in open_slots:
-        standing.setdefault(problem.slots[i].meal_type, i)
+    slots_of: dict = {}                            # the open slots of each meal type
+    for i in problem.open_slots():
+        slots_of.setdefault(problem.slots[i].meal_type, []).append(i)
     chosen: set[str] = set()
-    for meal_type, i in standing.items():
-        fits = [c for c in order if ineligible_reason(problem, i, c) is None]
-        chosen |= {c.id for c in fits[:math.ceil(needed[meal_type] * factor)]}
+    for meal_type, slots in slots_of.items():
+        # fit for at least one of them: a dish made ahead may be too late for the first
+        fits = [c for c in order if any(ineligible_reason(problem, i, c) is None for i in slots)]
+        chosen |= {c.id for c in fits[:math.ceil(len(slots) * factor)]}
         for t in problem.targets:
             if t.hard and t.minimum is not None:
                 richest = sorted(fits, key=lambda c: (-(c.nutrients.get(t.nutrient) or 0.0), c.name, c.id))

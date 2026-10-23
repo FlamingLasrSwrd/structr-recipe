@@ -277,7 +277,7 @@ def build_problem(
             nutrients=figures[plan["id"]][0], untrusted=frozenset(figures[plan["id"]][1]), leftover_days=keep_days,
             hard_excluded=bool(consumed_of.get(plan["id"], set()) & excluded),
             soft_penalty=sum(weight for _, weight, banned in soft if consumed_of.get(plan["id"], set()) & banned),
-            recipe=(plan.get("specializationOf") or {}).get("id"),
+            recipe=(plan.get("specializationOf") or {}).get("id"), ahead_hours=plan.get("makeAheadHours") or 0.0,
         ) for plan in book}
         open_week = PlanningProblem(slots=tuple(s for s in slots if s.fixed is None), candidates=light, **week)
         chosen = choose(open_week, shortlist_factor) | forced
@@ -323,6 +323,7 @@ def build_problem(
             hard_excluded=bool(consumed & excluded),
             soft_penalty=sum(weight for _, weight, banned in soft if consumed & banned),
             leftover_days=keep_days, uses=tuple(sorted(uses)), recipe=(plan.get("specializationOf") or {}).get("id"),
+            ahead_hours=plan.get("makeAheadHours") or 0.0,
         )
     notes.extend(slot_notes + baseline_notes)
     lots = tuple(

@@ -11,7 +11,7 @@ What a file becomes (data-model.md Sec 5, the same shapes scripts/15c builds):
   RecipeIdentity <name>                 meal types; the enduring dish
     Identifier <name> source            the web page it came from (scheme "Web page")
   Plan <name> v<version>                specializationOf the RecipeIdentity; yield in servings,
-    QuantitySpecification ... yield     minutes, difficulty
+    QuantitySpecification ... yield     minutes, difficulty, hours made ahead
     Step <plan> step <i> -- <label>     instanceOf a Transformation Method
       Specification ... input <j> <food>   specifies a Food-Identity Type; quantity if stated
       Specification ... output <type>      the Step's product
@@ -48,7 +48,8 @@ FOOD_HIERARCHY = "Food Identity"
 METHOD_HIERARCHY = "Transformation Method"
 EQUIPMENT_HIERARCHY = "Equipment Type"
 MEAL_TYPE_SCHEME = "Meal Type"
-TOP_KEYS = {"name", "version", "source", "servings", "minutes", "difficulty", "meal_types", "dish", "steps", "baseline"}
+TOP_KEYS = {"name", "version", "source", "servings", "minutes", "ahead_hours", "difficulty", "meal_types", "dish", "steps",
+            "baseline"}
 STEP_KEYS = {"name", "method", "makes", "inputs", "equipment"}
 INPUT_KEYS = {"food", "amount", "unit", "optional"}
 
@@ -100,6 +101,7 @@ class RecipeDoc:
     source: str | None = None
     minutes: float | None = None
     difficulty: str | None = None
+    ahead_hours: float | None = None    # waiting no one attends, before the meal (J29)
 
     @property
     def dish(self) -> str:
@@ -111,7 +113,7 @@ class RecipeDoc:
 
     def plan_part(self) -> tuple:
         """What a Plan version holds (not the RecipeIdentity's meal types or source)."""
-        return (self.servings, self.minutes, self.difficulty, self.steps)
+        return (self.servings, self.minutes, self.difficulty, self.steps, self.ahead_hours)
 
 
 def _number(value) -> bool:
@@ -151,6 +153,9 @@ def parse_recipe(data: dict) -> RecipeDoc:
     minutes = data.get("minutes")
     if minutes is not None and (not _number(minutes) or minutes < 0):
         problems.append(f"minutes must be a number from 0, not {minutes!r}")
+    ahead_hours = data.get("ahead_hours")
+    if ahead_hours is not None and (not _number(ahead_hours) or ahead_hours <= 0):
+        problems.append(f"ahead_hours must be a number above 0, not {ahead_hours!r}")
     difficulty = data.get("difficulty")
     if difficulty is not None and difficulty not in DIFFICULTIES:
         problems.append(f"difficulty must be one of {', '.join(DIFFICULTIES)}, not {difficulty!r}")
@@ -246,6 +251,7 @@ def parse_recipe(data: dict) -> RecipeDoc:
     return RecipeDoc(
         name=name, servings=float(servings), steps=tuple(steps), meal_types=tuple(meal_types), version=version,
         source=source, minutes=None if minutes is None else float(minutes), difficulty=difficulty,
+        ahead_hours=None if ahead_hours is None else float(ahead_hours),
     )
 
 
@@ -357,7 +363,8 @@ def export_plan(client, plan_id: str) -> tuple:
         method = (step.get("instanceOf") or {}).get("name")
         steps.append(StepDoc(label, method, tuple(ing for _, ing in sorted(inputs, key=lambda p: p[0])), makes,
                              tuple(tool for _, tool in sorted(tools))))
-    return (servings, plan.get("estimatedDurationMinutes"), plan.get("difficultyRating"), tuple(steps))
+    return (servings, plan.get("estimatedDurationMinutes"), plan.get("difficultyRating"), tuple(steps),
+            plan.get("makeAheadHours"))
 
 
 def _step_index(step_name: str, plan_name: str) -> int:
@@ -431,7 +438,7 @@ def import_recipe(client, doc: RecipeDoc, *, check_only: bool = False) -> Import
         "value": doc.servings, "unit": "servings", "status": "specified"})
     plan_id = _write(client, "Plan", doc.plan_name, {
         "specializationOf": recipe_id, "hasRecipeYield": yield_id,
-        "estimatedDurationMinutes": doc.minutes, "difficultyRating": doc.difficulty})
+        "estimatedDurationMinutes": doc.minutes, "difficultyRating": doc.difficulty, "makeAheadHours": doc.ahead_hours})
 
     type_of = {**names.foods, **names.products}
     keep_steps, keep_specs = set(), set()

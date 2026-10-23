@@ -184,6 +184,9 @@ def _ineligible_reason(problem: PlanningProblem, i: int, candidate) -> str | Non
             return "difficulty not stated, and a cap is set"
         if DIFFICULTY_ORDER.index(candidate.difficulty) > DIFFICULTY_ORDER.index(cap):
             return f"harder than {cap}"
+    if (candidate.ahead_hours and problem.now is not None
+            and problem.slots[i].start - timedelta(hours=candidate.ahead_hours) < problem.now):
+        return f"must be started {candidate.ahead_hours:g} h ahead, and that time has passed"
     return None
 
 

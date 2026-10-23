@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from mealplanner.planning.evaluate import Evaluation
 from mealplanner.planning.model import PlanningProblem
 
@@ -12,6 +14,14 @@ def _eats(detail: dict, problem: PlanningProblem | None = None) -> str:
         return ", eat " + ", ".join(f"{servings:g} {problem.eater_label(e)}" for e, servings in shares.items())
     eaten = detail.get("eaten", 1.0)
     return "" if abs(eaten - 1.0) < 1e-9 else f", eat {eaten:g}"
+
+
+def _ahead(problem: PlanningProblem, pick, slot) -> str:
+    candidate = problem.candidates.get(pick.candidate)
+    if candidate is None or not candidate.ahead_hours:
+        return ""
+    start = (slot.start - timedelta(hours=candidate.ahead_hours)).strftime("%a %H:%M")
+    return f"; made ahead: start it by {start} ({candidate.ahead_hours:g} h before)"
 
 
 def describe_plan(problem: PlanningProblem, evaluation: Evaluation) -> str:
@@ -29,7 +39,8 @@ def describe_plan(problem: PlanningProblem, evaluation: Evaluation) -> str:
             lines.append(f"  {when}  {slot.key}: leftover {d['recipe']} from {d['source']}{_eats(d, problem)}")
         else:
             servings = d["cooked_servings"]
-            lines.append(f"  {when}  {slot.key}: cook {d['recipe']} for {servings:g} serving{'s' if servings != 1 else ''}{_eats(d, problem)}")
+            lines.append(f"  {when}  {slot.key}: cook {d['recipe']} for {servings:g} serving{'s' if servings != 1 else ''}"
+                         f"{_eats(d, problem)}{_ahead(problem, pick, slot)}")
     terms = ", ".join(f"{name} {value:+.3f}" for name, value in evaluation.terms.items() if abs(value) > 1e-12)
     lines.append(f"  score {evaluation.objective:.3f} ({terms or 'no weighted terms'})")
     return "\n".join(lines)

@@ -75,6 +75,17 @@ class WorkedDay(unittest.TestCase):
 
 
 @unittest.skipUnless(cpsat.available(), "OR-tools is not installed")
+class MadeAheadInTheModel(unittest.TestCase):
+    def test_a_dish_too_late_to_start_is_not_cooked_there(self):
+        oats = cand("overnight oats", 30, 5, ahead_hours=8.0)
+        p = problem([slot("mon", when(28, 7)), slot("tue", when(29, 7))], (oats, cand("toast", 10, 5)),
+                    [protein_target(40, None, hard=False, weight=0.5)], now=when(27, 23, 30))
+        got, want = cpsat.solve(p), oracle(p)
+        self.assertEqual([pk.candidate for pk in got.best.picks], ["toast", "overnight oats"])
+        self.assertAlmostEqual(got.best.objective, want.best.objective, places=6)
+
+
+@unittest.skipUnless(cpsat.available(), "OR-tools is not installed")
 class PortionsInTheModel(unittest.TestCase):
     def test_it_chooses_the_portion_the_oracle_does(self):
         p = day_of_three([protein_target(100, 130, hard=False, weight=0.5)], candidates=(cand("omelette", 24, 20), cand("salad", 30, 40)),
