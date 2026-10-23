@@ -262,6 +262,18 @@ class ThePlannerReadsThem(unittest.TestCase):
         self.assertIn("1 recipe(s)", note)
         self.assertIn("curry", note)
 
+    def test_a_few_recipes_without_them_do_not_have_every_profile_read(self):
+        from mealplanner.planning import extract
+        g = stocked()
+        calculate(g)
+        add_recipe(g, "curry", output_grams=800, protein_per_100g=6, provenance="sourced", yield_servings=4, minutes=50)
+        for limit, whole in ((extract.PREFETCH_ABOVE, False), (0, True)):
+            with mock.patch.object(extract, "PREFETCH_ABOVE", limit), mock.patch.object(g, "get_all", wraps=g.get_all) as reads:
+                p = build_problem(g, "week", DINNERS, NOW)
+            listed = [c for c in reads.call_args_list if c.args == ("NutrientProfile",) and not c.kwargs.get("where")]
+            self.assertEqual(bool(listed), whole, limit)
+            self.assertEqual(p.candidates["curry"].nutrients, {"Protein": 12.0})
+
     def test_nothing_is_said_where_nothing_is_stored(self):
         self.assertFalse([n for n in build_problem(stocked(), "week", DINNERS, NOW).notes if "stored" in n])
 

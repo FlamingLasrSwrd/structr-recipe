@@ -37,6 +37,7 @@ from mealplanner.nutrition_scope import (
 )
 from mealplanner.planning.model import Candidate, Fixed, Lot, PlanningProblem, Slot, Target, Weights
 from mealplanner.planning.shortlist import FACTOR, SHORTLIST_ABOVE, choose
+from mealplanner.recipe_nutrition import PREFETCH_ABOVE
 from mealplanner.reservation import stock_pools
 from mealplanner.scoring import number
 from mealplanner.typetree import dt
@@ -256,8 +257,12 @@ def build_problem(
     # stored figure for every targeted nutrient has its figures worked out from its ingredients.
     used = book + [plan for plan in all_plans if plan["id"] in baseline_ids]
     worked_out = sorted(plan["name"] for plan in used if set(unit_of) - set(stored_serving_profiles(client, plan)))
+    many_worked_out = len(worked_out) > PREFETCH_ABOVE
     if worked_out:
-        client.prefetch("NutrientProfile", "Specification", "QuantitySpecification")
+        if many_worked_out:
+            # every profile, specification and quantity read up front; a few recipes are read node by node
+            # (recipe_nutrition.PREFETCH_ABOVE): one of 1,000 left unstored had the whole read wait on it
+            client.prefetch("NutrientProfile", "Specification", "QuantitySpecification")
         if stored_in_use:
             notes.append(f"{len(worked_out)} recipe(s) have no stored figure for every targeted nutrient, so theirs were "
                          f"worked out from their ingredients (tools/calculate_recipe_nutrition.py stores them): "
@@ -284,7 +289,7 @@ def build_problem(
         pool = [plan for plan in book if plan["id"] in chosen]
         notes.append(f"searched a shortlist of {len(pool)} of the {len(book)} recipes, the best fits to this "
                      f"week's people (planning/shortlist.py)")
-    elif not worked_out:
+    elif not many_worked_out:
         client.prefetch("Specification", "QuantitySpecification")      # every recipe's ingredients, in bulk
     raw_plans = [(plan, candidate_input_requirements(client, plan)) for plan in pool]
     pool_of, lots_by_pool = stock_pools(client, {t for _, reqs in raw_plans for t, _ in reqs}, now)
