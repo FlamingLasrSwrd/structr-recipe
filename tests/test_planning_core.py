@@ -460,6 +460,40 @@ class Stock(unittest.TestCase):
         p = self.build([])
         self.assertAlmostEqual(evaluate(p, picks("roast")).terms["stock"], 0.0)
 
+    def test_the_need_scales_with_the_servings_cooked(self):
+        # two servings of four need 200 g; 150 g is on hand
+        p = self.build([Lot("chicken", 150.0, when(30, 18))], servings=2.0)
+        self.assertAlmostEqual(evaluate(p, picks("roast")).terms["stock"], 0.75)
+
+    def test_a_cook_takes_only_what_it_needs_and_leaves_the_rest(self):
+        # 60 g and 60 g on hand: Monday's 100 g takes all of one and 40 of the other, leaving Tuesday 20 g
+        lots = [Lot("chicken", 60.0, when(31, 18), "a"), Lot("chicken", 60.0, when(31, 19), "b")]
+        p = self.build(lots, second=True)
+        stock = allocate_stock(p, *resolve(p, [Pick(candidate="roast"), Pick(candidate="roast")]))
+        self.assertAlmostEqual(stock[0][0], 1.0)
+        self.assertAlmostEqual(stock[1][0], 0.2)
+
+    def test_lots_that_never_expire_are_used_last(self):
+        # Monday takes the lot expiring Wednesday noon, so Thursday, after it, still has the one that keeps
+        lots = [Lot("chicken", 100.0, None, "keeps"), Lot("chicken", 100.0, when(30, 12), "expires")]
+        roast = cand("roast", 40, 20, yield_servings=4.0, demand={"chicken": 400.0})
+        p = problem([slot("mon", when(28, 18)), slot("thu", when(31, 18))], [roast], lots=lots,
+                    weights=Weights(time=0.0, variety=0.0, stock=1.0, waste=1.0, time_budget_minutes=30.0))
+        stock = allocate_stock(p, *resolve(p, [Pick(candidate="roast"), Pick(candidate="roast")]))
+        self.assertEqual((stock[0][0], stock[1][0]), (1.0, 1.0))
+
+    def test_urgency_comes_from_the_soonest_of_several_lots(self):
+        # lots expiring 4 and 2 days after the cook: 1 - 2/5 = 0.6, not 1 - 4/5
+        p = self.build([Lot("chicken", 50.0, when(1 + 31, 18)), Lot("chicken", 50.0, when(30, 18))])
+        self.assertAlmostEqual(evaluate(p, picks("roast")).terms["waste"], 0.6)
+
+    def test_coverage_is_the_mean_over_the_recipes_pools(self):
+        # chicken fully covered, rice not at all: half
+        roast = cand("roast", 40, 20, yield_servings=4.0, demand={"chicken": 400.0, "rice": 200.0})
+        p = problem([slot("mon", when(28, 18))], [roast], lots=[Lot("chicken", 500.0, when(30, 18))],
+                    weights=Weights(time=0.0, variety=0.0, stock=1.0, waste=1.0, time_budget_minutes=30.0))
+        self.assertAlmostEqual(evaluate(p, picks("roast")).terms["stock"], 0.5)
+
 
 class ProblemsAreValidated(unittest.TestCase):
     def test_slot_keys_must_be_unique(self):
