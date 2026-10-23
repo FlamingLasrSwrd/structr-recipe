@@ -13,7 +13,7 @@ from dataclasses import replace
 from unittest import mock
 
 from mealplanner.planning.evaluate import evaluate, initial_partial, options, portion_variants, prefix_bound
-from mealplanner.planning.model import Fixed, Lot, Pick, Weights
+from mealplanner.planning.model import Fixed, Lot, Pick, Target, Weights
 from mealplanner.planning.search import _beats, _key, auto, beam, enumerate_assignments, exact, improve, oracle, solve
 from tests.planning_fixtures import MEALS, cand, day_of_three, problem, protein_target, slot, when
 
@@ -228,6 +228,7 @@ class Improve(unittest.TestCase):
                 self.assertFalse(_beats(_key(ev, False), best), picks)
         # a local optimum, not the best: 1.6 against the oracle's 1.7
         self.assertEqual((round(result.best.objective, 9), round(oracle(p).best.objective, 9)), (1.6, 1.7))
+        self.assertEqual(improve(p, start, time_limit_s=60).best.picks, result.best.picks)    # a limit it does not reach
 
     def test_a_swap_does_what_no_single_meal_can(self):
         """Two dinners of A (10 g) and one of B (none) under a hard weekly 20 g, exactly: changing
@@ -247,6 +248,20 @@ class Improve(unittest.TestCase):
         result = improve(p, evaluate(p, (Pick(candidate="stew", portion=1.0),)))
         # 1.25 is the first better portion it meets, and the same slot is tried again: 1.5, 30 g
         self.assertEqual(result.best.picks, (Pick(candidate="stew", portion=1.5),))
+
+    def test_a_meal_and_its_portions_are_not_changed_at_once(self):
+        """Energy must be 700-800 kcal (hard): B at 1 serving is 750, A at 1.5 is 750, but A at 1 (500)
+        and B at 1.5 (1,125) are not. So from B at 1, A at 1.5 with its 45 g of protein is reached only by
+        changing both at once, which the climb leaves out (measured: +0.12 in 150 s on the owner's week)."""
+        energy = Target("energy", "energy", "daily", 700, 800, True, 0.0, "Energy")
+        a = cand("A", 30, 20, nutrients={"energy": 500.0})
+        b = cand("B", 10, 20, nutrients={"energy": 750.0})
+        p = problem([slot("dinner", when(28, 18))], (a, b), [energy, protein_target(40, None, hard=False, weight=1.0)],
+                    portions=(1.0, 1.5))
+        start = evaluate(p, (Pick(candidate="B", portion=1.0),))
+        result = improve(p, start)
+        self.assertEqual((result.best.picks, result.proven), (start.picks, True))
+        self.assertGreater(evaluate(p, (Pick(candidate="A", portion=1.5),)).objective, start.objective)
 
     def test_the_closest_plan_when_none_meets_every_hard_target(self):
         p = day_of_three([protein_target(140, None)])                            # 135 g is the most there is
