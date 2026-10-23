@@ -1494,3 +1494,13 @@ label = { per = "each", status = "estimated", source = "the owner's daily dose (
 name = "Magnesium supplement (200 mg)"
 parent = "Dietary supplement"
 label = { per = "each", status = "estimated", source = "the owner's daily dose (2026-09-27): 200 mg of elemental magnesium", figures = { 1090 = 200 } }
+
+[[food]]
+name = "Vitamin B12 supplement (1000 ug)"
+parent = "Dietary supplement"
+label = { per = "each", status = "estimated", source = "the owner's daily dose for Cass (2026-10-22): 1000 ug of vitamin B12", figures = { 1178 = 1000 } }
+
+[[food]]
+name = "Calcium supplement (260 mg)"
+parent = "Dietary supplement"
+label = { per = "each", status = "estimated", source = "the owner's daily dose (2026-10-22): 20% of the FDA Daily Value for calcium (1,300 mg, 21 CFR 101.9), 260 mg", figures = { 1087 = 260 } }
