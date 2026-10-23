@@ -37,6 +37,44 @@ class TheWeekFile(unittest.TestCase):
                 read(WEEK + f"shortlist_above = {bad}\n")
             self.assertIn("shortlist_above must be a whole number", " ".join(caught.exception.args[0]))
 
+    def test_a_whole_run_budget_or_a_search_limit_not_both(self):
+        self.assertEqual(read(WEEK + "total_time_s = 300\n")["total_time_s"], 300)
+        for bad, why in (("total_time_s = 0", "above 0"), ("total_time_s = \"300\"", "above 0"), ("total_time_s = true", "above 0"),
+                         ("total_time_s = 300\ntime_limit_s = 30", "not both")):
+            with self.assertRaises(tool.WeekError) as caught:
+                read(WEEK + bad + "\n")
+            self.assertIn(why, " ".join(caught.exception.args[0]))
+
+    def test_the_tool_gives_plan_week_a_deadline_or_a_search_limit(self):
+        from types import SimpleNamespace
+        from unittest import mock
+        for extra, want in (("total_time_s = 300\n", "deadline"), ("time_limit_s = 45\n", "time_limit_s"), ("", "time_limit_s")):
+            with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False) as fh:
+                fh.write(WEEK + extra)
+            given = {}
+
+            def fake_plan(*args, **kw):
+                given.update(kw)
+                return SimpleNamespace(text=lambda: "", evaluation=None)
+
+            client = SimpleNamespace(wait_until_ready=lambda: None)
+            try:
+                with mock.patch.object(tool, "connect", return_value=client), \
+                        mock.patch.object(tool, "ensure_week", return_value="week"), \
+                        mock.patch.object(tool, "template", return_value=[]), \
+                        mock.patch.object(tool, "plan_week", fake_plan), mock.patch.object(tool, "history", return_value=""), \
+                        mock.patch("builtins.print"):
+                    started = tool.monotonic()
+                    tool.main([fh.name])
+            finally:
+                os.unlink(fh.name)
+            self.assertIn(want, given)
+            self.assertNotIn({"deadline": "time_limit_s", "time_limit_s": "deadline"}[want], given)
+            if want == "deadline":
+                self.assertAlmostEqual(given["deadline"], started + 300, delta=2)
+            else:
+                self.assertEqual(given["time_limit_s"], 45.0 if extra else 30.0)
+
     def test_every_problem_is_named(self):
         with self.assertRaises(tool.WeekError) as caught:
             read('start = "Monday"\ntimezone = "Mountain"\nportions = [1, -2]\nmeals = [{ type = "Dinner", at = "dinnertime" }]\n')

@@ -210,11 +210,12 @@ class ReadingTheShortlist(unittest.TestCase):
 class Widening(unittest.TestCase):
     """planning/plan.py: a shortlist that holds no week meeting every hard target is doubled."""
 
-    def run_plan(self, sizes, feasible_at):
+    def run_plan(self, sizes, feasible_at, **plan_kw):
         from types import SimpleNamespace
         from unittest import mock
         from mealplanner.planning import plan as planning
-        factors = []
+        factors, limits = [], []
+        self.limits = limits
 
         def build(*args, **kw):
             factors.append(kw["shortlist_factor"])
@@ -222,12 +223,13 @@ class Widening(unittest.TestCase):
             return SimpleNamespace(candidates=dict.fromkeys(range(size)), book_size=sizes[-1], notes=[])
 
         def solve(problem, method, **kw):
+            limits.append(kw.get("time_limit_s"))
             ok = len(problem.candidates) >= feasible_at
             return SimpleNamespace(best=SimpleNamespace(feasible=True) if ok else None)
 
         with mock.patch.object(planning, "build_problem", build), mock.patch.object(planning, "solve", solve), \
                 mock.patch.object(planning, "diagnose", return_value="diagnosis"):
-            result = planning.plan_week(None, "week", [], None)
+            result = planning.plan_week(None, "week", [], None, **plan_kw)
         return result, factors
 
     def test_doubled_until_it_holds_a_week(self):
@@ -245,3 +247,27 @@ class Widening(unittest.TestCase):
         result, factors = self.run_plan([3, 6], feasible_at=1)
         self.assertEqual(factors, [2.0])
         self.assertEqual(result.problem.notes, [])
+
+
+class TheWholeRunsBudget(unittest.TestCase):
+    """planning/plan.py: with a deadline, the search has the time left, less the reports' reserve."""
+
+    def test_the_search_has_what_reading_leaves(self):
+        from time import monotonic
+        from mealplanner.planning.plan import MIN_SEARCH_S, REPORT_RESERVE_S
+        runs = Widening()
+        runs.run_plan([6], feasible_at=1, deadline=monotonic() + 100)
+        self.assertAlmostEqual(runs.limits[0], 100 - REPORT_RESERVE_S, delta=1)
+        result, _ = runs.run_plan([6], feasible_at=1, deadline=monotonic() + 20)
+        self.assertEqual(runs.limits, [MIN_SEARCH_S])
+        self.assertIn("the search had only 10 s", " ".join(result.problem.notes))
+        result, _ = runs.run_plan([6], feasible_at=1, time_limit_s=45.0)
+        self.assertEqual(runs.limits, [45.0])
+        self.assertEqual(result.problem.notes, [])
+
+    def test_a_doubled_shortlist_has_what_is_left_then(self):
+        from time import monotonic
+        runs = Widening()
+        runs.run_plan([3, 6], feasible_at=6, deadline=monotonic() + 100)
+        self.assertEqual(len(runs.limits), 2)
+        self.assertGreaterEqual(runs.limits[0], runs.limits[1])
