@@ -17,7 +17,8 @@ private/week.toml:
     portions = [0.75, 1, 1.25, 1.5]     # servings a meal may be; default: one serving each
     [portions_by_person]                # someone's own levels, where they differ
     Cass = [0.5, 0.75, 1]
-    time_limit_s = 30
+    total_time_s = 300                  # the whole run, about five minutes: the search has what reading leaves
+                                        # (or time_limit_s = 30: the search's own limit, whatever reading takes)
     shortlist_above = 60                # optional: a larger recipe book is searched through a shortlist
                                         # of the best fits to the week (mealplanner/planning/shortlist.py)
     prices = "Home prices"              # optional: report the week's cost at this price level
@@ -41,6 +42,7 @@ import os
 import sys
 import tomllib
 from datetime import date, datetime, time, timedelta, timezone
+from time import monotonic
 from zoneinfo import ZoneInfo
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -98,6 +100,12 @@ def read_week(path: str) -> dict:
             problems.append(f"meal {meal!r}: eaters is a list of names")
     if not week.get("meals"):
         problems.append("meals: give at least one, like { type = \"Dinner\", at = \"18:30\" }")
+    total = week.get("total_time_s")
+    if total is not None:
+        if isinstance(total, bool) or not isinstance(total, (int, float)) or total <= 0:
+            problems.append(f"total_time_s must be a number of seconds above 0, like 300, not {total!r}")
+        elif "time_limit_s" in week:
+            problems.append("give total_time_s (the whole run) or time_limit_s (the search alone), not both")
     above = week.get("shortlist_above")
     if above is not None and (isinstance(above, bool) or not isinstance(above, int) or above < 1):
         problems.append(f"shortlist_above must be a whole number of recipes, like 60, not {above!r}")
@@ -189,6 +197,7 @@ def history(client, this_week: str) -> str:
 
 
 def main(argv=None) -> int:
+    started = monotonic()                    # total_time_s counts from here
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("week", help="the week file, e.g. private/week.toml")
     parser.add_argument("--commit", action="store_true", help="write the proposed meals as MealPlanEntries")
@@ -203,12 +212,15 @@ def main(argv=None) -> int:
         for problem in exc.args[0]:
             print(f"problem: {problem}")
         return 1
+    if week.get("total_time_s") is not None:
+        limits = {"deadline": started + float(week["total_time_s"])}
+    else:
+        limits = {"time_limit_s": float(week.get("time_limit_s", 30))}
     result = plan_week(client, meal_plan_id, slots, datetime.now(timezone.utc), commit=args.commit,
                        leftovers=week.get("leftovers", True), leftover_days=week.get("leftover_days"),
                        portions=tuple(week.get("portions", [])),
                        eater_portions={p: tuple(v) for p, v in week.get("portions_by_person", {}).items()},
-                       time_limit_s=float(week.get("time_limit_s", 30)),
-                       **({"shortlist_above": week["shortlist_above"]} if "shortlist_above" in week else {}))
+                       **limits, **({"shortlist_above": week["shortlist_above"]} if "shortlist_above" in week else {}))
     print(result.text())
     if result.evaluation is not None:
         print()

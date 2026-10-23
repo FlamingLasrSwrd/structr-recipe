@@ -319,4 +319,8 @@ On the owner's own 40 recipes it is not used. Shortlists of 25 and 31 scored 43.
 
 The ranking only orders what is searched. The week found is scored by the objective as before, and is not proven best over the whole book.
 
+**A week's run has a budget for the whole run** (the owner's decision, 2026-10-22: "about 5 minutes", 30 s for the search being too restrictive). With `total_time_s` in the week file, `plan_week` counts from the tool's start. The search gets what reading leaves, less 30 s kept back for the reports and any diagnosis, and never less than 10 s. A doubled shortlist's second search has what is left by then. `time_limit_s` remains for a search limit of its own; a week file gives one or the other.
+
+On the owner's household week at 300 s, from a freshly started stack, the run took 282 s. The week scored 47.44, against 45.66 at a 30 s search, with two leftover meals where it had none. The same soup was still cooked fresh four times over a weekend: started from the first plan, CP-SAT does not get far from it.
+
 **Not built:** an improvement step after the first plan (one meal at a time, measured above; the owner's decision, 2026-09-29: not now); a tighter variety formulation or stock as flows for the solver; hard stock ("only cook from what I have"); a per-day time budget; a penalty for unused near-expiry stock; a soft difficulty term; a persistent "locked" flag on entries beyond what an existing entry already is; the parent link that would carry a leftover's purchase date through a division (J12).
