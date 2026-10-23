@@ -30,6 +30,13 @@ def read(text):
 
 
 class TheWeekFile(unittest.TestCase):
+    def test_a_shortlist_threshold_is_a_whole_number_of_recipes(self):
+        self.assertEqual(read(WEEK + "shortlist_above = 80\n")["shortlist_above"], 80)
+        for bad in ("0", "\"60\"", "true", "2.5"):
+            with self.assertRaises(tool.WeekError) as caught:
+                read(WEEK + f"shortlist_above = {bad}\n")
+            self.assertIn("shortlist_above must be a whole number", " ".join(caught.exception.args[0]))
+
     def test_every_problem_is_named(self):
         with self.assertRaises(tool.WeekError) as caught:
             read('start = "Monday"\ntimezone = "Mountain"\nportions = [1, -2]\nmeals = [{ type = "Dinner", at = "dinnertime" }]\n')

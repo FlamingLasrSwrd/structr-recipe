@@ -18,6 +18,8 @@ private/week.toml:
     [portions_by_person]                # someone's own levels, where they differ
     Alex = [0.5, 0.75, 1]
     time_limit_s = 30
+    shortlist_above = 60                # optional: a larger recipe book is searched through a shortlist
+                                        # of the best fits to the week (mealplanner/planning/shortlist.py)
     prices = "Home prices"              # optional: report the week's cost at this price level
     [weights]                           # optional: written onto the MealPlan (optimizer-design Sec 4.5)
     time = 0.5
@@ -96,6 +98,9 @@ def read_week(path: str) -> dict:
             problems.append(f"meal {meal!r}: eaters is a list of names")
     if not week.get("meals"):
         problems.append("meals: give at least one, like { type = \"Dinner\", at = \"18:30\" }")
+    above = week.get("shortlist_above")
+    if above is not None and (isinstance(above, bool) or not isinstance(above, int) or above < 1):
+        problems.append(f"shortlist_above must be a whole number of recipes, like 60, not {above!r}")
     if problems:
         raise WeekError(problems)
     return week
@@ -202,7 +207,8 @@ def main(argv=None) -> int:
                        leftovers=week.get("leftovers", True), leftover_days=week.get("leftover_days"),
                        portions=tuple(week.get("portions", [])),
                        eater_portions={p: tuple(v) for p, v in week.get("portions_by_person", {}).items()},
-                       time_limit_s=float(week.get("time_limit_s", 30)))
+                       time_limit_s=float(week.get("time_limit_s", 30)),
+                       **({"shortlist_above": week["shortlist_above"]} if "shortlist_above" in week else {}))
     print(result.text())
     if result.evaluation is not None:
         print()

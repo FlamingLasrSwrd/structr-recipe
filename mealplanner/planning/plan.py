@@ -12,6 +12,7 @@ from mealplanner.planning.extract import SlotSpec, build_problem
 from mealplanner.planning.model import PlanningProblem
 from mealplanner.planning.report import describe_plan
 from mealplanner.planning.search import SearchResult, solve
+from mealplanner.planning.shortlist import FACTOR, SHORTLIST_ABOVE
 
 
 @dataclass
@@ -41,18 +42,32 @@ def plan_week(
     client, meal_plan_id: str, template: list[SlotSpec], now: datetime, *, method: str = "auto",
     commit: bool = False, name_prefix: str = "", servings_eaten: float = 1.0, max_difficulty: str | None = None,
     leftover_days: float | None = None, leftovers: bool = True, portions: tuple = (), eater_portions: dict | None = None,
-    **search_options,
+    shortlist_above: int | None = SHORTLIST_ABOVE, **search_options,
 ) -> PlanResult:
     """Read the MealPlan, search for the best week for the slots in `template`,
     and (only if asked, and only if a plan meets every hard constraint) write it
     as MealPlanEntries. A week with no feasible plan comes back with a Diagnosis
     saying why and what would change it, never a plan that breaks a hard
-    constraint."""
-    problem = build_problem(
-        client, meal_plan_id, template, now, servings_eaten=servings_eaten, max_difficulty=max_difficulty,
-        leftover_days=leftover_days, leftovers=leftovers, portions=portions, eater_portions=eater_portions,
-    )
-    search = solve(problem, method, **search_options)
+    constraint.
+
+    A book of more than `shortlist_above` recipes is searched through a shortlist
+    (planning/shortlist.py); one that holds no week meeting every hard target is
+    doubled, read and searched again, until it is the whole book. Each try has the
+    whole time limit."""
+    factor, widened = FACTOR, []
+    while True:
+        problem = build_problem(
+            client, meal_plan_id, template, now, servings_eaten=servings_eaten, max_difficulty=max_difficulty,
+            leftover_days=leftover_days, leftovers=leftovers, portions=portions, eater_portions=eater_portions,
+            shortlist_above=shortlist_above, shortlist_factor=factor,
+        )
+        search = solve(problem, method, **search_options)
+        if (search.best is not None and search.best.feasible) or problem.book_size <= len(problem.candidates):
+            break
+        widened.append(len(problem.candidates))
+        factor *= 2
+    for size in widened:
+        problem.notes.append(f"a shortlist of {size} recipes held no week meeting every hard target, so it was doubled")
     if search.best is not None and search.best.feasible:
         result = PlanResult(problem, search, search.best, None)
         if commit:
