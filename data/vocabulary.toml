@@ -164,6 +164,10 @@ name = "Pizza steel"
 parent = "Bakeware"
 
 [[equipment]]
+name = "Muffin pan"
+parent = "Bakeware"
+
+[[equipment]]
 name = "Knife"
 
 [[equipment]]
@@ -183,6 +187,10 @@ name = "Prep tool"
 
 [[equipment]]
 name = "Cutting board"
+parent = "Prep tool"
+
+[[equipment]]
+name = "Mason jar"              # overnight oats are made in one
 parent = "Prep tool"
 
 [[equipment]]
@@ -678,6 +686,7 @@ each = { fdc = 170000, portion = 'medium (2-1/2" dia)' }      # SR Onions raw: F
 name = "Grape tomatoes"
 fdc = 321360                    # Foundation: Tomatoes, grape, raw
 sources = [{ fdc = 170457, status = "estimated", note = "SR Tomatoes red ripe raw: for what the Foundation record does not report" }]
+volume = { fdc = 170457, portion = "cup cherry tomatoes", status = "estimated" }   # the Foundation record gives no portion
 
 [[food]]
 name = "Tomato"
@@ -808,6 +817,7 @@ sources = [{ fdc = 174210, status = "estimated", note = "SR shrimp mixed species
 [[food]]
 name = "Bacon (raw)"
 fdc = 168277                    # SR: Pork, cured, bacon, unprepared: counted raw, fat poured off is not modeled (J18)
+each = "slice raw"
 
 [[food]]
 name = "Butter (salted)"
@@ -1166,12 +1176,14 @@ fdc = 171723                    # SR: Cranberries, dried, sweetened
 [[food]]
 name = "Semisweet chocolate chips"
 fdc = 167976                    # SR: Candies, semisweet chocolate
+volume = "cup chips (6 oz package)"
 
 # -- HelloFresh recipes, second batch (2026-09-27): five breakfasts, eight soups and bowls ---------
 
 [[food]]
 name = "Baby spinach"
 fdc = 168462                    # SR: Spinach, raw
+volume = "cup"
 
 [[food]]
 name = "Berry compote"          # HelloFresh's; berries cooked with sugar, no published label
@@ -1391,6 +1403,78 @@ volume = "tsp"
 [[food]]
 name = "Sesame oil"
 fdc = 171016                    # SR: Oil, sesame, salad or cooking
+volume = "tsp"
+
+# -- Budget Bytes breakfasts (2026-10-22): ten recipes from the owner's printouts ------------------
+
+[[food]]
+name = "Cottage cheese"
+fdc = 172179                    # SR: Cheese, cottage, creamed, large or small curd (the 4% milkfat the recipes ask for)
+volume = "cup, small curd (not packed)"
+
+[[food]]
+name = "Puff pastry"
+fdc = 172790                    # SR: Puff pastry, frozen, ready-to-bake
+each = { fdc = 172738, portion = "sheet" }                     # SR, the same pastry baked: 1 sheet = 245 g
+
+[[food]]
+name = "Heavy cream"
+fdc = 170859                    # SR: Cream, fluid, heavy whipping
+volume = "tbsp"
+
+[[food]]
+name = "Swiss cheese"
+fdc = 171251                    # SR: Cheese, swiss
+volume = "cup, shredded"
+
+[[food]]
+name = "Ground nutmeg"
+fdc = 171326                    # SR: Spices, nutmeg, ground
+volume = "tsp"
+
+[[food]]
+name = "Ham (cooked)"
+fdc = 167872                    # SR: Pork, cured, ham, boneless, regular (approximately 11% fat), roasted
+
+[[food]]
+name = "Flour tortilla (8 inch)"
+fdc = 175037                    # SR: Tortillas, ready-to-bake or -fry, flour, refrigerated
+each = { fdc = 173242, portion = 'tortilla (approx 7-8" dia)' }   # SR, the same without added calcium: 49 g
+
+[[food]]
+name = "Chia seeds"
+fdc = 170554                    # SR: Seeds, chia seeds, dried
+sources = [{ fdc = 2707590, status = "estimated", note = "FNDDS Chia seeds: for what the SR record does not report" }]
+volume = { grams = 10.5, per = "tbsp", source = "FNDDS 2707590 Chia seeds: 1 cup = 168 g; SR gives only 1 oz" }
+
+[[food]]
+name = "Peanut butter (crunchy)"
+fdc = 174265                    # SR: Peanut butter, chunk style, with salt
+volume = "tbsp"
+
+[[food]]
+name = "Blueberries"
+fdc = 171711                    # SR: Blueberries, raw
+volume = "cup"
+
+[[food]]
+name = "Raspberries"
+fdc = 167755                    # SR: Raspberries, raw
+volume = "cup"
+
+[[food]]
+name = "Walnuts"
+fdc = 170187                    # SR: Nuts, walnuts, english
+volume = "cup, chopped"
+
+[[food]]
+name = "Banana"
+fdc = 173944                    # SR: Bananas, raw
+each = 'medium (7" to 7-7/8" long)'
+
+[[food]]
+name = "Dried parsley"
+fdc = 170930                    # SR: Spices, parsley, dried
 volume = "tsp"
 
 # -- supplements (2026-09-27) ----------------------------------------------------------------------
