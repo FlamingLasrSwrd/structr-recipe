@@ -36,6 +36,7 @@ from mealplanner.nutrition_scope import (
     entry_start, serving_nutrient_figure, stored_serving_profiles, target_scope_problem,
 )
 from mealplanner.planning.model import Candidate, Fixed, Lot, PlanningProblem, Slot, Target, Weights
+from mealplanner.planning.shortlist import FACTOR, SHORTLIST_ABOVE, choose
 from mealplanner.reservation import stock_pools
 from mealplanner.scoring import number
 from mealplanner.typetree import dt
@@ -71,6 +72,7 @@ def build_problem(
     client, meal_plan_id: str, template, now: datetime, *,
     servings_eaten: float = 1.0, max_difficulty: str | None = None, leftover_days: float | None = None,
     leftovers: bool = True, portions: tuple = (), eater_portions: dict | None = None,
+    shortlist_above: int | None = SHORTLIST_ABOVE, shortlist_factor: float = FACTOR,
 ) -> PlanningProblem:
     """Read the MealPlan, the recipes, the stock and the constraints into a
     PlanningProblem for the slots in `template` (an iterable of SlotSpec).
@@ -78,12 +80,19 @@ def build_problem(
     leftover_days: how long cooked food keeps. Defaults to the ShelfLife default of
     the "Cooked Leftover" class (Fridge, Sealed); if none resolves, leftovers are
     simply not planned. leftovers=False plans no leftovers at all. eater_portions:
-    a person's own portion levels, by name."""
+    a person's own portion levels, by name.
+
+    A book of more than `shortlist_above` recipes (None: never) is cut to a shortlist
+    before its recipes are read in full: every recipe's stored figures, meal types and
+    minutes are read, the best fits to the week are kept (planning/shortlist.py, with
+    `shortlist_factor`), and only those, with any a committed meal cooks, are read for
+    their ingredients, stock and exclusions. `book_size` says how many there were."""
     client = ReadCache(client)
     # Read in bulk what the recipes read node by node: profiled on the owner's week, these
-    # types were 21,297 of 21,804 requests, one node each (552 of 589 s of reading). Every
-    # food's NutrientProfiles are read only if a recipe's figures must be worked out (below).
-    client.prefetch("Specification", "QuantitySpecification", "DomainType")
+    # types were 21,297 of 21,804 requests, one node each (552 of 589 s of reading). The
+    # recipes' Specifications and quantities are read in bulk below only when every recipe
+    # is read in full, and every food's NutrientProfiles only when a figure must be worked out.
+    client.prefetch("DomainType", "RecipeIdentity")
     notes: list[str] = []
     meal_plan = client.get_all("MealPlan", meal_plan_id)["result"]
     people = _household(client, meal_plan)                       # person id -> Person, in name order
@@ -162,85 +171,15 @@ def build_problem(
         if kind == "fixed" and payload.get("references"):
             forced.add(payload["references"]["id"])
 
-    excluded = excluded_domain_type_ids(client)
-    soft = soft_exclusions(client)
-    keep_days = _leftover_days(client, leftover_days) if leftovers else None
-    if leftovers and keep_days is None:
-        notes.append("leftovers are not planned: no keeping time for cooked food resolves "
-                     f"(a ShelfLife default for {LEFTOVER_CLASS!r}, or leftover_days)")
+    unknown = sorted(set(eater_portions or {}) - set(id_of))
+    if unknown:
+        raise ValueError(f"portions are given for {unknown}, who are not in the week's household")
+    portions_by_eater = {id_of[name]: tuple(levels) for name, levels in (eater_portions or {}).items()}
 
-    raw_plans: list[tuple[dict, list]] = []
-    week_baseline = {ref["id"] for ref in meal_plan.get("hasBaseline", [])}
-    baseline_ids = set(week_baseline)
-    for person in people.values():
-        baseline_ids |= {ref["id"] for ref in person.get("hasBaseline", [])}
-    all_plans = client.get_all("Plan")["result"]
-    stored_in_use = any(plan.get("servingProfiles") for plan in all_plans)
-    if stored_in_use:
-        client.prefetch_where("NutrientProfile", basis=SERVING_BASIS)
-    for plan in all_plans:
-        if plan["id"] in baseline_ids:
-            continue                          # eaten every day already, not a meal to plan
-        recipe_ref = plan.get("specializationOf")
-        retired = bool(recipe_ref and client.get_all("RecipeIdentity", recipe_ref["id"])["result"].get("isRetired"))
-        if retired and plan["id"] not in forced:
-            continue
-        raw_plans.append((plan, candidate_input_requirements(client, plan)))
-    # A recipe's nutrition per serving is read as stored when it is (J28); one without a
-    # stored figure for every targeted nutrient has its figures worked out from its ingredients.
-    used = [plan for plan, _ in raw_plans] + [plan for plan in all_plans if plan["id"] in baseline_ids]
-    worked_out = sorted(plan["name"] for plan in used if set(unit_of) - set(stored_serving_profiles(client, plan)))
-    if worked_out:
-        client.prefetch("NutrientProfile")
-        if stored_in_use:
-            notes.append(f"{len(worked_out)} recipe(s) have no stored figure for every targeted nutrient, so theirs were "
-                         f"worked out from their ingredients (tools/calculate_recipe_nutrition.py stores them): "
-                         + ", ".join(worked_out[:5]) + (", ..." if len(worked_out) > 5 else ""))
-    pool_of, lots_by_pool = stock_pools(client, {t for _, reqs in raw_plans for t, _ in reqs}, now)
-
-    candidates: dict[str, Candidate] = {}
-    for plan, requirements in raw_plans:
-        servings = recipe_servings_strict(client, plan)
-        if servings is None:
-            if plan["id"] not in forced:
-                notes.append(f"recipe {plan['name']!r} is left out: no yield stated in servings")
-                continue
-            notes.append(f"recipe {plan['name']!r} has no yield in servings; its fixed entry is kept but uses no stock")
-            servings, requirements = 1.0, []
-        nutrients, untrusted, estimated = {}, set(), set()
-        for nutrient_id, unit in unit_of.items():
-            figure = serving_nutrient_figure(client, plan, nutrient_id, unit)
-            nutrients[nutrient_id] = figure.amount
-            if figure.amount is not None and not figure.trusted:
-                untrusted.add(nutrient_id)
-            elif figure.amount is not None and figure.estimated:
-                estimated.add(nutrient_id)
-        if estimated == {n for n, amount in nutrients.items() if amount is not None}:
-            notes.append(f"recipe {plan['name']!r}: all its figures rest on estimates (J21)")
-        elif estimated:
-            notes.append(f"recipe {plan['name']!r}: its {', '.join(sorted(name_of[n] for n in estimated))} "
-                         f"figure(s) rest on estimates (J21)")
-        demand: dict[str, float] = {}
-        for type_id, grams in requirements:
-            demand[pool_of[type_id]] = demand.get(pool_of[type_id], 0.0) + grams
-        consumed = candidate_consumed_types(client, plan)
-        uses = []
-        for ref in plan.get("referencedByEntries", []):
-            entry = client.get_all("MealPlanEntry", ref["id"])["result"]
-            if entry.get("isSkipped") or (entry.get("memberOf") or {}).get("id") == meal_plan_id:
-                continue
-            used = entry_start(client, entry)
-            if used is not None:
-                uses.append(used)
-        candidates[plan["id"]] = Candidate(
-            id=plan["id"], name=plan["name"], meal_types=frozenset(candidate_meal_types(client, plan)),
-            minutes=plan.get("estimatedDurationMinutes"), difficulty=plan.get("difficultyRating"),
-            yield_servings=servings, nutrients=nutrients, untrusted=frozenset(untrusted), demand=demand,
-            hard_excluded=bool(consumed & excluded),
-            soft_penalty=sum(weight for _, weight, banned in soft if consumed & banned),
-            leftover_days=keep_days, uses=tuple(sorted(uses)),
-        )
-
+    # The week's slots, and what each person takes every day outside them: a large book's
+    # recipes are ranked against both before they are read in full. Their notes keep their
+    # place after the recipes'.
+    slot_notes: list[str] = []
     slots: list[Slot] = []
     for start, _, kind, payload in rows:
         if kind == "open":
@@ -256,7 +195,7 @@ def build_problem(
         shares = _entry_shares(client, payload, people) if people else ()
         if people and not shares:
             first = next(iter(people.values()))["name"]
-            notes.append(f"entry {payload['name']!r} says nothing of who ate it: counted as {first}'s")
+            slot_notes.append(f"entry {payload['name']!r} says nothing of who ate it: counted as {first}'s")
         common = dict(name=payload["name"], entry_id=payload["id"], shares=shares)
         if payload.get("references"):
             fixed = Fixed(eaten=eaten, candidate=payload["references"]["id"], cooked=payload.get("hasPlannedServings"), **common)
@@ -264,15 +203,16 @@ def build_problem(
             fixed = Fixed(eaten=eaten, source=index_of_entry[payload["consumesLeftoverFrom"]["id"]], **common)
         slots.append(Slot(payload["name"], start, None, fixed, eaters=tuple(e for e, _ in shares) or None))
 
+    baseline_notes: list[str] = []
     baseline: dict[str, float | None] = {}
-    if week_baseline:
+    if meal_plan.get("hasBaseline"):
         for nutrient_id, unit in unit_of.items():
             per_day, unknown = baseline_day_intake(client, meal_plan, nutrient_id, unit)
             baseline[nutrient_id] = None if unknown else per_day
         names = sorted(p["name"] for p in baseline_plans(client, meal_plan))
-        notes.append(f"baseline counted every day: {', '.join(names)} ("
-                     + "; ".join(f"{name_of[n]} {'unknown' if v is None else f'{v:g} {unit_of[n]}'}"
-                                 for n, v in sorted(baseline.items(), key=lambda kv: name_of[kv[0]])) + ")")
+        baseline_notes.append(f"baseline counted every day: {', '.join(names)} ("
+                              + "; ".join(f"{name_of[n]} {'unknown' if v is None else f'{v:g} {unit_of[n]}'}"
+                                          for n, v in sorted(baseline.items(), key=lambda kv: name_of[kv[0]])) + ")")
     baselines: dict[str, dict] = {}
     for pid, person in people.items():
         if not person.get("hasBaseline"):
@@ -283,21 +223,126 @@ def build_problem(
             mine[nutrient_id] = None if unknown else per_day
         baselines[pid] = mine
         names = sorted(p["name"] for p in baseline_plans(client, person))
-        notes.append(f"{person['name']}'s baseline counted every day: {', '.join(names)}")
-    unknown = sorted(set(eater_portions or {}) - set(id_of))
-    if unknown:
-        raise ValueError(f"portions are given for {unknown}, who are not in the week's household")
+        baseline_notes.append(f"{person['name']}'s baseline counted every day: {', '.join(names)}")
+    week = dict(targets=tuple(targets), weights=weights, now=now, max_difficulty=max_difficulty,
+                servings_eaten=servings_eaten, baseline=baseline, units=dict(unit_of), portions=tuple(portions),
+                eaters=tuple(people), baselines=baselines, eater_portions=portions_by_eater,
+                eater_names={pid: p["name"] for pid, p in people.items()})
+
+    excluded = excluded_domain_type_ids(client)
+    soft = soft_exclusions(client)
+    keep_days = _leftover_days(client, leftover_days) if leftovers else None
+    if leftovers and keep_days is None:
+        notes.append("leftovers are not planned: no keeping time for cooked food resolves "
+                     f"(a ShelfLife default for {LEFTOVER_CLASS!r}, or leftover_days)")
+
+    baseline_ids = {ref["id"] for ref in meal_plan.get("hasBaseline", [])}
+    for person in people.values():
+        baseline_ids |= {ref["id"] for ref in person.get("hasBaseline", [])}
+    all_plans = client.get_all("Plan")["result"]
+    stored_in_use = any(plan.get("servingProfiles") for plan in all_plans)
+    if stored_in_use:
+        client.prefetch_where("NutrientProfile", basis=SERVING_BASIS)
+    book: list[dict] = []
+    for plan in all_plans:
+        if plan["id"] in baseline_ids:
+            continue                          # eaten every day already, not a meal to plan
+        recipe_ref = plan.get("specializationOf")
+        retired = bool(recipe_ref and client.get_all("RecipeIdentity", recipe_ref["id"])["result"].get("isRetired"))
+        if retired and plan["id"] not in forced:
+            continue
+        book.append(plan)
+    # A recipe's nutrition per serving is read as stored when it is (J28); one without a
+    # stored figure for every targeted nutrient has its figures worked out from its ingredients.
+    used = book + [plan for plan in all_plans if plan["id"] in baseline_ids]
+    worked_out = sorted(plan["name"] for plan in used if set(unit_of) - set(stored_serving_profiles(client, plan)))
+    if worked_out:
+        client.prefetch("NutrientProfile", "Specification", "QuantitySpecification")
+        if stored_in_use:
+            notes.append(f"{len(worked_out)} recipe(s) have no stored figure for every targeted nutrient, so theirs were "
+                         f"worked out from their ingredients (tools/calculate_recipe_nutrition.py stores them): "
+                         + ", ".join(worked_out[:5]) + (", ..." if len(worked_out) > 5 else ""))
+    figures = {plan["id"]: _figures(client, plan, unit_of) for plan in book}
+
+    pool, consumed_of = book, {}
+    if shortlist_above is not None and len(book) > shortlist_above:
+        if excluded or soft:
+            # an exclusion is by ingredient, so every recipe's are read before the ranking,
+            # or excluded recipes would take places on the shortlist
+            client.prefetch("Step", "Specification")
+            consumed_of = {plan["id"]: candidate_consumed_types(client, plan) for plan in book}
+        light = {plan["id"]: Candidate(
+            id=plan["id"], name=plan["name"], meal_types=frozenset(candidate_meal_types(client, plan)),
+            minutes=plan.get("estimatedDurationMinutes"), difficulty=plan.get("difficultyRating"),
+            nutrients=figures[plan["id"]][0], untrusted=frozenset(figures[plan["id"]][1]), leftover_days=keep_days,
+            hard_excluded=bool(consumed_of.get(plan["id"], set()) & excluded),
+            soft_penalty=sum(weight for _, weight, banned in soft if consumed_of.get(plan["id"], set()) & banned),
+            recipe=(plan.get("specializationOf") or {}).get("id"),
+        ) for plan in book}
+        open_week = PlanningProblem(slots=tuple(s for s in slots if s.fixed is None), candidates=light, **week)
+        chosen = choose(open_week, shortlist_factor) | forced
+        pool = [plan for plan in book if plan["id"] in chosen]
+        notes.append(f"searched a shortlist of {len(pool)} of the {len(book)} recipes, the best fits to this "
+                     f"week's people (planning/shortlist.py)")
+    elif not worked_out:
+        client.prefetch("Specification", "QuantitySpecification")      # every recipe's ingredients, in bulk
+    raw_plans = [(plan, candidate_input_requirements(client, plan)) for plan in pool]
+    pool_of, lots_by_pool = stock_pools(client, {t for _, reqs in raw_plans for t, _ in reqs}, now)
+
+    candidates: dict[str, Candidate] = {}
+    for plan, requirements in raw_plans:
+        servings = recipe_servings_strict(client, plan)
+        if servings is None:
+            if plan["id"] not in forced:
+                notes.append(f"recipe {plan['name']!r} is left out: no yield stated in servings")
+                continue
+            notes.append(f"recipe {plan['name']!r} has no yield in servings; its fixed entry is kept but uses no stock")
+            servings, requirements = 1.0, []
+        nutrients, untrusted, estimated = figures[plan["id"]]
+        if estimated == {n for n, amount in nutrients.items() if amount is not None}:
+            notes.append(f"recipe {plan['name']!r}: all its figures rest on estimates (J21)")
+        elif estimated:
+            notes.append(f"recipe {plan['name']!r}: its {', '.join(sorted(name_of[n] for n in estimated))} "
+                         f"figure(s) rest on estimates (J21)")
+        demand: dict[str, float] = {}
+        for type_id, grams in requirements:
+            demand[pool_of[type_id]] = demand.get(pool_of[type_id], 0.0) + grams
+        consumed = consumed_of[plan["id"]] if plan["id"] in consumed_of else candidate_consumed_types(client, plan)
+        uses = []
+        for ref in plan.get("referencedByEntries", []):
+            entry = client.get_all("MealPlanEntry", ref["id"])["result"]
+            if entry.get("isSkipped") or (entry.get("memberOf") or {}).get("id") == meal_plan_id:
+                continue
+            used = entry_start(client, entry)
+            if used is not None:
+                uses.append(used)
+        candidates[plan["id"]] = Candidate(
+            id=plan["id"], name=plan["name"], meal_types=frozenset(candidate_meal_types(client, plan)),
+            minutes=plan.get("estimatedDurationMinutes"), difficulty=plan.get("difficultyRating"),
+            yield_servings=servings, nutrients=nutrients, untrusted=frozenset(untrusted), demand=demand,
+            hard_excluded=bool(consumed & excluded),
+            soft_penalty=sum(weight for _, weight, banned in soft if consumed & banned),
+            leftover_days=keep_days, uses=tuple(sorted(uses)), recipe=(plan.get("specializationOf") or {}).get("id"),
+        )
+    notes.extend(slot_notes + baseline_notes)
     lots = tuple(
         Lot(pool=root, grams=lot.grams, expires=lot.expires, name=lot.name)
         for root, pool_lots in lots_by_pool.items() for lot in pool_lots
     )
-    return PlanningProblem(
-        slots=tuple(slots), candidates=candidates, targets=tuple(targets), lots=lots, weights=weights, now=now,
-        max_difficulty=max_difficulty, servings_eaten=servings_eaten, notes=notes, baseline=baseline, units=dict(unit_of),
-        portions=tuple(portions), eaters=tuple(people), baselines=baselines,
-        eater_portions={id_of[name]: tuple(levels) for name, levels in (eater_portions or {}).items()},
-        eater_names={pid: p["name"] for pid, p in people.items()},
-    )
+    return PlanningProblem(slots=tuple(slots), candidates=candidates, lots=lots, notes=notes, book_size=len(book), **week)
+
+
+def _figures(client, plan: dict, unit_of: dict) -> tuple[dict, set, set]:
+    """(nutrient id -> amount per serving or None, the untrusted ones, the estimated ones) for a Plan."""
+    nutrients, untrusted, estimated = {}, set(), set()
+    for nutrient_id, unit in unit_of.items():
+        figure = serving_nutrient_figure(client, plan, nutrient_id, unit)
+        nutrients[nutrient_id] = figure.amount
+        if figure.amount is not None and not figure.trusted:
+            untrusted.add(nutrient_id)
+        elif figure.amount is not None and figure.estimated:
+            estimated.add(nutrient_id)
+    return nutrients, untrusted, estimated
 
 
 def _household(client, meal_plan: dict) -> dict:

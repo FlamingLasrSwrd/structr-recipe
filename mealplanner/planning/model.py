@@ -48,6 +48,7 @@ class Candidate:
     soft_penalty: float = 0.0
     leftover_days: float | None = None
     uses: tuple = ()
+    recipe: str | None = None       # the RecipeIdentity this Plan is a version of (planning/shortlist.py)
 
 
 @dataclass(frozen=True)
@@ -158,6 +159,9 @@ class PlanningProblem:
     eater_portions: Mapping = field(default_factory=dict)
     baselines: Mapping = field(default_factory=dict)
     eater_names: Mapping = field(default_factory=dict)  # eater -> a name to show
+    # How many recipes the week could draw on: more than len(candidates) when only a
+    # shortlist of them was read and searched (planning/shortlist.py); 0 when not counted.
+    book_size: int = 0
     _cache: dict = field(default_factory=dict, repr=False, compare=False)
 
     def __post_init__(self):

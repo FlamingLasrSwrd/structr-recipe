@@ -293,4 +293,30 @@ The first let one dish fill every slot until it expired (chilaquiles four breakf
 
 What the rule changes in practice depends on the search. At `time_limit_s = 30` the household week is still CP-SAT's first plan, which ignores the score, so it has no leftovers. At 120 s it scored 47.44 with 2 leftover meals, against 46.70 with none before.
 
+**A large recipe book is searched through a weekly shortlist** (the owner's decision, 2026-10-22; `planning/shortlist.py`). The search grows with every recipe it weighs: about 240 CP-SAT variables a recipe. On the owner's household week with its 40 recipes cloned, nutrients and minutes varied by up to 20%:
+- the whole book gave a week meeting every hard target in 27 s at 40 recipes;
+- at 120 and 200 it gave none in 30 s;
+- at 1,000 the model alone would need several GB.
+
+So a book of more than `shortlist_above` recipes (60 by default; the week file may say otherwise) is cut before its recipes are read in full.
+
+*The ranking.* A recipe's fit to the week's people comes from its stored figures per serving (data-model.md J28). For every daily target of every eater, it measures how close the recipe's nutrient per calorie comes to what the target asks per calorie, after that eater's baseline. To that it adds the time fit and subtracts any soft exclusion. Per calorie because the energy targets cap the calories.
+
+*The choice.* For each meal type, the best-ranked recipes tagged for it, twice as many as that type has open slots. For each hard minimum, the two recipes richest in it. One version per recipe, and every recipe a committed meal cooks. Exclusions are applied before the ranking: when any exist, every recipe's ingredients are read for them.
+
+*Reading.* Only the shortlist is read in full: ingredients, stock, past uses. A shortlist that holds no week meeting every hard target is doubled, read and searched again, until it is the whole book (a growing core, after Balas and Zemel's for large knapsack problems). Each try has the whole time limit.
+
+Measured on the same clones:
+
+| Recipes | Shortlist | Time to choose | Search | Score | Peak memory |
+|---|---|---|---|---|---|
+| 200 | 36 | 0.07 s | 22 s | 47.30 | 160 MB |
+| 1,000 | 40 | 0.28 s | 42 s | 47.38 | 180 MB |
+
+The 1,000-recipe search ran past its 30 s limit because the beam search always finishes its plan. Scores across book sizes are not comparable: clones count as different recipes for variety. The shortlist never had to grow.
+
+On the owner's own 40 recipes it is not used. Shortlists of 25 and 31 scored 43.69 and 44.30, against 45.66 for the whole book, so a small book is searched whole.
+
+The ranking only orders what is searched. The week found is scored by the objective as before, and is not proven best over the whole book.
+
 **Not built:** an improvement step after the first plan (one meal at a time, measured above; the owner's decision, 2026-09-29: not now); a tighter variety formulation or stock as flows for the solver; hard stock ("only cook from what I have"); a per-day time budget; a penalty for unused near-expiry stock; a soft difficulty term; a persistent "locked" flag on entries beyond what an existing entry already is; the parent link that would carry a leftover's purchase date through a division (J12).
