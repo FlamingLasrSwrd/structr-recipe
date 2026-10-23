@@ -167,7 +167,7 @@ class Portfolio(unittest.TestCase):
         self.assertAlmostEqual(fp.call_args.kwargs["time_limit_s"], 0.8)        # at most 40% of the time
         self.assertEqual(given["hint"], start.picks)
         self.assertEqual(result.best.picks, start.picks)
-        self.assertEqual(result.method, "first plan+exact+cpsat+beam")
+        self.assertEqual(result.method, "first plan+exact+improve+cpsat+beam")
 
     def test_a_household_with_no_plan_is_proven_at_once(self):
         result, _, given = self.run_auto(household(), SearchResult(None, True, 0, "cpsat"))

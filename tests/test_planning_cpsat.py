@@ -70,8 +70,9 @@ class WorkedDay(unittest.TestCase):
         with mock.patch("mealplanner.planning.search.exact", return_value=unfinished), \
              mock.patch.object(cpsat, "solve", return_value=unproven):
             result = auto(self.p)
-        self.assertEqual((result.method, result.proven, result.upper_bound), ("exact+cpsat+beam", False, 2.5))
-        self.assertTrue(result.best.feasible)                # the beam search found the plan
+        # the beam search found the plan, and with no plan before it to climb, it is climbed last
+        self.assertEqual((result.method, result.proven, result.upper_bound), ("exact+cpsat+beam+improve", False, 2.5))
+        self.assertTrue(result.best.feasible)
 
 
 @unittest.skipUnless(cpsat.available(), "OR-tools is not installed")

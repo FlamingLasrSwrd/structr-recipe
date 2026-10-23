@@ -12,6 +12,9 @@ evaluate() and nothing else:
   beam    keeps the `width` most promising partial assignments at each slot. No
           guarantee, no dependency, fast: the fallback for a week too large for
           `exact`, and a cross-check.
+  improve climbs from a complete plan, one meal at a time, to a plan no single
+          change improves (a local optimum). No guarantee; on a real week it is
+          where most of the score is found.
 
 Strict mode requires every hard constraint met. Relaxed mode instead minimises
 the total violation first and only then maximises the score: it finds the
@@ -30,7 +33,7 @@ from dataclasses import dataclass, replace
 from typing import Iterator
 
 from mealplanner.planning.evaluate import (
-    EPS, Evaluation, evaluate, initial_partial, options, prefix_bound,
+    EPS, Evaluation, evaluate, initial_partial, options, portion_variants, prefix_bound,
 )
 from mealplanner.planning.model import PlanningProblem
 
@@ -201,8 +204,75 @@ def beam(problem: PlanningProblem, *, relaxed: bool = False, width: int = 40,
     return SearchResult(best, False, nodes, "beam")
 
 
+def improve(problem: PlanningProblem, start: Evaluation, *, relaxed: bool = False,
+            time_limit_s: float | None = None) -> SearchResult:
+    """Hill climbing from a complete plan (the owner's decision, 2026-10-22;
+    docs/optimizer-design.md Sec 12). Slot by slot in turn, it tries three kinds of change:
+
+      one meal   another recipe, or the leftovers of an earlier cook, eaten in the
+                 slot's own portions;
+      portions   the slot's portions, every level for every eater who eats there;
+      swap       the slot and a later open slot of the same meal type exchange what
+                 they eat.
+
+    The first change that leaves the whole plan legal, feasible (unless relaxed) and
+    better by evaluate() is taken, and the climb goes on from the next slot. It stops
+    when no change at any slot improves the plan (`proven` then means only that: a
+    local optimum, not the best week), or at the time limit. Changing a meal and its
+    portions at once is not tried: measured on the owner's week it added 0.1 to a
+    score of 52.5 in 150 s."""
+    deadline = None if time_limit_s is None else time.monotonic() + time_limit_s
+    best, best_key = start, _key(start, relaxed)
+    picks, tried = list(start.picks), 0
+    open_slots = problem.open_slots()
+
+    def out_of_time() -> bool:
+        return deadline is not None and time.monotonic() > deadline
+
+    def better(changed: list) -> bool:
+        nonlocal best, best_key, picks, tried
+        tried += 1
+        ev = evaluate(problem, tuple(changed))
+        if not ev.legal or not (relaxed or ev.feasible) or not _beats(_key(ev, relaxed), best_key):
+            return False
+        best, best_key, picks = ev, _key(ev, relaxed), changed
+        return True
+
+    def changes(i: int):
+        current = picks[i]
+        for pick in options(problem, picks, i):              # one meal, in the slot's own portions
+            if pick != current and pick.shares == current.shares and pick.portion == current.portion:
+                yield i, pick, None
+        for variant in portion_variants(problem, i):         # its portions
+            pick = replace(current, **variant)
+            if pick != current:
+                yield i, pick, None
+        for j in open_slots:                                 # a swap with a later slot of its meal type
+            if j > i and problem.slots[j].meal_type == problem.slots[i].meal_type and picks[j] != current:
+                yield i, picks[j], j
+
+    unimproved, k = 0, 0
+    while unimproved < len(open_slots) and not out_of_time():
+        i = open_slots[k % len(open_slots)]
+        k += 1
+        for slot, pick, other in changes(i):
+            if out_of_time():
+                break
+            changed = list(picks)
+            if other is not None:
+                changed[other] = picks[slot]
+            changed[slot] = pick
+            if better(changed):
+                unimproved = -1
+                break
+        unimproved += 1
+    return SearchResult(best, unimproved >= len(open_slots), tried, "improve")
+
+
 SHORT_EXACT_S = 2.0
-CPSAT_SHARE = 2 / 3             # of the time left after the short exact search; the beam search has the rest
+CPSAT_SHARE = 2 / 3             # of the solvers' time; the beam search has the rest
+CLIMB_SHARE = 1 / 2             # of the time left after the short exact search, at most, for the first climb
+LAST_CLIMB_SHARE = 1 / 4        # of the time left after it, kept to climb from a better plan the solvers find
 
 
 def auto(
@@ -215,9 +285,11 @@ def auto(
     (docs/optimizer-design.md Sec 12): the dependency-free exact search proves some
     weeks in a fraction of a second that CP-SAT takes many seconds over, and
     CP-SAT proves others the exact search cannot. So: a short exact search first;
-    then, if OR-tools is installed, CP-SAT with two thirds of the time left; then a
-    beam search with the rest, finishing greedily if it runs out; and the best plan
-    found by any of them. Each solver starts from a plan when there is one to start
+    then a climb (improve) from the best plan so far, with at most half the time left;
+    then, if OR-tools is installed, CP-SAT with two thirds of three quarters of what is
+    left after it, and a beam search with the rest of those three quarters, finishing
+    greedily if it runs out; and a last climb, with the time left, from a plan of theirs
+    better than the climbed one. Each solver starts from a plan when there is one to start
     from: a household's first plan meeting everyone's hard targets, or a one-eater
     week solved at one portion. The whole takes about `time_limit_s` (the owner's decision,
     2026-09-28: the beam search had no limit, and a household's week took an hour).
@@ -263,9 +335,23 @@ def auto(
     found, nodes, ceiling, label = first, first.nodes, None, ["exact"]
     if seed is not None and _beats(keyed(seed), keyed(found)):
         found, label = seed, [seed.method, "exact"]
+    climbed_from = []                    # the plans climbed from, so none is climbed twice
+    if found.best is not None:
+        # measured on the owner's household week (2026-10-22): from the first plan, 47.5, the
+        # climb reached 52.5 in 37 s, where CP-SAT and the beam search found nothing better in 169 s
+        climbed_from.append(found.best.picks)
+        climbed = improve(problem, found.best, relaxed=relaxed,
+                          time_limit_s=max(0.0, (deadline - time.monotonic()) * CLIMB_SHARE))
+        nodes += climbed.nodes
+        label.append("improve")
+        climbed_from.append(climbed.best.picks)
+        if _beats(keyed(climbed), keyed(found)):
+            found = climbed
+    solvers_end = deadline - max(0.0, deadline - time.monotonic()) * LAST_CLIMB_SHARE
     if cpsat.available():
-        solved = cpsat.solve(problem, relaxed=relaxed, time_limit_s=max(0.1, (deadline - time.monotonic()) * CPSAT_SHARE),
-                             hint=seed.best.picks if seed is not None else None)
+        solved = cpsat.solve(problem, relaxed=relaxed,
+                             time_limit_s=max(0.1, (solvers_end - time.monotonic()) * CPSAT_SHARE),
+                             hint=found.best.picks if found.best is not None else None)
         if solved.proven:
             return solved
         nodes, ceiling = nodes + solved.nodes, solved.upper_bound
@@ -274,11 +360,18 @@ def auto(
             found = solved
     # the beam narrows to finish in its time, and completes its plan even if that runs over:
     # measured on households, its greedy plan beat CP-SAT's in the same time
-    second = beam(problem, relaxed=relaxed, width=beam_width, time_limit_s=max(0.0, deadline - time.monotonic()))
+    second = beam(problem, relaxed=relaxed, width=beam_width, time_limit_s=max(0.0, solvers_end - time.monotonic()))
+    nodes += second.nodes
     label.append("beam")
     if second.best is not None and _beats(keyed(second), keyed(found)):
         found = second
-    return SearchResult(found.best, False, nodes + second.nodes, "+".join(label), upper_bound=ceiling)
+    if found.best is not None and found.best.picks not in climbed_from:
+        climbed = improve(problem, found.best, relaxed=relaxed, time_limit_s=max(0.0, deadline - time.monotonic()))
+        nodes += climbed.nodes
+        label.append("improve")
+        if _beats(keyed(climbed), keyed(found)):
+            found = climbed
+    return SearchResult(found.best, False, nodes, "+".join(label), upper_bound=ceiling)
 
 
 def solve(problem: PlanningProblem, method: str = "auto", **kwargs) -> SearchResult:
