@@ -348,7 +348,13 @@ def instance():
 
 class Load(unittest.TestCase):
     def load(self, g, data=None, subset=None):
+        return self.imported(g, data, subset).counts
+
+    def imported(self, g, data=None, subset=None):
         return import_vocabulary(g, parse_vocabulary(data or vocabulary_data(), subset or fdc_subset()))
+
+    def ids(self, g, *names):
+        return {self.node(g, "DomainType", n)["id"] for n in names}
 
     def node(self, g, type_name, name):
         (row,) = [r for r in g.get_all(type_name)["result"] if r["name"] == name]
@@ -428,17 +434,45 @@ class Load(unittest.TestCase):
         g = instance()
         self.load(g)
         posts, patches = g.posts, g.patches
-        counts = self.load(g)
+        imported = self.imported(g)
+        counts = imported.counts
         self.assertEqual((g.posts, g.patches, counts["created"], counts["changed"], counts["deleted"]),
                          (posts, patches, 0, 0, 0))
+        self.assertEqual(imported.affected, set())
+
+    def test_the_foods_a_load_changed_figures_for(self):
+        g = instance()
+        self.assertEqual(self.imported(g).affected,
+                         self.ids(g, "Food", "Alliums", "Garlic", "Onion", "Palm sugar", "Shallot", "Kosher salt"))
+        data = vocabulary_data()
+        data["food"][1] = {**data["food"][1], "each": "tsp"}           # garlic's weight per item
+        self.assertEqual(self.imported(g, data).affected, self.ids(g, "Garlic"))
+        data["food"][4] = {**data["food"][4], "parent": "Alliums"}     # shallot moves under Alliums
+        self.assertEqual(self.imported(g, data).affected, self.ids(g, "Shallot"))
+
+    def test_a_retention_factor_is_every_foods(self):
+        g = instance()
+        self.load(g)
+        self.assertEqual(self.imported(g, vocabulary_data(retention={"kept_in_cooking": [1003, 1008, 1093]})).affected,
+                         self.ids(g, "Food"))
+
+    def test_a_method_equipment_or_identifier_changes_no_food(self):
+        g = instance()
+        self.load(g)
+        data = vocabulary_data(method=[{"name": "Dry-Heat Method"}, {"name": "Stir-Frying"}],
+                               equipment=[{"name": "Cookware"}, {"name": "Wok", "parent": "Cookware"}, {"name": "Pan"}])
+        g.nodes[self.node(g, "Identifier", "Garlic FDC ID")["id"]]["identifierValue"] = "99"
+        imported = self.imported(g, data)
+        self.assertEqual((imported.counts["created"], imported.counts["changed"], imported.affected), (1, 2, set()))
 
     def test_a_nutrient_no_source_reports_any_more_is_deleted(self):
         g = instance()
         self.load(g)
         subset = fdc_subset()
         del subset["foods"]["2"]["nutrients"]["1093"]
-        counts = self.load(g, subset=subset)
-        self.assertEqual(counts["deleted"], 3)                 # garlic's, shallot's and kosher salt's (all from FDC 2)
+        imported = self.imported(g, subset=subset)
+        self.assertEqual(imported.counts["deleted"], 3)        # garlic's, shallot's and kosher salt's (all from FDC 2)
+        self.assertEqual(imported.affected, self.ids(g, "Garlic", "Shallot", "Kosher salt"))
         self.assertFalse([r for r in g.get_all("NutrientProfile")["result"] if r["name"] == "Garlic -- Sodium - Na per 100 g"])
 
     def test_a_name_taken_in_another_hierarchy_is_an_error_not_a_move(self):

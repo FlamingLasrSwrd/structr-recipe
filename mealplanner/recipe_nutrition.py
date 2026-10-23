@@ -18,9 +18,9 @@ on it by name. A stored figure for a nutrient no target is about any more is del
 nothing would keep it current.
 
 When: whatever changes what a figure rests on works it out again. tools/import_recipe.py
-does it for the recipes it loads, tools/import_vocabulary.py for every recipe when a food,
-a density, a weight per item or a retention factor changed, and
-tools/calculate_recipe_nutrition.py by hand; its --check works every figure out again and
+does it for the recipes it loads, tools/import_vocabulary.py for the recipes using a food
+whose profiles, density, weight per item, retention factors or place in the hierarchy
+changed (plans_using), and tools/calculate_recipe_nutrition.py by hand; its --check works every figure out again and
 lists the stored ones that differ. A change made in Structr's own pages is not seen until
 one of them runs.
 """
@@ -29,10 +29,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from mealplanner.material_accounting import plan_specifications
 from mealplanner.nutrition_scope import (
     SERVING_BASIS, NutrientUnitError, ServingFigure, nutrient_unit, serving_nutrient_figure, stored_figure,
     stored_serving_profiles,
 )
+from mealplanner.typetree import ancestors_or_self
 from structr_client import ReadCache
 
 RELATIONSHIP = "SERVING_OF"
@@ -103,6 +105,31 @@ def _differs(row: dict, fields: dict) -> dict:
             continue
         out[key] = value
     return out
+
+
+def plans_using(client, type_ids) -> list[str]:
+    """The ids of the Plans whose figures may rest on any of these food Types: a Plan with a
+    Specification about one of them or about a Type below one, since a density, a weight per
+    item or a retention factor resolves up the hierarchy (defaults.py), though a profile does
+    not. Every Specification counts, input or output, optional or not: a recipe worked out
+    again for nothing costs less than one left stale."""
+    changed = set(type_ids)
+    if not changed:
+        return []
+    reads = ReadCache(client)
+    reads.prefetch("Plan", "Step", "Specification", "DomainType")
+    below: dict[str, bool] = {}
+
+    def rests_on(spec: dict) -> bool:
+        type_id = (spec.get("specifies") or {}).get("id")
+        if type_id is None:
+            return False
+        if type_id not in below:
+            below[type_id] = not changed.isdisjoint(ancestors_or_self(reads, type_id))
+        return below[type_id]
+
+    return sorted(plan["id"] for plan in reads.get_all("Plan")["result"]
+                  if any(rests_on(spec) for spec in plan_specifications(reads, plan)))
 
 
 def calculate(client, plan_ids: list[str] | None = None, *, check: bool = False) -> Report:

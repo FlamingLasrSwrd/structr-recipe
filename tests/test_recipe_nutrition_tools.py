@@ -10,6 +10,8 @@ from types import SimpleNamespace
 from unittest import mock
 
 from mealplanner.recipe_nutrition import Report
+from mealplanner.vocabulary_import import Imported
+from tests.planning_graph import add_type
 from tests.test_recipe_nutrition import stocked, stored_rows
 
 
@@ -93,28 +95,31 @@ class ImportRecipeTool(unittest.TestCase):
 class ImportVocabularyTool(unittest.TestCase):
     tool = load("import_vocabulary")
 
-    def run_with(self, counts, g):
+    def run_with(self, affected, g):
         vocabulary = SimpleNamespace(foods=[], methods=[], equipment=[], fdc={"nutrients": []})
+        imported = Imported({"created": 0, "changed": len(affected), "unchanged": 5, "deleted": 0}, set(affected))
         with mock.patch.object(self.tool, "read_vocabulary", return_value=vocabulary), \
-                mock.patch.object(self.tool, "import_vocabulary", return_value=counts), \
-                mock.patch.object(self.tool, "calculate", return_value=Report(plans=4)) as calc:
+                mock.patch.object(self.tool, "import_vocabulary", return_value=imported), \
+                mock.patch.object(self.tool, "calculate", return_value=Report(plans=2)) as calc:
             code, out = run(self.tool, [], g)
         self.assertEqual(code, 0)
         return calc, out
 
-    def test_a_change_works_every_recipe_out_again(self):
-        for changed in ({"created": 1}, {"changed": 1}, {"deleted": 1}):
-            counts = {"created": 0, "changed": 0, "unchanged": 5, "deleted": 0, **changed}
-            calc, out = self.run_with(counts, ready(stocked()))
-            calc.assert_called_once()
-            self.assertEqual(calc.call_args.args[1:], ())
-            self.assertIn("recipe nutrition per serving, 4 recipe(s)", out)
+    def test_the_recipes_using_a_changed_food_are_worked_out_again(self):
+        calc, out = self.run_with({"Eggs"}, ready(stocked()))
+        calc.assert_called_once()
+        self.assertEqual(calc.call_args.args[1], ["omelette", "pasta"])
+        self.assertIn("recipe nutrition per serving, 2 recipe(s) using the 1 changed food(s)", out)
 
-    def test_no_change_or_no_schema_leaves_them(self):
-        calc, _ = self.run_with({"created": 0, "changed": 0, "unchanged": 5, "deleted": 0}, ready(stocked()))
+    def test_no_changed_food_an_unused_one_or_no_schema_leaves_them(self):
+        g = ready(stocked())
+        add_type(g, "Basil")
+        calc, out = self.run_with({"Basil"}, g)
         calc.assert_not_called()
-        calc, _ = self.run_with({"created": 1, "changed": 0, "unchanged": 5, "deleted": 0}, stocked())
-        calc.assert_not_called()
+        self.assertIn("no recipe uses the 1 changed food(s)", out)
+        for affected, g in ((set(), ready(stocked())), ({"Eggs"}, stocked())):
+            calc, _ = self.run_with(affected, g)
+            calc.assert_not_called()
 
 
 if __name__ == "__main__":
