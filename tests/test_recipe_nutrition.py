@@ -12,8 +12,8 @@ from unittest import mock
 
 from mealplanner.nutrition_scope import AmbiguousProfileError, ServingFigure, serving_nutrient_figure, stored_figure
 from mealplanner.planning.extract import build_problem
-from mealplanner.recipe_nutrition import calculate, schema_ready, stored_fields, targeted_nutrients
-from tests.fakegraph import WritableGraph
+from mealplanner.recipe_nutrition import calculate, plans_using, schema_ready, stored_fields, targeted_nutrients
+from tests.fakegraph import Ref, WritableGraph
 from tests.planning_graph import add_recipe, add_target, add_type
 from tests.test_planning_extract import DINNERS, NOW, kitchen
 
@@ -150,6 +150,32 @@ class Calculate(unittest.TestCase):
         self.assertFalse(schema_ready(g))
         g.add("SchemaRelationshipNode", "rel", "rel", relationshipType="SERVING_OF")
         self.assertTrue(schema_ready(g))
+
+
+class PlansUsing(unittest.TestCase):
+    """Which recipes a change to foods sends to be worked out again (tools/import_vocabulary.py):
+    omelette uses Eggs, pasta Noodles and Eggs, soup Leeks; each makes its own dish."""
+
+    def test_the_recipes_using_a_food(self):
+        g = stocked()
+        self.assertEqual(plans_using(g, {"Eggs"}), ["omelette", "pasta"])
+        self.assertEqual(plans_using(g, {"Leeks", "Noodles"}), ["pasta", "soup"])
+
+    def test_and_those_using_a_food_below_it_whose_defaults_it_holds(self):
+        g = stocked()
+        add_type(g, "Animal foods")
+        g.nodes["Eggs"]["parent"] = Ref("Animal foods")
+        g.nodes["Animal foods"]["children"].append(Ref("Eggs"))
+        self.assertEqual(plans_using(g, {"Animal foods"}), ["omelette", "pasta"])
+        self.assertEqual(plans_using(g, {"Eggs"}), ["omelette", "pasta"])
+
+    def test_an_output_counts_as_an_input_does(self):
+        self.assertEqual(plans_using(stocked(), {"stew (dish)"}), ["stew"])
+
+    def test_no_change_or_an_unused_food_sends_none(self):
+        g = stocked()
+        add_type(g, "Basil")
+        self.assertEqual((plans_using(g, set()), plans_using(g, {"Basil"})), ([], []))
 
 
 class StoredFields(unittest.TestCase):

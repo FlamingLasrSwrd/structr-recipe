@@ -490,13 +490,25 @@ def _same(current, desired) -> bool:
     return current == desired
 
 
+ITSELF = "itself"          # an `about` naming the node written: a food Type
+
+
+@dataclass
+class Imported:
+    counts: dict[str, int]
+    affected: set[str]     # the foods (DomainType ids) whose figures a write was part of
+
+
 class Sync:
-    """Create or change nodes by name, reading each type once. Counts what it did."""
+    """Create or change nodes by name, reading each type once. Counts what it did, and keeps
+    in `affected` the food each write was `about`: what a recipe's stored nutrition rests on
+    changed for it (recipe_nutrition.plans_using)."""
 
     def __init__(self, client):
         self.client = client
         self.index: dict[str, dict[str, dict]] = {}
         self.counts = {"created": 0, "changed": 0, "unchanged": 0, "deleted": 0}
+        self.affected: set[str] = set()
 
     def rows(self, type_name: str) -> dict[str, dict]:
         if type_name not in self.index:
@@ -510,7 +522,7 @@ class Sync:
             self.index[type_name] = by_name
         return self.index[type_name]
 
-    def ensure(self, type_name: str, name: str, fields: dict) -> str:
+    def ensure(self, type_name: str, name: str, fields: dict, about: str | None = None) -> str:
         current = self.rows(type_name).get(name)
         if current is None:
             payload = {k: v for k, v in fields.items() if v is not None}
@@ -519,19 +531,26 @@ class Sync:
             # Only the id is needed again in this run: every name is ensured once.
             self.rows(type_name)[name] = {"id": node_id, "name": name, "type": type_name}
             self.counts["created"] += 1
+            self._affect(about, node_id)
             return node_id
         diff = {k: v for k, v in fields.items() if not _same(current.get(k), v)}
         if diff:
             self.client.patch(f"/structr/rest/{type_name}/{current['id']}", diff)
             self.counts["changed"] += 1
+            self._affect(about, current["id"])
         else:
             self.counts["unchanged"] += 1
         return current["id"]
 
-    def delete(self, type_name: str, node: dict) -> None:
+    def delete(self, type_name: str, node: dict, about: str | None = None) -> None:
         self.client.delete(f"/structr/rest/{type_name}/{node['id']}")
         self.rows(type_name).pop(node.get("name"), None)
         self.counts["deleted"] += 1
+        self._affect(about, node["id"])
+
+    def _affect(self, about: str | None, node_id: str) -> None:
+        if about is not None:
+            self.affected.add(node_id if about == ITSELF else about)
 
 
 def _hierarchy(client, name: str) -> str:
@@ -551,8 +570,10 @@ def _tree(sync: Sync, items, hierarchy_id: str) -> dict[str, str]:
     return ids
 
 
-def import_vocabulary(client, vocabulary: Vocabulary) -> dict[str, int]:
-    """Write `vocabulary` (read with its pinned subsets). Returns what was done."""
+def import_vocabulary(client, vocabulary: Vocabulary) -> Imported:
+    """Write `vocabulary` (read with its pinned subsets). Returns what was done, and the foods
+    whose profiles, densities, weights per item, retention factors or place in the hierarchy
+    it changed. A nutrient, a method, a piece of equipment or an identifier changes no figure."""
     fdc = vocabulary.fdc
     sync = Sync(client)
     names = (FOOD_HIERARCHY, METHOD_HIERARCHY, NUTRIENT_HIERARCHY, EQUIPMENT_HIERARCHY)
@@ -593,7 +614,7 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> dict[str, int]:
     _tree(sync, vocabulary.equipment, hierarchies[EQUIPMENT_HIERARCHY])
 
     food_ids = {ROOT_FOOD: sync.ensure("DomainType", ROOT_FOOD, {"hierarchy": hierarchies[FOOD_HIERARCHY],
-                                                                "isLookupBearing": True, "parent": None})}
+                                                                "isLookupBearing": True, "parent": None}, ITSELF)}
     pending = list(vocabulary.foods)
     while pending:                          # parents first, in whatever order the file lists them
         ready = [f for f in pending if f.parent in food_ids or f.parent not in in_file]
@@ -602,7 +623,7 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> dict[str, int]:
         for food in ready:
             parent = food_ids.get(food.parent) or sync.rows("DomainType")[food.parent]["id"]
             food_ids[food.name] = sync.ensure("DomainType", food.name, {
-                "hierarchy": hierarchies[FOOD_HIERARCHY], "isLookupBearing": True, "parent": parent})
+                "hierarchy": hierarchies[FOOD_HIERARCHY], "isLookupBearing": True, "parent": parent}, ITSELF)
             pending.remove(food)
 
     kinds = {k: sync.rows("DomainType")[k]["id"] for k in ("Density", "MassPerUnit", "RetentionFactor")}
@@ -618,7 +639,7 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> dict[str, int]:
             wanted_profiles.add(profile)
             sync.ensure("NutrientProfile", profile, {
                 "isAbout": fid, "forNutrient": nutrient_ids[nid], "amount": round(amount, 6), "basis": "per_100g",
-                "unit": FDC_UNITS[fdc["nutrients"][nid]["unit"].upper()], "provenance": status, "source": source})
+                "unit": FDC_UNITS[fdc["nutrients"][nid]["unit"].upper()], "provenance": status, "source": source}, fid)
         if food.label:
             stated = dict(food.label.figures)
             for nid, n in fdc["nutrients"].items():
@@ -630,27 +651,28 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> dict[str, int]:
                 source = food.label.source if nid in stated else "not on the label: taken as none"
                 sync.ensure("NutrientProfile", profile, {
                     "isAbout": fid, "forNutrient": nutrient_ids[nid], "amount": stated.get(nid, 0.0), "basis": "per_unit",
-                    "unit": FDC_UNITS[n["unit"].upper()], "provenance": food.label.status, "source": source})
+                    "unit": FDC_UNITS[n["unit"].upper()], "provenance": food.label.status, "source": source}, fid)
         for kind, measure, unit, label in (("Density", food.volume, "g_per_mL", "density"),
                                            ("MassPerUnit", food.each, "g_per_each", "mass per each")):
             if measure is None:
                 continue
             qty = sync.ensure("QuantitySpecification", f"{food.name} {label} value", {
-                "value": round(measure_value(fdc, measure), 6), "unit": unit, "status": "default"})
+                "value": round(measure_value(fdc, measure), 6), "unit": unit, "status": "default"}, fid)
             sync.ensure("DefaultSpecification", f"{food.name} {label}", {
                 "forType": fid, "hasKind": kinds[kind], "hasValue": qty, "provenance": measure.status,
-                "source": measure_source(fdc, measure)})
+                "source": measure_source(fdc, measure)}, fid)
     mapped = {f.name for f in vocabulary.foods if f.sources or f.label}
     for profile in list(sync.rows("NutrientProfile").values()):
         if (profile.get("isAbout") or {}).get("name") in mapped and profile["name"] not in wanted_profiles:
-            sync.delete("NutrientProfile", profile)
+            sync.delete("NutrientProfile", profile, profile["isAbout"]["id"])
 
     for nid in vocabulary.kept_in_cooking:
         nutrient = nutrient_name(fdc["nutrients"][nid]["name"])
         qty = sync.ensure("QuantitySpecification", f"Retention of {nutrient} in cooking value", {
-            "value": 1.0, "unit": "ratio", "status": "default"})
+            "value": 1.0, "unit": "ratio", "status": "default"}, food_ids[ROOT_FOOD])
         sync.ensure("DefaultSpecification", f"Retention of {nutrient} in cooking", {
             "forType": food_ids[ROOT_FOOD], "hasKind": kinds["RetentionFactor"], "hasValue": qty,
             "keyedBy": [nutrient_ids[nid]], "provenance": "estimated",
-            "source": "the owner's decision of 2026-09-26: kept through cooking, as in USDA recipe calculations"})
-    return sync.counts
+            "source": "the owner's decision of 2026-09-26: kept through cooking, as in USDA recipe calculations"},
+            food_ids[ROOT_FOOD])
+    return Imported(sync.counts, sync.affected)
