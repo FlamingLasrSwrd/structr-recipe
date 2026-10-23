@@ -99,6 +99,41 @@ class Report(unittest.TestCase):
         rows = {r["target"]: r for r in nutrition_report(g, "week")}
         self.assertEqual((rows["jamie floor"]["total"], rows["alex cap"]["total"]), (41.0, 12.0))
 
+    def test_a_meal_someone_does_not_eat_adds_nothing_to_their_day(self):
+        g = household()
+        add_entry(g, "e1", "omelette", at(28, 18), servings=2.0)
+        share(g, "e1", "p-jamie", 1.5)                                   # Alex is out that evening
+        rows = {r["target"]: r for r in nutrition_report(g, "week")}
+        self.assertEqual((rows["jamie floor"]["total"], rows["alex cap"]["total"]), (41.0, 0.0))
+
+    def test_a_weekly_target_counts_the_baseline_once_for_each_day_with_meals(self):
+        g = household()
+        add_target(g, "jamie week", 50, None, scope="weekly", strictness="soft", weight=0.3)
+        g.nodes["jamie week"]["forPerson"] = Ref("p-jamie")
+        for name, day, servings in (("e1", 28, 1.5), ("e2", 29, 1.0)):
+            add_entry(g, name, "omelette", at(day, 18), servings=2.0)
+            share(g, name, "p-jamie", servings)
+        (row,) = [r for r in nutrition_report(g, "week") if r["target"] == "jamie week"]
+        self.assertEqual((row["group"], row["total"], row["status"]), ("week", 36.0 + 24.0 + 2 * 5.0, "ok"))
+
+    def test_a_per_meal_target_counts_each_meal_alone_without_the_baseline(self):
+        g = household()
+        add_target(g, "jamie meal", 30, None, scope="per_meal", strictness="soft", weight=0.3)
+        g.nodes["jamie meal"]["forPerson"] = Ref("p-jamie")
+        for name, day, servings in (("e1", 28, 1.5), ("e2", 29, 1.0)):
+            add_entry(g, name, "omelette", at(day, 18), servings=2.0)
+            share(g, name, "p-jamie", servings)
+        rows = {r["group"]: r for r in nutrition_report(g, "week") if r["target"] == "jamie meal"}
+        self.assertEqual({k: (r["total"], r["status"]) for k, r in rows.items()}, {"e1": (36.0, "ok"), "e2": (24.0, "below_min")})
+
+    def test_servings_not_stated_in_servings_are_taken_as_one_and_said_so(self):
+        g = household()
+        add_entry(g, "e1", "omelette", at(28, 18), servings=2.0)
+        g.add("QuantitySpecification", "e1 eaten", value=2.0, unit="g")
+        g.nodes["e1"]["hasPlannedConsumption"] = Ref("e1 eaten")
+        (row,) = [r for r in nutrition_report(g, "week") if r["target"] == "nobody's"]
+        self.assertEqual((row["total"], row["assumed_default_servings"]), (24.0, ["e1"]))
+
 
 if __name__ == "__main__":
     unittest.main()
