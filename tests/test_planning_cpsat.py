@@ -76,6 +76,35 @@ class WorkedDay(unittest.TestCase):
 
 
 @unittest.skipUnless(cpsat.available(), "OR-tools is not installed")
+class LeftoversOfAFixedCook(unittest.TestCase):
+    def test_only_the_recipe_it_cooked(self):
+        """Monday's dinner is already planned: plain rice, 10 g of protein, cooked for 2. Tuesday may eat its
+        leftovers (time fit 1, 10 g: 0.6 + 0.1 = 0.7) or cook the stew (40 minutes against 30: 0.6 x 2/3, and
+        50 g: 0.4 + 0.5 = 0.9). The stew's leftovers (0.6 + 0.5 = 1.1) are not on offer: nobody cooked it."""
+        rice = cand("rice", 10, 20, leftover_days=3.0, yield_servings=2.0)
+        stew = cand("stew", 50, 40, leftover_days=3.0, yield_servings=2.0)
+        p = problem([slot("mon", when(28, 18), fixed=Fixed(eaten=1.0, candidate="rice", cooked=2.0)), slot("tue", when(29, 18))],
+                    (rice, stew), [protein_target(100, None, hard=False, weight=1.0)])
+        got, want = cpsat.solve(p), oracle(p)
+        self.assertAlmostEqual(got.best.objective, want.best.objective, delta=TOL)
+        self.assertEqual(got.best.picks[1].candidate, "stew")
+
+    def test_and_never_the_leftovers_of_leftovers(self):
+        """Monday's rice (cooked for 3) and Tuesday's lunch of its leftovers are planned. Rice keeps a day
+        and a half, so by Wednesday noon Monday's is gone and the only real choice is to cook it again
+        (45 minutes: 0.6 x 1/2 + 0.1 = 0.4). 'The leftovers of Tuesday's leftovers' would score 0.7, but
+        evaluate() refuses a leftover's leftovers."""
+        rice = cand("rice", 10, 45, leftover_days=1.5, yield_servings=2.0)
+        p = problem([slot("mon", when(28, 18), fixed=Fixed(eaten=1.0, candidate="rice", cooked=3.0)),
+                     slot("tue", when(29, 12), fixed=Fixed(eaten=1.0, source=0)), slot("wed", when(30, 12))],
+                    (rice,), [protein_target(100, None, hard=False, weight=1.0)])
+        got, want = cpsat.solve(p), oracle(p)
+        self.assertTrue(got.best.legal)
+        self.assertEqual(got.best.picks[2].candidate, "rice")
+        self.assertAlmostEqual(got.best.objective, want.best.objective, delta=TOL)
+
+
+@unittest.skipUnless(cpsat.available(), "OR-tools is not installed")
 class MadeAheadInTheModel(unittest.TestCase):
     def test_a_dish_too_late_to_start_is_not_cooked_there(self):
         oats = cand("overnight oats", 30, 5, ahead_hours=8.0)
