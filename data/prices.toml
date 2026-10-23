@@ -16,7 +16,7 @@
 # the weight lost in cooking). A food may name both: the BLS price, where there is one, wins (J27).
 #
 # Not priced (no public figure found): spices and dried herbs, salt, baking powder and soda, yeast,
-# cornstarch, vanilla, panko, rolled oats, tomato paste, canned coconut milk and green chiles, fresh
+# cornstarch, vanilla, panko, tomato paste, canned coconut milk and green chiles, fresh
 # ginger, semisweet chocolate, refrigerated biscuit dough, and the meal kits' own items (stock
 # concentrates, spice blends, sauces and pastes, compote, truffle zest). A recipe's cost names them.
 
@@ -552,3 +552,47 @@ food = "Buttermilk ranch dressing"
 ppnap = 12350230                 # Ranch dip, regular
 proxy = true
 note = "ranch dip; Purchase to Plate has no ranch dressing"
+
+# -- the owner's Budget Bytes breakfasts (2026-10-22) -----------------------------------------------
+# Ground nutmeg and dried parsley are spices and dried herbs: not priced, as above.
+[[price]]
+food = "Cottage cheese"
+ppnap = 14201010                 # Cheese, cottage, creamed, large or small curd (includes regular 4% fat)
+[[price]]
+food = "Puff pastry"
+ppnap = 53452400                 # Pastry, puff (includes flaky pastry; patty shell)
+cooked = true
+note = "baked puff pastry, for the frozen sheet"
+[[price]]
+food = "Heavy cream"
+ppnap = 12130100                 # Cream, heavy (includes whipping cream)
+[[price]]
+food = "Swiss cheese"
+ppnap = 14109010                 # Cheese, Swiss
+[[price]]
+food = "Ham (cooked)"
+ppnap = 22311010                 # Ham, smoked or cured, cooked, lean and fat eaten
+[[price]]
+food = "Flour tortilla (8 inch)"
+ppnap = 52215200                 # Tortilla, flour
+[[price]]
+food = "Chia seeds"
+ppnap = 43108010                 # Chia seeds
+[[price]]
+food = "Peanut butter (crunchy)"
+ppnap = 42202000                 # Peanut butter (includes NS as to type)
+[[price]]
+food = "Blueberries"
+ppnap = 63203010                 # Blueberries, raw
+[[price]]
+food = "Raspberries"
+ppnap = 63219000                 # Raspberries, raw
+[[price]]
+food = "Walnuts"
+ppnap = 42116000                 # Walnuts, excluding honey roasted
+[[price]]
+food = "Banana"
+ppnap = 63107010                 # Banana, raw
+[[price]]
+food = "Rolled oats"
+ppnap = 57602100                 # Oats, raw (an earlier search missed it: rolled oats were listed as unpriced)

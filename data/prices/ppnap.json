@@ -28,9 +28,21 @@
    "description": "Cheese, Parmesan, dry grated (Includes Romano, grated; Asiago, aged)",
    "price_100g": 1.91342
   },
+  "14109010": {
+   "description": "Cheese, Swiss (Includes Emmentaler; Jarlsburg; Samsoe; Danbo; Sweitzer; Sapsago)",
+   "price_100g": 1.597817
+  },
+  "14201010": {
+   "description": "Cheese, cottage, creamed, large or small curd (Includes regular (4% fat) cottage cheese)",
+   "price_100g": 0.439217
+  },
   "14301010": {
    "description": "Cream cheese, regular, plain",
    "price_100g": 0.834458
+  },
+  "22311010": {
+   "description": "Ham, smoked or cured, cooked, lean and fat eaten (Includes country ham; cottage ham; picnic ham; ham or baked ham, NS as to fresh, smoked, or cured)",
+   "price_100g": 0.862722
   },
   "24207000": {
    "description": "Turkey, ground",
@@ -104,6 +116,18 @@
    "description": "Pistachio nuts, salted (Includes NS as to salt; sea salt)",
    "price_100g": 1.975905
   },
+  "42116000": {
+   "description": "Walnuts, excluding honey roasted (Includes NFS)",
+   "price_100g": 1.741183
+  },
+  "42202000": {
+   "description": "Peanut butter (Includes NS as to type)",
+   "price_100g": 0.51391
+  },
+  "43108010": {
+   "description": "Chia seeds",
+   "price_100g": 1.251176
+  },
   "51107010": {
    "description": "Bread, French or Vienna (Includes baguette; pre-sliced or not)",
    "price_100g": 0.552128
@@ -128,9 +152,17 @@
    "description": "Tortilla, flour (Includes spinach, tomato, and other flavors)",
    "price_100g": 0.466047
   },
+  "53452400": {
+   "description": "Pastry, puff (Includes angel wings; flaky pastry; patty shell)",
+   "price_100g": 0.767022
+  },
   "54401075": {
    "description": "Tortilla chips, plain (Includes original; Tostitos; tostada chips; multigrain; plain nacho chips)",
    "price_100g": 0.771015
+  },
+  "57602100": {
+   "description": "Oats, raw",
+   "price_100g": 0.433131
   },
   "61113010": {
    "description": "Lemon, raw",
@@ -168,9 +200,21 @@
    "description": "Avocado, raw",
    "price_100g": 0.773366
   },
+  "63107010": {
+   "description": "Banana, raw",
+   "price_100g": 0.189998
+  },
   "63123000": {
    "description": "Grapes, raw",
    "price_100g": 0.495558
+  },
+  "63203010": {
+   "description": "Blueberries, raw (Includes blueberries, NFS)",
+   "price_100g": 1.104237
+  },
+  "63219000": {
+   "description": "Raspberries, raw (Includes raspberries, NFS)",
+   "price_100g": 1.746899
   },
   "64401000": {
    "description": "Vinegar",
