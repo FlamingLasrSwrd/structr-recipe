@@ -37,6 +37,7 @@ from mealplanner.nutrition_scope import (
 )
 from mealplanner.planning.model import Candidate, Fixed, Lot, PlanningProblem, Slot, Target, Weights
 from mealplanner.planning.shortlist import FACTOR, SHORTLIST_ABOVE, choose
+from mealplanner.planning_view_schema import TYPE as VIEW_TYPE, VIEW as PLANNING_VIEW
 from mealplanner.recipe_nutrition import PREFETCH_ABOVE
 from mealplanner.reservation import stock_pools
 from mealplanner.scoring import number
@@ -67,6 +68,16 @@ def _leftover_days(client, override: float | None) -> float | None:
         return shelf_life_days(client, dt(client, LEFTOVER_CLASS), "Sealed", "Fridge")
     except LookupError:
         return None
+
+
+def stored_figures_view(client) -> str:
+    """The view to read the stored figures through: the narrow one where the instance has it
+    (scripts/37a; planning_view_schema.py), else `all`, as before it."""
+    for view in client.get("/structr/rest/SchemaView", params={"name": PLANNING_VIEW})["result"]:
+        node = (client.get_all("SchemaView", view["id"])["result"].get("schemaNode") or {})
+        if node.get("name") == VIEW_TYPE:
+            return PLANNING_VIEW
+    return "all"
 
 
 def build_problem(
@@ -243,7 +254,7 @@ def build_problem(
     all_plans = client.get_all("Plan")["result"]
     stored_in_use = any(plan.get("servingProfiles") for plan in all_plans)
     if stored_in_use:
-        client.prefetch_where("NutrientProfile", basis=SERVING_BASIS)
+        client.prefetch_where("NutrientProfile", basis=SERVING_BASIS, view=stored_figures_view(client))
     book: list[dict] = []
     for plan in all_plans:
         if plan["id"] in baseline_ids:

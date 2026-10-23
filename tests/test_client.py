@@ -189,6 +189,12 @@ class CollectionReadsAreComplete(unittest.TestCase):
         with self.assertRaises(ValueError):
             server.get_all("NutrientProfile", where={"name": "a, b"})
 
+    def test_a_listing_or_a_node_may_name_a_narrower_view(self):
+        rows = [{"id": str(i), "basis": "per_serving"} for i in range(3)]
+        server = FilteringServer(rows)
+        server.get_all("NutrientProfile", page_size=2, where={"basis": "per_serving"}, view="planning")
+        self.assertTrue(all(path == "/structr/rest/NutrientProfile/planning" for path, _ in server.requests))
+
     def test_every_row_comes_back_when_the_server_gives_no_counts(self):
         rows = [{"id": str(i)} for i in range(7)]
         server = ServerThatStopsCounting(rows)

@@ -262,6 +262,20 @@ class ThePlannerReadsThem(unittest.TestCase):
         self.assertIn("1 recipe(s)", note)
         self.assertIn("curry", note)
 
+    def test_they_are_read_through_the_narrow_view_where_the_instance_has_it(self):
+        from tests.fakegraph import Ref as R
+        g = stocked()
+        calculate(g)
+        for with_view, want in ((False, "all"), (True, "planning")):
+            if with_view:
+                g.add("SchemaNode", "sn", "NutrientProfile")
+                g.add("SchemaView", "sv", "planning", schemaNode=R("sn"))
+            with mock.patch.object(g, "get_all", wraps=g.get_all) as reads:
+                p = build_problem(g, "week", DINNERS, NOW)
+            (listing,) = [c for c in reads.call_args_list if c.args == ("NutrientProfile",) and c.kwargs.get("where")]
+            self.assertEqual(listing.kwargs.get("view", "all"), want)
+            self.assertEqual(p.candidates["omelette"].nutrients, {"Protein": 24.0})
+
     def test_a_few_recipes_without_them_do_not_have_every_profile_read(self):
         from mealplanner.planning import extract
         g = stocked()

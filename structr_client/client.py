@@ -382,7 +382,8 @@ class StructrClient:
         created = self.post(f"/structr/rest/{type_name}", payload)
         return created["result"][0]
 
-    def get_all(self, type_name: str, node_id: str | None = None, page_size: int = 500, where: dict | None = None) -> dict:
+    def get_all(self, type_name: str, node_id: str | None = None, page_size: int = 500, where: dict | None = None,
+                view: str = "all") -> dict:
         """GET with the /all view suffix - the default view omits custom
         properties and relationship collections.
 
@@ -401,10 +402,15 @@ class StructrClient:
         `where`: exact-match filters on a collection (`{"basis": "per_serving"}`),
         read with the same paging (checked on Structr 6, 2026-10-22: a filtered
         `/all` read pages and keeps every property).
+
+        `view`: a narrower view the type has (a SchemaView), for a large listing
+        of which only some properties are wanted: `all` resolves every
+        relationship of every row (structr-cheatsheet.md). A view the type does
+        not have is a 404, not fewer properties.
         """
         if node_id:
-            return self.get(f"/structr/rest/{type_name}/{node_id}/all")
-        path = f"/structr/rest/{type_name}/all"
+            return self.get(f"/structr/rest/{type_name}/{node_id}/{view}")
+        path = f"/structr/rest/{type_name}/{view}"
         for key, value in (where or {}).items():
             validate_exact_match_value(f"get_all({type_name!r}, where {key!r})", value)
         first = self.get(path, params={**(where or {}), "_page": 1, "_pageSize": page_size})

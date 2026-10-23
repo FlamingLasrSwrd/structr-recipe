@@ -48,7 +48,7 @@ class FakeGraph:
     def _row(self, node: dict) -> dict:
         return {k: self._render(v) for k, v in node.items()}
 
-    def get_all(self, type_name: str, node_id: str | None = None, where: dict | None = None) -> dict:
+    def get_all(self, type_name: str, node_id: str | None = None, where: dict | None = None, view: str = "all") -> dict:
         if node_id is not None:
             return {"result": self._row(self.nodes[node_id])}
         return {"result": [self._row(n) for n in self.nodes.values() if n["type"] == type_name

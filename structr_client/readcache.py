@@ -55,13 +55,16 @@ class ReadCache:
                 for row in rows:
                     self._nodes[(type_name, row["id"])] = row
 
-    def prefetch_where(self, type_name: str, **where) -> None:
+    def prefetch_where(self, type_name: str, *, view: str = "all", **where) -> None:
         """Read the rows of a type that match `where` now, so that later lookups of them by id
-        need no request (a filtered listing answers nothing else: it is not the whole type)."""
-        key = (type_name, tuple(sorted(where.items())))
+        need no request (a filtered listing answers nothing else: it is not the whole type).
+        With a narrower `view`, a later lookup gets only that view's properties: for rows whose
+        readers want no others."""
+        key = (type_name, view, tuple(sorted(where.items())))
         if key not in self._filtered:
             self._filtered.add(key)
-            for row in self._client.get_all(type_name, where=where)["result"]:
+            rows = self._client.get_all(type_name, where=where, **({"view": view} if view != "all" else {}))["result"]
+            for row in rows:
                 self._nodes[(type_name, row["id"])] = row
 
     def memo(self, key, compute):
