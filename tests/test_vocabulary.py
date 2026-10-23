@@ -327,6 +327,13 @@ class Parse(unittest.TestCase):
                          "exactly one of fdc or mean", "'guessed'", "per a volume unit", "needs its source"):
             self.assertTrue(any(fragment in p for p in problems), (fragment, problems))
 
+    def test_a_name_with_spaces_round_it_or_none_at_all_is_refused(self):
+        for bad in (" Garlic", "Garlic ", "   ", 7):
+            data = vocabulary_data()
+            data["food"][1] = {**data["food"][1], "name": bad}
+            with self.assertRaises(VocabularyError, msg=repr(bad)):
+                parse_vocabulary(data, fdc_subset())
+
     def test_a_nutrient_in_an_unknown_unit_is_refused(self):
         subset = fdc_subset()
         subset["nutrients"]["1003"]["unit"] = "PH"
@@ -474,6 +481,22 @@ class Load(unittest.TestCase):
         self.assertEqual(imported.counts["deleted"], 3)        # garlic's, shallot's and kosher salt's (all from FDC 2)
         self.assertEqual(imported.affected, self.ids(g, "Garlic", "Shallot", "Kosher salt"))
         self.assertFalse([r for r in g.get_all("NutrientProfile")["result"] if r["name"] == "Garlic -- Sodium - Na per 100 g"])
+
+    def test_every_node_written_states_its_visibility_and_types_are_lookup_bearing(self):
+        g = instance()
+        before = set(g.nodes)
+        self.load(g)
+        written = [g.nodes[n] for n in set(g.nodes) - before]
+        self.assertTrue(written)
+        for node in written:                                    # hard rule 4: the default is owner-only, silently
+            self.assertEqual((node["visibleToAuthenticatedUsers"], node["visibleToPublicUsers"]), (True, False), node["name"])
+        for name in ("Garlic", "Food", "Wok", "Stir-Frying", "Sodium - Na"):
+            self.assertIs(self.node(g, "DomainType", name)["isLookupBearing"], True, name)
+
+    def test_what_is_kept_through_cooking_is_all_of_it(self):
+        g = instance()
+        self.load(g)
+        self.assertEqual(self.node(g, "QuantitySpecification", "Retention of Protein in cooking value")["value"], 1.0)
 
     def test_a_name_taken_in_another_hierarchy_is_an_error_not_a_move(self):
         g = instance()
