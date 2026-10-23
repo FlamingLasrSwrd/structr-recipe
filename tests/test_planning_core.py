@@ -106,6 +106,18 @@ class Scopes(unittest.TestCase):
         self.assertEqual([v.group for v in ev.violations], ["d1 b"])          # 12 g < 20
 
 
+class DifficultyCap(unittest.TestCase):
+    def test_a_cap_rules_out_harder_recipes_and_those_that_do_not_say(self):
+        easy, hard, unsaid = cand("toast", 10, 5, difficulty="easy"), cand("souffle", 10, 60, difficulty="hard"), cand("stew", 10, 30)
+        dinner = [slot("dinner", when(28, 18))]
+        p = problem(dinner, (easy, hard, unsaid), max_difficulty="medium")
+        self.assertEqual([ineligible_reason(p, 0, c) for c in (easy, hard, unsaid)],
+                         [None, "harder than medium", "difficulty not stated, and a cap is set"])
+        self.assertEqual(oracle(p).best.picks, (Pick(candidate="toast"),))
+        self.assertIsNone(ineligible_reason(problem(dinner, (hard, unsaid)), 0, unsaid))     # no cap, no rule
+        self.assertIsNone(ineligible_reason(problem(dinner, (hard,), max_difficulty="hard"), 0, hard))
+
+
 class MadeAhead(unittest.TestCase):
     """A dish started hours before its meal (J29): overnight oats, made at least 8 h ahead."""
 
