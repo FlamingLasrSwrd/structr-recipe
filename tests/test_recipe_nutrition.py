@@ -97,6 +97,15 @@ class Calculate(unittest.TestCase):
         self.assertEqual(calculate(g, ["pasta"]).plans, 1)
         self.assertEqual([n for n in PLANS if stored_rows(g, n)], ["pasta"])
 
+    def test_a_few_recipes_are_read_node_by_node_and_many_with_the_whole_types_first(self):
+        from mealplanner import recipe_nutrition
+        g = stocked()
+        for plan_ids, listed in ((["pasta"], False), (None, True), (["pasta"] * (recipe_nutrition.PREFETCH_ABOVE + 1), True)):
+            with mock.patch.object(g, "get_all", wraps=g.get_all) as reads:
+                calculate(g, plan_ids, check=True)
+            whole = {c.args[0] for c in reads.call_args_list if len(c.args) == 1 and not c.kwargs.get("where")}
+            self.assertEqual("NutrientProfile" in whole, listed, plan_ids)
+
     def test_a_figure_for_a_nutrient_no_target_is_about_is_deleted(self):
         g = stocked()
         calculate(g)

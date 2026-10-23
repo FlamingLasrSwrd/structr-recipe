@@ -39,6 +39,10 @@ from structr_client import ReadCache
 
 RELATIONSHIP = "SERVING_OF"
 TOLERANCE = 1e-9            # relative: a stored amount is the same figure if it agrees this closely
+# Above this many recipes, every profile, specification, quantity and type is read up front; fewer
+# are read node by node. Measured on a throwaway instance holding the vocabulary (22,409 nodes),
+# 2026-10-22: one recipe took 218 s with the whole types read first and 35 s without (864 reads).
+PREFETCH_ABOVE = 10
 
 
 @dataclass
@@ -137,7 +141,8 @@ def calculate(client, plan_ids: list[str] | None = None, *, check: bool = False)
     nothing: list each targeted nutrient whose stored figure is missing or differs from
     what it works out to now, and each stored for a nutrient no target is about."""
     reads = ReadCache(client)                     # computing reads only; the writes go to `client`
-    reads.prefetch("NutrientProfile", "Specification", "QuantitySpecification", "DomainType")
+    if plan_ids is None or len(plan_ids) > PREFETCH_ABOVE:
+        reads.prefetch("NutrientProfile", "Specification", "QuantitySpecification", "DomainType")
     nutrients = targeted_nutrients(reads)
     if plan_ids is None:
         plans = reads.get_all("Plan")["result"]

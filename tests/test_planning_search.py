@@ -203,7 +203,7 @@ def single_changes(p, picks):
     """Every plan one change away (a meal, its portions, or a swap of two slots of a meal type),
     enumerated here without improve()'s own loop."""
     for i in p.open_slots():
-        for pick in list(options(p, picks, i)) + [replace(picks[i], **v) for v in portion_variants(p, i)]:
+        for pick in list(options(p, list(picks), i)) + [replace(picks[i], **v) for v in portion_variants(p, i)]:
             yield picks[:i] + (pick,) + picks[i + 1:]
         for j in p.open_slots():
             if j > i and p.slots[j].meal_type == p.slots[i].meal_type:
