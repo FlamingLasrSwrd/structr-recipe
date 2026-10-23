@@ -124,6 +124,7 @@ class MadeAhead(unittest.TestCase):
         p, oats = self.oats(when(27, 23))                         # exactly 8 h: in time
         self.assertIsNone(ineligible_reason(p, 0, oats))
         self.assertIsNone(ineligible_reason(self.oats(None)[0], 0, oats))      # no time given, no rule
+        self.assertIsNone(ineligible_reason(self.oats(when(28, 7, 1))[0], 0, oats))   # a past meal, planned after the fact
         self.assertEqual(time_fit := evaluate(p, picks("overnight oats", "toast")).terms["time"],
                          evaluate(p, picks("toast", "toast")).terms["time"])  # the minutes alone are scored
         self.assertGreater(time_fit, 0)
