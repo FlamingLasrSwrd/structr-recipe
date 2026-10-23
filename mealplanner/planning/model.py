@@ -33,6 +33,8 @@ class Candidate:
       MealPlans, earlier weeks); feeds the variety term.
     leftover_days: how long the cooked food keeps; None means leftovers of it
       are not planned.
+    ahead_hours: how long before the meal it must be started, for waiting no one
+      attends (overnight oats soaking; J29). `minutes` is the work alone.
     """
 
     id: str
@@ -49,6 +51,7 @@ class Candidate:
     leftover_days: float | None = None
     uses: tuple = ()
     recipe: str | None = None       # the RecipeIdentity this Plan is a version of (planning/shortlist.py)
+    ahead_hours: float = 0.0
 
 
 @dataclass(frozen=True)

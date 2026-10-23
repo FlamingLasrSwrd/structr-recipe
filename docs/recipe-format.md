@@ -19,7 +19,9 @@ python3 tools/import_recipe.py private/recipes/*.toml           # load
 name = "Garlic Butter Noodles"            # the RecipeIdentity, and by default the dish
 source = "https://example.org/noodles"    # optional: the page it was transcribed from
 servings = 4                              # what the recipe yields, in servings
-minutes = 25                              # optional: total time
+minutes = 25                              # optional: total time, the time spent working
+# ahead_hours = 8                         # optional: hours it must be started before the meal, for waiting
+                                          # no one attends (oats soaking overnight); see "Made ahead"
 difficulty = "easy"                       # optional: easy, medium or hard
 meal_types = ["Dinner", "Lunch"]          # at least one, from the Meal Type scheme
 # version = 2                             # optional, default 1: see "Changing a recipe"
@@ -82,6 +84,22 @@ inputs = [{ food = "Vitamin D3 supplement (1000 IU)", amount = 1, unit = "each" 
 A supplement is a `label` food in the vocabulary: its figures per unit, as its label states them,
 and every other nutrient none. It is counted with `each`.
 
+## Made ahead
+
+A dish that must wait hours before it is eaten, with no one attending it (overnight oats soaking,
+a dough rising, a long marinade), states the wait apart from its working time (data-model.md J29):
+
+```toml
+name = "Overnight Oats"
+minutes = 5                               # the time spent making it
+ahead_hours = 8                           # then 8 hours in the fridge
+```
+
+`minutes` is what the time budget scores, so the 5 minutes count, not the night. The planner does
+not plan the dish for a meal less than `ahead_hours` after the plan is made, and the week it
+proposes says when to start it ("made ahead: start it by Sun 23:00"). Making several servings at
+once and eating them on later days is ordinary leftovers, within their keeping time.
+
 ## Transcribing a recipe
 
 Only facts are transcribed: ingredients, amounts, servings, times and the order of operations.
@@ -114,7 +132,7 @@ makes go in a comment at the top of the file. The conventions so far (`docs/data
 ## What it becomes
 
 A `RecipeIdentity` (meal types; an `Identifier` for the source page), a `Plan` named
-`<name> v<version>` (yield in servings, minutes, difficulty), and for each step a `Step` (its
+`<name> v<version>` (yield in servings, minutes, difficulty, hours made ahead), and for each step a `Step` (its
 transformation method) with one input `Specification` per ingredient, an output `Specification`
 for what it makes, and an instrument `Specification` per piece of equipment. The page's prose is
 not stored: a Step records what goes in, what comes out, how and with what, in order. An actual

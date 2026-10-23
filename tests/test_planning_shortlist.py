@@ -103,6 +103,13 @@ class Choosing(unittest.TestCase):
         v1, v2 = recipe("soup v1", 15.0, 400.0, recipe="soup"), recipe("soup v2", 14.0, 400.0, recipe="soup")
         self.assertEqual(choose(week(candidates=[v1, v2, BOOK[1]]), factor=1.0, coverage=0), {"soup v1", "rice bowl"})
 
+    def test_a_dish_made_ahead_too_late_for_the_first_meal_still_counts(self):
+        oats = recipe("oats", 15.0, 400.0, meal_types=BREAKFAST, ahead_hours=8.0)
+        toast = recipe("toast", 2.0, 100.0, meal_types=BREAKFAST)
+        slots = [slot("b1", when(28, 7), "Breakfast"), slot("b2", when(29, 7), "Breakfast")]
+        p = week(candidates=[oats, toast], slots=slots, now=when(28, 1))
+        self.assertEqual(choose(p, factor=0.5, coverage=0), {"oats"})
+
     def test_a_recipe_that_cannot_be_eaten_is_passed_over(self):
         untrusted = recipe("placeholder soup", 15.0, 400.0, untrusted=frozenset({"energy"}))
         breakfast = recipe("granola", 15.0, 400.0, meal_types=BREAKFAST)
@@ -161,6 +168,11 @@ class ReadingTheShortlist(unittest.TestCase):
         whole = self.build(g, shortlist_above=None)
         self.assertEqual({cid: whole.candidates[cid] for cid in p.candidates}, p.candidates)   # each read as in full
         self.assertEqual((whole.targets, whole.slots, whole.baselines), (p.targets, p.slots, p.baselines))
+
+    def test_a_dish_made_too_far_ahead_for_every_meal_takes_no_place(self):
+        g = self.kitchen()
+        g.nodes["curry"]["makeAheadHours"] = 1000.0
+        self.assertEqual(set(self.build(g).candidates), {"salad", "stew", "omelette"})
 
     def test_two_versions_of_a_recipe_take_one_place(self):
         from tests.fakegraph import Ref

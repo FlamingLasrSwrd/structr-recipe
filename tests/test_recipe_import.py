@@ -57,6 +57,12 @@ class Parse(unittest.TestCase):
         self.assertEqual(second.inputs[1], Ingredient("Butter", 3.0, "tbsp"))
         self.assertEqual(second.inputs[4], Ingredient("Parsley", 5.0, "g", True))
 
+    def test_hours_made_ahead(self):
+        self.assertEqual((parse_recipe(good()).ahead_hours, parse_recipe(good(ahead_hours=8)).ahead_hours), (None, 8.0))
+        self.assertEqual(parse_recipe(good(ahead_hours=8)).plan_part()[4], 8.0)
+        for bad in (0, -1, "overnight", True):
+            self.assertTrue(any("ahead_hours" in p for p in self.problems(good(ahead_hours=bad))), bad)
+
     def problems(self, data):
         with self.assertRaises(RecipeFormatError) as caught:
             parse_recipe(data)
@@ -222,7 +228,10 @@ class ReadBack(unittest.TestCase):
             self.assertEqual(export_plan(self.build(plan_name), "plan"), (2.0, None, "easy", (
                 StepDoc("boil -- well", "Boiling", (Ingredient("Rice", 1.5, "cup"),), "Rice (cooked)"),
                 StepDoc("serve", None, (Ingredient("Rice (cooked)"),), "Bowl", ("Ladle", "Bowl rack")),
-            )))
+            ), None))
+        g = self.build("Bowl v1")
+        g.nodes["plan"]["makeAheadHours"] = 8.0
+        self.assertEqual(export_plan(g, "plan")[4], 8.0)
 
 
 if __name__ == "__main__":

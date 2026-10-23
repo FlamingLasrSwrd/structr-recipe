@@ -106,6 +106,43 @@ class Scopes(unittest.TestCase):
         self.assertEqual([v.group for v in ev.violations], ["d1 b"])          # 12 g < 20
 
 
+class MadeAhead(unittest.TestCase):
+    """A dish started hours before its meal (J29): overnight oats, made at least 8 h ahead."""
+
+    def oats(self, now):
+        oats = cand("overnight oats", 20, 5, ahead_hours=8.0)
+        slots = [slot("mon", when(28, 7)), slot("tue", when(29, 7))]
+        return problem(slots, (oats, cand("toast", 20, 5)), now=now), oats
+
+    def test_not_for_a_meal_less_than_that_after_the_plan_is_made(self):
+        p, oats = self.oats(when(27, 23, 30))                     # Monday 07:00 is 7.5 h away
+        self.assertIn("must be started 8 h ahead", ineligible_reason(p, 0, oats))
+        self.assertIsNone(ineligible_reason(p, 1, oats))
+        self.assertEqual([pk.candidate for pk in oracle(p).best.picks][0], "toast")
+
+    def test_in_time_it_is_any_dish(self):
+        p, oats = self.oats(when(27, 23))                         # exactly 8 h: in time
+        self.assertIsNone(ineligible_reason(p, 0, oats))
+        self.assertIsNone(ineligible_reason(self.oats(None)[0], 0, oats))      # no time given, no rule
+        self.assertEqual(time_fit := evaluate(p, picks("overnight oats", "toast")).terms["time"],
+                         evaluate(p, picks("toast", "toast")).terms["time"])  # the minutes alone are scored
+        self.assertGreater(time_fit, 0)
+
+    def test_the_week_says_when_to_start_it(self):
+        from mealplanner.planning.report import describe_plan
+        p, _ = self.oats(when(27, 12))
+        text = describe_plan(p, evaluate(p, picks("overnight oats", "toast")))
+        start = when(27, 23).strftime("%a %H:%M")
+        self.assertIn(f"cook overnight oats for 1 serving; made ahead: start it by {start} (8 h before)", text)
+        self.assertNotIn("toast for 1 serving;", text)
+
+    def test_its_leftovers_follow_the_cook(self):
+        p, _ = self.oats(when(27, 23, 30))
+        p = problem(p.slots, (cand("overnight oats", 20, 5, ahead_hours=8.0, leftover_days=3.0),), now=p.now)
+        resolved, _ = resolve(p, (Pick(candidate="overnight oats"), Pick(source=0)))
+        self.assertIsNone(leftover_reason(p, resolved, 0, 1))
+
+
 class UnknownAndUntrustedData(unittest.TestCase):
     """A hard target is never decided on data that is missing, placeholder or unmarked."""
 

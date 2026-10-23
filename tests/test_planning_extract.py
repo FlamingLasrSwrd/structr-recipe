@@ -123,6 +123,12 @@ class Candidates(unittest.TestCase):
         self.assertEqual((self.omelette.minutes, self.omelette.difficulty, self.omelette.yield_servings, self.omelette.meal_types),
                          (35, "easy", 2.0, frozenset({"Dinner"})))
 
+    def test_hours_made_ahead(self):
+        g = kitchen()
+        g.nodes["omelette"]["makeAheadHours"] = 8.0
+        p = build_problem(g, "week", DINNERS, NOW)
+        self.assertEqual((p.candidates["omelette"].ahead_hours, p.candidates["pasta"].ahead_hours), (8.0, 0.0))
+
     def test_demand_is_per_batch_in_grams_by_pool(self):
         self.assertEqual(dict(self.omelette.demand), {"Eggs": 300.0})
         self.assertEqual(dict(self.pasta.demand), {"Noodles": 200.0, "Eggs": 100.0})

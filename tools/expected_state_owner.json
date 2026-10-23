@@ -259,6 +259,13 @@
   "propertyType": "Double",
   "unique": false
  },
+ "@schema | property Plan.makeAheadHours": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Double",
+  "unique": false
+ },
  "@schema | property PlanningConstraint.strictness": {
   "format": "hard,soft",
   "indexed": false,
