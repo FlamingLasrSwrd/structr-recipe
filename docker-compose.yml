@@ -7,6 +7,9 @@ services:
   neo4j:
     image: neo4j:2025.12.1
     mem_limit: 1g
+    # Docker's default 10 s killed Neo4j mid-shutdown ("Stopping..." and no "Stopped.", exit
+    # 137, 2026-10-22): a database that must recover from its transaction log on the next start
+    stop_grace_period: 2m
     environment:
       - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
       - NEO4J_server_memory_heap_initial__size=256m
@@ -23,10 +26,16 @@ services:
     image: structr/structr:6.0.0
     depends_on: [neo4j]
     mem_limit: 1536m
+    # The image starts Java from a shell script without exec, so a stop signal reached only
+    # the shell (PID 1, which ignores it) and Java was killed after the grace period. Docker's
+    # init (tini) signals the whole process group instead, and Java's shutdown hook runs.
+    init: true
+    stop_grace_period: 2m
     ports:
       - "${STRUCTR_PORT:-8083}:8082"
     environment:
       - AGREE_TO_STRUCTR_PRIVACY_POLICY=yes
+      - TINI_KILL_PROCESS_GROUP=1
       - STRUCTR_application_heap_min__size=256m
       - STRUCTR_application_heap_max__size=1g
       - STRUCTR_superuser_password=${STRUCTR_SUPERUSER_PASSWORD}
