@@ -59,7 +59,7 @@ Once on this list, now in: **Person/Agent**. It was out while the tool was singl
 
 **Status: designed on paper and built as a first version, unreviewed.** For twenty-plus sessions there was no scoring function, no search strategy and no numeric definition of a good week, and the selector (`scripts/11c_simple_selector.py`) picks one meal for one slot, so it cannot enforce a hard nutritional minimum. `optimizer-design.md` proposes the plan-level formulation; `mealplanner/planning/` builds it (`plan_week`), with the selector's scoring shapes shared through `mealplanner/scoring.py`.
 
-The rule stands: **do not change its objective (§4.5 of the design) or its search silently.** The weights and the weighted sum are a proposal for the owner to retune against real weeks. It searches with a dependency-free exact search, a beam search and, if OR-tools is installed, CP-SAT (optional, `requirements-solver.txt`). Measured on synthetic weeks, none of them proves a full week optimal; it returns a good plan and says it is not proven (§12).
+The rule stands: **do not change its objective (§4.5 of the design) or its search silently.** The weights and the weighted sum are a proposal for the owner to retune against real weeks. It searches with a dependency-free exact search, a beam search and, if OR-tools is installed, CP-SAT (optional, `requirements-solver.txt`), and climbs from the first plan one change at a time (the owner's decision, 2026-10-22). Measured on synthetic weeks, none of them proves a full week optimal; it returns a good plan and says it is not proven (§12).
 
 ## Build order
 

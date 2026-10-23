@@ -12,9 +12,9 @@ import unittest
 from dataclasses import replace
 from unittest import mock
 
-from mealplanner.planning.evaluate import evaluate, initial_partial, prefix_bound
+from mealplanner.planning.evaluate import evaluate, initial_partial, options, portion_variants, prefix_bound
 from mealplanner.planning.model import Fixed, Lot, Pick, Weights
-from mealplanner.planning.search import auto, beam, enumerate_assignments, exact, oracle, solve
+from mealplanner.planning.search import _beats, _key, auto, beam, enumerate_assignments, exact, improve, oracle, solve
 from tests.planning_fixtures import MEALS, cand, day_of_three, problem, protein_target, slot, when
 
 TOL = 1e-7
@@ -170,7 +170,7 @@ class TheTimeLimitHolds(unittest.TestCase):
         self.assertEqual(narrowed.nodes, 5 + 5 + 5)
         self.assertTrue(narrowed.best.legal)
 
-    def test_cp_sat_has_two_thirds_of_the_time_left_and_the_beam_the_rest(self):
+    def test_the_solvers_share_three_quarters_of_the_time_left_and_a_quarter_is_kept_for_a_last_climb(self):
         from mealplanner.planning import cpsat, search
         p = day_of_three([protein_target(70, 140, weight=0.2)])
         given = {}
@@ -188,10 +188,112 @@ class TheTimeLimitHolds(unittest.TestCase):
         with mock.patch.object(cpsat, "available", return_value=True), mock.patch.object(cpsat, "solve", fake_cpsat), \
                 mock.patch.object(search, "beam", recording_beam):
             result = auto(p, time_limit_s=6.0, node_limit=1)      # node_limit=1: the exact search cannot prove it
-        self.assertAlmostEqual(given["cpsat"], 4.0, delta=0.3)
-        self.assertLessEqual(given["beam"], 6.0)
-        self.assertGreater(given["beam"], 5.0)                    # CP-SAT returned at once, so the beam has nearly all of it
+        # the climb from the exact search's plan takes next to nothing on a day this small, so the
+        # solvers have three quarters of 6 s, CP-SAT two thirds of that
+        self.assertAlmostEqual(given["cpsat"], 3.0, delta=0.3)
+        self.assertLessEqual(given["beam"], 4.5)
+        self.assertGreater(given["beam"], 4.0)                    # CP-SAT returned at once, so the beam has nearly all of it
         self.assertIsNotNone(result.best)                        # the beam finishes its plan
+
+
+DINNER = frozenset({"Dinner"})
+
+
+def single_changes(p, picks):
+    """Every plan one change away (a meal, its portions, or a swap of two slots of a meal type),
+    enumerated here without improve()'s own loop."""
+    for i in p.open_slots():
+        for pick in list(options(p, picks, i)) + [replace(picks[i], **v) for v in portion_variants(p, i)]:
+            yield picks[:i] + (pick,) + picks[i + 1:]
+        for j in p.open_slots():
+            if j > i and p.slots[j].meal_type == p.slots[i].meal_type:
+                swapped = list(picks)
+                swapped[i], swapped[j] = picks[j], picks[i]
+                yield tuple(swapped)
+
+
+class Improve(unittest.TestCase):
+    """improve(): hill climbing from a complete plan, one change at a time."""
+
+    def test_it_climbs_to_a_plan_no_single_change_improves(self):
+        p = day_of_three([protein_target(70, 140, weight=0.2)])
+        start = evaluate(p, tuple(Pick(candidate="braised chicken") for _ in range(3)))     # 135 g, an hour and a half each
+        result = improve(p, start)
+        self.assertTrue(result.proven and result.best.feasible)
+        self.assertGreater(result.best.objective, start.objective + 0.5)
+        best = _key(result.best, False)
+        for picks in single_changes(p, result.best.picks):
+            ev = evaluate(p, picks)
+            if ev.legal and ev.feasible:
+                self.assertFalse(_beats(_key(ev, False), best), picks)
+        # a local optimum, not the best: 1.6 against the oracle's 1.7
+        self.assertEqual((round(result.best.objective, 9), round(oracle(p).best.objective, 9)), (1.6, 1.7))
+
+    def test_a_swap_does_what_no_single_meal_can(self):
+        """Two dinners of A (10 g) and one of B (none) under a hard weekly 20 g, exactly: changing
+        any one dinner breaks it, but A, B, A sets the A's two days apart, which variety rewards."""
+        a, b = cand("A", 10, 20, meal_types=DINNER), cand("B", 0, 20, meal_types=DINNER)
+        p = problem([slot(f"d{d}", when(d, 18), "Dinner") for d in (28, 29, 30)], (a, b),
+                    [protein_target(20, 20, scope="weekly")],
+                    weights=Weights(time=0.0, variety=1.0, stock=0.0, waste=0.0, time_budget_minutes=30.0))
+        start = evaluate(p, (Pick(candidate="A"), Pick(candidate="A"), Pick(candidate="B")))
+        result = improve(p, start)
+        self.assertEqual([pk.candidate for pk in result.best.picks][::2], ["A", "A"])
+        self.assertGreater(result.best.objective, start.objective)
+
+    def test_a_larger_portion_when_only_the_portion_should_change(self):
+        p = problem([slot("dinner", when(28, 18))], (cand("stew", 20, 20),),
+                    [protein_target(30, None, hard=False, weight=1.0)], portions=(1.0, 1.25, 1.5))
+        result = improve(p, evaluate(p, (Pick(candidate="stew", portion=1.0),)))
+        # 1.25 is the first better portion it meets, and the same slot is tried again: 1.5, 30 g
+        self.assertEqual(result.best.picks, (Pick(candidate="stew", portion=1.5),))
+
+    def test_the_closest_plan_when_none_meets_every_hard_target(self):
+        p = day_of_three([protein_target(140, None)])                            # 135 g is the most there is
+        start = evaluate(p, tuple(Pick(candidate="buttered pasta") for _ in range(3)))
+        result = improve(p, start, relaxed=True)
+        self.assertAlmostEqual(result.best.violation_measure, oracle(p, relaxed=True).best.violation_measure)
+        self.assertLess(result.best.violation_measure, start.violation_measure)
+
+    def test_it_stops_at_its_time_limit(self):
+        from mealplanner.planning import search
+        p = day_of_three([protein_target(70, 140, weight=0.2)])
+        start = evaluate(p, tuple(Pick(candidate="braised chicken") for _ in range(3)))
+        clock = iter(range(1, 1000))
+        with mock.patch.object(search.time, "monotonic", lambda: float(next(clock))):
+            result = improve(p, start, time_limit_s=0.5)
+        self.assertEqual((result.best.picks, result.nodes, result.proven), (start.picks, 0, False))
+
+    def test_in_auto_it_climbs_the_first_plan_then_any_better_one_the_solvers_find(self):
+        from mealplanner.planning import search
+        p = day_of_three([protein_target(70, 140, weight=0.2)])
+        poor = evaluate(p, tuple(Pick(candidate="braised chicken") for _ in range(3)))
+        middling = evaluate(p, (Pick(candidate="omelette"), Pick(candidate="chicken salad"), Pick(candidate="omelette")))
+        starts = []
+        real = search.improve
+
+        def recording(problem, start, **kw):
+            starts.append(start.picks)
+            if start is poor:
+                return search.SearchResult(middling, True, 1, "improve")
+            return real(problem, start, **kw)
+
+        def run(beam_finds):
+            starts.clear()
+            with mock.patch("mealplanner.planning.cpsat.available", return_value=False), \
+                    mock.patch.object(search, "exact", return_value=search.SearchResult(poor, False, 1, "exact")), \
+                    mock.patch.object(search, "beam", return_value=search.SearchResult(beam_finds, False, 1, "beam")), \
+                    mock.patch.object(search, "improve", recording):
+                return auto(p, time_limit_s=5.0)
+
+        result = run(None)                                       # the solvers find nothing better
+        self.assertEqual((starts, result.best.picks, result.method), ([poor.picks], middling.picks, "exact+improve+beam"))
+        best = oracle(p).best
+        result = run(best)                                       # the beam finds a better plan: it is climbed too
+        self.assertEqual((starts, result.method), ([poor.picks, best.picks], "exact+improve+beam+improve"))
+        self.assertEqual(result.best.picks, best.picks)
+        result = run(middling)                                   # the climbed plan again: not climbed twice
+        self.assertEqual(starts, [poor.picks])
 
 
 class Facade(unittest.TestCase):
@@ -227,7 +329,8 @@ class Auto(unittest.TestCase):
         with mock.patch("mealplanner.planning.cpsat.available", return_value=False):
             result = auto(p, node_limit=5)
         self.assertFalse(result.proven)
-        self.assertEqual(result.method, "exact+beam")
+        # the exact search's plan (5 nodes) climbs to a local optimum; the beam's beats it and is climbed too
+        self.assertEqual(result.method, "exact+improve+beam+improve")
         self.assertTrue(result.best is not None and result.best.feasible)
         self.assertIsNone(result.upper_bound)
 

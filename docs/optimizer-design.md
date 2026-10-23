@@ -325,4 +325,15 @@ On the owner's household week at 300 s, from a freshly started stack, the run to
 
 **A dish made ahead is not planned too late to start** (the owner's decision, 2026-10-22; data-model.md J29). A recipe may state `ahead_hours`, waiting no one attends: overnight oats soak 8 hours after 5 minutes of work. The time fit scores the minutes alone. A fresh cook of it is ineligible for a slot that starts less than `ahead_hours` after the plan is made (`evaluate.ineligible_reason`, so every search and the CP-SAT model alike), and the shortlist counts a recipe that fits any slot of a meal type, not only the first. The proposed week says when to start it.
 
-**Not built:** an improvement step after the first plan (one meal at a time, measured above; the owner's decision, 2026-09-29: not now); a tighter variety formulation or stock as flows for the solver; hard stock ("only cook from what I have"); a per-day time budget; a penalty for unused near-expiry stock; a soft difficulty term; a persistent "locked" flag on entries beyond what an existing entry already is; the parent link that would carry a leftover's purchase date through a division (J12).
+**An improvement step climbs from the first plan** (the owner's decision, 2026-10-22, with a five-minute run to spend; `search.improve`). Hill climbing over three kinds of change, slot by slot in turn: another recipe or an earlier cook's leftovers in the slot's own portions; the slot's portions; or a swap with a later slot of the same meal type. The first change that leaves the plan legal, feasible and better by `evaluate()` is taken. It stops when no change at any slot improves the plan, a local optimum, which it reports as `proven` in that sense only. `auto` now climbs right after the short exact search, from the best plan so far, with at most half the time left. CP-SAT (hinted with the climbed plan) and the beam search then share three quarters of what remains, and a quarter is kept to climb from a plan of theirs that beats the climbed one. The objective is unchanged.
+
+Measured on the owner's household week of 2026-10-22 (53 recipes, 21 meals, two people), offline from one extraction, with the 240 s a five-minute run leaves after reading:
+
+| Search | Score | Leftover meals | Time |
+|---|---|---|---|
+| Before: first plan, exact, CP-SAT, beam | 47.52 (the first plan) | 0 | 169 s |
+| Now: first plan, exact, climb, CP-SAT, beam | 52.51 | 3 | 152 s |
+
+The climb reached its local optimum in 37 s; CP-SAT's ceiling is 55.3. Three ways past it were tried and left out: changing a meal and its portions at once (+0.12 in 150 s), and kicking two or four random meals and climbing again (iterated local search: nothing in 12 rounds, and +0.03 in 11).
+
+**Not built:** a tighter variety formulation or stock as flows for the solver; hard stock ("only cook from what I have"); a per-day time budget; a penalty for unused near-expiry stock; a soft difficulty term; a persistent "locked" flag on entries beyond what an existing entry already is; the parent link that would carry a leftover's purchase date through a division (J12).
