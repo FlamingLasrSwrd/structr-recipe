@@ -323,6 +323,17 @@ The ranking only orders what is searched. The week found is scored by the object
 
 On the owner's household week at 300 s, from a freshly started stack, the run took 282 s. The week scored 47.44, against 45.66 at a 30 s search, with two leftover meals where it had none. The same soup was still cooked fresh four times over a weekend: started from the first plan, CP-SAT does not get far from it.
 
+**Measured end to end at scale** (2026-10-23, overnight). A throwaway instance built as the owner's is (`tools/make_owner_instance.py`), holding the vocabulary, two made-up people on the owner's two dietary profiles and the owner's hard targets, and synthetic recipes generated from the public vocabulary in four batches. The owner's week shape (21 meals, two people, leftovers, four portion levels), dated ahead, a five-minute budget, proposed only:
+
+| Recipes | Read in full | Read, warm | Whole run | Score |
+|---|---|---|---|---|
+| 61 | 42 | 58 s (205 s cold) | 184 s | 53.07 |
+| 251 | 55 | 83 s | 215 s | 53.19 |
+| 501 | 53 | 132 s | 222 s | 54.00 |
+| 1,001 | 52 | 240 s | 279 s, Structr just restarted | 53.87 |
+
+The search does not grow with the book; the read does. Profiled at 1,001 recipes (228 s, 1,090 requests): 145 s is the one filtered listing of every stored figure per serving (about 28,000 rows, 500 a request), which the shortlist's ranking needs; 41 s other whole listings; 25 s the shortlisted recipes' ingredients. Structr's `all` view resolves every relationship of each row: a page of 500 took 4.3 s, the default view 1.7 s, so a view of only what the ranking reads would roughly halve it (not built). At 1,001 recipes the throwaway's Structr was OOM-killed once, at its 1.5 GiB cap after six hours of imports; restarted with 2 GiB it used 590 MB for the same run. A week with three recipes lacking stored figures read in 281 s, against 572 s when every profile was read first, as it was before `PREFETCH_ABOVE` applied there too.
+
 **A dish made ahead is not planned too late to start** (the owner's decision, 2026-10-22; data-model.md J29). A recipe may state `ahead_hours`, waiting no one attends: overnight oats soak 8 hours after 5 minutes of work. The time fit scores the minutes alone. A fresh cook of it is ineligible for a slot that starts less than `ahead_hours` after the plan is made (`evaluate.ineligible_reason`, so every search and the CP-SAT model alike), and the shortlist counts a recipe that fits any slot of a meal type, not only the first. The proposed week says when to start it.
 
 **An improvement step climbs from the first plan** (the owner's decision, 2026-10-22, with a five-minute run to spend; `search.improve`). Hill climbing over three kinds of change, slot by slot in turn: another recipe or an earlier cook's leftovers in the slot's own portions; the slot's portions; or a swap with a later slot of the same meal type. The first change that leaves the plan legal, feasible and better by `evaluate()` is taken. It stops when no change at any slot improves the plan, a local optimum, which it reports as `proven` in that sense only. `auto` now climbs right after the short exact search, from the best plan so far, with at most half the time left. CP-SAT (hinted with the climbed plan) and the beam search then share three quarters of what remains, and a quarter is kept to climb from a plan of theirs that beats the climbed one. The objective is unchanged.

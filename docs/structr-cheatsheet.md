@@ -1071,6 +1071,27 @@ POST /structr/rest/Content         {"pageId": page_id, "parent": h1_id, "content
 Rendered at `/structr/html/<page name>`, **not** the bare root path
 (`GET /<name>` 404s — verified).
 
+- ✅ **Structr 6.0.0: every element must state its `tag`** (verified 2026-10-22 on a
+  throwaway instance). POSTing `Html`/`Body` as above, with `parent` and `pageId` but no
+  `tag`, linked them correctly (`children` read back) and rendered **only**
+  `<!DOCTYPE html>`: no error, no elements. With `"tag": "html"`, `"tag": "body"` (and so
+  on for every element) the page renders. The example above predates this.
+- ✅ **Deleting a `Page` leaves its elements behind** (6.0.0, verified 2026-10-22): after
+  `DELETE /structr/rest/Page/<id>`, its Html, Body, Div and Content nodes were still listed
+  under `/structr/rest/DOMNode`. Delete them first: `GET /structr/rest/DOMNode?pageId=<id>`
+  lists them.
+- ✅ **The superuser cannot sign in to pages** (6.0.0): `POST /structr/rest/login` as
+  `superadmin` answers 401 "login with superuser not supported", even with the `_login`
+  grant below in place. A page *does* render for `X-User`/`X-Password` headers of the
+  superuser, which is enough for a script to check one, not for a browser.
+- ✅ **JavaScript in a page** (`${{ ... }}` in a Content node, GraalJS, 6.0.0): nested braces
+  and template literals inside the block are fine; `$.print(...)` writes raw HTML in a
+  Content of `contentType: "text/html"`; `$.find("Type", {key: value})` returns an array;
+  a node's relationship properties are nodes or arrays, numbers are numbers, and a date
+  property goes through `new Date(...)`; `Intl.DateTimeFormat` with a `timeZone` works
+  (18:30 in Denver came out right); `$.request.meal` is the `?meal=` query parameter;
+  `$.me` is the signed-in user.
+
 - ✅ **Tag-specific HTML attributes need the tag-specific REST type.**
   `_html_action`/`_html_method` (on `Form`), `_html_type`/`_html_name`/
   `_html_placeholder`/`_html_required` (on `Input`), etc. only exist on

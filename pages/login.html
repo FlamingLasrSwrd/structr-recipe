@@ -1,0 +1,20 @@
+<h1>Sign in</h1>
+<form id="login">
+  <label>Name <input name="name" autocomplete="username" required></label>
+  <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+  <button type="submit">Sign in</button>
+  <p id="message" class="note"></p>
+</form>
+<script>
+// Structr's login takes JSON only, so the form posts it with fetch (structr-cheatsheet.md, Authentication)
+document.getElementById("login").addEventListener("submit", function (event) {
+  event.preventDefault();
+  var form = event.target;
+  fetch("/structr/rest/login", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({name: form.name.value, password: form.password.value})})
+    .then(function (r) {
+      if (r.ok) { window.location = "/structr/html/week"; }
+      else { document.getElementById("message").textContent = "That name and password did not sign in."; }
+    });
+});
+</script>
