@@ -147,6 +147,23 @@ class Calculate(unittest.TestCase):
         row["amount"] = 24.0 * (1 + 1e-13)                  # what a round trip through another number format may leave
         self.assertEqual(calculate(g).counts["changed"], 0)
         self.assertEqual(calculate(g, check=True).differences, [])
+        row["amount"] = 24.0 * (1 + 1e-10)                  # relative to the figure: 2.4e-9 g is within 1e-9 of 24 g
+        self.assertEqual((calculate(g, check=True).differences, calculate(g).counts["changed"]), ([], 0))
+        row["amount"] = 24.0 * (1 + 1e-6)
+        self.assertEqual(len(calculate(g, check=True).differences), 1)
+
+    def test_check_finds_a_figure_that_became_unknown(self):
+        g = stocked()
+        calculate(g)
+        g.nodes["profile omelette"]["amount"] = None                     # the dish's protein is no longer known
+        (difference,) = calculate(g, check=True).differences
+        self.assertIn("omelette: Protein: stored 24", difference)
+        self.assertIn("works out to unknown", difference)
+
+    def test_a_target_without_a_range_is_passed_over(self):
+        g = stocked()
+        g.add("NutritionTarget", "a rangeless target", "a rangeless target", forNutrient=Ref("Protein"))
+        self.assertEqual(targeted_nutrients(g), {"Protein": ("Protein", "g")})
 
     def test_a_profile_of_another_basis_on_a_plan_is_not_its_figure(self):
         g = stocked()
@@ -180,6 +197,12 @@ class PlansUsing(unittest.TestCase):
 
     def test_an_output_counts_as_an_input_does(self):
         self.assertEqual(plans_using(stocked(), {"stew (dish)"}), ["stew"])
+
+    def test_a_specification_about_nothing_is_no_use_of_a_food(self):
+        g = stocked()
+        g.add("Specification", "in9 pasta", hasParticipationRole="input", isOptional=False)          # specifies nothing
+        g.nodes["step pasta"]["hasSpecification"].append(Ref("in9 pasta"))
+        self.assertEqual((plans_using(g, {"Leeks"}), plans_using(g, {"Eggs"})), (["soup"], ["omelette", "pasta"]))
 
     def test_no_change_or_an_unused_food_sends_none(self):
         g = stocked()
