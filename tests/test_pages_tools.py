@@ -92,5 +92,42 @@ class InstallPages(unittest.TestCase):
         self.assertEqual(g.nodes, {})
 
 
+class CreateLogin(unittest.TestCase):
+    def tool(self):
+        spec = importlib.util.spec_from_file_location("create_login_tool", os.path.join(os.path.dirname(__file__), "..", "tools", "create_login.py"))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def create(self, g, name, *secrets):
+        from collections import deque
+        tool, said = self.tool(), deque(secrets)
+        g.wait_until_ready = lambda: None
+        g.base_url = "http://localhost:8085"
+        out = io.StringIO()
+        with mock.patch.object(tool, "connect", return_value=g), redirect_stdout(out):
+            code = tool.main([], ask=lambda _: name, ask_secret=lambda _: said.popleft())
+        return code, out.getvalue()
+
+    def test_a_user_who_is_no_person_and_sees_nothing_of_its_own(self):
+        from tests.fakegraph import WritableGraph
+        g = WritableGraph()
+        self.assertEqual(self.create(g, "kitchen", "longenough", "longenough")[0], 0)
+        (user,) = [n for n in g.nodes.values() if n["type"] == "User"]
+        self.assertEqual((user["name"], user["password"], user["isAdmin"], user["visibleToPublicUsers"]),
+                         ("kitchen", "longenough", False, False))
+        code, out = self.create(g, "kitchen", "different!", "different!")      # again: a new password, no second user
+        self.assertEqual((code, user["password"], len([n for n in g.nodes.values() if n["type"] == "User"])), (0, "different!", 1))
+
+    def test_a_household_person_short_or_mismatched_passwords_are_refused(self):
+        from tests.fakegraph import WritableGraph
+        g = WritableGraph()
+        g.add("Person", "p-eli", "Elijah")
+        self.assertIn("keep no passwords", self.create(g, "Elijah", "longenough", "longenough")[1])
+        self.assertIn("at least 8", self.create(g, "kitchen", "short", "short")[1])
+        self.assertIn("differ", self.create(g, "kitchen", "longenough", "longenougH")[1])
+        self.assertEqual([n for n in g.nodes.values() if n["type"] == "User"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

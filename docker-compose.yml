@@ -1,12 +1,15 @@
 # Memory is capped on purpose. Left alone, Structr takes a 4 GB heap and Neo4j about a
 # quarter of the machine plus a page cache, so one stack could grow to about 6.5 GB; on the
 # 8 GB development laptop that, with the desktop app beside it, froze the machine
-# (2026-09-27). This project's graph is a few thousand nodes. The limits below were checked
-# against a full rebuild and a full vocabulary load (see the commit that set them).
+# (2026-09-27). The limits below were raised (the owner's decision, 2026-10-23) for a home
+# book of about 1,000 recipes, some 110,000 nodes with the vocabulary: measured overnight on a
+# throwaway stack of that size, Neo4j held 940-990 MiB of a 1 GiB cap and imports slowed from
+# 8 s a recipe to 19, and Structr was OOM-killed at 1.5 GiB after six hours of imports. One
+# stack now stays under 3.5 GiB; run one at a time.
 services:
   neo4j:
     image: neo4j:2025.12.1
-    mem_limit: 1g
+    mem_limit: 1536m
     # Docker's default 10 s killed Neo4j mid-shutdown ("Stopping..." and no "Stopped.", exit
     # 137, 2026-10-22): a database that must recover from its transaction log on the next start
     stop_grace_period: 2m
@@ -14,7 +17,7 @@ services:
       - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
       - NEO4J_server_memory_heap_initial__size=256m
       - NEO4J_server_memory_heap_max__size=512m
-      - NEO4J_server_memory_pagecache_size=128m
+      - NEO4J_server_memory_pagecache_size=256m
     volumes:
       - neo4j-database:/data
       - neo4j-logs:/logs
@@ -25,7 +28,7 @@ services:
   structr:
     image: structr/structr:6.0.0
     depends_on: [neo4j]
-    mem_limit: 1536m
+    mem_limit: 2g
     # The image starts Java from a shell script without exec, so a stop signal reached only
     # the shell (PID 1, which ignores it) and Java was killed after the grace period. Docker's
     # init (tini) signals the whole process group instead, and Java's shutdown hook runs.

@@ -47,9 +47,19 @@ Structr 6.0.0 (throwaway instance, 2026-10-22):
 - A Structr user with a password can, through a sign-in page (`--login` installs one at
   `/structr/html/login`, and the grant that lets an anonymous visitor post to `/structr/rest/login`).
 
-So reading the pages in a browser needs a user with a password. Neither tool creates one: the owner
-decided that the household's people have no passwords, and an account for the pages is theirs to set
-up (Structr's admin UI, Security, or a `User` with a `password`).
+So reading the pages in a browser needs a user with a password. The owner decided (2026-10-23) that
+the pages need no more security than that for now, the instance being local and behind a firewall:
+`install_pages.py --login` installs the sign-in page with its grant, and the owner makes the account
+with `tools/create_login.py`, which asks for a name and a password and creates a Structr `User`, not
+a `Person` (the household's people keep no passwords). Claude does not make it: an account and its
+password are the owner's to type.
+
+```bash
+python3 tools/install_pages.py --login
+python3 tools/create_login.py
+```
+
+Then sign in at `/structr/html/login`; it goes on to the week.
 
 ## Checked at scale (2026-10-23, throwaway instance)
 

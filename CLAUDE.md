@@ -42,13 +42,13 @@ review, so what the README and REVIEW.md claim has to be true.
   files live in `private/`, which git ignores: the repository is public, the owner's data is
   not. Never run a demo from `scripts/` against it (`connect()` refuses a marked instance), and
   never `down -v` it: nothing can rebuild it. The exception is a schema-only migration (such as
-  `30a` to `36a`), which declares `owner_data_ok=True` and must be run on the owner's instance as well,
+  `30a` to `37a`), which declares `owner_data_ok=True` and must be run on the owner's instance as well,
   then Structr restarted (hard rule 8).
 - **The development laptop has 8 GB and has frozen three times.** Run one stack at a time (stop
   one before starting another), keep the owner's stack up through a working session and stop it at
   the session's end (the owner's decision, 2026-10-22: each restart cost a minute and a cold first
   read), stop any other stack once its work is done, and check `free -m` before
-  starting one or a heavy step. `docker-compose.yml` caps each stack (Neo4j 1 GB, Structr 1.5 GB);
+  starting one or a heavy step. `docker-compose.yml` caps each stack (Neo4j 1.5 GB, Structr 2 GB: sized for about 1,000 recipes, 2026-10-23);
   do not raise the caps without measuring. Avoid loading large files repeatedly (the FNDDS JSON is
   about 450 MB in Python; `data/fdc/` already pins what is needed), and close built-in browser
   tabs as soon as they have been read.
