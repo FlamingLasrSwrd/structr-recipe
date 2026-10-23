@@ -55,6 +55,20 @@ class Ranking(unittest.TestCase):
         self.assertAlmostEqual(scores(week(candidates=[bare], baseline={"fibre": 30.0}))["bare"], 2.0)
         self.assertAlmostEqual(scores(week(candidates=[bare]))["bare"], 1.0)
 
+    def test_a_minimum_partly_met_by_the_baseline_asks_for_the_rest(self):
+        got = scores(week(baseline={"fibre": 10.0}))           # 20 g left: 0.0095 g per kcal; rice bowl's 0.004 is 0.42 of it
+        self.assertAlmostEqual(got["rice bowl"], 1 + 0.004 / (20 / 2100))
+        self.assertAlmostEqual(got["ramen"], 1.0)               # 0.01 now clears the floor
+
+    def test_one_energy_bound_alone_stands_for_the_day(self):
+        floor_only = Target("energy", "energy", "daily", 2000, None, True, 0.0, "Energy")
+        got = scores(week(targets=(floor_only, FIBRE, SODIUM)))   # a 2,000 kcal day: fibre 0.015 per kcal
+        self.assertAlmostEqual(got["rice bowl"], 1 + 0.004 / (30 / 2000))
+
+    def test_a_cap_the_baseline_already_reaches_leaves_no_room(self):
+        got = scores(week(baseline={"sodium": 2300.0}))
+        self.assertAlmostEqual(got["bean soup"], 1.0)           # fibre 1, and any sodium at all 0
+
     def test_the_baseline_also_uses_up_a_cap(self):
         got = scores(week(baseline={"sodium": 1250.0}))      # 1,050 mg left: 0.5 mg per kcal; bean soup's 0.8 is 1.6 times it
         self.assertAlmostEqual(got["bean soup"], 1 + (2 - 0.8 / 0.5))
