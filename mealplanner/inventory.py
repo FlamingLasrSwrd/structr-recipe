@@ -352,24 +352,30 @@ def origin_time(client, portion: dict) -> datetime | None:
     return _parse(beginning)
 
 
-def own_shelf_storages(client, food_type_id: str) -> set[str]:
-    """The storage conditions a food's own ShelfLife defaults name (FoodKeeper's, J31)."""
+def own_sealed_shelf_lives(client, food_type_id: str) -> dict[str, float]:
+    """{storage condition: days} from a food's own ShelfLife defaults for it unopened (keyed by the
+    storage alone, or with Sealed): FoodKeeper's (J31)."""
     node = client.get_all("DomainType", food_type_id)["result"]
-    out: set[str] = set()
+    out: dict[str, float] = {}
     for ref in node.get("defaultSpecifications", []):
         spec = client.get_all("DefaultSpecification", ref["id"])["result"]
-        if (spec.get("hasKind") or {}).get("name") == "ShelfLife":
-            out |= {k.get("name") for k in spec.get("keyedBy", [])}
+        names = {k.get("name") for k in spec.get("keyedBy", [])}
+        if (spec.get("hasKind") or {}).get("name") != "ShelfLife" or "Opened" in names or not spec.get("hasValue"):
+            continue
+        value = client.get_all("QuantitySpecification", spec["hasValue"]["id"])["result"].get("value")
+        for storage in names & {"Fridge", "Pantry", "Freezer"}:
+            if value is not None:
+                out[storage] = value
     return out
 
 
 def assumed_storage(client, portion: dict) -> str:
-    """Where a portion in no container is taken to be kept: where its food keeps, the fridge if its
-    own shelf lives name the fridge, else the pantry if they name the pantry, else the fridge (J31).
-    Flour bought without saying where is in the pantry; chicken is in the fridge."""
+    """Where a portion in no container is taken to be kept: of the fridge and the pantry, where its food
+    keeps longest unopened by its own shelf lives, the fridge on a tie or when it has neither (J31).
+    Flour, rice and garlic bought without saying where are in the pantry; chicken and eggs, in the fridge."""
     food = (portion.get("instanceOf") or {}).get("id")
-    own = own_shelf_storages(client, food) if food else set()
-    return next((storage for storage in ("Fridge", "Pantry") if storage in own), "Fridge")
+    own = own_sealed_shelf_lives(client, food) if food else {}
+    return max(("Fridge", "Pantry"), key=lambda storage: own.get(storage, -1.0))
 
 
 def portion_shelf_life(client, portion: dict, opened_status_name: str, storage_condition_name: str) -> float | None:
