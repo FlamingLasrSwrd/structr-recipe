@@ -20,6 +20,8 @@
 #   each     the weight of one item: a portion label of its first source, or a table
 #   volume   a density: the same, or { portions = [[fdc, label], ...] } averaged, or
 #            { grams = x, per = "tsp", source = "..." } for a weight from elsewhere
+#   foodkeeper  its USDA FoodKeeper product, for how long it keeps (J31): `sourced`, or
+#            { id = n, proxy = true }, `estimated`, a near kind of food. Chosen by Claude, to be reviewed.
 #   parent   default "Food", the root every food sits under; a food USDA's retention factors apply
 #            to sits under its retention class
 #   [food.retention]  on a retention class: the USDA row for each heat method (J30)
@@ -27,13 +29,29 @@
 [source]
 subsets = ["data/fdc/sr_legacy.json", "data/fdc/foundation.json", "data/fdc/fndds.json", "data/fdc/branded.json"]
 
+[shelf_life]
+# USDA FSIS FoodKeeper data (fsis.usda.gov/shared/data/EN/foodkeeper.json, CC0 1.0): how long a food
+# keeps in the pantry, the refrigerator and the freezer, before and after opening. tools/
+# foodkeeper_extract.py pins the products the foods name into `table`; re-run it after changing
+# one. Each figure is the least of FoodKeeper's range, as the owner chose for leftovers (J31).
+table = "data/foodkeeper/foodkeeper.json"
+
 [retention]
 # The owner's decision (2026-09-26): energy, protein, fat, carbohydrate, fiber and sugars are
 # kept through cooking, as USDA's recipe calculations treat them; its retention factors adjust
 # vitamins and minerals. Fat gained in frying or poured off is not modeled (J18). FDC nutrient
 # ids: Energy (kcal), Protein, Total lipid (fat), Carbohydrate by difference, Fiber total
-# dietary, Sugars total.
-kept_in_cooking = [1008, 1003, 1004, 1005, 1079, 2000]
+# dietary, Sugars total; then, by the owner's decision of 2026-10-24 ("I don't think there is
+# significant degradation"), every fat FDC reports apart: the totals saturated (1258),
+# monounsaturated (1292), polyunsaturated (1293) and trans (1257, 1329, 1331), and each fatty
+# acid (SFA, MUFA, PUFA, TFA). Cholesterol (1253) is not a fat and is not among them.
+kept_in_cooking = [1008, 1003, 1004, 1005, 1079, 2000,
+  1257, 1258, 1259, 1260, 1261, 1262, 1263, 1264, 1265, 1266, 1267, 1268, 1269, 1270,
+  1271, 1272, 1273, 1274, 1275, 1276, 1277, 1278, 1279, 1280, 1292, 1293, 1299, 1300,
+  1301, 1303, 1304, 1305, 1306, 1307, 1310, 1311, 1312, 1313, 1314, 1315, 1316, 1317,
+  1321, 1323, 1325, 1329, 1331, 1332, 1333, 1404, 1405, 1406, 1408, 1409, 1410, 1411,
+  1412,
+]
 
 # USDA Table of Nutrient Retention Factors, Release 6 (2007), ars.usda.gov: public domain. tools/
 # retention_extract.py pins the rows the retention classes below name into `table`; re-run it after
@@ -906,6 +924,7 @@ Toasting = "0301"
 
 [[food]]
 name = "Firm tofu"
+foodkeeper = 168
 parent = "Cooked legumes"
 fdc = 172475                    # SR: Tofu, raw, firm, prepared with calcium sulfate
 sources = [{ fdc = 172448, status = "estimated", moisture = true, note = "Tofu firm with nigari (82.9% water, against 69.8%): for what 172475 does not report (sugars)" }]
@@ -913,11 +932,13 @@ volume = "cup"
 
 [[food]]
 name = "Rice noodles (dry)"
+foodkeeper = { id = 335, proxy = true }
 parent = "Pasta"
 fdc = 169742                    # SR: Rice noodles, dry
 
 [[food]]
 name = "Tamarind paste"
+foodkeeper = 231
 fdc = 167763                    # SR: Tamarinds, raw (the pulp)
 proxy = true                    # the pulp, not pressed paste; its density is loose pulp's
 volume = "cup, pulp"
@@ -929,27 +950,32 @@ volume = "fl oz"
 
 [[food]]
 name = "Soy sauce (low sodium)"
+foodkeeper = 360
 fdc = 172473                    # SR: Soy sauce made from soy and wheat (shoyu), low sodium
 volume = "tbsp"
 
 [[food]]
 name = "Rice vinegar"
+foodkeeper = 361
 fdc = 172237                    # SR: Vinegar, distilled
 proxy = true                    # FDC has no rice vinegar; the Mizkan, Kikkoman and Marukan labels are all 0 too
 volume = "tbsp"
 
 [[food]]
 name = "Five-spice powder"      # the parts on the Spice Islands label: cinnamon, anise, fennel, black pepper, cloves
+foodkeeper = 238
 sources = [{ mean = [171320, 171316, 171323, 170931, 171321], status = "calculated", note = "equal parts of the five spices on the Spice Islands label; the labels' own figures round to 0 at 0.5 g" }]
 volume = { portions = [[1495185, "tsp"], [2037617, "tsp"]] }   # Spice Islands, Dynasty
 
 [[food]]
 name = "Fish sauce"
+foodkeeper = { id = 360, proxy = true }
 fdc = 174531                    # SR: Sauce, fish, ready-to-serve
 volume = "tbsp"
 
 [[food]]
 name = "Palm sugar"             # no brand named: two widely sold ones, Wira (label impossible) and Dragonfly "pure" (46 g sugar per 100 g) left out
+foodkeeper = { id = 239, proxy = true }
 sources = [
   { mean = [2033749, 2149557], note = "Dragonfly Palm Sugar and Good & Gather Coconut Palm Sugar labels" },
   { fdc = 168833, status = "estimated", note = "SR Sugars brown: for what the labels do not report" },
@@ -958,6 +984,7 @@ volume = { fdc = 2033749, portion = "tbsp" }                  # Dragonfly: 1 Tbs
 
 [[food]]
 name = "Peanut oil"
+foodkeeper = 228
 fdc = 171410                    # SR: Oil, peanut, salad or cooking
 volume = "tbsp"
 
@@ -968,6 +995,7 @@ volume = "cup"                  # FNDDS: 1 cup = 135 g
 
 [[food]]
 name = "Sweet preserved radish" # Thai chai po; FDC has no label for it
+foodkeeper = { id = 353, proxy = true }
 sources = [
   { mean = [2030391, 2623526, 2030346], note = "Akiyama, Waimanalo Ko-Ko and Kula Maui takuan: sweet pickled daikon, the nearest labelled food" },
   { fdc = 168451, status = "estimated", note = "SR Radishes oriental raw: for what the labels do not report" },
@@ -976,6 +1004,7 @@ volume = { fdc = 2115048, portion = "tbsp" }                  # Eden sun-dried d
 
 [[food]]
 name = "Scallions"
+foodkeeper = 295
 parent = "Other vegetables"
 fdc = 170005                    # SR: Onions, spring or scallions (includes tops and bulb), raw
 each = 'medium (4-1/8" long)'
@@ -983,6 +1012,7 @@ volume = "cup, chopped"
 
 [[food]]
 name = "Garlic"
+foodkeeper = 285
 parent = "Root vegetables"
 fdc = 169230                    # SR: Garlic, raw
 each = "clove"
@@ -990,75 +1020,88 @@ volume = "tsp"
 
 [[food]]
 name = "Egg"
+foodkeeper = 21
 parent = "Eggs"
 fdc = 171287                    # SR: Egg, whole, raw, fresh
 each = "large"
 
 [[food]]
 name = "Mung bean sprouts"
+foodkeeper = 679
 parent = "Other vegetables"
 fdc = 169957                    # SR: Mung beans, mature seeds, sprouted, raw
 volume = "cup"
 
 [[food]]
 name = "Roasted salted peanuts"
+foodkeeper = 616
 parent = "Nuts and seeds"
 fdc = 174261                    # SR: Peanuts, all types, oil-roasted, with salt
 volume = "cup, chopped"
 
 [[food]]
 name = "Thai chile flakes"
+foodkeeper = 238
 fdc = 170932                    # SR: Spices, pepper, red or cayenne
 proxy = true                    # dried Thai chiles, flaked; cayenne is the nearest FDC has
 volume = "tsp"
 
 [[food]]
 name = "Lime"
+foodkeeper = 256
 parent = "Citrus fruits"
 fdc = 168155                    # SR: Limes, raw
 each = 'fruit (2" dia)'
 
 [[food]]
 name = "Beef top sirloin (raw)"
+foodkeeper = 40
 parent = "Beef cuts"
 fdc = 168726                    # SR: Beef, top sirloin, steak, separable lean and fat, trimmed to 1/8" fat, all grades, raw
 sources = [{ fdc = 2705824, status = "estimated", moisture = true, only = [1110, 1114], note = "FNDDS Beef steak NFS: vitamin D, which SR does not report for this cut" }]
 
 [[food]]
 name = "AP Flour"
+foodkeeper = 222
 parent = "Flours and starches"
 fdc = 168894                    # SR: Wheat flour, white, all-purpose, enriched, bleached
 volume = "cup"
 
 [[food]]
 name = "Paprika"
+foodkeeper = 238
 fdc = 171329                    # SR: Spices, paprika
 volume = "tsp"
 
 [[food]]
 name = "Kosher salt"
+foodkeeper = 468
 fdc = 173468                    # SR: Salt, table: the same salt, not a kosher-salt analysis
 proxy = true
 volume = { portions = [[2617978, "tsp"], [2571981, "tsp"]] }  # Morton 1/4 tsp = 1.2 g, Diamond Crystal 0.7 g: brand unknown
 
 [[food]]
 name = "Table salt"
+foodkeeper = 468
 fdc = 173468                    # SR: Salt, table
 volume = "tsp"
 
 [[food]]
 name = "Canola oil"
+foodkeeper = 520
 fdc = 172336                    # SR: Oil, canola
 volume = "tbsp"
 
 [[food]]
 name = "Butter (unsalted)"
+foodkeeper = 1
 parent = "Butter"
 fdc = 173430                    # SR: Butter, without salt
 volume = "tbsp"
 
 [[food]]
 name = "Yellow Onion"
+foodkeeper = 294
 parent = "Root vegetables"
 fdc = 170000                    # SR: Onions, raw
 each = 'medium (2-1/2" dia)'
@@ -1066,28 +1109,33 @@ volume = "cup, sliced"
 
 [[food]]
 name = "Cremini mushrooms"
+foodkeeper = 292
 parent = "Other vegetables"
 fdc = 168434                    # SR: Mushrooms, brown, italian, or crimini, raw
 volume = "cup sliced"
 
 [[food]]
 name = "Dry white wine"
+foodkeeper = 463
 fdc = 174837                    # SR: Alcoholic beverage, wine, table, white
 volume = "fl oz"
 
 [[food]]
 name = "Beef broth (low sodium)"
+foodkeeper = 485
 fdc = 172889                    # SR: Soup, beef broth, less/reduced sodium, ready to serve
 volume = "cup"
 
 [[food]]
 name = "Sour cream"
+foodkeeper = 29
 parent = "Milk and cream"
 fdc = 171257                    # SR: Cream, sour, cultured
 volume = "cup"
 
 [[food]]
 name = "Dijon mustard"
+foodkeeper = 351
 sources = [
   { mean = [2597122, 2601407], only = [1093], note = "sodium from the Grey Poupon and French's Dijon labels; their other figures round to 0 at 5 g" },
   { fdc = 172234, status = "estimated", note = "SR Mustard prepared yellow: everything else" },
@@ -1096,44 +1144,52 @@ volume = { portions = [[2597122, "tsp"], [2601407, "tsp"]] }  # both 1 tsp = 5 g
 
 [[food]]
 name = "Worcestershire sauce"
+foodkeeper = 362
 fdc = 171610                    # SR: Sauce, worcestershire
 volume = "tbsp"
 
 [[food]]
 name = "Black pepper"
+foodkeeper = 469
 fdc = 170931                    # SR: Spices, pepper, black
 volume = "tsp, ground"
 
 [[food]]
 name = "Parsley"
+foodkeeper = 611
 parent = "Fresh herbs"
 fdc = 170416                    # SR: Parsley, fresh
 volume = "tbsp"
 
 [[food]]
 name = "Egg noodles (dry)"
+foodkeeper = 336
 parent = "Pasta"
 fdc = 169731                    # SR: Noodles, egg, dry, enriched
 volume = "cup"
 
 [[food]]
 name = "Olive oil"
+foodkeeper = 227
 fdc = 171413                    # SR: Oil, olive, salad or cooking
 volume = "tablespoon"
 
 [[food]]
 name = "Chicken Breast (raw)"
+foodkeeper = 117
 parent = "Chicken"
 fdc = 171077                    # SR: Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw
 each = "piece"                  # USDA: one piece = 272 g; breasts vary widely
 
 [[food]]
 name = "Chicken broth"
+foodkeeper = 486
 fdc = 174536                    # SR: Soup, chicken broth, ready-to-serve
 volume = "cup"
 
 [[food]]
 name = "Canned cannellini beans (drained)"
+foodkeeper = 372
 parent = "Cooked legumes"
 fdc = 2644294                   # Foundation: Beans, great northern, canned, sodium added, drained and rinsed
 proxy = true                    # great northern for cannellini: both white beans
@@ -1142,32 +1198,38 @@ each = { grams = 270, per = "each", source = "one 15-oz can drained and rinsed: 
 
 [[food]]
 name = "Canned green chiles"
+foodkeeper = 372
 parent = "Canned vegetables"
 fdc = 170426                    # SR: Peppers, hot chili, green, canned, pods, excluding seeds, solids and liquids
 
 [[food]]
 name = "Dried oregano"
+foodkeeper = 236
 fdc = 171328                    # SR: Spices, oregano, dried
 volume = "tsp, leaves"
 
 [[food]]
 name = "Ground cumin"
+foodkeeper = 473
 fdc = 170923                    # SR: Spices, cumin seed (ground cumin is the ground seed)
 volume = { fdc = 170923, portion = "tsp, whole", status = "estimated" }   # SR gives whole seed only
 
 [[food]]
 name = "Cayenne pepper"
+foodkeeper = 238
 fdc = 170932                    # SR: Spices, pepper, red or cayenne
 volume = "tsp"
 
 [[food]]
 name = "Cilantro"
+foodkeeper = 506
 parent = "Fresh herbs"
 fdc = 169997                    # SR: Coriander (cilantro) leaves, raw
 volume = "cup"
 
 [[food]]
 name = "Monterey Jack"
+foodkeeper = { id = 3, proxy = true }
 parent = "Cheeses"
 fdc = 170844                    # SR: Cheese, monterey
 volume = "cup, shredded"
@@ -1179,47 +1241,55 @@ volume = "cup, shredded"
 
 [[food]]
 name = "Fingerling potatoes"
+foodkeeper = 297
 parent = "Potatoes (white)"
 fdc = 170029                    # SR: Potatoes, red, flesh and skin, raw
 proxy = true                    # FDC has no fingerling; red is the nearest waxy potato
 
 [[food]]
 name = "Potatoes"
+foodkeeper = 297
 parent = "Potatoes (white)"
 fdc = 170026                    # SR: Potatoes, flesh and skin, raw
 
 [[food]]
 name = "Russet potato"
+foodkeeper = 297
 parent = "Potatoes (white)"
 fdc = 170027                    # SR: Potatoes, russet, flesh and skin, raw
 each = 'Potato medium (2-1/4" to 3-1/4" dia)'
 
 [[food]]
 name = "Sweet potato"
+foodkeeper = 422
 parent = "Sweet potatoes"
 fdc = 168482                    # SR: Sweet potato, raw, unprepared
 each = 'sweetpotato, 5" long'
 
 [[food]]
 name = "Shallot"
+foodkeeper = { id = 294, proxy = true }
 parent = "Root vegetables"
 fdc = 170499                    # SR: Shallots, raw
 each = { grams = 30, per = "each", source = "a medium shallot weighs about 30 g (wellcalm.info, What is the weight of 1 shallot?); FDC gives only 1 tbsp chopped" }
 
 [[food]]
 name = "Broccoli florets"
+foodkeeper = 276
 parent = "Other vegetables"
 fdc = 169330                    # SR: Broccoli, flower clusters, raw
 sources = [{ fdc = 170379, status = "estimated", note = "SR Broccoli raw: what the flower-cluster record does not report" }]
 
 [[food]]
 name = "Lemon"
+foodkeeper = 256
 parent = "Citrus fruits"
 fdc = 167746                    # SR: Lemons, raw, without peel
 each = 'fruit (2-1/8" dia)'
 
 [[food]]
 name = "Rosemary"
+foodkeeper = 511
 parent = "Fresh herbs"
 fdc = 173473                    # SR: Rosemary, fresh
 sources = [{ fdc = 172232, status = "estimated", note = "SR Basil fresh: FDC reports no sugars for rosemary, fresh or dried; a fresh herb's, for the gram a recipe uses" }]
@@ -1227,23 +1297,27 @@ volume = "tsp"
 
 [[food]]
 name = "Mixed greens"
+foodkeeper = 415
 parent = "Leafy greens"
 fdc = 2709792                   # FNDDS: Mixed salad greens, raw
 
 [[food]]
 name = "Mini cucumber"
+foodkeeper = 283
 parent = "Other vegetables"
 fdc = 168409                    # SR: Cucumber, with peel, raw
 each = { fdc = 2709784, portion = "miniature" }               # FNDDS Cucumber raw: 1 miniature = 65 g
 
 [[food]]
 name = "Ginger"
+foodkeeper = 286
 parent = "Root vegetables"
 fdc = 169231                    # SR: Ginger root, raw
 volume = "tsp"
 
 [[food]]
 name = "Red onion"
+foodkeeper = 294
 parent = "Root vegetables"
 fdc = 790577                    # Foundation: Onions, red, raw
 sources = [{ fdc = 170000, status = "estimated", note = "SR Onions raw: for what the Foundation record does not report" }]
@@ -1251,6 +1325,7 @@ each = { fdc = 170000, portion = 'medium (2-1/2" dia)' }      # SR Onions raw: F
 
 [[food]]
 name = "Grape tomatoes"
+foodkeeper = { id = 600, proxy = true }
 parent = "Fresh tomatoes"
 fdc = 321360                    # Foundation: Tomatoes, grape, raw
 sources = [{ fdc = 170457, status = "estimated", note = "SR Tomatoes red ripe raw: for what the Foundation record does not report" }]
@@ -1258,30 +1333,35 @@ volume = { fdc = 170457, portion = "cup cherry tomatoes", status = "estimated" }
 
 [[food]]
 name = "Tomato"
+foodkeeper = 306
 parent = "Fresh tomatoes"
 fdc = 170457                    # SR: Tomatoes, red, ripe, raw, year round average
 each = 'medium whole (2-3/5" dia)'
 
 [[food]]
 name = "Roma tomato"
+foodkeeper = 306
 parent = "Fresh tomatoes"
 fdc = 170457                    # SR: Tomatoes, red, ripe, raw, year round average
 each = "plum tomato"
 
 [[food]]
 name = "Red bell pepper"
+foodkeeper = 296
 parent = "Other vegetables"
 fdc = 170108                    # SR: Peppers, sweet, red, raw
 each = 'medium (approx 2-3/4" long, 2-1/2 dia.)'
 
 [[food]]
 name = "Green bell pepper"
+foodkeeper = 296
 parent = "Other vegetables"
 fdc = 170427                    # SR: Peppers, sweet, green, raw
 each = 'medium (approx 2-3/4" long, 2-1/2" dia)'
 
 [[food]]
 name = "Poblano pepper"
+foodkeeper = 296
 parent = "Other vegetables"
 fdc = 2747662                   # Foundation: Peppers, poblano, seeded, raw
 sources = [{ fdc = 2709798, status = "estimated", moisture = true, note = "FNDDS Peppers hot raw: for what the Foundation record does not report" }]
@@ -1289,108 +1369,128 @@ each = { grams = 113, per = "each", source = "about four to a pound, a medium on
 
 [[food]]
 name = "Red chili pepper"
+foodkeeper = 548
 parent = "Other vegetables"
 fdc = 170106                    # SR: Peppers, hot chili, red, raw
 each = "pepper"
 
 [[food]]
 name = "Avocado"
+foodkeeper = 250
 parent = "Fresh fruits"
 fdc = 171706                    # SR: Avocados, raw, California (Hass)
 each = "fruit, without skin and seed"
 
 [[food]]
 name = "Apple"
+foodkeeper = 248
 parent = "Fresh fruits"
 fdc = 171688                    # SR: Apples, raw, with skin
 each = 'medium (3" dia)'
 
 [[food]]
 name = "Red grapes"
+foodkeeper = 261
 parent = "Fresh fruits"
 fdc = 174683                    # SR: Grapes, red or green (European type), raw
 
 [[food]]
 name = "Orange"
+foodkeeper = 256
 parent = "Citrus fruits"
 fdc = 169097                    # SR: Oranges, raw, all commercial varieties
 each = 'fruit (2-5/8" dia)'
 
 [[food]]
 name = "Orange juice (fresh)"
+foodkeeper = 457
 parent = "Citrus fruits"
 fdc = 169098                    # SR: Orange juice, raw
 volume = "cup"
 
 [[food]]
 name = "Arugula"
+foodkeeper = 678
 parent = "Leafy greens"
 fdc = 169387                    # SR: Arugula, raw
 
 [[food]]
 name = "Bok choy and napa cabbage"   # HelloFresh sends the two mixed
+foodkeeper = 275
 parent = "Leafy greens"
 sources = [{ mean = [170390, 169979], status = "estimated", note = "SR bok choy (pak-choi) and napa (pe-tsai) raw, in equal parts (assumed)" }]
 
 [[food]]
 name = "Basil"
+foodkeeper = 509
 parent = "Fresh herbs"
 fdc = 172232                    # SR: Basil, fresh
 
 [[food]]
 name = "Chives"
+foodkeeper = 512
 parent = "Fresh herbs"
 fdc = 169994                    # SR: Chives, raw
 
 [[food]]
 name = "Sage"
+foodkeeper = 236
 fdc = 170935                    # SR: Spices, sage, ground
 proxy = true                    # FDC has no fresh sage; the recipes use a gram or two
 
 [[food]]
 name = "Corn kernels (canned drained)"
+foodkeeper = 372
 parent = "Canned vegetables"
 fdc = 169214                    # SR: Corn, sweet, yellow, canned, whole kernel, drained solids
 
 [[food]]
 name = "Pork tenderloin (raw)"
+foodkeeper = 67
 parent = "Fresh pork"
 fdc = 168312                    # SR: Pork, fresh, loin, tenderloin, separable lean and fat, raw
 
 [[food]]
 name = "Boneless pork chops (raw)"
+foodkeeper = 64
 parent = "Fresh pork"
 fdc = 168286                    # SR: Pork, fresh, loin, center loin (chops), boneless, separable lean and fat, raw
 
 [[food]]
 name = "Ground pork (raw)"
+foodkeeper = 73
 parent = "Ground pork"
 fdc = 167902                    # SR: Pork, fresh, ground, raw
 sources = [{ fdc = 2705863, status = "estimated", moisture = true, note = "FNDDS Pork ground (cooked, scaled to raw dry matter): what SR does not report" }]
 
 [[food]]
 name = "Chicken thighs (raw)"
+foodkeeper = 118
 parent = "Chicken"
 fdc = 173627                    # SR: Chicken, broilers or fryers, dark meat, thigh, meat only, raw
 
 [[food]]
 name = "Ground beef 85% lean (raw)"
+foodkeeper = 43
 parent = "Ground beef"
 fdc = 171796                    # SR: Beef, ground, 85% lean meat / 15% fat, raw
 
 [[food]]
 name = "Ground turkey 93% lean (raw)"
+foodkeeper = 115
 parent = "Turkey"
 fdc = 172850                    # SR: Turkey, ground, 93% lean, 7% fat, raw
 
 [[food]]
 name = "Ranch steak (raw)"
+foodkeeper = 40
 parent = "Beef cuts"
 fdc = 172132                    # SR: Beef, chuck, shoulder clod, shoulder top and center steaks (ranch steak), lean and fat, 0" fat, all grades, raw
 sources = [{ fdc = 2705824, status = "estimated", moisture = true, only = [1110, 1114], note = "FNDDS Beef steak NFS: vitamin D, which SR does not report for this cut" }]
 
 [[food]]
 name = "Bavette steak (raw)"
+foodkeeper = 40
 parent = "Beef cuts"
 fdc = 169563                    # SR: Beef, flank, steak, separable lean and fat, trimmed to 0" fat, all grades, raw
 sources = [{ fdc = 2705824, status = "estimated", moisture = true, only = [1110, 1114], note = "FNDDS Beef steak NFS: vitamin D, which SR does not report for this cut" }]
@@ -1398,48 +1498,56 @@ proxy = true                    # bavette is flap meat, which FDC does not have;
 
 [[food]]
 name = "Shrimp (raw)"
+foodkeeper = 151
 parent = "Shellfish"
 fdc = 175179                    # SR: Crustaceans, shrimp, raw
 sources = [{ fdc = 174210, status = "estimated", note = "SR shrimp mixed species raw: what 175179 does not report" }]
 
 [[food]]
 name = "Bacon (raw)"
+foodkeeper = 79
 parent = "Bacon"
 fdc = 168277                    # SR: Pork, cured, bacon, unprepared: counted raw, fat poured off is not modeled (J18)
 each = "slice raw"
 
 [[food]]
 name = "Butter (salted)"
+foodkeeper = 1
 parent = "Butter"
 fdc = 173410                    # SR: Butter, salted
 volume = "tbsp"
 
 [[food]]
 name = "Cheddar cheese"
+foodkeeper = 3
 parent = "Cheeses"
 fdc = 173414                    # SR: Cheese, cheddar
 volume = "cup, shredded"
 
 [[food]]
 name = "Mozzarella (low-moisture part-skim)"
+foodkeeper = { id = 3, proxy = true }
 parent = "Cheeses"
 fdc = 171244                    # SR: Cheese, mozzarella, low moisture, part-skim
 volume = "cup, shredded"
 
 [[food]]
 name = "Parmesan (grated)"
+foodkeeper = 4
 parent = "Cheeses"
 fdc = 171247                    # SR: Cheese, parmesan, grated
 volume = "tbsp"
 
 [[food]]
 name = "Cream cheese"
+foodkeeper = 10
 parent = "Cheeses"
 fdc = 173418                    # SR: Cheese, cream
 volume = "tbsp"
 
 [[food]]
 name = "Creme fraiche"
+foodkeeper = { id = 29, proxy = true }
 parent = "Milk and cream"
 sources = [
   { mean = [2148943, 2468125, 2276524], note = "Russell McCall's, Snowville and Sierra Nevada creme fraiche labels" },
@@ -1449,40 +1557,47 @@ volume = { grams = 15, per = "tbsp", source = "Snowville and Sierra Nevada label
 
 [[food]]
 name = "Whole milk"
+foodkeeper = 27
 parent = "Milk and cream"
 fdc = 171265                    # SR: Milk, whole, 3.25% milkfat, with added vitamin D
 volume = "cup"
 
 [[food]]
 name = "Cream sauce base"       # HelloFresh's; a cream-and-milk sauce base with no published label
+foodkeeper = 342
 fdc = 170857                    # SR: Cream, fluid, light (coffee cream or table cream)
 proxy = true
 
 [[food]]
 name = "Garlic herb butter"     # HelloFresh's compound butter
+foodkeeper = { id = 1, proxy = true }
 fdc = 173410                    # SR: Butter, salted
 proxy = true
 volume = "tbsp"
 
 [[food]]
 name = "Smoky red pepper crema" # HelloFresh's sour-cream topping
+foodkeeper = { id = 16, proxy = true }
 fdc = 171257                    # SR: Cream, sour, cultured
 proxy = true
 volume = "cup"
 
 [[food]]
 name = "Jasmine rice (dry)"
+foodkeeper = 338
 parent = "Rice"
 fdc = 168877                    # SR: Rice, white, long-grain, regular, raw, enriched (jasmine is a long-grain white rice)
 volume = "cup"
 
 [[food]]
 name = "Orzo (dry)"
+foodkeeper = 335
 parent = "Pasta"
 fdc = 169736                    # SR: Pasta, dry, enriched
 
 [[food]]
 name = "Ramen noodles (dry)"
+foodkeeper = { id = 335, proxy = true }
 parent = "Pasta"
 fdc = 168908                    # SR: Noodles, japanese, somen, dry
 sources = [
@@ -1493,12 +1608,14 @@ proxy = true                    # HelloFresh's are unfried wheat noodles; FDC's 
 
 [[food]]
 name = "Rolled oats"
+foodkeeper = 375
 parent = "Oats"
 fdc = 173904                    # SR: Cereals, oats, regular and quick, not fortified, dry
 volume = { grams = 81, per = "cup", source = "SR 173904: 1 cup = 81 g (its 0.33 cup portion is 27 g)" }
 
 [[food]]
 name = "Panko"
+foodkeeper = 643
 parent = "Breads"
 sources = [
   { mean = [2661608, 2112787, 1862715], note = "Target (Good & Gather), DeLallo and Kingston panko labels" },
@@ -1508,12 +1625,14 @@ volume = { grams = 84, per = "cup", source = "Target and DeLallo labels: 1/3 cup
 
 [[food]]
 name = "Brioche bun"
+foodkeeper = 195
 parent = "Breads"
 fdc = 2707682                   # FNDDS: Brioche
 each = "piece"
 
 [[food]]
 name = "Potato bun"
+foodkeeper = 195
 parent = "Breads"
 sources = [
   { mean = [2476728, 2503567], note = "Big Y and United States Bakery potato hamburger roll labels" },
@@ -1523,6 +1642,7 @@ each = { grams = 55, per = "each", source = "the two labels: 1 roll = 53 g and 5
 
 [[food]]
 name = "Ciabatta roll"
+foodkeeper = 195
 parent = "Breads"
 sources = [
   { mean = [2550797, 2624055], note = "New French Bakery and Walmart ciabatta roll labels" },
@@ -1532,41 +1652,48 @@ each = { grams = 85, per = "each", source = "both labels: 1 roll = 85 g" }
 
 [[food]]
 name = "Demi-baguette"
+foodkeeper = 195
 parent = "Breads"
 fdc = 2707610                   # FNDDS: Bread, French or Vienna
 each = "mini baguette"
 
 [[food]]
 name = "Sourdough bread"
+foodkeeper = 195
 parent = "Breads"
 fdc = 172675                    # SR: Bread, french or vienna (includes sourdough)
 each = { fdc = 2707610, portion = "medium or regular slice" }  # FNDDS: 1 medium slice = 64 g
 
 [[food]]
 name = "Flour tortilla (6 inch)"
+foodkeeper = 196
 parent = "Breads"
 fdc = 175037                    # SR: Tortillas, ready-to-bake or -fry, flour, refrigerated
 each = 'tortilla medium (approx 6" dia)'
 
 [[food]]
 name = "Whole wheat pita"
+foodkeeper = 195
 parent = "Breads"
 fdc = 174916                    # SR: Bread, pita, whole-wheat
 each = 'pita, large (6-1/2" dia)'
 
 [[food]]
 name = "Blue corn tortilla chips"
+foodkeeper = { id = 392, proxy = true }
 fdc = 167558                    # SR: Snacks, tortilla chips, plain, white corn, salted
 proxy = true                    # FDC has no blue corn chip
 
 [[food]]
 name = "Balsamic vinegar"
+foodkeeper = 669
 fdc = 172241                    # SR: Vinegar, balsamic
 sources = [{ fdc = 2709351, status = "estimated", note = "FNDDS Vinegar: what SR does not report" }]
 volume = "tbsp"
 
 [[food]]
 name = "White wine vinegar"
+foodkeeper = 361
 fdc = 172240                    # SR: Vinegar, red wine
 sources = [{ fdc = 2709351, status = "estimated", note = "FNDDS Vinegar: what SR does not report" }]
 proxy = true                    # FDC has no white wine vinegar
@@ -1574,75 +1701,89 @@ volume = "tbsp"
 
 [[food]]
 name = "Fruit jam"              # cherry, cranberry and fig jams and preserves
+foodkeeper = 347
 fdc = 169641                    # SR: Jams and preserves
 volume = "tbsp"
 
 [[food]]
 name = "Apricot jam"
+foodkeeper = 347
 fdc = 170645                    # SR: Jams and preserves, apricot
 volume = "tbsp"
 
 [[food]]
 name = "Ketchup"
+foodkeeper = 348
 fdc = 168556                    # SR: Catsup
 volume = "tbsp"
 
 [[food]]
 name = "Mayonnaise"
+foodkeeper = 350
 fdc = 171009                    # SR: Salad dressing, mayonnaise, regular
 volume = "tbsp"
 
 [[food]]
 name = "Tomato paste"
+foodkeeper = 501
 parent = "Canned tomatoes"
 fdc = 170459                    # SR: Tomato products, canned, paste, without salt added
 volume = "tbsp"
 
 [[food]]
 name = "Soy sauce"
+foodkeeper = 360
 fdc = 174277                    # SR: Soy sauce made from soy and wheat (shoyu)
 volume = "tbsp"
 
 [[food]]
 name = "Sriracha"
+foodkeeper = 559
 fdc = 171186                    # SR: Sauce, hot chile, sriracha
 sources = [{ fdc = 2710093, status = "estimated", note = "FNDDS Hot pepper sauce: what SR does not report" }]
 volume = "tsp"
 
 [[food]]
 name = "Hot sauce"
+foodkeeper = 559
 fdc = 174527                    # SR: Sauce, ready-to-serve, pepper or hot
 sources = [{ fdc = 2710093, status = "estimated", note = "FNDDS Hot pepper sauce: what SR does not report" }]
 volume = { grams = 4.7, per = "tsp", source = "SR 174527: 1 tsp = 4.7 g" }
 
 [[food]]
 name = "Honey"
+foodkeeper = 345
 fdc = 169640                    # SR: Honey
 volume = "tbsp"
 
 [[food]]
 name = "Maple syrup"
+foodkeeper = 534
 fdc = 169661                    # SR: Syrups, maple
 volume = "tbsp"
 
 [[food]]
 name = "Granulated sugar"
+foodkeeper = 240
 fdc = 169655                    # SR: Sugars, granulated
 volume = "tsp"
 
 [[food]]
 name = "Brown sugar"
+foodkeeper = 239
 fdc = 168833                    # SR: Sugars, brown
 volume = "tsp packed"
 
 [[food]]
 name = "Sweet soy glaze"        # HelloFresh's: soy sauce, honey, vinegar, garlic, ginger, sesame oil, cornstarch
+foodkeeper = { id = 360, proxy = true }
 fdc = 171167                    # SR: Sauce, teriyaki, ready-to-serve
 proxy = true
 volume = "tbsp"
 
 [[food]]
 name = "Sweet chili sauce"
+foodkeeper = { id = 348, proxy = true }
 sources = [
   { mean = [2616781, 2542455, 2093921, 2010822], note = "Allied Old English, House of Tsang, Schlotterbeck & Foss and Greystar sweet chili sauce labels" },
   { fdc = 2710296, status = "estimated", note = "FNDDS Sweet and sour sauce: what the labels do not report" },
@@ -1650,12 +1791,14 @@ sources = [
 
 [[food]]
 name = "Ponzu"
+foodkeeper = { id = 360, proxy = true }
 fdc = 172473                    # SR: Soy sauce made from soy and wheat (shoyu), low sodium
 proxy = true                    # its sodium and energy are those of Kikkoman's ponzu label (3200 mg, 67 kcal per 100 mL), which is sold by volume
 volume = "tbsp"
 
 [[food]]
 name = "Chipotle adobo sauce"
+foodkeeper = { id = 373, proxy = true }
 sources = [
   { mean = [2673773, 559011], note = "Goya and B&G chipotle peppers in adobo sauce labels" },
   { fdc = 2709798, status = "estimated", note = "FNDDS Peppers hot raw: what the labels do not report" },
@@ -1664,6 +1807,7 @@ volume = { grams = 15, per = "tbsp", source = "B&G label: 2 Tbsp = 30 g" }
 
 [[food]]
 name = "Tex-Mex paste"          # HelloFresh's: a chipotle-tomato paste with no published label
+foodkeeper = { id = 560, proxy = true }
 sources = [
   { mean = [2673773, 559011], status = "estimated", note = "chipotle peppers in adobo labels (Goya, B&G), the nearest labelled food" },
   { fdc = 2709798, status = "estimated", note = "FNDDS Peppers hot raw: what the labels do not report" },
@@ -1671,6 +1815,7 @@ sources = [
 
 [[food]]
 name = "Chicken stock concentrate"   # HelloFresh's packet
+foodkeeper = { id = 672, proxy = true }
 sources = [
   { mean = [2434787, 2029037], status = "estimated", note = "Del Monte and Meto chicken broth concentrate labels (a 12 g pouch makes a cup of broth), taken for HelloFresh's packet" },
   { fdc = 171562, status = "estimated", note = "SR chicken bouillon dry: everything the labels do not report" },
@@ -1679,6 +1824,7 @@ each = { grams = 12, per = "each", source = "both labels: 1 pouch = 12 g, taken 
 
 [[food]]
 name = "Beef stock concentrate"
+foodkeeper = 672
 sources = [
   { mean = [2434787, 2029037], status = "estimated", note = "the chicken broth concentrate labels: no beef concentrate label was found" },
   { fdc = 171562, status = "estimated", note = "SR chicken bouillon dry: everything the labels do not report" },
@@ -1687,6 +1833,7 @@ each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
 
 [[food]]
 name = "Vegetable stock concentrate"
+foodkeeper = 672
 sources = [
   { mean = [2434787, 2029037], status = "estimated", note = "the chicken broth concentrate labels: no vegetable concentrate label was found" },
   { fdc = 171562, status = "estimated", note = "SR chicken bouillon dry: everything the labels do not report" },
@@ -1695,6 +1842,7 @@ each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
 
 [[food]]
 name = "Pork ramen stock concentrate"
+foodkeeper = { id = 672, proxy = true }
 sources = [
   { mean = [2434787, 2029037], status = "estimated", note = "the chicken broth concentrate labels: no pork ramen concentrate label was found" },
   { fdc = 171562, status = "estimated", note = "SR chicken bouillon dry: everything the labels do not report" },
@@ -1703,6 +1851,7 @@ each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
 
 [[food]]
 name = "Vegetable pho stock concentrate"
+foodkeeper = 672
 sources = [
   { mean = [2434787, 2029037], status = "estimated", note = "the chicken broth concentrate labels: no pho concentrate label was found" },
   { fdc = 171562, status = "estimated", note = "SR chicken bouillon dry: everything the labels do not report" },
@@ -1711,83 +1860,99 @@ each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
 
 [[food]]
 name = "Coconut milk (canned)"
+foodkeeper = 602
 fdc = 170173                    # SR: Nuts, coconut milk, canned
 sources = [{ fdc = 2707568, status = "estimated", moisture = true, note = "FNDDS Coconut milk used in cooking: what SR does not report" }]
 volume = "cup"
 
 [[food]]
 name = "Black beans (canned)"
+foodkeeper = 372
 parent = "Cooked legumes"
 fdc = 175188                    # SR: Beans, black turtle, mature seeds, canned (solids and liquid)
 
 [[food]]
 name = "Dried thyme"
+foodkeeper = 236
 fdc = 170938                    # SR: Spices, thyme, dried
 volume = "tsp, leaves"
 
 [[food]]
 name = "Garlic powder"
+foodkeeper = 474
 fdc = 171325                    # SR: Spices, garlic powder
 volume = "tsp"
 
 [[food]]
 name = "Ground turmeric"
+foodkeeper = 238
 fdc = 172231                    # SR: Spices, turmeric, ground
 volume = "tsp"
 
 [[food]]
 name = "Ground cinnamon"
+foodkeeper = 472
 fdc = 171320                    # SR: Spices, cinnamon, ground
 volume = "tsp"
 
 [[food]]
 name = "Curry powder"
+foodkeeper = 238
 fdc = 170924                    # SR: Spices, curry powder
 volume = "tbsp"
 
 [[food]]
 name = "Chipotle powder"
+foodkeeper = { id = 232, proxy = true }
 fdc = 170932                    # SR: Spices, pepper, red or cayenne
 proxy = true                    # ground dried chile, as chipotle powder is; FDC has no chipotle
 volume = "tsp"
 
 [[food]]
 name = "Southwest spice blend"  # HelloFresh's: garlic powder, cumin and chili powder
+foodkeeper = 233
 sources = [{ mean = [171325, 170923, 171319], status = "calculated", note = "equal parts of garlic powder, cumin and chili powder, the three HelloFresh names (ratio assumed)" }]
 volume = { portions = [[171325, "tbsp"], [171319, "tbsp"]] }   # garlic and chili powder: 1 tbsp = 9.7 g and 8 g
 
 [[food]]
 name = "Shawarma spice blend"   # HelloFresh's
+foodkeeper = 233
 sources = [{ mean = [172231, 172231, 170923, 170923, 170922, 171325, 171329], status = "calculated", note = "turmeric, cumin, coriander, garlic powder and paprika 2:2:1:1:1, from a published copy of HelloFresh's blend (mysweetprecision.com); its allspice and pepper (1/8) left out" }]
 volume = { portions = [[172231, "tbsp"], [170922, "tbsp"], [171325, "tbsp"]] }
 
 [[food]]
 name = "Truffle zest"           # HelloFresh's dried truffle seasoning
+foodkeeper = { id = 233, proxy = true }
 fdc = 168436                    # SR: Mushrooms, shiitake, dried
 proxy = true                    # the nearest dried fungus FDC has
 
 [[food]]
 name = "Almonds"
+foodkeeper = 438
 parent = "Nuts and seeds"
 fdc = 170567                    # SR: Nuts, almonds
 
 [[food]]
 name = "Pecans"
+foodkeeper = 444
 parent = "Nuts and seeds"
 fdc = 170182                    # SR: Nuts, pecans
 
 [[food]]
 name = "Pistachios (roasted salted)"
+foodkeeper = 445
 parent = "Nuts and seeds"
 fdc = 169426                    # SR: Nuts, pistachio nuts, dry roasted, with salt added
 
 [[food]]
 name = "Dried cranberries"
+foodkeeper = 379
 parent = "Dried fruits"
 fdc = 171723                    # SR: Cranberries, dried, sweetened
 
 [[food]]
 name = "Semisweet chocolate chips"
+foodkeeper = 216
 fdc = 167976                    # SR: Candies, semisweet chocolate
 volume = "cup chips (6 oz package)"
 
@@ -1795,95 +1960,112 @@ volume = "cup chips (6 oz package)"
 
 [[food]]
 name = "Baby spinach"
+foodkeeper = 415
 parent = "Leafy greens"
 fdc = 168462                    # SR: Spinach, raw
 volume = "cup"
 
 [[food]]
 name = "Berry compote"          # HelloFresh's; berries cooked with sugar, no published label
+foodkeeper = { id = 347, proxy = true }
 fdc = 173951                    # SR: Blueberries, frozen, sweetened
 proxy = true
 
 [[food]]
 name = "Buttermilk biscuits (refrigerated dough)"
+foodkeeper = 552
 parent = "Doughs"
 fdc = 172668                    # SR: Biscuits, plain or buttermilk, refrigerated dough, higher fat
 sources = [{ fdc = 2707801, status = "estimated", moisture = true, note = "FNDDS Biscuit NFS (baked, scaled to the dough): what SR does not report" }]
 
 [[food]]
 name = "Cannellini beans (canned)"
+foodkeeper = 372
 parent = "Cooked legumes"
 fdc = 175204                    # SR: Beans, white, mature seeds, canned (solids and liquid)
 sources = [{ fdc = 2707357, status = "estimated", moisture = true, note = "FNDDS White beans from canned: what SR does not report" }]
 
 [[food]]
 name = "Carrot"
+foodkeeper = 279
 parent = "Root vegetables"
 fdc = 170393                    # SR: Carrots, raw
 
 [[food]]
 name = "Chickpeas (canned)"
+foodkeeper = 372
 parent = "Cooked legumes"
 fdc = 175206                    # SR: Chickpeas, mature seeds, canned, solids and liquids
 sources = [{ fdc = 2707418, status = "estimated", moisture = true, note = "FNDDS Chickpeas from canned (scaled to solids and liquid): what SR does not report" }]
 
 [[food]]
 name = "Chickpeas (canned drained)"
+foodkeeper = 372
 parent = "Cooked legumes"
 fdc = 173801                    # SR: Chickpeas, mature seeds, canned, drained, rinsed in tap water
 sources = [{ fdc = 2707418, status = "estimated", moisture = true, note = "FNDDS Chickpeas from canned: what SR does not report" }]
 
 [[food]]
 name = "Red chili flakes"
+foodkeeper = 238
 fdc = 170932                    # SR: Spices, pepper, red or cayenne
 proxy = true                    # crushed dried red chiles; cayenne is the nearest FDC has
 volume = "tsp"
 
 [[food]]
 name = "Crushed tomatoes (canned)"
+foodkeeper = 373
 parent = "Canned tomatoes"
 fdc = 170501                    # SR: Tomatoes, crushed, canned
 
 [[food]]
 name = "Diced tomatoes (canned)"
+foodkeeper = 373
 parent = "Canned tomatoes"
 fdc = 170051                    # SR: Tomatoes, red, ripe, canned, packed in tomato juice
 
 [[food]]
 name = "Dill"
+foodkeeper = 288
 parent = "Fresh herbs"
 fdc = 172233                    # SR: Dill weed, fresh
 sources = [{ fdc = 2709796, status = "estimated", moisture = true, note = "FNDDS Parsley raw: a fresh herb, for what SR does not report of dill" }]
 
 [[food]]
 name = "Dried apricots"
+foodkeeper = 379
 parent = "Dried fruits"
 fdc = 173941                    # SR: Apricots, dried, sulfured, uncooked
 
 [[food]]
 name = "Everything bagel seasoning"
+foodkeeper = 233
 sources = [{ mean = [170150, 170150, 171330, 171330, 171325, 171325, 171327, 171327, 173468], status = "calculated", note = "sesame, poppy, garlic, onion and salt 2:2:2:2:1, a common recipe (ratio assumed)" }]
 volume = { portions = [[170150, "tbsp"], [171330, "tbsp"]] }
 
 [[food]]
 name = "Feta cheese"
+foodkeeper = { id = 7, proxy = true }
 parent = "Cheeses"
 fdc = 173420                    # SR: Cheese, feta
 volume = "cup, crumbled"
 
 [[food]]
 name = "Fry seasoning"          # HelloFresh's: garlic powder, onion powder and paprika
+foodkeeper = 233
 sources = [{ mean = [171325, 171327, 171329], status = "calculated", note = "equal parts garlic powder, onion powder and paprika (mommytravels.net, HelloFresh Spice Recipes)" }]
 volume = { portions = [[171325, "tbsp"], [171327, "tbsp"]] }
 
 [[food]]
 name = "Hummus"
+foodkeeper = 181
 fdc = 174289                    # SR: Hummus, commercial
 sources = [{ fdc = 2707402, status = "estimated", moisture = true, note = "FNDDS Hummus plain: what SR does not report" }]
 volume = "tbsp"
 
 [[food]]
 name = "Pearl couscous (dry)"
+foodkeeper = { id = 335, proxy = true }
 parent = "Pasta"
 fdc = 169699                    # SR: Couscous, dry
 sources = [{ fdc = 2708441, status = "estimated", moisture = true, note = "FNDDS Couscous plain cooked (scaled to dry): what SR does not report" }]
@@ -1892,33 +2074,39 @@ volume = "cup"
 
 [[food]]
 name = "Italian chicken sausage (raw)"
+foodkeeper = 102
 parent = "Poultry sausages"
 fdc = 173880                    # SR: Sausage, chicken or turkey, Italian style, lower sodium
 proxy = true                    # HelloFresh's is not sold as lower sodium; its sodium is likely higher
 
 [[food]]
 name = "Italian seasoning"
+foodkeeper = 236
 sources = [{ mean = [171328, 171317, 170938, 171333], status = "calculated", note = "equal parts dried oregano, basil, thyme and rosemary (ratio assumed)" }]
 volume = { portions = [[171317, "tbsp, leaves"], [170938, "tbsp, leaves"]] }
 
 [[food]]
 name = "Kale"
+foodkeeper = 423
 parent = "Leafy greens"
 fdc = 168421                    # SR: Kale, raw
 
 [[food]]
 name = "Pork breakfast sausage (raw)"
+foodkeeper = 102
 parent = "Pork sausages"
 fdc = 172934                    # SR: Pork sausage, link/patty, unprepared
 proxy = true                    # HelloFresh's is maple-flavored
 
 [[food]]
 name = "Mexican spice blend"    # HelloFresh's
+foodkeeper = 233
 sources = [{ mean = [171319, 170923, 171325, 171327, 171329, 171328], status = "calculated", note = "equal parts chili powder, cumin, garlic powder, onion powder, paprika and oregano (assumed; HelloFresh publishes no ratio)" }]
 volume = { portions = [[171319, "tbsp"], [171325, "tbsp"]] }
 
 [[food]]
 name = "Mushroom stock concentrate"
+foodkeeper = { id = 672, proxy = true }
 sources = [
   { mean = [2434787, 2029037], status = "estimated", note = "the chicken broth concentrate labels: no mushroom concentrate label was found" },
   { fdc = 171562, status = "estimated", note = "SR chicken bouillon dry: everything the labels do not report" },
@@ -1927,6 +2115,7 @@ each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
 
 [[food]]
 name = "Portobello mushroom"
+foodkeeper = 292
 parent = "Other vegetables"
 fdc = 169255                    # SR: Mushrooms, portabella, raw
 sources = [{ fdc = 2709793, status = "estimated", moisture = true, note = "FNDDS Mushrooms raw: what SR does not report" }]
@@ -1934,33 +2123,39 @@ each = "piece whole"
 
 [[food]]
 name = "Powdered sugar"
+foodkeeper = 241
 fdc = 169656                    # SR: Sugars, powdered
 
 [[food]]
 name = "Ricotta salata"
+foodkeeper = { id = 3, proxy = true }
 parent = "Cheeses"
 fdc = 173420                    # SR: Cheese, feta
 proxy = true                    # a pressed salted ricotta; FDC has none, feta is the nearest
 
 [[food]]
 name = "Shredded coconut (sweetened)"
+foodkeeper = 257
 parent = "Nuts and seeds"
 fdc = 168586                    # SR: Nuts, coconut meat, dried (desiccated), sweetened, shredded
 volume = "cup, shredded"
 
 [[food]]
 name = "Cucumber"
+foodkeeper = 283
 parent = "Other vegetables"
 fdc = 168409                    # SR: Cucumber, with peel, raw
 each = 'cucumber (8-1/4")'
 
 [[food]]
 name = "Tuscan heat spice"      # HelloFresh's
+foodkeeper = 233
 sources = [{ mean = [171317, 171317, 171317, 171317, 171333, 171333, 171328, 171328, 171325, 171325, 170932, 171323], status = "calculated", note = "basil, rosemary, oregano, garlic powder, cayenne and fennel 4:2:2:2:1:1, the ratio HelloFresh published (forktospoon.com)" }]
 volume = { portions = [[171317, "tbsp, leaves"], [171325, "tbsp"]] }
 
 [[food]]
 name = "Za'atar"
+foodkeeper = 233
 sources = [{ mean = [170938, 170150], status = "calculated", note = "equal parts dried thyme and sesame (assumed; sumac is not in FDC and salt is left out)" }]
 volume = { portions = [[170938, "tsp, ground"], [170150, "tbsp"]] }
 
@@ -1968,76 +2163,90 @@ volume = { portions = [[170938, "tsp, ground"], [170150, "tbsp"]] }
 
 [[food]]
 name = "Brussels sprouts"
+foodkeeper = 277
 parent = "Other vegetables"
 fdc = 170383                    # SR: Brussels sprouts, raw
 
 [[food]]
 name = "Coleslaw mix"           # bagged shredded green cabbage, with a little carrot and red cabbage
+foodkeeper = { id = 415, proxy = true }
 parent = "Other vegetables"
 fdc = 169975                    # SR: Cabbage, raw
 proxy = true
 
 [[food]]
 name = "White bread"
+foodkeeper = 195
 parent = "Breads"
 fdc = 174924                    # SR: Bread, white, commercially prepared
 each = { grams = 27, per = "each", source = "SR 174924 gives a slice as 25 g and as 29 g; the mean, 27 g" }
 
 [[food]]
 name = "Flour tortilla (10 inch)"
+foodkeeper = 196
 parent = "Breads"
 fdc = 175037                    # SR: Tortillas, ready-to-bake or -fry, flour, refrigerated
 each = 'tortilla (approx 10" dia)'
 
 [[food]]
 name = "Honey Dijon dressing"   # EveryPlate's
+foodkeeper = 356
 fdc = 171043                    # SR: Salad dressing, honey mustard, regular
 
 [[food]]
 name = "Buttermilk ranch dressing"   # EveryPlate's
+foodkeeper = 623
 fdc = 173592                    # SR: Salad dressing, ranch dressing, regular
 volume = "tablespoon"
 
 [[food]]
 name = "Greek vinaigrette"      # EveryPlate's: oil, vinegar and herbs
+foodkeeper = 625
 fdc = 171019                    # SR: Salad dressing, italian dressing, commercial, regular
 proxy = true
 volume = "tbsp"
 
 [[food]]
 name = "Frank's seasoning blend"   # EveryPlate's Frank's RedHot seasoning; no published label
+foodkeeper = 233
 sources = [{ mean = [170932, 171325, 171329], status = "calculated", note = "equal parts cayenne, garlic powder and paprika (assumed; like the kits' other blends, salt left out, which may understate sodium)" }]
 
 # -- pantry staples (2026-09-27): foods the pantry profiles name that no recipe has used yet ---------
 
 [[food]]
 name = "Baking powder"
+foodkeeper = 212
 fdc = 172803                    # SR: Leavening agents, baking powder, double-acting, sodium aluminum sulfate
 volume = { grams = 4.6, per = "tsp", source = "SR 172803: 1 tsp = 4.6 g (and 0.5 tsp = 2.3 g, the same density)" }
 
 [[food]]
 name = "Baking soda"
+foodkeeper = 213
 fdc = 175040                    # SR: Leavening agents, baking soda
 volume = { grams = 4.6, per = "tsp", source = "SR 175040: 1 tsp = 4.6 g (and 0.5 tsp = 2.3 g, the same density)" }
 
 [[food]]
 name = "Active dry yeast"
+foodkeeper = 561
 fdc = 175043                    # SR: Leavening agents, yeast, baker's, active dry
 volume = "tsp"
 
 [[food]]
 name = "Cornstarch"
+foodkeeper = 220
 parent = "Flours and starches"
 fdc = 169698                    # SR: Cornstarch
 volume = "cup"
 
 [[food]]
 name = "Vanilla extract"
+foodkeeper = 530
 fdc = 173471                    # SR: Vanilla extract
 volume = "tsp"
 
 [[food]]
 name = "Sesame oil"
+foodkeeper = 612
 fdc = 171016                    # SR: Oil, sesame, salad or cooking
 volume = "tsp"
 
@@ -2045,46 +2254,54 @@ volume = "tsp"
 
 [[food]]
 name = "Cottage cheese"
+foodkeeper = 9
 parent = "Cheeses"
 fdc = 172179                    # SR: Cheese, cottage, creamed, large or small curd (the 4% milkfat the recipes ask for)
 volume = "cup, small curd (not packed)"
 
 [[food]]
 name = "Puff pastry"
+foodkeeper = 551
 parent = "Doughs"
 fdc = 172790                    # SR: Puff pastry, frozen, ready-to-bake
 each = { fdc = 172738, portion = "sheet" }                     # SR, the same pastry baked: 1 sheet = 245 g
 
 [[food]]
 name = "Heavy cream"
+foodkeeper = 14
 parent = "Milk and cream"
 fdc = 170859                    # SR: Cream, fluid, heavy whipping
 volume = "tbsp"
 
 [[food]]
 name = "Swiss cheese"
+foodkeeper = 3
 parent = "Cheeses"
 fdc = 171251                    # SR: Cheese, swiss
 volume = "cup, shredded"
 
 [[food]]
 name = "Ground nutmeg"
+foodkeeper = 476
 fdc = 171326                    # SR: Spices, nutmeg, ground
 volume = "tsp"
 
 [[food]]
 name = "Ham (cooked)"
+foodkeeper = 85
 parent = "Cooked ham"
 fdc = 167872                    # SR: Pork, cured, ham, boneless, regular (approximately 11% fat), roasted
 
 [[food]]
 name = "Flour tortilla (8 inch)"
+foodkeeper = 196
 parent = "Breads"
 fdc = 175037                    # SR: Tortillas, ready-to-bake or -fry, flour, refrigerated
 each = { fdc = 173242, portion = 'tortilla (approx 7-8" dia)' }   # SR, the same without added calcium: 49 g
 
 [[food]]
 name = "Chia seeds"
+foodkeeper = 573
 parent = "Nuts and seeds"
 fdc = 170554                    # SR: Seeds, chia seeds, dried
 sources = [{ fdc = 2707590, status = "estimated", note = "FNDDS Chia seeds: for what the SR record does not report" }]
@@ -2092,36 +2309,42 @@ volume = { grams = 10.5, per = "tbsp", source = "FNDDS 2707590 Chia seeds: 1 cup
 
 [[food]]
 name = "Peanut butter (crunchy)"
+foodkeeper = 387
 parent = "Nuts and seeds"
 fdc = 174265                    # SR: Peanut butter, chunk style, with salt
 volume = "tbsp"
 
 [[food]]
 name = "Blueberries"
+foodkeeper = 254
 parent = "Fresh fruits"
 fdc = 171711                    # SR: Blueberries, raw
 volume = "cup"
 
 [[food]]
 name = "Raspberries"
+foodkeeper = 482
 parent = "Fresh fruits"
 fdc = 167755                    # SR: Raspberries, raw
 volume = "cup"
 
 [[food]]
 name = "Walnuts"
+foodkeeper = 446
 parent = "Nuts and seeds"
 fdc = 170187                    # SR: Nuts, walnuts, english
 volume = "cup, chopped"
 
 [[food]]
 name = "Banana"
+foodkeeper = 251
 parent = "Fresh fruits"
 fdc = 173944                    # SR: Bananas, raw
 each = 'medium (7" to 7-7/8" long)'
 
 [[food]]
 name = "Dried parsley"
+foodkeeper = 236
 fdc = 170930                    # SR: Spices, parsley, dried
 volume = "tsp"
 

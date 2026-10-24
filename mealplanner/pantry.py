@@ -32,7 +32,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from mealplanner.inventory import FMT, container_opened_status, eligible_lots, mass_quality
+from mealplanner.inventory import FMT, container_opened_status, eligible_lots, mass_quality, shelf_life_days
 from mealplanner.inventory import _magnitude as magnitude_of
 from mealplanner.nutrition_scope import raw_inputs
 from mealplanner.typetree import dt
@@ -123,9 +123,10 @@ def on_hand(client, portion: dict, when: datetime) -> float | None:
 
 def buy(client, food: str, amount: float, unit: str, when: datetime, token: str, *, storage: str = "Fridge",
         keeps: str | None = None) -> Booking:
-    """Book a purchase of `amount` `unit` of `food`, kept in `storage`. `keeps` names its Perishability
-    Class, whose ShelfLife defaults date its expiry; without one, the class of the latest portion of
-    the same food that has one, if any (computed, not stored)."""
+    """Book a purchase of `amount` `unit` of `food`, kept in `storage`. Its expiry is its food's
+    FoodKeeper shelf life (J31); `keeps` names a Perishability Class for a food without one, and
+    without it the class of the latest portion of the same food that has one is taken, if any
+    (computed, not stored)."""
     if storage not in STORAGE:
         raise PantryError(f"storage must be one of {', '.join(STORAGE)}, not {storage!r}")
     food_id = dt(client, food)
@@ -142,8 +143,9 @@ def buy(client, food: str, amount: float, unit: str, when: datetime, token: str,
     quality = w.ensure("Quality", f"{name} mass Quality", {"hasKind": dt(client, "Mass"), "inheresIn": portion})
     w.ensure("Measurement", f"{name} mass bought", {
         "value": amount, "unit": unit, "status": "observed", "hasTime": _time(when), "isAboutQuality": quality})
-    if keeps_id is None:
-        booking.notes.append(f"{food}: no perishability class, so no expiry (name one with --keeps)")
+    if keeps_id is None and shelf_life_days(client, food_id, "Sealed", storage) is None:
+        booking.notes.append(f"{food}: no shelf life known for it in the {storage.lower()}, so no expiry "
+                             "(name a perishability class with --keeps)")
     return booking
 
 
