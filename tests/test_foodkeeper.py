@@ -158,9 +158,18 @@ class Expiry(unittest.TestCase):
         flour = g.get_all("PortionOfSubstance", "flour on hand")["result"]
         self.assertEqual(assumed_storage(g, flour), "Pantry")
         self.assertEqual(instance_expiration(g, flour, when(26, 0)), (False, 179.0))
+        keeps(g, "Flour", 365.0, "Fridge", "Opened")          # opened, it keeps longer in the fridge: not where it is
+        self.assertEqual(assumed_storage(g, flour), "Pantry")
         keeps(g, "Eggs", 21.0, "Fridge")
         add_portion(g, "eggs on hand", "Eggs", 300.0, at(25, 0))
         self.assertEqual(assumed_storage(g, g.get_all("PortionOfSubstance", "eggs on hand")["result"]), "Fridge")
+        add_type(g, "Garlic")
+        keeps(g, "Garlic", 30.0, "Pantry")
+        keeps(g, "Garlic", 3.0, "Fridge")
+        add_portion(g, "garlic on hand", "Garlic", 50.0, at(25, 0))
+        self.assertEqual(assumed_storage(g, g.get_all("PortionOfSubstance", "garlic on hand")["result"]), "Pantry")
+        add_portion(g, "noodles on hand", "Noodles", 50.0, at(25, 0))   # no shelf life of its own: the fridge, as before
+        self.assertEqual(assumed_storage(g, g.get_all("PortionOfSubstance", "noodles on hand")["result"]), "Fridge")
 
     def test_a_purchase_says_nothing_of_a_class_when_the_food_keeps(self):
         g = pantry()

@@ -252,13 +252,17 @@ function onHand(portion) {
   return [level, weighing, since];
 }
 
-// inventory.assumed_storage: a portion in no container is kept where its food keeps (J31)
+// inventory.assumed_storage: a portion in no container is kept where its food keeps longest unopened,
+// of the fridge and the pantry, the fridge on a tie or when it has neither (J31)
 function assumedStorage(portion) {
   const own = {};
   for (const d of portion.instanceOf ? defaultsOf(portion.instanceOf, "ShelfLife") : []) {
-    for (const k of d.keyedBy || []) own[k.name] = true;
+    const names = (d.keyedBy || []).map((k) => k.name);
+    if (names.indexOf("Opened") >= 0 || !d.hasValue || d.hasValue.value == null) continue;
+    for (const storage of names) own[storage] = d.hasValue.value;
   }
-  return ["Fridge", "Pantry"].find((storage) => own[storage]) || "Fridge";
+  const days = (storage) => (storage in own ? own[storage] : -1);
+  return days("Pantry") > days("Fridge") ? "Pantry" : "Fridge";
 }
 
 // inventory.portion_shelf_life: its food's shelf life (FoodKeeper's), else its perishability class's
