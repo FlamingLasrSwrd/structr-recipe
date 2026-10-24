@@ -3,7 +3,8 @@
 //
 // The pages read the graph and work out what they show, as the Python tools do. Each function
 // below names the Python one it follows; tools/check_pages.py compares what the pages show with
-// what those functions give. Nothing here writes.
+// what those functions give. Only the bookings at the end write: the pantry and week pages' forms
+// (mealplanner/pantry.py, docs/pantry.md).
 
 const esc = (v) => String(v == null ? "" : v).replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
 
@@ -36,11 +37,26 @@ function ancestorsOrSelf(type) {
   return chain;
 }
 
+// A Type's defaults by kind name, read once per page: a retention class holds a default for every
+// nutrient and method (J30), and reading each one's kind again for every lookup that walks past it
+// cost the shopping page about a second
+const defaultsByType = {};
+function defaultsOf(level, kindName) {
+  if (!defaultsByType[level.id]) {
+    const byKind = {};
+    for (const d of level.defaultSpecifications || []) {
+      if (d.hasKind) (byKind[d.hasKind.name] = byKind[d.hasKind.name] || []).push(d);
+    }
+    defaultsByType[level.id] = byKind;
+  }
+  return defaultsByType[level.id][kindName] || [];
+}
+
 // defaults.resolve_default: the nearest Type with any applicable default of the kind wins; within it,
 // the one with the most keys, all among `keyIds`; two tied are ambiguous (an error, as in Python)
 function resolveDefault(type, kindName, keyIds) {
   for (const level of ancestorsOrSelf(type)) {
-    const applicable = (level.defaultSpecifications || []).filter((d) => d.hasKind && d.hasKind.name === kindName)
+    const applicable = defaultsOf(level, kindName)
       .filter((d) => (d.keyedBy || []).every((k) => keyIds.indexOf(k.id) >= 0));
     if (!applicable.length) continue;
     const most = Math.max(...applicable.map((d) => (d.keyedBy || []).length));
@@ -267,3 +283,81 @@ function subtypesOf(type) {
   }
   return out;
 }
+
+// -- bookings (mealplanner/pantry.py): what the pantry and week pages' forms write ----------------
+// A form carries a token made when the page was drawn, and every node a booking writes is found by
+// name before it is created, so sending a form twice writes nothing new (CLAUDE.md hard rule 5).
+// Writes run as the superuser ($.doPrivileged), as the tools' do, and state their visibility (rule 4).
+const SEEN = {visibleToAuthenticatedUsers: true, visibleToPublicUsers: false};
+const stamp = (d) => d.toISOString().replace(/\.\d{3}Z$/, "+0000");
+const newToken = () => Math.random().toString(16).slice(2, 10);
+
+class BookingError extends Error {}
+
+// typetree.dt: the one DomainType with this name
+function typeNamed(name) {
+  const found = $.find("DomainType", {name: name});
+  if (found.length !== 1) throw new BookingError("expected exactly one DomainType named " + name + ", found " + found.length);
+  return found[0];
+}
+
+// pantry._Writer.ensure: find by name, else create; `booking.created` lists what was created
+function ensureNode(booking, type, name, props) {
+  if (/[,;]/.test(name)) throw new BookingError(name + ": a name cannot hold a comma or a semicolon");
+  const found = $.find(type, {name: name}).filter((n) => n.type === type);
+  if (found.length > 1) throw new BookingError("two " + type + " nodes are named " + name);
+  if (found.length) return found[0];
+  const fields = {name: name};
+  for (const key of Object.keys(props)) if (props[key] != null) fields[key] = props[key];
+  booking.created.push(name);
+  return $.create(type, Object.assign(fields, SEEN));
+}
+
+// pantry._operation: a Process kind in the Pantry Operation hierarchy, made on first use
+function operationKind(booking, kind) {
+  const hierarchy = $.find("TypeHierarchy", {name: "Pantry Operation"})[0] || ensureNode(booking, "TypeHierarchy", "Pantry Operation", {});
+  return ensureNode(booking, "DomainType", kind, {hierarchy: hierarchy, isLookupBearing: false});
+}
+
+// pantry._process
+function bookProcess(booking, kind, name, when, extra) {
+  const region = ensureNode(booking, "TemporalRegion", name + " time", {hasBeginning: stamp(when)});
+  booking.process = name;
+  return ensureNode(booking, "Process", name, Object.assign({hasKind: kind ? operationKind(booking, kind) : null,
+                                                             occupiesTemporalRegion: region}, extra || {}));
+}
+
+// pantry._draw: an input Allocation of `grams` from a portion, its amount an observed Measurement
+function bookDraw(booking, process, portion, grams, when, label, spec) {
+  const name = process.name + " -- " + label;
+  const amount = ensureNode(booking, "Measurement", name + " amount", {value: Math.round(grams * 1e6) / 1e6, unit: "g",
+                                                                      status: "observed", hasTime: stamp(when)});
+  ensureNode(booking, "Allocation", name, {isAbout: portion, hasParticipationRole: "input", hasActualQuantity: amount,
+                                           process: process, fulfills: spec || null});
+}
+
+// Run a booking from the page's address (?do=...), as the superuser; a message saying what it did
+function runBooking(actions) {
+  const action = $.request.do;
+  if (!action) return "";
+  if (!actions[action]) return "<p class=\"problem\">Problem: no such booking: " + esc(action) + "</p>";
+  const token = String($.request.token || "");
+  if (!/^[0-9a-f]{4,16}$/.test(token)) return "<p class=\"problem\">Problem: the form had no token; reload the page and try again.</p>";
+  const booking = {process: null, created: [], notes: []};
+  let problem = null;                   // caught inside: an error may not cross doPrivileged as itself
+  const run = () => {
+    try { actions[action](booking, $.request, token); } catch (e) { if (e instanceof BookingError) problem = e.message; else throw e; }
+  };
+  const privileged = typeof $.doPrivileged === "function";
+  if (privileged) $.doPrivileged(run); else run();
+  // what was booked, for tools/check_bookings.py
+  const record = "<script type=\"application/json\" id=\"booking-data\">" + JSON.stringify({
+    action: action, privileged: privileged, problem: problem, process: booking.process, created: booking.created,
+    notes: booking.notes}).replace(/</g, "\\u003c") + "</script>";
+  if (problem) return "<p class=\"problem\">Problem: " + esc(problem) + "</p>" + record;
+  const said = booking.process ? (booking.created.length ? esc(booking.process) + ": booked."
+                                                          : esc(booking.process) + ": booked before, so nothing new was written.") : "";
+  return "<p class=\"booked\">" + [said].concat(booking.notes.map(esc)).filter((x) => x).join(" ") + "</p>" + record
+    + "<script>history.replaceState(null, '', location.pathname);</script>";
+}
+

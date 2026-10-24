@@ -1,16 +1,18 @@
 # Pages: the week, the recipes, nutrition and the pantry in a browser
 
 Structr serves four pages and a recipe page from the planner's own graph (the owner's choice,
-2026-10-22: week view, recipe book, week's nutrition, pantry). They read; they never write.
+2026-10-22: week view, recipe book, week's nutrition, pantry). They read; two of them also book
+what happens to the pantry (the owner's request, 2026-10-23): the pantry page's forms and the week
+page's "Mark cooked" (docs/pantry.md).
 
 | Page | Address | What it shows |
 |---|---|---|
-| Week | `/structr/html/week[/<MealPlan id>]` | a committed week's meals by day: cook or leftovers, servings cooked, each person's servings, and when to start a dish made ahead (J29) |
+| Week | `/structr/html/week[/<MealPlan id>]` | a committed week's meals by day: cook or leftovers, servings cooked, each person's servings, and when to start a dish made ahead (J29). **Mark cooked** on a meal not yet cooked takes its ingredients out of the pantry, soonest to expire first, and says what the pantry did not hold (`pantry.cook`) |
 | Shopping | `/structr/html/shopping[/<MealPlan id>][?prices=<level>]` | a committed week's shopping list, as `tools/shopping_list.py` makes it: by the day each food is first needed, what to buy (a count where the recipes count it), what is on hand, the cost at a price level (default `Home prices`), what the pantry covers and what a recipe gives no amount for; a tick box on each line, remembered in that browser. Stock policies' levels are not applied here (the tool applies them; the page says so when one exists) |
 | Recipes | `/structr/html/recipes[?meal=Breakfast]` | the book the planner chooses from (no baselines, nothing retired): meal types, minutes, difficulty, servings, and energy, protein, fibre and sodium a serving where targets are about them |
 | Recipe | `/structr/html/recipe/<Plan id>` | one version: where it came from, its facts, its ingredients and amounts step by step, and every stored figure per serving with what it rests on. Instructions are not stored, so not shown |
 | Nutrition | `/structr/html/nutrition[/<MealPlan id>]` | each of the week's targets judged at its own scope, per person: met, under, over or unknown, per day (and per meal or week where a target is scoped so) |
-| Pantry | `/structr/html/pantry` | every portion on hand, how much, when it was weighed, and when it expires, soonest first |
+| Pantry | `/structr/html/pantry` | every portion on hand, how much, when it was weighed, and when it expires, soonest first. **Buy** adds a portion (a food, an amount in any unit that converts to grams, where it is kept, its perishability class); each portion's **Change** has **Use**, **Count** (a stock take), **Open**, **Freeze** (or **Move to fridge**) and **Discard** |
 
 A week page without an id shows the latest week with entries, and links the others. The week and
 nutrition pages show **committed** weeks only: a proposed week exists nowhere until
@@ -30,6 +32,21 @@ there. `tools/check_pages.py` is the guard: it renders every page, reads the dat
 ```bash
 python3 tools/install_pages.py      # install, or replace, the pages
 python3 tools/check_pages.py        # what they show, against Python
+```
+
+**Bookings.** A form sends `?do=<booking>&token=<one per form>` to its page, and the page books it
+before it draws itself, as `mealplanner/pantry.py` does, function by function (`pages/common.js`,
+the bookings section; `pages/pantry.js`; `pages/week.js`). Every node is found by name before it is
+created, so a form sent twice, or the page reloaded, writes nothing new; the page then clears the
+address. It writes as the superuser through Structr's `$.doPrivileged`, so a household member's
+booking needs no write grant of its own, and every node states its visibility. Each booking prints a
+data block (`<script id="booking-data">`) saying what it wrote. `tools/check_bookings.py` is the guard
+for these, on a development or throwaway instance only (it writes, then removes what it wrote): it
+makes every booking once through the page and once through Python and compares the nodes, field by
+field, and what the inventory engine then says of both portions.
+
+```bash
+python3 tools/check_bookings.py     # the pages' bookings, against Python's (not on the owner's instance)
 ```
 
 Two things the pages do not do that Python does:
@@ -92,3 +109,13 @@ with the grant `--login` installs, and read every page with its session. Signed 
 - A `${{ ... }}` script block may hold nested braces and template literals; `$.print` writes raw HTML in a
   `text/html` Content node; `Intl.DateTimeFormat` with a `timeZone` works; `$.request.<name>` is a query
   parameter and `$.current` the node named after the page in the address.
+
+## Bookings checked (2026-10-24, the development instance)
+
+`tools/check_bookings.py` found every booking the same both ways: buy (600 g, 5 days to expiry as
+Fresh Meat in the fridge), the same purchase sent again (nothing written), use (450 g left), count
+(420 g), open (2 days left), freeze (90 days: opened, in the freezer), discard (none left), and a cook
+of a two-serving braise drawing 500 g of chicken. `$.doPrivileged` exists on Structr 6.0.0, so the
+pages book as the superuser for whoever is signed in. Not yet seen: a household member's own booking
+through a browser, which needs their sign-in.
+
