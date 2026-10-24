@@ -119,14 +119,23 @@ class CreateLogin(unittest.TestCase):
         code, out = self.create(g, "kitchen", "different!", "different!")      # again: a new password, no second user
         self.assertEqual((code, user["password"], len([n for n in g.nodes.values() if n["type"] == "User"])), (0, "different!", 1))
 
-    def test_a_household_person_short_or_mismatched_passwords_are_refused(self):
+    def test_a_household_person_signs_in_as_themselves(self):
         from tests.fakegraph import WritableGraph
         g = WritableGraph()
         g.add("Person", "p-jamie", "Jamie")
-        self.assertIn("keep no passwords", self.create(g, "Jamie", "longenough", "longenough")[1])
+        code, out = self.create(g, "Jamie", "longenough", "longenough")
+        self.assertEqual((code, g.nodes["p-jamie"]["password"]), (0, "longenough"))
+        self.assertEqual([n for n in g.nodes.values() if n["type"] == "User"], [])     # no second account
+        self.assertIn("can now sign in", out)
+
+    def test_short_or_mismatched_passwords_are_refused(self):
+        from tests.fakegraph import WritableGraph
+        g = WritableGraph()
+        g.add("Person", "p-jamie", "Jamie")
         self.assertIn("at least 8", self.create(g, "kitchen", "short", "short")[1])
         self.assertIn("differ", self.create(g, "kitchen", "longenough", "longenougH")[1])
         self.assertEqual([n for n in g.nodes.values() if n["type"] == "User"], [])
+        self.assertNotIn("password", g.nodes["p-jamie"])
 
 
 if __name__ == "__main__":

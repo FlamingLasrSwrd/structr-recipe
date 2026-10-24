@@ -50,9 +50,10 @@ Structr 6.0.0 (throwaway instance, 2026-10-22):
 So reading the pages in a browser needs a user with a password. The owner decided (2026-10-23) that
 the pages need no more security than that for now, the instance being local and behind a firewall:
 `install_pages.py --login` installs the sign-in page with its grant, and the owner makes the account
-with `tools/create_login.py`, which asks for a name and a password and creates a Structr `User`, not
-a `Person` (the household's people keep no passwords). Claude does not make it: an account and its
-password are the owner's to type.
+with `tools/create_login.py`, which asks for a name and a password. A household person's name gives
+that `Person` a password (a Person is also a Structr account, data-model.md K1), so they sign in as
+themselves: the owner chose that for Elijah (2026-10-23). Any other name makes a separate `User`.
+Claude does not make an account: it and its password are the owner's to type.
 
 ```bash
 python3 tools/install_pages.py --login
