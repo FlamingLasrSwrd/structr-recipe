@@ -119,7 +119,7 @@ def build_problem(
     servings_eaten: float = 1.0, max_difficulty: str | None = None, leftover_days: float | None = None,
     leftovers: bool = True, portions: tuple = (), eater_portions: dict | None = None,
     shortlist_above: int | None = SHORTLIST_ABOVE, shortlist_factor: float = FACTOR, requests: tuple = (),
-    preps: tuple = (), cooking_time: float = 0.0,
+    preps: tuple = (), cooking_time: float = 0.0, repeat_tolerance: int | None = None,
 ) -> PlanningProblem:
     """Read the MealPlan, the recipes, the stock and the constraints into a
     PlanningProblem for the slots in `template` (an iterable of SlotSpec).
@@ -140,6 +140,7 @@ def build_problem(
     ("Wed Dinner") pins it there. RequestError when a name or a meal matches nothing.
 
     cooking_time: the week file's weight on the week's total cooking time (Weights.cooking_time).
+    repeat_tolerance: the most meals of the week one recipe may be (PlanningProblem.repeat_tolerance).
 
     preps: PrepSessions, when the week may cook ahead (docs/optimizer-design.md Sec 12). A dish
     already committed at one (an entry at its start that no one eats) takes its share of the
@@ -284,7 +285,7 @@ def build_problem(
     week = dict(targets=tuple(targets), weights=weights, now=now, max_difficulty=max_difficulty,
                 servings_eaten=servings_eaten, baseline=baseline, units=dict(unit_of), portions=tuple(portions),
                 eaters=tuple(people), baselines=baselines, eater_portions=portions_by_eater,
-                eater_names={pid: p["name"] for pid, p in people.items()})
+                eater_names={pid: p["name"] for pid, p in people.items()}, repeat_tolerance=repeat_tolerance)
 
     excluded = excluded_domain_type_ids(client)
     soft = soft_exclusions(client)

@@ -33,6 +33,10 @@ private/week.toml:
                                         # optional: recipes to cook this week, each at least once (twice if
                                         # listed twice); the planner picks the meal, portions and leftovers,
                                         # unless `on` names the meal ("Wed Dinner" or "Wed 28 Oct Dinner")
+    repeat_tolerance = 2                # optional: the most meals of the week one recipe may be, fresh, as
+                                        # leftovers or made at a prep session; a hard limit, this week only.
+                                        # 1: never the same meal twice (so no leftovers); 2: cook once, eat
+                                        # twice; left out: no limit, the variety weight alone spacing repeats
     prep = [{ at = "Sun 14:00", minutes = 180, dishes = 3 }]
                                         # optional: meal-prep sessions. A dish may be made at one and eaten at
                                         # later meals while it keeps; the session's minutes of work and number
@@ -148,6 +152,15 @@ def read_week(path: str) -> dict:
     cooking = week.get("weights", {}).get("cooking_time", 0)
     if isinstance(cooking, bool) or not isinstance(cooking, (int, float)) or cooking < 0:
         problems.append(f"[weights] cooking_time is points an hour, 0 or more, like 1, not {cooking!r}")
+    tolerance = week.get("repeat_tolerance")
+    if tolerance is not None:
+        if isinstance(tolerance, bool) or not isinstance(tolerance, int) or tolerance < 1:
+            problems.append(f"repeat_tolerance is the most meals of the week one recipe may be, like 2, not {tolerance!r}")
+        else:
+            for name in sorted({name for name, _ in requests}):
+                asked = sum(1 for n, _ in requests if n == name)
+                if asked > tolerance:
+                    problems.append(f"cook: {name} is asked for {asked} times, more than the repeat_tolerance of {tolerance}")
     above = week.get("shortlist_above")
     if above is not None and (isinstance(above, bool) or not isinstance(above, int) or above < 1):
         problems.append(f"shortlist_above must be a whole number of recipes, like 60, not {above!r}")
@@ -307,6 +320,7 @@ def main(argv=None) -> int:
                            eater_portions={p: tuple(v) for p, v in week.get("portions_by_person", {}).items()},
                            proposal=proposal, requests=week["requests"], preps=week["preps"],
                            cooking_time=float(week.get("weights", {}).get("cooking_time", 0)),
+                           repeat_tolerance=week.get("repeat_tolerance"),
                            **limits, **({"shortlist_above": week["shortlist_above"]} if "shortlist_above" in week else {}))
     except RequestError as exc:
         print(f"problem: {exc}")

@@ -200,6 +200,10 @@ class PlanningProblem:
     book_size: int = 0
     requests: tuple = ()               # Request: the recipes the owner asked to have cooked this week
     preps: tuple = ()                  # PrepSession: when the week may cook ahead, in time order
+    # The most meals of the week one recipe may be, fresh, as leftovers or made at a prep session
+    # (the owner's request, 2026-10-24: "How often would you tolerate eating the same meal in a
+    # week?"); a hard limit, the week file's alone. None: no limit, as before.
+    repeat_tolerance: int | None = None
     _cache: dict = field(default_factory=dict, repr=False, compare=False)
 
     def __post_init__(self):
@@ -254,6 +258,9 @@ class PlanningProblem:
         for w in (self.weights.time, self.weights.variety, self.weights.stock, self.weights.waste, self.weights.cooking_time):
             if w < 0:
                 raise ValueError("weights must not be negative (the search bounds rely on it)")
+        if self.repeat_tolerance is not None and (isinstance(self.repeat_tolerance, bool)
+                                                  or not isinstance(self.repeat_tolerance, int) or self.repeat_tolerance < 1):
+            raise ValueError("repeat_tolerance must be a whole number of meals, at least 1")
         if self.max_difficulty is not None and self.max_difficulty not in DIFFICULTY_ORDER:
             raise ValueError(f"max_difficulty must be one of {DIFFICULTY_ORDER}")
 
