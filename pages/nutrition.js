@@ -38,7 +38,7 @@ function intake(entry, nutrientId, unit, person) {
 
 // nutrition_scope.nutrition_report: one row per (target, group); a group is a meal, a day or the week
 function report(week) {
-  const entries = activeEntries(week);
+  const entries = activeEntries(week).filter((e) => !eatenByNoOne(e));
   const rows = [];
   for (const target of (week.hasConstraint || []).filter((c) => c.type === "NutritionTarget")) {
     const nutrient = target.forNutrient, range = target.hasTargetRange;

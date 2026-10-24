@@ -33,6 +33,11 @@ private/week.toml:
                                         # optional: recipes to cook this week, each at least once (twice if
                                         # listed twice); the planner picks the meal, portions and leftovers,
                                         # unless `on` names the meal ("Wed Dinner" or "Wed 28 Oct Dinner")
+    prep = [{ at = "Sun 14:00", minutes = 180, dishes = 3 }]
+                                        # optional: meal-prep sessions. A dish may be made at one and eaten at
+                                        # later meals while it keeps; the session's minutes of work and number
+                                        # of dishes are hard limits. The weekday is the first such day from the
+                                        # day before `start` (so "Sun" before a Monday start is the day before)
     [weights]                           # optional: written onto the MealPlan (optimizer-design Sec 4.5)
     time = 0.5
     variety = 0.5
@@ -64,6 +69,7 @@ from mealplanner.household import latest_plan as household_latest_plan
 from mealplanner.profiles import ProfileError
 from mealplanner.nutrition_scope import active_entries, entry_start, nutrition_report
 from mealplanner.planning.extract import RequestError, SlotSpec
+from mealplanner.planning.model import PrepSession
 from mealplanner.planning.nutrients import describe_nutrients
 from mealplanner.planning.plan import plan_week
 from mealplanner.planning.proposal import ProposalError, to_data
@@ -129,12 +135,49 @@ def read_week(path: str) -> dict:
             continue
         requests.append((item["recipe"], item.get("on")))
     week["requests"] = tuple(requests)
+    week["preps"] = ()
+    if isinstance(week.get("start"), date) and "zone" in week:
+        try:
+            week["preps"] = prep_sessions(week)
+        except WeekError as exc:
+            problems.extend(exc.args[0])
     above = week.get("shortlist_above")
     if above is not None and (isinstance(above, bool) or not isinstance(above, int) or above < 1):
         problems.append(f"shortlist_above must be a whole number of recipes, like 60, not {above!r}")
     if problems:
         raise WeekError(problems)
     return week
+
+
+def prep_sessions(week: dict) -> tuple:
+    """The week file's prep sessions: `at` a weekday and time, its `minutes` and `dishes`."""
+    sessions, problems = [], []
+    first = week["start"] - timedelta(days=1)
+    for raw in week.get("prep", []):
+        day, _, at = str(raw.get("at", "")).partition(" ") if isinstance(raw, dict) else ("", "", "")
+        try:
+            clock = time.fromisoformat(at.strip())
+        except ValueError:
+            problems.append(f"prep {raw!r}: `at` is a weekday and a time, like \"Sun 14:00\"")
+            continue
+        dates = [first + timedelta(days=d) for d in range(week.get("days", 7) + 1)
+                 if (first + timedelta(days=d)).strftime("%a").lower() == day[:3].lower()]
+        minutes, dishes = raw.get("minutes"), raw.get("dishes", 2)
+        if not dates:
+            problems.append(f"prep {raw!r}: {day!r} is not a weekday of this week")
+        elif isinstance(minutes, bool) or not isinstance(minutes, (int, float)) or minutes <= 0:
+            problems.append(f"prep {raw!r}: `minutes` is the working time it has, like 180")
+        elif isinstance(dishes, bool) or not isinstance(dishes, int) or dishes < 1:
+            problems.append(f"prep {raw!r}: `dishes` is how many dishes at most, like 3")
+        else:
+            key = f"{dates[0].strftime('%a %d %b')} Prep"
+            if any(s.key == key for s in sessions):
+                problems.append(f"prep: two sessions on {dates[0]:%a %d %b}; plan one")
+                continue
+            sessions.append(PrepSession(key, datetime.combine(dates[0], clock, week["zone"]), float(minutes), dishes))
+    if problems:
+        raise WeekError(problems)
+    return tuple(sorted(sessions, key=lambda s: s.start))
 
 
 def latest_plan(client, name: str) -> dict:
@@ -255,7 +298,7 @@ def main(argv=None) -> int:
                            leftovers=week.get("leftovers", True), leftover_days=week.get("leftover_days"),
                            portions=tuple(week.get("portions", [])),
                            eater_portions={p: tuple(v) for p, v in week.get("portions_by_person", {}).items()},
-                           proposal=proposal, requests=week["requests"],
+                           proposal=proposal, requests=week["requests"], preps=week["preps"],
                            **limits, **({"shortlist_above": week["shortlist_above"]} if "shortlist_above" in week else {}))
     except RequestError as exc:
         print(f"problem: {exc}")

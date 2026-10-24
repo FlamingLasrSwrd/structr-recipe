@@ -468,6 +468,16 @@ def entry_servings_eaten(client, entry: dict) -> tuple[float, bool]:
     return DEFAULT_SERVINGS_EATEN, True
 
 
+def eaten_by_no_one(client, entry: dict) -> bool:
+    """An entry no one eats: planned consumption of none, and no meal shares. A dish made at a prep
+    session is one, eaten later as leftovers (docs/optimizer-design.md Sec 12); it is not a meal to
+    judge, so a day holding only one is not reported as missing every minimum."""
+    if entry.get("hasShare"):
+        return False
+    servings, assumed = entry_servings_eaten(client, entry)
+    return not assumed and servings <= 0
+
+
 def entry_person_servings(client, entry: dict, person_id: str) -> tuple[float, bool]:
     """(servings one person eats at this entry, whether the default was assumed). An entry
     with meal shares (data-model.md Sec 19 K3) gives each person theirs, and nothing to one
@@ -652,7 +662,7 @@ def nutrition_report(client, meal_plan_id: str) -> list[dict]:
         client.get_all("NutritionTarget", c["id"])["result"]
         for c in meal_plan.get("hasConstraint", []) if c["type"] == "NutritionTarget"
     ]
-    entries = active_entries(client, meal_plan)
+    entries = [e for e in active_entries(client, meal_plan) if not eaten_by_no_one(client, e)]
     rows = []
     for target in targets:
         nutrient, range_ref = target.get("forNutrient"), target.get("hasTargetRange")
