@@ -7,7 +7,7 @@ function stepIndex(step) {
 }
 
 const plan = $.current && $.current.type === "Plan" ? $.current : null;
-let html = nav("recipes");
+let html = nav("recipes") + runBooking(REQUEST_ACTIONS);
 const data = {};
 if (!plan) {
   html += "<h1>Recipe</h1><p>No such recipe. Pick one from <a href=\"/structr/html/recipes\">the recipe book</a>.</p>";
@@ -21,6 +21,21 @@ if (!plan) {
     + "<dt>Time</dt><dd>" + number(plan.estimatedDurationMinutes, 0) + " minutes"
     + (plan.makeAheadHours ? ", then " + number(plan.makeAheadHours) + " h made ahead" : "") + "</dd>"
     + "<dt>Difficulty</dt><dd>" + esc(plan.difficultyRating || "not stated") + "</dd></dl>";
+
+  // "Cook in the week of ...": a request on the next week to plan (mealplanner/requests.py)
+  if (identity) {
+    const start = nextWeekStart(), asked = requestedIn(start).some((r) => r.id === identity.id);
+    data.request = {week: start, asked: asked};
+    html += "<form class=\"inline\" action=\"/structr/html/recipe/" + esc(plan.id) + "\">"
+      + "<input type=\"hidden\" name=\"do\" value=\"" + (asked ? "withdraw" : "ask") + "\">"
+      + "<input type=\"hidden\" name=\"recipe\" value=\"" + esc(identity.id) + "\">"
+      + "<input type=\"hidden\" name=\"week\" value=\"" + esc(start) + "\">"
+      + "<input type=\"hidden\" name=\"token\" value=\"" + newToken() + "\">"
+      + (asked ? "Asked for in the week of " + esc(weekWords(start)) + ". <button>Don't cook it then</button>"
+               : "<button title=\"The planner cooks it at least once that week, choosing the day\">Cook in the week of "
+                 + esc(weekWords(start)) + "</button>")
+      + "</form>";
+  }
 
   data.ingredients = [];
   const steps = (plan.steps || []).slice().sort((a, b) => stepIndex(a) - stepIndex(b));

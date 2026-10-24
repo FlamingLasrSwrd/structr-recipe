@@ -137,7 +137,9 @@ def build_problem(
 
     requests: (recipe name, meal or None) pairs, the recipes the owner asked to have cooked
     this week (model.Request): each is read whatever the shortlist says, and a meal named
-    ("Wed Dinner") pins it there. RequestError when a name or a meal matches nothing.
+    ("Wed Dinner") pins it there. RequestError when a name or a meal matches nothing. The
+    recipes the MealPlan asks for (MealPlan.requestsRecipe, from the recipe pages:
+    mealplanner/requests.py) are added, each once, unless the week file names it already.
 
     cooking_time: the week file's weight on the week's total cooking time (Weights.cooking_time).
     repeat_tolerance: the most meals of the week one recipe may be (PlanningProblem.repeat_tolerance).
@@ -298,6 +300,12 @@ def build_problem(
     for person in people.values():
         baseline_ids |= {ref["id"] for ref in person.get("hasBaseline", [])}
     all_plans = client.get_all("Plan")["result"]
+    # the recipes asked for from the recipe pages (mealplanner/requests.py), beside the week file's
+    named = {name for name, _ in requests}
+    from_pages = sorted(client.get_all("RecipeIdentity", ref["id"])["result"]["name"] for ref in meal_plan.get("requestsRecipe") or [])
+    requests = tuple(requests) + tuple((name, None) for name in from_pages if name not in named)
+    if from_pages:
+        notes.append(f"asked for from the recipe pages: {', '.join(from_pages)}")
     asked = [(name, on, _requested_plans(client, [p for p in all_plans if p["id"] not in baseline_ids], name))
              for name, on in requests]
     for _, _, plan_ids in asked:

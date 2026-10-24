@@ -115,6 +115,7 @@ class TheTool(unittest.TestCase):
         with mock.patch.object(self.tool, "connect", return_value=SimpleNamespace(wait_until_ready=lambda: None)), \
                 mock.patch.object(self.tool, "ensure_week", return_value="week"), \
                 mock.patch.object(self.tool, "template", return_value=[]), \
+                mock.patch.object(self.tool, "requests_elsewhere", return_value=[]), \
                 mock.patch.object(self.tool, "plan_week", fake_plan), mock.patch.object(self.tool, "history", return_value=""), \
                 mock.patch.object(self.tool, "describe_nutrients", return_value=""), \
                 mock.patch.object(self.tool, "to_data", return_value={"format": 1, "week": "2026-10-26", "meals": []}), \
