@@ -298,13 +298,68 @@ def options(problem: PlanningProblem, partial, i: int) -> list:
         picks.extend(prep_options(problem, partial, i, variants))
     request = problem.pinned().get(i)
     if request is not None:                       # a recipe asked for at this meal: a fresh cook of it, nothing else
-        return [p for p in picks if p.candidate in request.candidates]
+        return tolerated(problem, partial, i, [p for p in picks if p.candidate in request.candidates])
     if any(c.leftover_days is not None for c in problem.candidates.values()):
         resolved, _ = resolve(problem, partial[:i] + [None] * (len(partial) - i))
         for j in range(i):
             if leftover_reason(problem, resolved, j, i) is None:
                 picks.extend(Pick(source=j, **v) for v in variants)
-    return picks
+    return tolerated(problem, partial, i, picks)
+
+
+# ---------------------------------------------------------------- repeats
+
+def recipe_key(problem: PlanningProblem, candidate_id: str) -> str:
+    """What counts as the same meal for the repeat tolerance: the recipe, whichever of its versions."""
+    c = problem.candidates[candidate_id]
+    return c.recipe or c.id
+
+
+def recipe_label(problem: PlanningProblem, key: str) -> str:
+    return min(c.name for c in problem.candidates.values() if (c.recipe or c.id) == key)
+
+
+def meals_of(problem: PlanningProblem, resolved, skip: int | None = None) -> tuple[dict, dict]:
+    """({recipe: meals at fixed slots}, {recipe: meals at open slots}) over the slots someone eats
+    (eaten_slots), `skip` aside: each meal that eats a recipe, fresh, as leftovers or made at a
+    prep session, is one."""
+    fixed: dict = {}
+    open_: dict = {}
+    for i in eaten_slots(problem):
+        r = resolved[i]
+        if i == skip or r is None or r.candidate is None:
+            continue
+        counts = fixed if problem.slots[i].fixed is not None else open_
+        key = recipe_key(problem, r.candidate)
+        counts[key] = counts.get(key, 0) + 1
+    return fixed, open_
+
+
+def repeat_room(problem: PlanningProblem, fixed_meals: int) -> int:
+    """The meals of a recipe the open slots may have: the tolerance less the meals already committed
+    (a committed week over it stands; the planner adds none)."""
+    return max(0, problem.repeat_tolerance - fixed_meals)
+
+
+def tolerated(problem: PlanningProblem, partial, i: int, picks: list) -> list:
+    """The picks for open slot i that keep each recipe within the week's repeat tolerance
+    (PlanningProblem.repeat_tolerance), given the other slots' meals."""
+    if problem.repeat_tolerance is None:
+        return picks
+    rest = list(partial)
+    rest[i] = None
+    resolved, _ = resolve(problem, rest)
+    fixed, open_ = meals_of(problem, resolved)
+
+    def fits(pick) -> bool:
+        source = resolved[pick.source] if pick.candidate is None else None
+        cid = pick.candidate if pick.candidate is not None else (source.candidate if source else None)
+        if cid is None:
+            return True
+        key = recipe_key(problem, cid)
+        return open_.get(key, 0) + 1 <= repeat_room(problem, fixed.get(key, 0))
+
+    return [p for p in picks if fits(p)]
 
 
 def portion_variants(problem: PlanningProblem, i: int) -> list[dict]:
@@ -690,6 +745,13 @@ def evaluate(problem: PlanningProblem, picks) -> Evaluation:
             problems.append(f"{session.key}: {dishes} dishes, more than its {session.dishes}")
         if session is not None and minutes > session.minutes + EPS:
             problems.append(f"{session.key}: {minutes:g} minutes of work, more than its {session.minutes:g}")
+
+    if problem.repeat_tolerance is not None:
+        fixed, open_ = meals_of(problem, resolved)
+        for key, meals in sorted(open_.items()):
+            if meals > repeat_room(problem, fixed.get(key, 0)):
+                problems.append(f"{recipe_label(problem, key)}: {meals + fixed.get(key, 0)} meals this week, more than "
+                                f"the {problem.repeat_tolerance} tolerated")
 
     weights = problem.weights
     groups = group_states(problem, resolved)
