@@ -17,6 +17,9 @@ Central foods (mealplanner/fdc.py) or a stated source. Loading it
                        stated weight with its source; with provenance and source
   RetentionFactor 1.0  on "Food" for each nutrient the owner decided is kept
                        through cooking (data-model.md Sec 18 J18)
+  RetentionFactor      USDA's, keyed by nutrient and method, on a retention class
+                       (a food Type its members sit under), and 1.0 on "Food" for
+                       each method that applies no heat (J30)
   Transformation methods and Equipment Types, with their parents
 
 Where a food's figures come from. A food lists its sources in order; each
@@ -110,6 +113,7 @@ class Food:
     each: Measure | None = None
     volume: Measure | None = None
     label: "Label | None" = None
+    retention: tuple[tuple[str, str], ...] = ()   # (method, USDA row code): a retention class's factors
 
     @property
     def fdc(self) -> int | None:
@@ -135,6 +139,15 @@ class Named:
 
 
 @dataclass(frozen=True)
+class Retention:
+    """USDA's retention factors (J30): the nutrients they are loaded for, each with the USDA nutrient
+    number whose factor it takes (its own, or a stand-in's), and the methods that apply no heat."""
+    nutrients: tuple[tuple[str, str], ...]        # (FDC nutrient id, USDA nutrient number)
+    no_heat: tuple[str, ...] = ()
+    table: dict | None = None                     # the pinned rows: data/retention/usda_r6.json
+
+
+@dataclass(frozen=True)
 class Vocabulary:
     subsets: tuple[str, ...]
     foods: tuple[Food, ...]
@@ -142,6 +155,7 @@ class Vocabulary:
     equipment: tuple[Named, ...]
     kept_in_cooking: tuple[str, ...]      # FDC nutrient ids
     fdc: dict | None = None               # the pinned subsets merged: {"nutrients": ..., "foods": ...}
+    retention: Retention | None = None
 
     def ids(self) -> set[int]:
         """Every FDC food the file refers to."""
@@ -364,9 +378,10 @@ def _measure(raw, first: Source | None, where: str, want_volume: bool, problems:
     return Measure(portions=((fid, raw.get("portion", "")),), status=raw.get("status", default))
 
 
-def parse_vocabulary(data: dict, fdc: dict | None) -> Vocabulary:
+def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None) -> Vocabulary:
     """A Vocabulary, or VocabularyError naming every problem. With `fdc` (the
-    pinned subsets merged), every FDC id and portion label is checked against it."""
+    pinned subsets merged), every FDC id and portion label is checked against it;
+    with `table` (the pinned USDA retention rows), every row a food names."""
     problems: list[str] = []
 
     def name_ok(where, value) -> bool:
@@ -398,7 +413,7 @@ def parse_vocabulary(data: dict, fdc: dict | None) -> Vocabulary:
     methods, equipment = named("method"), named("equipment")
 
     foods = []
-    allowed = {"name", "parent", "fdc", "proxy", "sources", "each", "volume", "note", "label"}
+    allowed = {"name", "parent", "fdc", "proxy", "sources", "each", "volume", "note", "label", "retention"}
     for i, raw in enumerate(data.get("food", []), 1):
         where = f"food {i}"
         for key in sorted(set(raw) - allowed):
@@ -421,7 +436,13 @@ def parse_vocabulary(data: dict, fdc: dict | None) -> Vocabulary:
         label = _label(raw.get("label"), where, fdc, problems)
         if label and (sources or each or volume):
             problems.append(f"{where}: a label food states its own figures per unit; it takes no fdc, sources, each or volume")
-        food = Food(raw["name"], raw.get("parent", ROOT_FOOD), tuple(sources), each, volume, label)
+        rows = raw.get("retention") or {}
+        if not isinstance(rows, dict) or not all(isinstance(c, str) for c in rows.values()):
+            problems.append(f"{where}: retention maps a method to a USDA row code")
+            rows = {}
+        for method in sorted(set(rows) - {m.name for m in methods}):
+            problems.append(f"{where} retention: {method!r} is not a method in the file")
+        food = Food(raw["name"], raw.get("parent", ROOT_FOOD), tuple(sources), each, volume, label, tuple(sorted(rows.items())))
         if fdc is not None:
             for fid in sorted(Vocabulary((), (food,), (), (), ()).ids()):
                 if str(fid) not in fdc["foods"]:
@@ -439,7 +460,9 @@ def parse_vocabulary(data: dict, fdc: dict | None) -> Vocabulary:
     if ROOT_FOOD in names:
         problems.append(f"{ROOT_FOOD!r} is the root and is not listed")
 
-    kept = [str(k) for k in (data.get("retention") or {}).get("kept_in_cooking", [])]
+    retention_cfg = data.get("retention") or {}
+    kept = [str(k) for k in retention_cfg.get("kept_in_cooking", [])]
+    retention = _retention(retention_cfg, foods, methods, fdc, table, problems)
     if fdc is not None:
         for nid in kept:
             if nid not in fdc["nutrients"]:
@@ -460,22 +483,72 @@ def parse_vocabulary(data: dict, fdc: dict | None) -> Vocabulary:
                 problems.append(f"nutrient {name!r} has the same name as a food, method or equipment")
     if problems:
         raise VocabularyError(problems)
-    return Vocabulary(tuple(subsets), tuple(foods), methods, equipment, tuple(kept), fdc)
+    return Vocabulary(tuple(subsets), tuple(foods), methods, equipment, tuple(kept), fdc, retention)
 
 
-def read_vocabulary(path: str, *, check_subset: bool = True) -> Vocabulary:
+def _retention(cfg: dict, foods: list[Food], methods: tuple[Named, ...], fdc: dict | None, table: dict | None,
+               problems: list[str]) -> Retention | None:
+    """The [retention] table's USDA part, checked: each nutrient's USDA number (its FDC record's,
+    or the stand-in named for it), the no-heat methods, and every row a food names."""
+    classed = [f for f in foods if f.retention]
+    if "nutrients" not in cfg:
+        if classed:
+            problems.append(f"food {classed[0].name!r} names USDA retention rows but [retention] lists no nutrients")
+        return None
+    stand_ins = {str(k): str(v) for k, v in (cfg.get("stand_ins") or {}).items()}
+    nutrients = []
+    for raw in cfg["nutrients"]:
+        nid = str(raw)
+        number = stand_ins.get(nid) or ((fdc or {}).get("nutrients", {}).get(nid) or {}).get("number")
+        if fdc is not None and nid not in fdc["nutrients"]:
+            problems.append(f"[retention] nutrients: FDC nutrient {nid} is not in the pinned subsets")
+        elif fdc is not None and not number:
+            problems.append(f"[retention] nutrients: FDC nutrient {nid} has no USDA nutrient number; name a stand-in")
+        nutrients.append((nid, number or ""))
+    for nid in sorted(set(stand_ins) - {n for n, _ in nutrients}):
+        problems.append(f"[retention] stand_ins: {nid} is not among the nutrients")
+    method_names = {m.name for m in methods}
+    no_heat = tuple(cfg.get("no_heat", []))
+    for method in no_heat:
+        if method not in method_names:
+            problems.append(f"[retention] no_heat: {method!r} is not a method in the file")
+    if table is not None:
+        for number in sorted({n for _, n in nutrients if n} - set(table["nutrients"])):
+            problems.append(f"[retention]: USDA nutrient {number} is not in the pinned table (run tools/retention_extract.py)")
+        for food in classed:
+            for method, code in food.retention:
+                row = table["rows"].get(code)
+                if row is None:
+                    problems.append(f"food {food.name!r} retention {method}: USDA row {code} is not in the pinned table "
+                                    "(run tools/retention_extract.py)")
+                    continue
+                for nid, number in nutrients:
+                    percent = row["factors"].get(number)
+                    if percent is not None and not 0 < percent <= 100:
+                        problems.append(f"food {food.name!r} retention {method}: row {code} gives {percent}% for {number}, "
+                                        "and a retention factor lies in (0, 1] (invariant 14)")
+    return Retention(tuple(nutrients), no_heat, table)
+
+
+def read_vocabulary(path: str, *, check_subset: bool = True, check_table: bool = True) -> Vocabulary:
+    """The file, checked against its pinned FDC subsets (check_subset) and pinned USDA retention
+    table (check_table, which needs check_subset)."""
     with open(path, "rb") as fh:
         data = tomllib.load(fh)
-    fdc = None
+    fdc = table = None
+    root = os.path.dirname(os.path.dirname(os.path.abspath(path)))
     if check_subset:
-        root = os.path.dirname(os.path.dirname(os.path.abspath(path)))
         cfg = data.get("source") or {}
         subsets = []
         for rel in cfg.get("subsets", [cfg.get("subset", "")]):
             with open(os.path.join(root, rel)) as fh:
                 subsets.append(json.load(fh))
         fdc = merge(subsets)
-    return parse_vocabulary(data, fdc)
+        pinned = (data.get("retention") or {}).get("table")
+        if check_table and pinned:
+            with open(os.path.join(root, pinned)) as fh:
+                table = json.load(fh)
+    return parse_vocabulary(data, fdc, table)
 
 
 # -- writing ---------------------------------------------------------------
@@ -610,7 +683,7 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> Imported:
         sync.ensure("Identifier", f"{name} FDC nutrient id", {
             "identifierValue": nid, "identifierScheme": nutrient_scheme, "denotesType": nutrient_ids[nid]})
 
-    _tree(sync, vocabulary.methods, hierarchies[METHOD_HIERARCHY])
+    method_ids = _tree(sync, vocabulary.methods, hierarchies[METHOD_HIERARCHY])
     _tree(sync, vocabulary.equipment, hierarchies[EQUIPMENT_HIERARCHY])
 
     food_ids = {ROOT_FOOD: sync.ensure("DomainType", ROOT_FOOD, {"hierarchy": hierarchies[FOOD_HIERARCHY],
@@ -675,4 +748,56 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> Imported:
             "keyedBy": [nutrient_ids[nid]], "provenance": "estimated",
             "source": "the owner's decision of 2026-09-26: kept through cooking, as in USDA recipe calculations"},
             food_ids[ROOT_FOOD])
+    if vocabulary.retention:
+        _write_retention(sync, vocabulary, food_ids, method_ids, nutrient_ids, kinds["RetentionFactor"])
     return Imported(sync.counts, sync.affected)
+
+
+def _write_retention(sync: Sync, vocabulary: Vocabulary, food_ids: dict, method_ids: dict, nutrient_ids: dict,
+                     kind_id: str) -> None:
+    """USDA's factors on each retention class, keyed by nutrient and method, and 1.0 on the root for
+    each method that applies no heat (J30). A factor of this shape on a food of the file that the file
+    no longer gives is deleted, with its value, so a changed row cannot leave a stale one behind."""
+    fdc, retention = vocabulary.fdc, vocabulary.retention
+    nutrient_name_of = {nid: nutrient_name(fdc["nutrients"][nid]["name"]) for nid, _ in retention.nutrients}
+    wanted: set[str] = set()
+
+    def write(food: str, method: str, nid: str, value: float, source: str) -> None:
+        name = f"Retention of {nutrient_name_of[nid]} in {food} by {method}"
+        wanted.add(name)
+        about = food_ids[food]
+        qty = sync.ensure("QuantitySpecification", f"{name} value", {"value": value, "unit": "ratio", "status": "default"},
+                          about)
+        sync.ensure("DefaultSpecification", name, {
+            "forType": about, "hasKind": kind_id, "hasValue": qty, "keyedBy": [nutrient_ids[nid], method_ids[method]],
+            "provenance": "estimated", "source": source}, about)
+
+    table = retention.table
+    for food in vocabulary.foods:
+        for method, code in food.retention:
+            row = table["rows"][code]
+            for nid, number in retention.nutrients:
+                percent = row["factors"].get(number)
+                if percent is None:
+                    continue
+                own = (fdc["nutrients"][nid].get("number") or "") == number
+                source = (f"USDA retention factors, Release 6 (2007), row {code} {row['description']}: {percent:g}% of "
+                          f"{table['nutrients'][number]}" + ("" if own else f", standing in for {fdc['nutrients'][nid]['name']}"))
+                write(food.name, method, nid, round(percent / 100, 6), source)
+    for method in retention.no_heat:
+        for nid, _ in retention.nutrients:
+            write(ROOT_FOOD, method, nid, 1.0, "no heat: kept whole, as USDA's recipe calculations apply retention "
+                                               "factors to cooking only (Claude's assumption, for the owner to review)")
+
+    in_file = {food_ids[f.name] for f in vocabulary.foods} | {food_ids[ROOT_FOOD]}
+    methods, nutrients = set(method_ids.values()), set(nutrient_ids.values())
+    for spec in list(sync.rows("DefaultSpecification").values()):
+        keys = {k["id"] for k in spec.get("keyedBy") or []}
+        about = (spec.get("forType") or {}).get("id")
+        if ((spec.get("hasKind") or {}).get("id") != kind_id or about not in in_file or spec["name"] in wanted
+                or len(keys) != 2 or not keys & methods or not keys & nutrients):
+            continue
+        sync.delete("DefaultSpecification", spec, about)
+        value = sync.rows("QuantitySpecification").get(f"{spec['name']} value")
+        if value:
+            sync.delete("QuantitySpecification", value, about)
