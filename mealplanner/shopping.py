@@ -140,7 +140,7 @@ def shopping_list(client, meal_plan_id: str, now: datetime, prices: dict | None 
         else:
             covered.append(line)
     for food in list(unquantified):
-        if any(line.food == food for line in to_buy + covered):
+        if any(line.food == food for line in to_buy + covered) or food in not_bought:
             del unquantified[food]                 # some recipe gives it an amount: it is on the list already
     covered.sort(key=lambda line: line.food)
     return ShoppingList(meal_plan.get("name") or meal_plan_id, cooks, leftovers, to_buy, covered, unquantified,

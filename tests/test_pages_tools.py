@@ -58,7 +58,7 @@ class InstallPages(unittest.TestCase):
         g = PageGraph()
         self.assertEqual(run(self.tool, [], g), 0)
         pages = {p["name"]: p for p in g.of("Page")}
-        self.assertEqual(set(pages), {"week", "recipes", "recipe", "nutrition", "pantry"})
+        self.assertEqual(set(pages), {"week", "recipes", "recipe", "nutrition", "pantry", "shopping"})
         for name, page in pages.items():
             elements = [n for n in g.of("DOMNode") if n["pageId"] == page["id"]]
             self.assertEqual(len(elements), 10, name)
@@ -90,6 +90,18 @@ class InstallPages(unittest.TestCase):
         self.assertTrue(all(n["visibleToPublicUsers"] for n in g.of("DOMNode") if n["pageId"] == login["id"]))
         run(self.tool, ["--remove"], g)
         self.assertEqual(g.nodes, {})
+
+
+class OneScriptPerPage(unittest.TestCase):
+    def test_no_page_declares_a_name_the_shared_script_has(self):
+        """Each page runs as one script after pages/common.js: a name declared twice is a SyntaxError
+        Structr only logs, and the page renders empty (found 2026-10-23: `baselines`)."""
+        import re
+        declared = lambda text: set(re.findall(r"^(?:const|let|var|function)\s+([A-Za-z_$][\w$]*)", text, re.M))
+        tool = load()
+        shared = declared(tool.read("common.js"))
+        for name, (_, page_file) in tool.PAGES.items():
+            self.assertEqual(declared(tool.read(page_file)) & shared, set(), page_file)
 
 
 class CreateLogin(unittest.TestCase):

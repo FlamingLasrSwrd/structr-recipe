@@ -162,7 +162,7 @@ function weekZone(mealPlan) {
   return "UTC";
 }
 
-const PAGES = [["week", "Week"], ["recipes", "Recipes"], ["nutrition", "Nutrition"], ["pantry", "Pantry"]];
+const PAGES = [["week", "Week"], ["shopping", "Shopping"], ["recipes", "Recipes"], ["nutrition", "Nutrition"], ["pantry", "Pantry"]];
 function nav(here) {
   return "<nav>" + PAGES.map(([name, label]) => name === here ? "<b>" + label + "</b>"
     : "<a href=\"/structr/html/" + name + "\">" + label + "</a>").join(" · ") + "</nav>";
@@ -187,4 +187,83 @@ function weekPicker(page, current) {
   if (weeks.length < 2) return "";
   return "<p class=\"weeks\">Other weeks: " + weeks.filter((w) => !current || w.id !== current.id)
     .map((w) => "<a href=\"/structr/html/" + page + "/" + w.id + "\">" + esc(w.name) + "</a>").join(" · ") + "</p>";
+}
+
+// -- stock on hand (inventory.py), shared by the pantry and shopping pages ------------------------
+const NOW = new Date();
+
+// inventory.mass_quality
+const massQuality = (portion) => (portion.bearerOf || []).find((q) => q.type === "Quality" && q.hasKind && q.hasKind.name === "Mass") || null;
+
+// inventory._baselines (a portion's weighings): observed or imputed Measurements with a time, oldest first
+const weighingsOf = (quality) => (quality.measurements || []).filter((m) => (m.status === "observed" || m.status === "imputed") && m.hasTime)
+  .map((m) => [new Date(m.hasTime), m]).sort((a, b) => a[0] - b[0]);
+
+// inventory._draws: [time, grams or null, problem]
+function draws(portion, type) {
+  const out = [];
+  for (const a of portion.allocationsAbout || []) {
+    if (a.hasParticipationRole !== "input" || !a.process) continue;
+    const region = a.process.occupiesTemporalRegion;
+    if (!region || !region.hasBeginning) return null;               // Python raises: a use with no time
+    const q = a.hasActualQuantity;
+    const grams = q ? toGrams(type, q.value, q.unit) : null;
+    out.push([new Date(region.hasBeginning), grams, grams == null ? "a use with no amount in grams" : null]);
+  }
+  return out;
+}
+
+// inventory._level_at, at now: [grams, the weighing used] or null, or a string saying why it cannot be told
+function onHand(portion) {
+  const quality = massQuality(portion);
+  if (!quality) return null;
+  const type = portion.instanceOf;
+  const known = weighingsOf(quality).filter(([t]) => t <= NOW);
+  if (!known.length) return null;
+  const [since, weighing] = known[known.length - 1];
+  let level = toGrams(type, weighing.value, weighing.unit);
+  if (level == null) return "weighed in " + weighing.unit + ", which does not convert to grams";
+  const used = draws(portion, type);
+  if (used == null) return "a use with no time";
+  for (const [at, grams, problem] of used) {
+    if (at < since || at > NOW) continue;
+    if (problem) return problem;
+    level -= grams;
+  }
+  return [level, weighing, since];
+}
+
+// inventory.instance_expiration: days until it expires (negative: expired), or null if it cannot be told
+const typeId = (name) => { const t = $.find("DomainType", {name: name})[0]; return t ? t.id : null; };
+function daysUntilExpiry(portion) {
+  const perishability = portion.hasPerishabilityType, quality = massQuality(portion);
+  if (!perishability || !quality) return [null, "no perishability"];
+  const weighed = weighingsOf(quality).filter(([t]) => t <= NOW);
+  if (!weighed.length) return [null, "not weighed yet"];
+  let started = weighed[0][0];
+  const origin = portion.beginsToExistDuring;
+  if (origin) {
+    const region = origin.occupiesTemporalRegion;
+    if (!region || !region.hasBeginning) return [null, "bought by a process with no date"];
+    started = new Date(region.hasBeginning);
+  }
+  const box = portion.locatedIn;
+  const opened = (box && box.hasOpenedStatus && box.hasOpenedStatus.name) || "Sealed";
+  const kept = (box && box.hasStorageCondition && box.hasStorageCondition.name) || "Fridge";
+  const shelf = resolveDefault(perishability, "ShelfLife", [typeId(kept), typeId(opened)]);
+  const q = shelf && shelf.hasValue;
+  if (!q || q.unit !== "days" || q.value == null) return [null, "no shelf life for " + perishability.name + ", " + kept + ", " + opened];
+  return [(started.getTime() + q.value * 86400e3 - NOW.getTime()) / 86400e3, kept + ", " + opened];
+}
+
+// subtypes_of: a Type and every Type below it
+function subtypesOf(type) {
+  const out = {}, todo = [type];
+  while (todo.length) {
+    const t = todo.pop();
+    if (out[t.id]) continue;
+    out[t.id] = true;
+    for (const child of t.children || []) todo.push(child);
+  }
+  return out;
 }
