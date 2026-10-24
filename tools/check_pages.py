@@ -13,7 +13,8 @@ superuser (Structr honours the X-User headers for pages) and compares the data b
   recipe      one recipe's ingredients and stored figures, for the first recipe in the book
   pantry      inventory.current_magnitude and instance_expiration for every portion on hand
   shopping    shopping.shopping_list: each food to buy, what is needed and on hand, the cost at
-              "Home prices" where it exists, and what the pantry covers
+              "Home prices" where it exists, and what the pantry covers; a food a StockPolicy
+              tops up is left out, since the page applies no policy (and says so)
 
 for every week with entries. Read-only, so meant for the owner's instance as well as any other.
 Exits 1 on any difference.
@@ -146,7 +147,7 @@ def check_pantry(client, reads, problems: list[str]) -> int:
         for portion in reads.get_all(type_name)["result"]:
             quality = mass_quality(reads, portion)
             grams = current_magnitude(reads, quality["id"], now) if quality else None
-            if grams is None:
+            if grams is None or grams <= 1e-9:          # never weighed, or used up: the page leaves it out
                 if portion["name"] in shown:
                     problems.append(f"pantry: {portion['name']} is shown, but nothing of it is known to be on hand")
                 continue
@@ -171,9 +172,12 @@ def check_shopping(client, week: dict, problems: list[str]) -> int:
     except ProfileError:
         prices = None
     want = shopping_list(client, week["id"], datetime.now(timezone.utc), prices)
-    got = {row["food"]: row for row in shown["to_buy"]}
-    if set(got) != {line.food for line in want.to_buy}:
-        problems.append(f"shopping {week['name']!r}: the page lists {sorted(set(got) ^ {l.food for l in want.to_buy})} differently")
+    # the page applies no StockPolicy level, and says so: a food a policy tops up is Python's alone
+    topped = {line.food for line in want.to_buy if line.target > 0}
+    got = {row["food"]: row for row in shown["to_buy"] if row["food"] not in topped}
+    if set(got) != {line.food for line in want.to_buy} - topped:
+        problems.append(f"shopping {week['name']!r}: the page lists "
+                        f"{sorted(set(got) ^ ({l.food for l in want.to_buy} - topped))} differently")
     for line in want.to_buy:
         row = got.get(line.food)
         if row is None:

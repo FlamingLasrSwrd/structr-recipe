@@ -4,10 +4,11 @@
     python3 tools/install_pages.py --login    # also the sign-in page and the grant that lets it sign in
     python3 tools/install_pages.py --remove   # remove every page this installs, and the grant
 
-The pages, at /structr/html/<name>: week, recipes, recipe/<id>, nutrition and pantry. Each is one
-server-side script (pages/common.js, then pages/<name>.js) that reads the graph as the signed-in user
-and prints the page; they write nothing and hold no data, so they are meant for the owner's instance
-as well as any other. Every element is visible to signed-in users only, the sign-in page to anyone.
+The pages, at /structr/html/<name>: week, shopping, recipes, recipe/<id>, nutrition and pantry. Each
+is one server-side script (pages/common.js, then pages/<name>.js) that reads the graph as the signed-in
+user and prints the page. They hold no data; the pantry and week pages' forms book pantry changes
+(docs/pantry.md), so they are meant for the owner's instance as well as any other. Every element is
+visible to signed-in users only, the sign-in page to anyone.
 
 Pages are code: each run replaces each page whole. Its elements are deleted first, since deleting a
 Page leaves them behind (verified on Structr 6.0.0), and every element states its `tag`, without which
@@ -90,7 +91,7 @@ def main(argv=None) -> int:
     parser.add_argument("--login", action="store_true", help="also the sign-in page and the anonymous login grant")
     parser.add_argument("--remove", action="store_true", help="remove the pages and the grant")
     args = parser.parse_args(argv)
-    client = connect(owner_data_ok=True)     # pages hold no data and write none
+    client = connect(owner_data_ok=True)     # pages hold no data; their bookings are the owner's to make
     client.wait_until_ready()
     if args.remove:
         for name in [*PAGES, LOGIN]:

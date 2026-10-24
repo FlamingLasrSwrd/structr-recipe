@@ -23,8 +23,8 @@ function priceTable(levelName) {
   if (!level) return null;
   const table = {};
   for (const lv of ancestorsOrSelf(level)) {
-    for (const d of lv.defaultSpecifications || []) {
-      if (!d.hasKind || d.hasKind.name !== PRICE_KIND || (d.keyedBy || []).length !== 1) continue;
+    for (const d of defaultsOf(lv, PRICE_KIND)) {
+      if ((d.keyedBy || []).length !== 1) continue;
       const food = d.keyedBy[0].id;
       if (!(food in table)) table[food] = d;
     }

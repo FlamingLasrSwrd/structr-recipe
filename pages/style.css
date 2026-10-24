@@ -13,3 +13,7 @@ span.ok, span.below_min, span.above_max, span.indeterminate { padding: 0 6px; bo
 .ahead { color: var(--muted); font-size: 0.9em; } dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; } dt { color: var(--muted); }
 table.shopping tr.done td { text-decoration: line-through; opacity: 0.55; } table.shopping input { width: 1.2em; height: 1.2em; }
 form { display: grid; gap: 8px; max-width: 320px; } input, button { font: inherit; padding: 6px 8px; }
+form.inline { display: inline-flex; flex-wrap: wrap; gap: 4px; max-width: none; margin: 2px 8px 2px 0; align-items: center; }
+form.inline input, form.inline select, form.inline button { padding: 3px 6px; } form.inline input[type=number] { width: 6em; }
+details summary { cursor: pointer; color: var(--accent); } details.buy { margin: 8px 0 12px; }
+p.problem { background: var(--over); padding: 6px 10px; border-radius: 4px; } p.booked { background: var(--ok); padding: 6px 10px; border-radius: 4px; }
