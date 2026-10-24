@@ -254,6 +254,45 @@ class EndToEnd(unittest.TestCase):
         self.assertIn("pasta: its Protein figure is placeholder", result.text())      # 100 g is out of reach: 2 x 24 g
 
 
+class RequestsOverTargets(unittest.TestCase):
+    """The owner's decision (2026-10-24): "Keep the requested meal. Advise if a nutrient target isn't
+    being met for the week." Omelettes give 24 g of protein a serving; a hard daily most of 20 g rules
+    them out, and a salad (5 g) fits. Asked for the omelette, the week keeps it and says what it misses."""
+
+    def kitchen_and_target(self):
+        g = kitchen()
+        add_recipe(g, "salad", output_grams=200, protein_per_100g=5, provenance="sourced", yield_servings=2, minutes=10)
+        add_target(g, "ceiling", None, 20)
+        return g
+
+    def test_the_request_is_kept_and_the_missed_target_named(self):
+        g = self.kitchen_and_target()
+        result = plan_week(g, "week", DINNERS, NOW, requests=(("omelette", None),), time_limit_s=2)
+        self.assertIsNotNone(result.evaluation)
+        self.assertIn("omelette", [d["recipe"] for d in result.evaluation.slot_details])
+        self.assertEqual({v.target for v in result.missed}, {"ceiling"})
+        self.assertIs(result.without_requests, True)
+        text = result.text()
+        self.assertIn("ADVICE: no week cooking omelette meets every hard target", text)
+        self.assertIn("the requests are the reason", text)
+
+    def test_it_may_be_committed_and_names_no_one_else(self):
+        g = self.kitchen_and_target()
+        writer = Recorder()
+        problem = build_problem(g, "week", DINNERS, NOW, requests=(("omelette", None),))
+        ev = evaluate(problem, (Pick(candidate="omelette"), Pick(candidate="salad")))
+        self.assertFalse(ev.feasible)
+        with self.assertRaises(ValueError):
+            commit_plan(writer, "week", problem, ev)
+        self.assertEqual(len(commit_plan(writer, "week", problem, ev, missing_targets_ok=True)), 2)
+
+    def test_without_requests_an_unreachable_target_is_still_a_diagnosis(self):
+        g = self.kitchen_and_target()
+        add_target(g, "floor", 100, None)
+        result = plan_week(g, "week", DINNERS, NOW, time_limit_s=2)
+        self.assertIsNone(result.evaluation)
+
+
 class Commit(unittest.TestCase):
     def problem_and_plan(self, picks, leftover_days=3.0):
         g = kitchen()

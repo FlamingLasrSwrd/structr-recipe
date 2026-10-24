@@ -32,9 +32,12 @@ from mealplanner.planning.model import DIFFICULTY_ORDER, Pick, PlanningProblem, 
 from mealplanner.scoring import NEUTRAL, nutrition_fit_score, time_fit_score, variety_bonus, waste_urgency
 
 EPS = 1e-9
-# What a recipe the owner asked for and the week leaves out adds to the violation measure: as
-# much as a hard target missed by its whole range, so relaxed mode and the bounds weigh it as one.
-REQUEST_MEASURE = 1.0
+# What a recipe the owner asked for and the week leaves out adds to the violation measure. The
+# owner's decision (2026-10-24): "Keep the requested meal. Advise if a nutrient target isn't being
+# met." So it outweighs any shortfall of the targets (each group's measure is a share of its range,
+# about 1 for a target missed by its whole range, and a week has a few hundred groups): the closest
+# week (relaxed mode) keeps every request it can before it narrows any target's miss.
+REQUEST_MEASURE = 1000.0
 
 
 # ---------------------------------------------------------------- assignments

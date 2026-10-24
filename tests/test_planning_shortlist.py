@@ -253,8 +253,10 @@ class Widening(unittest.TestCase):
             ok = len(problem.candidates) >= feasible_at
             return SimpleNamespace(best=SimpleNamespace(feasible=True) if ok else None)
 
+        diagnosis = SimpleNamespace(feasible=False, closest=None)
+        self.diagnosis = diagnosis
         with mock.patch.object(planning, "build_problem", build), mock.patch.object(planning, "solve", solve), \
-                mock.patch.object(planning, "diagnose", return_value="diagnosis"):
+                mock.patch.object(planning, "diagnose", return_value=diagnosis):
             result = planning.plan_week(None, "week", [], None, **plan_kw)
         return result, factors
 
@@ -267,7 +269,7 @@ class Widening(unittest.TestCase):
     def test_it_stops_at_the_whole_book(self):
         result, factors = self.run_plan([3, 6], feasible_at=99)
         self.assertEqual(factors, [2.0, 4.0])
-        self.assertEqual(result.diagnosis, "diagnosis")
+        self.assertIs(result.diagnosis, self.diagnosis)
 
     def test_a_shortlist_with_a_week_is_kept(self):
         result, factors = self.run_plan([3, 6], feasible_at=1)

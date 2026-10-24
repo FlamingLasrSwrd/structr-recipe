@@ -29,10 +29,14 @@ FMT = "%Y-%m-%dT%H:%M:%S+0000"
 DEFAULT_COOK_MINUTES = 60.0
 
 
-def commit_plan(client, meal_plan_id: str, problem: PlanningProblem, evaluation: Evaluation, *, name_prefix: str = "") -> list[str]:
+def commit_plan(client, meal_plan_id: str, problem: PlanningProblem, evaluation: Evaluation, *, name_prefix: str = "",
+                missing_targets_ok: bool = False) -> list[str]:
     """Create the MealPlanEntries for the open slots of `evaluation` and return
-    their ids in slot order."""
-    if not evaluation.feasible:
+    their ids in slot order. missing_targets_ok: the plan may miss hard nutrition
+    targets, as one keeping the owner's requests may (plan.keeps_requests); it must
+    still be legal and cook every request."""
+    allowed = missing_targets_ok and evaluation.legal and not any(v.kind == "not_cooked" for v in evaluation.violations)
+    if not (evaluation.feasible or allowed):
         raise ValueError("refusing to commit a plan that is not legal and feasible: " + "; ".join(evaluation.problems or ["hard constraint violated"]))
     resolved, cooked = resolve(problem, list(evaluation.picks))
     entry_ids = {i: slot.fixed.entry_id for i, slot in enumerate(problem.slots) if slot.fixed and slot.fixed.entry_id}
