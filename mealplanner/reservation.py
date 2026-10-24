@@ -333,6 +333,19 @@ def stock_pools(client, type_ids, now: datetime) -> tuple[dict[str, str], dict[s
     return pool_of, lots
 
 
+@dataclass
+class PoolNeed:
+    """One stock pool's side of the AcquisitionList (net_requirements), in grams."""
+
+    demand: float          # what the plan's committed, not yet cooked meals call for
+    target: float          # the governing StockPolicy's target level, if any
+    eligible: float        # eligible stock on hand, under the policy's filters
+
+    @property
+    def net(self) -> float:
+        return max(0.0, self.demand + self.target - self.eligible)
+
+
 def net_requirements(client, meal_plan_id: str, now: datetime) -> dict[str, float]:
     """AcquisitionList's formula (data-model.md's Recipes/plans/policies
     table) and invariant 28: how many grams need buying this week, keyed
@@ -376,6 +389,13 @@ def net_requirements(client, meal_plan_id: str, now: datetime) -> dict[str, floa
     vocabulary yet distinguishing a Type's purchased form from its
     as-required form, so that division isn't applied; amounts are in the
     recipe's own required form. Flagged, not silently assumed away."""
+    return {root: need.net for root, need in acquisition(client, meal_plan_id, now).items() if need.net > 0}
+
+
+def acquisition(client, meal_plan_id: str, now: datetime) -> dict[str, PoolNeed]:
+    """net_requirements' pools with their demand, target and eligible stock, every pool
+    the plan or a StockPolicy names, whether or not anything needs buying for it (the
+    shopping list shows what the pantry covers too, mealplanner/shopping.py)."""
     client = ReadCache(client)      # read-only: each node is fetched once for the whole computation
     pools: dict[str, dict] = {}
 
@@ -401,14 +421,12 @@ def net_requirements(client, meal_plan_id: str, now: datetime) -> dict[str, floa
     # "keep 1 kg of bread flour". (Found by external review; before this,
     # nested pools were left as independent accounting universes.)
     nested_by_root = _nested_pools(client, {root: pool["resolution"] for root, pool in pools.items()})
-    net: dict[str, float] = {}
+    needs: dict[str, PoolNeed] = {}
     for root, pool in pools.items():
         resolution = pool["resolution"]
         nested = nested_by_root[root]
         eligible, _ = eligible_on_hand_with_urgency(
             client, root, now, exclude_types=nested, **policy_eligibility_kwargs(resolution),
         )
-        remainder = pool["demand"] + pool["target"] - eligible
-        if remainder > 0:
-            net[root] = remainder
-    return net
+        needs[root] = PoolNeed(pool["demand"], pool["target"], eligible)
+    return needs
