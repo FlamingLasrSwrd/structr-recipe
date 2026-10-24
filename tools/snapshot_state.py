@@ -14,7 +14,8 @@ What is compared: every named entity, keyed "Type | name", with its
 properties and its relationships (shown as <Type:name>); and the schema itself,
 keyed "@schema | ...": every type (abstractness and traits), property (type,
 uniqueness, index, not-null, format), relationship (multiplicities and JSON
-names) and method (its full source). The schema is included because a
+names), method (its full source) and view of our own (its properties; Structr's
+built-in views are left out). The schema is included because a
 validator is a method and can be silently replaced: script 04 once overwrote
 07's full Measurement validator with its own simpler one, and only a test that
 happened to probe it noticed. What is not compared: ids,
@@ -52,6 +53,9 @@ def normalize(value):
     return value
 
 
+BUILTIN_VIEWS = {"public", "ui", "all", "custom", "export"}
+
+
 def snapshot_schema(client) -> dict:
     nodes = {n["id"]: n["name"] for n in client.get("/structr/rest/SchemaNode")["result"]}
     out = {}
@@ -67,6 +71,12 @@ def snapshot_schema(client) -> dict:
     for m in client.get("/structr/rest/SchemaMethod")["result"]:
         owner = nodes.get((m.get("schemaNode") or {}).get("id"), "(global)")
         out[f"@schema | method {owner}.{m['name']}"] = {"source": m.get("source"), "returnRawResult": bool(m.get("returnRawResult")), "isStatic": bool(m.get("isStatic"))}
+    for v in client.get_all("SchemaView")["result"]:
+        if v.get("name") in BUILTIN_VIEWS:
+            continue
+        owner = nodes.get((v.get("schemaNode") or {}).get("id"), "?")
+        listed = {p.strip() for p in (v.get("nonGraphProperties") or "").split(",") if p.strip()}
+        out[f"@schema | view {owner}.{v['name']}"] = {"properties": sorted(listed | {p["name"] for p in v.get("schemaProperties") or []})}
     return out
 
 

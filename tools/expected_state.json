@@ -1207,6 +1207,20 @@
   ],
   "isAbstract": false
  },
+ "@schema | view NutrientProfile.planning": {
+  "properties": [
+   "amount",
+   "basis",
+   "forNutrient",
+   "id",
+   "name",
+   "provenance",
+   "servingOf",
+   "source",
+   "type",
+   "unit"
+  ]
+ },
  "Allocation | TEST -- Beef and Broccoli Stir-Fry allocation input -- Beef (raw)": {
   "fulfills": "<Specification:TEST -- stirfry S1 input beef>",
   "hasActualQuantity": "<Measurement:TEST -- Beef and Broccoli Stir-Fry input Beef (raw) mass observation>",
