@@ -9,7 +9,7 @@ import random
 import unittest
 
 from mealplanner.planning import cpsat
-from mealplanner.planning.evaluate import evaluate, prefix_bound
+from mealplanner.planning.evaluate import REQUEST_MEASURE, evaluate, prefix_bound
 from mealplanner.planning.model import Fixed, Pick, Request
 from mealplanner.planning.search import auto, beam, exact, improve, oracle
 from tests.planning_fixtures import MEALS, day_of_three, problem, slot, when
@@ -53,7 +53,7 @@ class Asked(unittest.TestCase):
         self.assertIsNone(oracle(p).best)
         closest = oracle(p, relaxed=True).best
         (v,) = closest.violations
-        self.assertEqual((v.kind, v.total, v.bound, v.measure), ("not_cooked", 3, 4, 1.0))
+        self.assertEqual((v.kind, v.total, v.bound, v.measure), ("not_cooked", 3, 4, REQUEST_MEASURE))
 
     def test_a_committed_meal_that_cooks_it_answers_the_request(self):
         p = problem([slot("breakfast", when(28, 8), fixed=Fixed(candidate="braised chicken", cooked=1.0)),
@@ -106,7 +106,7 @@ class CpSat(unittest.TestCase):
     def test_relaxed_cpsat_measures_a_request_left_out(self):
         p = asked(count=4)
         self.assertIsNone(cpsat.solve(p).best)
-        self.assertAlmostEqual(cpsat.solve(p, relaxed=True).best.violation_measure, 1.0)
+        self.assertAlmostEqual(cpsat.solve(p, relaxed=True).best.violation_measure, REQUEST_MEASURE)
 
 
 if __name__ == "__main__":

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from time import monotonic
 
 from mealplanner.planning.commit import commit_plan
-from mealplanner.planning.diagnose import Diagnosis, diagnose
+from mealplanner.planning.diagnose import Diagnosis, describe_violation, diagnose
 from mealplanner.planning.evaluate import Evaluation, evaluate
 from mealplanner.planning.extract import SlotSpec, build_problem
 from mealplanner.planning.model import PlanningProblem
@@ -21,6 +21,14 @@ MIN_SEARCH_S = 10.0        # the search's least time, even when reading has used
 PROPOSAL = "saved proposal"
 
 
+def keeps_requests(problem: PlanningProblem, evaluation: Evaluation) -> bool:
+    """A legal week that cooks every recipe asked for, its only failings hard nutrition targets. The
+    owner's decision (2026-10-24): "Keep the requested meal. Advise if a nutrient target isn't being
+    met for the week." Such a week is proposed, and may be committed, naming what it misses."""
+    return (bool(problem.requests) and evaluation.legal
+            and not any(v.kind == "not_cooked" for v in evaluation.violations))
+
+
 @dataclass
 class PlanResult:
     problem: PlanningProblem
@@ -28,6 +36,8 @@ class PlanResult:
     evaluation: Evaluation | None          # the plan; None if nothing feasible was found
     diagnosis: Diagnosis | None            # set when there is no feasible plan
     committed: list = field(default_factory=list)
+    missed: list = field(default_factory=list)      # hard targets a plan keeping the requests misses (keeps_requests)
+    without_requests: bool | None = None            # whether a week meeting them all was found without the requests
 
     @property
     def feasible(self) -> bool:
@@ -38,11 +48,29 @@ class PlanResult:
         if self.evaluation is not None:
             proof = ("the saved proposal, checked against the graph again" if self.search.method == PROPOSAL
                      else "optimal" if self.search.proven else f"best found by {self.search.method} (not proven optimal)")
+            if self.missed:
+                lines.extend(self.advice())
             lines.append(f"Plan ({proof}):")
             lines.append(describe_plan(self.problem, self.evaluation))
         elif self.diagnosis is not None:
             lines.append(self.diagnosis.summary())
         return "\n".join(lines)
+
+    def advice(self) -> list[str]:
+        """What a week keeping the requests misses, a line per target (the owner's decision, 2026-10-24)."""
+        asked = ", ".join(r.name for r in self.problem.requests)
+        lines = [f"ADVICE: no week cooking {asked} meets every hard target, so this one keeps the requests and misses:"]
+        by_target: dict = {}
+        for v in self.missed:
+            by_target.setdefault(v.target, []).append(v)
+        for target, found in sorted(by_target.items()):
+            lines.append(f"  {target}: {len(found)} group(s), " + "; ".join(describe_violation(v) for v in found[:3])
+                         + ("; ..." if len(found) > 3 else ""))
+        if self.without_requests is True:
+            lines.append("  Without the requests, a week meeting every hard target was found: the requests are the reason.")
+        elif self.without_requests is False:
+            lines.append("  Without the requests none was found either: the requests are not the only reason.")
+        return lines
 
 
 def plan_week(
@@ -82,12 +110,14 @@ def plan_week(
             shortlist_above=None, requests=requests, preps=preps,
         )
         evaluation = evaluate(problem, picks_from(problem, proposal))
-        if not (evaluation.legal and evaluation.feasible):
+        if not (evaluation.legal and (evaluation.feasible or keeps_requests(problem, evaluation))):
             raise ProposalError("the proposal no longer meets every rule and hard target: "
                                 + "; ".join(evaluation.problems or [f"{len(evaluation.violations)} hard target group(s) missed"]))
-        result = PlanResult(problem, SearchResult(evaluation, False, 0, PROPOSAL), evaluation, None)
+        result = PlanResult(problem, SearchResult(evaluation, False, 0, PROPOSAL), evaluation, None,
+                            missed=list(evaluation.violations))
         if commit:
-            result.committed = commit_plan(client, meal_plan_id, problem, evaluation, name_prefix=name_prefix)
+            result.committed = commit_plan(client, meal_plan_id, problem, evaluation, name_prefix=name_prefix,
+                                           missing_targets_ok=bool(result.missed))
         return result
     factor, widened = FACTOR, []
     while True:
@@ -113,4 +143,17 @@ def plan_week(
         if commit:
             result.committed = commit_plan(client, meal_plan_id, problem, search.best, name_prefix=name_prefix)
         return result
-    return PlanResult(problem, search, None, diagnose(problem))
+    diagnosis = diagnose(problem)
+    if diagnosis.feasible and diagnosis.closest is not None:      # its search found what the first did not, in time
+        result = PlanResult(problem, search, diagnosis.closest, None)
+    elif diagnosis.closest is not None and keeps_requests(problem, diagnosis.closest):
+        # keep the requests and say what the week misses; and whether the requests are why
+        alone = solve(replace(problem, requests=(), _cache={}), method, **{**search_options, "time_limit_s": 10.0})
+        result = PlanResult(problem, search, diagnosis.closest, diagnosis, missed=list(diagnosis.closest.violations),
+                            without_requests=alone.best is not None and alone.best.feasible)
+    else:
+        return PlanResult(problem, search, None, diagnosis)
+    if commit:
+        result.committed = commit_plan(client, meal_plan_id, problem, result.evaluation, name_prefix=name_prefix,
+                                       missing_targets_ok=bool(result.missed))
+    return result
