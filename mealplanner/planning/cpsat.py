@@ -37,7 +37,8 @@ from __future__ import annotations
 from datetime import timedelta
 
 from mealplanner.planning.evaluate import (
-    baseline_in, basic_reason, evaluate, ineligible_reason, initial_partial, intake, meal_type_reason, resolve, slot_groups,
+    REQUEST_MEASURE, baseline_in, basic_reason, evaluate, ineligible_reason, initial_partial, intake, meal_type_reason,
+    resolve, slot_groups,
 )
 from mealplanner.planning.model import Pick, PlanningProblem
 from mealplanner.planning.search import SearchResult
@@ -119,13 +120,16 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
     fixed_resolved, _ = resolve(problem, initial_partial(problem))
     candidates = sorted(problem.candidates.values(), key=lambda c: (c.name, c.id))
 
+    pinned = problem.pinned()             # a slot a recipe was asked for at cooks it fresh, nothing else
     x: dict = {}
     for i in open_slots:
         for c in candidates:
-            if ineligible_reason(problem, i, c) is None:
+            if ineligible_reason(problem, i, c) is None and (i not in pinned or c.id in pinned[i].candidates):
                 x[i, c.id] = m.new_bool_var(f"x_{i}_{c.id}")
     y: dict = {}
     for s in open_slots:
+        if s in pinned:
+            continue
         for j in range(s):
             for c in candidates:
                 if c.leftover_days is None or basic_reason(problem, c) is not None:
@@ -345,6 +349,20 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
             if hi is not None and hi == 0:
                 m.add(total == 0).only_enforce_if([keep] + known)
             objective.append((fit, 1))
+
+    # ---- the recipes asked for and pinned to no meal: each cooked fresh as often as asked
+    for name, wanted, count in problem.wanted():
+        fixed_cooks = sum(1 for i in range(n) if i not in open_set and problem.slots[i].fixed.candidate in wanted)
+        chances = [var for (i, cid), var in x.items() if cid in wanted and i not in pinned]
+        cooks = sum(chances) + fixed_cooks
+        if relaxed:
+            short = m.new_int_var(0, count, f"short_request_{name}")
+            m.add(short >= count - cooks)
+            violation_terms.append((short, round(VS * REQUEST_MEASURE)))
+        elif chances:
+            m.add(cooks >= count)
+        elif fixed_cooks < count:
+            m.add_bool_or([])              # nowhere left to cook it: the problem is infeasible
 
     model_objective = sum(var * coef for var, coef in objective)
     violation = sum(var * coef for var, coef in violation_terms) + violation_constant

@@ -137,6 +137,19 @@ class Pick:
             raise ValueError("a Pick is either a fresh cook (candidate) or a leftover (source), not both or neither")
 
 
+@dataclass(frozen=True)
+class Request:
+    """A recipe the owner asked for this week (docs/optimizer-design.md Sec 12): cooked fresh at
+    least once, the planner choosing when, how much and who eats the leftovers; or, pinned to
+    open slot `slot`, cooked fresh there. `candidates` are the Plans that answer it: the
+    recipe's versions in the book. A recipe asked for twice is cooked at least twice. A hard
+    rule: a week that leaves one out is not feasible, as one missing a hard target is not."""
+
+    name: str
+    candidates: frozenset
+    slot: int | None = None
+
+
 @dataclass
 class PlanningProblem:
     slots: tuple
@@ -165,6 +178,7 @@ class PlanningProblem:
     # How many recipes the week could draw on: more than len(candidates) when only a
     # shortlist of them was read and searched (planning/shortlist.py); 0 when not counted.
     book_size: int = 0
+    requests: tuple = ()               # Request: the recipes the owner asked to have cooked this week
     _cache: dict = field(default_factory=dict, repr=False, compare=False)
 
     def __post_init__(self):
@@ -201,6 +215,15 @@ class PlanningProblem:
                 raise ValueError(f"fixed slot {slot.key!r} cooks {fixed.candidate!r}, which is not among the candidates")
             if fixed.source is not None and not 0 <= fixed.source < i:
                 raise ValueError(f"fixed slot {slot.key!r} takes leftovers from a slot that does not come before it")
+        self.requests = tuple(self.requests)
+        pinned = [r.slot for r in self.requests if r.slot is not None]
+        for r in self.requests:
+            if not r.candidates or not set(r.candidates) <= set(self.candidates):
+                raise ValueError(f"the request for {r.name!r} names recipes that are not among the candidates")
+            if r.slot is not None and not (0 <= r.slot < len(self.slots) and self.slots[r.slot].fixed is None):
+                raise ValueError(f"the request for {r.name!r} is pinned to a slot that is not an open slot of the week")
+        if len(set(pinned)) != len(pinned):
+            raise ValueError("two requests are pinned to one meal")
         for w in (self.weights.time, self.weights.variety, self.weights.stock, self.weights.waste):
             if w < 0:
                 raise ValueError("weights must not be negative (the search bounds rely on it)")
@@ -221,6 +244,19 @@ class PlanningProblem:
     def slot_eaters(self, i: int) -> tuple:
         """Who eats slot i, in a fixed order (a Pick's `shares` follow it)."""
         return self.slots[i].eaters or self.eater_keys()
+
+    def pinned(self) -> dict:
+        """Open slot index -> the Request pinned to it."""
+        return {r.slot: r for r in self.requests if r.slot is not None}
+
+    def wanted(self) -> list:
+        """(name, candidates, how many fresh cooks) for the requests pinned to no slot, one per recipe."""
+        groups: dict = {}
+        for r in self.requests:
+            if r.slot is None:
+                name, count = groups.get(r.candidates, (r.name, 0))
+                groups[r.candidates] = (name, count + 1)
+        return [(name, candidates, count) for candidates, (name, count) in groups.items()]
 
     def baseline_of(self, eater: str) -> Mapping:
         """What an eater takes every day outside the meals: nutrient -> amount a day, None if unknown."""

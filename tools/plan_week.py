@@ -29,6 +29,10 @@ private/week.toml:
     shortlist_above = 60                # optional: a larger recipe book is searched through a shortlist
                                         # of the best fits to the week (mealplanner/planning/shortlist.py)
     prices = "Home prices"              # optional: report the week's cost at this price level
+    cook = ["Adobo loco steak", { recipe = "Balsamic fig chicken", on = "Wed Dinner" }]
+                                        # optional: recipes to cook this week, each at least once (twice if
+                                        # listed twice); the planner picks the meal, portions and leftovers,
+                                        # unless `on` names the meal ("Wed Dinner" or "Wed 28 Oct Dinner")
     [weights]                           # optional: written onto the MealPlan (optimizer-design Sec 4.5)
     time = 0.5
     variety = 0.5
@@ -59,7 +63,7 @@ from mealplanner.connection import connect
 from mealplanner.household import latest_plan as household_latest_plan
 from mealplanner.profiles import ProfileError
 from mealplanner.nutrition_scope import active_entries, entry_start, nutrition_report
-from mealplanner.planning.extract import SlotSpec
+from mealplanner.planning.extract import RequestError, SlotSpec
 from mealplanner.planning.nutrients import describe_nutrients
 from mealplanner.planning.plan import plan_week
 from mealplanner.planning.proposal import ProposalError, to_data
@@ -115,6 +119,16 @@ def read_week(path: str) -> dict:
             problems.append(f"total_time_s must be a number of seconds above 0, like 300, not {total!r}")
         elif "time_limit_s" in week:
             problems.append("give total_time_s (the whole run) or time_limit_s (the search alone), not both")
+    requests = []
+    for item in week.get("cook", []):
+        if isinstance(item, str):
+            item = {"recipe": item}
+        if not isinstance(item, dict) or not isinstance(item.get("recipe"), str) or set(item) - {"recipe", "on"} \
+                or not isinstance(item.get("on", ""), str):
+            problems.append(f"cook: {item!r} is a recipe's name, or {{ recipe = \"...\", on = \"Wed Dinner\" }}")
+            continue
+        requests.append((item["recipe"], item.get("on")))
+    week["requests"] = tuple(requests)
     above = week.get("shortlist_above")
     if above is not None and (isinstance(above, bool) or not isinstance(above, int) or above < 1):
         problems.append(f"shortlist_above must be a whole number of recipes, like 60, not {above!r}")
@@ -241,8 +255,11 @@ def main(argv=None) -> int:
                            leftovers=week.get("leftovers", True), leftover_days=week.get("leftover_days"),
                            portions=tuple(week.get("portions", [])),
                            eater_portions={p: tuple(v) for p, v in week.get("portions_by_person", {}).items()},
-                           proposal=proposal,
+                           proposal=proposal, requests=week["requests"],
                            **limits, **({"shortlist_above": week["shortlist_above"]} if "shortlist_above" in week else {}))
+    except RequestError as exc:
+        print(f"problem: {exc}")
+        return 1
     except ProposalError as exc:
         print(f"problem: the kept proposal cannot be committed: {exc}")
         print("nothing was written; propose the week again, or commit with --fresh")
