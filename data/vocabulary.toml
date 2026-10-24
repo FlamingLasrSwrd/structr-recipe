@@ -20,7 +20,9 @@
 #   each     the weight of one item: a portion label of its first source, or a table
 #   volume   a density: the same, or { portions = [[fdc, label], ...] } averaged, or
 #            { grams = x, per = "tsp", source = "..." } for a weight from elsewhere
-#   parent   default "Food", the root every food sits under
+#   parent   default "Food", the root every food sits under; a food USDA's retention factors apply
+#            to sits under its retention class
+#   [food.retention]  on a retention class: the USDA row for each heat method (J30)
 
 [source]
 subsets = ["data/fdc/sr_legacy.json", "data/fdc/foundation.json", "data/fdc/fndds.json", "data/fdc/branded.json"]
@@ -32,6 +34,24 @@ subsets = ["data/fdc/sr_legacy.json", "data/fdc/foundation.json", "data/fdc/fndd
 # ids: Energy (kcal), Protein, Total lipid (fat), Carbohydrate by difference, Fiber total
 # dietary, Sugars total.
 kept_in_cooking = [1008, 1003, 1004, 1005, 1079, 2000]
+
+# USDA Table of Nutrient Retention Factors, Release 6 (2007), ars.usda.gov: public domain. tools/
+# retention_extract.py pins the rows the retention classes below name into `table`; re-run it after
+# changing one. A retention class is a food Type its members sit under; it names, for each heat
+# method, the USDA row for its food group cooked that way, and a member's every heat-cooked step
+# takes that row's factors (J30). The rows were chosen by Claude (2026-10-23), for the owner to
+# review: where USDA gives a row with drippings and one without, with drippings, since the
+# drippings are counted as eaten as the recipe's fat is (J20); a canned, baked or otherwise
+# cooked-already food takes the "reheated" row.
+table = "data/retention/usda_r6.json"
+# The nutrients the dietary profiles target that USDA gives factors for. Vitamins D, E and K and
+# the fatty acids have none: they are counted whole, and say so.
+nutrients = [1087, 1089, 1090, 1091, 1092, 1093, 1095, 1106, 1162, 1165, 1166, 1167, 1175, 1178, 1180, 1190]
+# USDA has no factor for these as FDC states them; the nearest it has stands in. Vitamin A (RAE)
+# takes Vitamin A (RE)'s, Folate (DFE) takes total folate's.
+stand_ins = { 1106 = 392, 1190 = 417 }
+# Methods that apply no heat: every nutrient above is kept whole (a factor of 1 on "Food").
+no_heat = ["No-Heat Method", "Soaking", "Marinating", "Mixing"]
 
 # -- methods, parents before children --------------------------------------------------------
 
@@ -365,16 +385,535 @@ name = "Beef (raw)"
 [[food]]
 name = "Butter"
 
+# -- retention classes (J30): each heat method's USDA row ------------------------------------
+
+[[food]]
+name = "Leafy greens"         # USDA VEG,GREENS
+[food.retention]
+Boiling = "3005"
+Simmering = "3006"
+Braising = "3006"
+Sauteing = "3015"
+Pan-frying = "3015"
+Stir-Frying = "3015"
+Searing = "3015"
+Roasting = "3001"
+Baking = "3001"
+Broiling = "3001"
+Toasting = "3001"
+
+[[food]]
+name = "Fresh herbs"          # USDA VEG,GREENS, standing in: the table has no rows for herbs
+[food.retention]
+Boiling = "3005"
+Simmering = "3006"
+Braising = "3006"
+Sauteing = "3015"
+Pan-frying = "3015"
+Stir-Frying = "3015"
+Searing = "3015"
+Roasting = "3001"
+Baking = "3001"
+Broiling = "3001"
+Toasting = "3001"
+
+[[food]]
+name = "Root vegetables"      # USDA VEG,ROOTS,ETC (onions and garlic with them)
+[food.retention]
+Boiling = "3455"
+Simmering = "3456"
+Braising = "3456"
+Sauteing = "3460"
+Pan-frying = "3460"
+Stir-Frying = "3465"
+Searing = "3460"
+Roasting = "3451"
+Baking = "3451"
+Broiling = "3451"
+Toasting = "3451"
+
+[[food]]
+name = "Potatoes (white)"     # USDA POTATOES
+[food.retention]
+Boiling = "3308"
+Simmering = "3309"
+Braising = "3309"
+Sauteing = "3315"
+Pan-frying = "3315"
+Stir-Frying = "3315"
+Searing = "3315"
+Roasting = "3301"
+Baking = "3301"
+Broiling = "3301"
+Toasting = "3301"
+
+[[food]]
+name = "Sweet potatoes"       # USDA SWEETPOTATOES
+[food.retention]
+Boiling = "3708"
+Simmering = "3709"
+Braising = "3709"
+Sauteing = "3710"
+Pan-frying = "3710"
+Stir-Frying = "3710"
+Searing = "3710"
+Roasting = "3701"
+Baking = "3701"
+Broiling = "3701"
+Toasting = "3701"
+
+[[food]]
+name = "Fresh tomatoes"       # USDA TOMATOES
+[food.retention]
+Boiling = "3751"
+Simmering = "3751"
+Braising = "3751"
+Sauteing = "3752"
+Pan-frying = "3752"
+Stir-Frying = "3752"
+Searing = "3752"
+Roasting = "3751"
+Baking = "3751"
+Broiling = "3752"
+Toasting = "3752"
+
+[[food]]
+name = "Canned tomatoes"      # USDA TOMATOES,REHEATED: canned is cooked already
+[food.retention]
+Boiling = "3754"
+Simmering = "3754"
+Braising = "3754"
+Sauteing = "3754"
+Pan-frying = "3754"
+Stir-Frying = "3754"
+Searing = "3754"
+Roasting = "3754"
+Baking = "3754"
+Broiling = "3754"
+Toasting = "3754"
+
+[[food]]
+name = "Other vegetables"     # USDA VEG,OTHER
+[food.retention]
+Boiling = "3775"
+Simmering = "3776"
+Braising = "3776"
+Sauteing = "3785"
+Pan-frying = "3780"
+Stir-Frying = "3785"
+Searing = "3780"
+Roasting = "3771"
+Baking = "3771"
+Broiling = "3771"
+Toasting = "3771"
+
+[[food]]
+name = "Canned vegetables"    # USDA VEG,OTHER,REHEATED: canned is cooked already
+[food.retention]
+Boiling = "3788"
+Simmering = "3788"
+Braising = "3788"
+Sauteing = "3788"
+Pan-frying = "3788"
+Stir-Frying = "3788"
+Searing = "3788"
+Roasting = "3788"
+Baking = "3788"
+Broiling = "3788"
+Toasting = "3788"
+
+[[food]]
+name = "Citrus fruits"        # USDA FRUITS,CITRUS,CKD
+[food.retention]
+Boiling = "0270"
+Simmering = "0270"
+Braising = "0270"
+Sauteing = "0270"
+Pan-frying = "0270"
+Stir-Frying = "0270"
+Searing = "0270"
+Roasting = "0270"
+Baking = "0270"
+Broiling = "0270"
+Toasting = "0270"
+
+[[food]]
+name = "Fresh fruits"         # USDA FRUITS,FRESH(NOT CITRUS)
+[food.retention]
+Boiling = "0155"
+Simmering = "0155"
+Braising = "0155"
+Sauteing = "0153"
+Pan-frying = "0153"
+Stir-Frying = "0153"
+Searing = "0153"
+Roasting = "0151"
+Baking = "0151"
+Broiling = "0152"
+Toasting = "0151"
+
+[[food]]
+name = "Dried fruits"         # USDA FRUITS(DRIED)
+[food.retention]
+Boiling = "0255"
+Simmering = "0255"
+Braising = "0255"
+Sauteing = "0253"
+Pan-frying = "0253"
+Stir-Frying = "0253"
+Searing = "0253"
+Roasting = "0251"
+Baking = "0251"
+Broiling = "0251"
+Toasting = "0251"
+
+[[food]]
+name = "Eggs"                 # USDA EGGS
+[food.retention]
+Boiling = "0105"
+Simmering = "0107"
+Braising = "0107"
+Sauteing = "0103"
+Pan-frying = "0103"
+Stir-Frying = "0103"
+Searing = "0103"
+Roasting = "0101"
+Baking = "0101"
+Broiling = "0101"
+Toasting = "0101"
+
+[[food]]
+name = "Cheeses"              # USDA CHEESE
+[food.retention]
+Boiling = "0005"
+Simmering = "0005"
+Braising = "0005"
+Sauteing = "0005"
+Pan-frying = "0001"
+Stir-Frying = "0005"
+Searing = "0001"
+Roasting = "0001"
+Baking = "0001"
+Broiling = "0003"
+Toasting = "0001"
+
+[[food]]
+name = "Milk and cream"       # USDA MILK,HEATED (10 minutes for quick heat, 30 for a simmer or a bake, an hour for a braise)
+[food.retention]
+Boiling = "2151"
+Simmering = "2152"
+Braising = "2153"
+Sauteing = "2151"
+Pan-frying = "2151"
+Stir-Frying = "2151"
+Searing = "2151"
+Roasting = "2152"
+Baking = "2152"
+Broiling = "2151"
+Toasting = "2151"
+
+[[food]]
+name = "Chicken"              # USDA CHICKEN, with its drippings eaten as a recipe's fat is (J20)
+parent = "Poultry"
+[food.retention]
+Boiling = "0856"
+Simmering = "0856"
+Braising = "0852"
+Sauteing = "0803"
+Pan-frying = "0803"
+Stir-Frying = "0803"
+Searing = "0803"
+Roasting = "0805"
+Baking = "0805"
+Broiling = "0801"
+Toasting = "0801"
+
+[[food]]
+name = "Turkey"               # USDA TURKEY: roasted for any dry heat (no fried row), simmered with drippings for wet
+parent = "Poultry"
+[food.retention]
+Boiling = "1852"
+Simmering = "1852"
+Braising = "1852"
+Sauteing = "1805"
+Pan-frying = "1805"
+Stir-Frying = "1805"
+Searing = "1805"
+Roasting = "1805"
+Baking = "1805"
+Broiling = "1805"
+Toasting = "1805"
+
+[[food]]
+name = "Poultry sausages"     # USDA SAUSAGE,RAW,PORK,OTHER
+parent = "Poultry"
+[food.retention]
+Boiling = "1706"
+Simmering = "1706"
+Braising = "1706"
+Sauteing = "1709"
+Pan-frying = "1709"
+Stir-Frying = "1709"
+Searing = "1709"
+Roasting = "1706"
+Baking = "1706"
+Broiling = "1707"
+Toasting = "1707"
+
+[[food]]
+name = "Pork sausages"        # USDA SAUSAGE,RAW,PORK,OTHER
+[food.retention]
+Boiling = "1706"
+Simmering = "1706"
+Braising = "1706"
+Sauteing = "1709"
+Pan-frying = "1709"
+Stir-Frying = "1709"
+Searing = "1709"
+Roasting = "1706"
+Baking = "1706"
+Broiling = "1707"
+Toasting = "1707"
+
+[[food]]
+name = "Fresh pork"           # USDA PORK,FRESH, with drippings
+[food.retention]
+Boiling = "1302"
+Simmering = "1302"
+Braising = "1352"
+Sauteing = "1252"
+Pan-frying = "1252"
+Stir-Frying = "1252"
+Searing = "1252"
+Roasting = "1254"
+Baking = "1254"
+Broiling = "1251"
+Toasting = "1254"
+
+[[food]]
+name = "Ground pork"          # USDA PORK,FRSH,GROUND, browned and simmered with drippings for any dry heat
+[food.retention]
+Boiling = "1406"
+Simmering = "1406"
+Braising = "1402"
+Sauteing = "1402"
+Pan-frying = "1402"
+Stir-Frying = "1402"
+Searing = "1402"
+Roasting = "1402"
+Baking = "1402"
+Broiling = "1402"
+Toasting = "1402"
+
+[[food]]
+name = "Bacon"                # USDA BACON,BROILED/FRIED, for any heat
+[food.retention]
+Boiling = "1456"
+Simmering = "1456"
+Braising = "1456"
+Sauteing = "1456"
+Pan-frying = "1456"
+Stir-Frying = "1456"
+Searing = "1456"
+Roasting = "1456"
+Baking = "1456"
+Broiling = "1456"
+Toasting = "1456"
+
+[[food]]
+name = "Cooked ham"           # USDA PORK,CURED,REHEATED: cooked already
+[food.retention]
+Boiling = "1606"
+Simmering = "1606"
+Braising = "1606"
+Sauteing = "1606"
+Pan-frying = "1606"
+Stir-Frying = "1606"
+Searing = "1606"
+Roasting = "1606"
+Baking = "1606"
+Broiling = "1606"
+Toasting = "1606"
+
+[[food]]
+name = "Beef cuts"            # USDA BEEF, with drippings
+parent = "Beef (raw)"
+[food.retention]
+Boiling = "0704"
+Simmering = "0704"
+Braising = "0652"
+Sauteing = "0604"
+Pan-frying = "0604"
+Stir-Frying = "0604"
+Searing = "0604"
+Roasting = "0601"
+Baking = "0601"
+Broiling = "0602"
+Toasting = "0601"
+
+[[food]]
+name = "Ground beef"          # USDA BEEF,GROUND, browned and simmered with drippings in a pan
+parent = "Beef (raw)"
+[food.retention]
+Boiling = "0754"
+Simmering = "0754"
+Braising = "0752"
+Sauteing = "0752"
+Pan-frying = "0752"
+Stir-Frying = "0752"
+Searing = "0752"
+Roasting = "0750"
+Baking = "0750"
+Broiling = "0603"
+Toasting = "0750"
+
+[[food]]
+name = "Shellfish"            # USDA SHELLFISH,WO/SHELL, with drippings
+[food.retention]
+Boiling = "2762"
+Simmering = "2762"
+Braising = "2762"
+Sauteing = "2755"
+Pan-frying = "2755"
+Stir-Frying = "2755"
+Searing = "2755"
+Roasting = "2750"
+Baking = "2750"
+Broiling = "2753"
+Toasting = "2750"
+
+[[food]]
+name = "Cooked legumes"       # USDA LEGUMES,REHEATED: canned beans and tofu are cooked already
+[food.retention]
+Boiling = "0550"
+Simmering = "0550"
+Braising = "0550"
+Sauteing = "0550"
+Pan-frying = "0550"
+Stir-Frying = "0550"
+Searing = "0550"
+Roasting = "0550"
+Baking = "0550"
+Broiling = "0550"
+Toasting = "0550"
+
+[[food]]
+name = "Nuts and seeds"       # USDA NUTS (peanuts with them)
+[food.retention]
+Boiling = "2204"
+Simmering = "2204"
+Braising = "2204"
+Sauteing = "2203"
+Pan-frying = "2203"
+Stir-Frying = "2203"
+Searing = "2203"
+Roasting = "2203"
+Baking = "2201"
+Broiling = "2202"
+Toasting = "2203"
+
+[[food]]
+name = "Pasta"                # USDA PASTA: boiled and drained, or not drained when simmered in a sauce or soup; reheated when fried after
+[food.retention]
+Boiling = "0381"
+Simmering = "0384"
+Braising = "0384"
+Sauteing = "0385"
+Pan-frying = "0385"
+Stir-Frying = "0385"
+Searing = "0385"
+Roasting = "0380"
+Baking = "0382"
+Broiling = "0380"
+Toasting = "0380"
+
+[[food]]
+name = "Rice"                 # USDA RICE,WHITE/BROWN: cooked with its water used, sauteed and simmered in a pan
+[food.retention]
+Boiling = "0432"
+Simmering = "0432"
+Braising = "0432"
+Sauteing = "0433"
+Pan-frying = "0433"
+Stir-Frying = "0433"
+Searing = "0433"
+Roasting = "0432"
+Baking = "0432"
+Broiling = "0434"
+Toasting = "0433"
+
+[[food]]
+name = "Oats"                 # USDA OATMEAL,REG/QUICK,COOKED for wet heat; FLOUR/MEAL for dry
+[food.retention]
+Boiling = "0352"
+Simmering = "0352"
+Braising = "0352"
+Sauteing = "0305"
+Pan-frying = "0305"
+Stir-Frying = "0305"
+Searing = "0305"
+Roasting = "0301"
+Baking = "0301"
+Broiling = "0301"
+Toasting = "0306"
+
+[[food]]
+name = "Flours and starches"  # USDA FLOUR/MEAL
+[food.retention]
+Boiling = "0302"
+Simmering = "0302"
+Braising = "0302"
+Sauteing = "0305"
+Pan-frying = "0305"
+Stir-Frying = "0305"
+Searing = "0305"
+Roasting = "0301"
+Baking = "0301"
+Broiling = "0301"
+Toasting = "0306"
+
+[[food]]
+name = "Breads"               # USDA FLOUR/MEAL,TOASTED or REHEATED: bread is baked already
+[food.retention]
+Boiling = "0304"
+Simmering = "0304"
+Braising = "0304"
+Sauteing = "0304"
+Pan-frying = "0304"
+Stir-Frying = "0304"
+Searing = "0304"
+Roasting = "0304"
+Baking = "0304"
+Broiling = "0306"
+Toasting = "0306"
+
+[[food]]
+name = "Doughs"               # USDA FLOUR/MEAL,BAKED
+[food.retention]
+Boiling = "0301"
+Simmering = "0301"
+Braising = "0301"
+Sauteing = "0301"
+Pan-frying = "0301"
+Stir-Frying = "0301"
+Searing = "0301"
+Roasting = "0301"
+Baking = "0301"
+Broiling = "0301"
+Toasting = "0301"
+
 # -- foods -------------------------------------------------------------------------------------
 
 [[food]]
 name = "Firm tofu"
+parent = "Cooked legumes"
 fdc = 172475                    # SR: Tofu, raw, firm, prepared with calcium sulfate
 sources = [{ fdc = 172448, status = "estimated", moisture = true, note = "Tofu firm with nigari (82.9% water, against 69.8%): for what 172475 does not report (sugars)" }]
 volume = "cup"
 
 [[food]]
 name = "Rice noodles (dry)"
+parent = "Pasta"
 fdc = 169742                    # SR: Rice noodles, dry
 
 [[food]]
@@ -437,28 +976,33 @@ volume = { fdc = 2115048, portion = "tbsp" }                  # Eden sun-dried d
 
 [[food]]
 name = "Scallions"
+parent = "Other vegetables"
 fdc = 170005                    # SR: Onions, spring or scallions (includes tops and bulb), raw
 each = 'medium (4-1/8" long)'
 volume = "cup, chopped"
 
 [[food]]
 name = "Garlic"
+parent = "Root vegetables"
 fdc = 169230                    # SR: Garlic, raw
 each = "clove"
 volume = "tsp"
 
 [[food]]
 name = "Egg"
+parent = "Eggs"
 fdc = 171287                    # SR: Egg, whole, raw, fresh
 each = "large"
 
 [[food]]
 name = "Mung bean sprouts"
+parent = "Other vegetables"
 fdc = 169957                    # SR: Mung beans, mature seeds, sprouted, raw
 volume = "cup"
 
 [[food]]
 name = "Roasted salted peanuts"
+parent = "Nuts and seeds"
 fdc = 174261                    # SR: Peanuts, all types, oil-roasted, with salt
 volume = "cup, chopped"
 
@@ -470,17 +1014,19 @@ volume = "tsp"
 
 [[food]]
 name = "Lime"
+parent = "Citrus fruits"
 fdc = 168155                    # SR: Limes, raw
 each = 'fruit (2" dia)'
 
 [[food]]
 name = "Beef top sirloin (raw)"
-parent = "Beef (raw)"
+parent = "Beef cuts"
 fdc = 168726                    # SR: Beef, top sirloin, steak, separable lean and fat, trimmed to 1/8" fat, all grades, raw
 sources = [{ fdc = 2705824, status = "estimated", moisture = true, only = [1110, 1114], note = "FNDDS Beef steak NFS: vitamin D, which SR does not report for this cut" }]
 
 [[food]]
 name = "AP Flour"
+parent = "Flours and starches"
 fdc = 168894                    # SR: Wheat flour, white, all-purpose, enriched, bleached
 volume = "cup"
 
@@ -513,12 +1059,14 @@ volume = "tbsp"
 
 [[food]]
 name = "Yellow Onion"
+parent = "Root vegetables"
 fdc = 170000                    # SR: Onions, raw
 each = 'medium (2-1/2" dia)'
 volume = "cup, sliced"
 
 [[food]]
 name = "Cremini mushrooms"
+parent = "Other vegetables"
 fdc = 168434                    # SR: Mushrooms, brown, italian, or crimini, raw
 volume = "cup sliced"
 
@@ -534,6 +1082,7 @@ volume = "cup"
 
 [[food]]
 name = "Sour cream"
+parent = "Milk and cream"
 fdc = 171257                    # SR: Cream, sour, cultured
 volume = "cup"
 
@@ -557,11 +1106,13 @@ volume = "tsp, ground"
 
 [[food]]
 name = "Parsley"
+parent = "Fresh herbs"
 fdc = 170416                    # SR: Parsley, fresh
 volume = "tbsp"
 
 [[food]]
 name = "Egg noodles (dry)"
+parent = "Pasta"
 fdc = 169731                    # SR: Noodles, egg, dry, enriched
 volume = "cup"
 
@@ -572,7 +1123,7 @@ volume = "tablespoon"
 
 [[food]]
 name = "Chicken Breast (raw)"
-parent = "Poultry"
+parent = "Chicken"
 fdc = 171077                    # SR: Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw
 each = "piece"                  # USDA: one piece = 272 g; breasts vary widely
 
@@ -583,6 +1134,7 @@ volume = "cup"
 
 [[food]]
 name = "Canned cannellini beans (drained)"
+parent = "Cooked legumes"
 fdc = 2644294                   # Foundation: Beans, great northern, canned, sodium added, drained and rinsed
 proxy = true                    # great northern for cannellini: both white beans
 sources = [{ fdc = 2707357, status = "estimated", moisture = true, note = "FNDDS White beans from canned (55.7% water, against 71.2%): what the Foundation analysis does not report" }]
@@ -590,6 +1142,7 @@ each = { grams = 270, per = "each", source = "one 15-oz can drained and rinsed: 
 
 [[food]]
 name = "Canned green chiles"
+parent = "Canned vegetables"
 fdc = 170426                    # SR: Peppers, hot chili, green, canned, pods, excluding seeds, solids and liquids
 
 [[food]]
@@ -609,11 +1162,13 @@ volume = "tsp"
 
 [[food]]
 name = "Cilantro"
+parent = "Fresh herbs"
 fdc = 169997                    # SR: Coriander (cilantro) leaves, raw
 volume = "cup"
 
 [[food]]
 name = "Monterey Jack"
+parent = "Cheeses"
 fdc = 170844                    # SR: Cheese, monterey
 volume = "cup, shredded"
 
@@ -624,139 +1179,167 @@ volume = "cup, shredded"
 
 [[food]]
 name = "Fingerling potatoes"
+parent = "Potatoes (white)"
 fdc = 170029                    # SR: Potatoes, red, flesh and skin, raw
 proxy = true                    # FDC has no fingerling; red is the nearest waxy potato
 
 [[food]]
 name = "Potatoes"
+parent = "Potatoes (white)"
 fdc = 170026                    # SR: Potatoes, flesh and skin, raw
 
 [[food]]
 name = "Russet potato"
+parent = "Potatoes (white)"
 fdc = 170027                    # SR: Potatoes, russet, flesh and skin, raw
 each = 'Potato medium (2-1/4" to 3-1/4" dia)'
 
 [[food]]
 name = "Sweet potato"
+parent = "Sweet potatoes"
 fdc = 168482                    # SR: Sweet potato, raw, unprepared
 each = 'sweetpotato, 5" long'
 
 [[food]]
 name = "Shallot"
+parent = "Root vegetables"
 fdc = 170499                    # SR: Shallots, raw
 each = { grams = 30, per = "each", source = "a medium shallot weighs about 30 g (wellcalm.info, What is the weight of 1 shallot?); FDC gives only 1 tbsp chopped" }
 
 [[food]]
 name = "Broccoli florets"
+parent = "Other vegetables"
 fdc = 169330                    # SR: Broccoli, flower clusters, raw
 sources = [{ fdc = 170379, status = "estimated", note = "SR Broccoli raw: what the flower-cluster record does not report" }]
 
 [[food]]
 name = "Lemon"
+parent = "Citrus fruits"
 fdc = 167746                    # SR: Lemons, raw, without peel
 each = 'fruit (2-1/8" dia)'
 
 [[food]]
 name = "Rosemary"
+parent = "Fresh herbs"
 fdc = 173473                    # SR: Rosemary, fresh
 sources = [{ fdc = 172232, status = "estimated", note = "SR Basil fresh: FDC reports no sugars for rosemary, fresh or dried; a fresh herb's, for the gram a recipe uses" }]
 volume = "tsp"
 
 [[food]]
 name = "Mixed greens"
+parent = "Leafy greens"
 fdc = 2709792                   # FNDDS: Mixed salad greens, raw
 
 [[food]]
 name = "Mini cucumber"
+parent = "Other vegetables"
 fdc = 168409                    # SR: Cucumber, with peel, raw
 each = { fdc = 2709784, portion = "miniature" }               # FNDDS Cucumber raw: 1 miniature = 65 g
 
 [[food]]
 name = "Ginger"
+parent = "Root vegetables"
 fdc = 169231                    # SR: Ginger root, raw
 volume = "tsp"
 
 [[food]]
 name = "Red onion"
+parent = "Root vegetables"
 fdc = 790577                    # Foundation: Onions, red, raw
 sources = [{ fdc = 170000, status = "estimated", note = "SR Onions raw: for what the Foundation record does not report" }]
 each = { fdc = 170000, portion = 'medium (2-1/2" dia)' }      # SR Onions raw: FDC's red onion has only a 197 g one
 
 [[food]]
 name = "Grape tomatoes"
+parent = "Fresh tomatoes"
 fdc = 321360                    # Foundation: Tomatoes, grape, raw
 sources = [{ fdc = 170457, status = "estimated", note = "SR Tomatoes red ripe raw: for what the Foundation record does not report" }]
 volume = { fdc = 170457, portion = "cup cherry tomatoes", status = "estimated" }   # the Foundation record gives no portion
 
 [[food]]
 name = "Tomato"
+parent = "Fresh tomatoes"
 fdc = 170457                    # SR: Tomatoes, red, ripe, raw, year round average
 each = 'medium whole (2-3/5" dia)'
 
 [[food]]
 name = "Roma tomato"
+parent = "Fresh tomatoes"
 fdc = 170457                    # SR: Tomatoes, red, ripe, raw, year round average
 each = "plum tomato"
 
 [[food]]
 name = "Red bell pepper"
+parent = "Other vegetables"
 fdc = 170108                    # SR: Peppers, sweet, red, raw
 each = 'medium (approx 2-3/4" long, 2-1/2 dia.)'
 
 [[food]]
 name = "Green bell pepper"
+parent = "Other vegetables"
 fdc = 170427                    # SR: Peppers, sweet, green, raw
 each = 'medium (approx 2-3/4" long, 2-1/2" dia)'
 
 [[food]]
 name = "Poblano pepper"
+parent = "Other vegetables"
 fdc = 2747662                   # Foundation: Peppers, poblano, seeded, raw
 sources = [{ fdc = 2709798, status = "estimated", moisture = true, note = "FNDDS Peppers hot raw: for what the Foundation record does not report" }]
 each = { grams = 113, per = "each", source = "about four to a pound, a medium one 3-4 oz (happyspicyhour.com, How Many Poblano Peppers Are in a Pound)" }
 
 [[food]]
 name = "Red chili pepper"
+parent = "Other vegetables"
 fdc = 170106                    # SR: Peppers, hot chili, red, raw
 each = "pepper"
 
 [[food]]
 name = "Avocado"
+parent = "Fresh fruits"
 fdc = 171706                    # SR: Avocados, raw, California (Hass)
 each = "fruit, without skin and seed"
 
 [[food]]
 name = "Apple"
+parent = "Fresh fruits"
 fdc = 171688                    # SR: Apples, raw, with skin
 each = 'medium (3" dia)'
 
 [[food]]
 name = "Red grapes"
+parent = "Fresh fruits"
 fdc = 174683                    # SR: Grapes, red or green (European type), raw
 
 [[food]]
 name = "Orange"
+parent = "Citrus fruits"
 fdc = 169097                    # SR: Oranges, raw, all commercial varieties
 each = 'fruit (2-5/8" dia)'
 
 [[food]]
 name = "Orange juice (fresh)"
+parent = "Citrus fruits"
 fdc = 169098                    # SR: Orange juice, raw
 volume = "cup"
 
 [[food]]
 name = "Arugula"
+parent = "Leafy greens"
 fdc = 169387                    # SR: Arugula, raw
 
 [[food]]
 name = "Bok choy and napa cabbage"   # HelloFresh sends the two mixed
+parent = "Leafy greens"
 sources = [{ mean = [170390, 169979], status = "estimated", note = "SR bok choy (pak-choi) and napa (pe-tsai) raw, in equal parts (assumed)" }]
 
 [[food]]
 name = "Basil"
+parent = "Fresh herbs"
 fdc = 172232                    # SR: Basil, fresh
 
 [[food]]
 name = "Chives"
+parent = "Fresh herbs"
 fdc = 169994                    # SR: Chives, raw
 
 [[food]]
@@ -766,56 +1349,62 @@ proxy = true                    # FDC has no fresh sage; the recipes use a gram 
 
 [[food]]
 name = "Corn kernels (canned drained)"
+parent = "Canned vegetables"
 fdc = 169214                    # SR: Corn, sweet, yellow, canned, whole kernel, drained solids
 
 [[food]]
 name = "Pork tenderloin (raw)"
+parent = "Fresh pork"
 fdc = 168312                    # SR: Pork, fresh, loin, tenderloin, separable lean and fat, raw
 
 [[food]]
 name = "Boneless pork chops (raw)"
+parent = "Fresh pork"
 fdc = 168286                    # SR: Pork, fresh, loin, center loin (chops), boneless, separable lean and fat, raw
 
 [[food]]
 name = "Ground pork (raw)"
+parent = "Ground pork"
 fdc = 167902                    # SR: Pork, fresh, ground, raw
 sources = [{ fdc = 2705863, status = "estimated", moisture = true, note = "FNDDS Pork ground (cooked, scaled to raw dry matter): what SR does not report" }]
 
 [[food]]
 name = "Chicken thighs (raw)"
-parent = "Poultry"
+parent = "Chicken"
 fdc = 173627                    # SR: Chicken, broilers or fryers, dark meat, thigh, meat only, raw
 
 [[food]]
 name = "Ground beef 85% lean (raw)"
-parent = "Beef (raw)"
+parent = "Ground beef"
 fdc = 171796                    # SR: Beef, ground, 85% lean meat / 15% fat, raw
 
 [[food]]
 name = "Ground turkey 93% lean (raw)"
-parent = "Poultry"
+parent = "Turkey"
 fdc = 172850                    # SR: Turkey, ground, 93% lean, 7% fat, raw
 
 [[food]]
 name = "Ranch steak (raw)"
-parent = "Beef (raw)"
+parent = "Beef cuts"
 fdc = 172132                    # SR: Beef, chuck, shoulder clod, shoulder top and center steaks (ranch steak), lean and fat, 0" fat, all grades, raw
 sources = [{ fdc = 2705824, status = "estimated", moisture = true, only = [1110, 1114], note = "FNDDS Beef steak NFS: vitamin D, which SR does not report for this cut" }]
 
 [[food]]
 name = "Bavette steak (raw)"
-parent = "Beef (raw)"
+parent = "Beef cuts"
 fdc = 169563                    # SR: Beef, flank, steak, separable lean and fat, trimmed to 0" fat, all grades, raw
 sources = [{ fdc = 2705824, status = "estimated", moisture = true, only = [1110, 1114], note = "FNDDS Beef steak NFS: vitamin D, which SR does not report for this cut" }]
 proxy = true                    # bavette is flap meat, which FDC does not have; flank is the nearest cut
 
 [[food]]
 name = "Shrimp (raw)"
+parent = "Shellfish"
 fdc = 175179                    # SR: Crustaceans, shrimp, raw
 sources = [{ fdc = 174210, status = "estimated", note = "SR shrimp mixed species raw: what 175179 does not report" }]
 
 [[food]]
 name = "Bacon (raw)"
+parent = "Bacon"
 fdc = 168277                    # SR: Pork, cured, bacon, unprepared: counted raw, fat poured off is not modeled (J18)
 each = "slice raw"
 
@@ -827,26 +1416,31 @@ volume = "tbsp"
 
 [[food]]
 name = "Cheddar cheese"
+parent = "Cheeses"
 fdc = 173414                    # SR: Cheese, cheddar
 volume = "cup, shredded"
 
 [[food]]
 name = "Mozzarella (low-moisture part-skim)"
+parent = "Cheeses"
 fdc = 171244                    # SR: Cheese, mozzarella, low moisture, part-skim
 volume = "cup, shredded"
 
 [[food]]
 name = "Parmesan (grated)"
+parent = "Cheeses"
 fdc = 171247                    # SR: Cheese, parmesan, grated
 volume = "tbsp"
 
 [[food]]
 name = "Cream cheese"
+parent = "Cheeses"
 fdc = 173418                    # SR: Cheese, cream
 volume = "tbsp"
 
 [[food]]
 name = "Creme fraiche"
+parent = "Milk and cream"
 sources = [
   { mean = [2148943, 2468125, 2276524], note = "Russell McCall's, Snowville and Sierra Nevada creme fraiche labels" },
   { fdc = 2705597, status = "estimated", note = "FNDDS Cream heavy: what the labels do not report" },
@@ -855,6 +1449,7 @@ volume = { grams = 15, per = "tbsp", source = "Snowville and Sierra Nevada label
 
 [[food]]
 name = "Whole milk"
+parent = "Milk and cream"
 fdc = 171265                    # SR: Milk, whole, 3.25% milkfat, with added vitamin D
 volume = "cup"
 
@@ -877,15 +1472,18 @@ volume = "cup"
 
 [[food]]
 name = "Jasmine rice (dry)"
+parent = "Rice"
 fdc = 168877                    # SR: Rice, white, long-grain, regular, raw, enriched (jasmine is a long-grain white rice)
 volume = "cup"
 
 [[food]]
 name = "Orzo (dry)"
+parent = "Pasta"
 fdc = 169736                    # SR: Pasta, dry, enriched
 
 [[food]]
 name = "Ramen noodles (dry)"
+parent = "Pasta"
 fdc = 168908                    # SR: Noodles, japanese, somen, dry
 sources = [
   { fdc = 169736, status = "estimated", note = "SR Pasta dry enriched: what SR somen does not report" },
@@ -895,11 +1493,13 @@ proxy = true                    # HelloFresh's are unfried wheat noodles; FDC's 
 
 [[food]]
 name = "Rolled oats"
+parent = "Oats"
 fdc = 173904                    # SR: Cereals, oats, regular and quick, not fortified, dry
 volume = { grams = 81, per = "cup", source = "SR 173904: 1 cup = 81 g (its 0.33 cup portion is 27 g)" }
 
 [[food]]
 name = "Panko"
+parent = "Breads"
 sources = [
   { mean = [2661608, 2112787, 1862715], note = "Target (Good & Gather), DeLallo and Kingston panko labels" },
   { fdc = 174928, status = "estimated", note = "SR Bread crumbs dry plain: what the labels do not report" },
@@ -908,11 +1508,13 @@ volume = { grams = 84, per = "cup", source = "Target and DeLallo labels: 1/3 cup
 
 [[food]]
 name = "Brioche bun"
+parent = "Breads"
 fdc = 2707682                   # FNDDS: Brioche
 each = "piece"
 
 [[food]]
 name = "Potato bun"
+parent = "Breads"
 sources = [
   { mean = [2476728, 2503567], note = "Big Y and United States Bakery potato hamburger roll labels" },
   { fdc = 167943, status = "estimated", note = "SR Bread potato: what the labels do not report" },
@@ -921,6 +1523,7 @@ each = { grams = 55, per = "each", source = "the two labels: 1 roll = 53 g and 5
 
 [[food]]
 name = "Ciabatta roll"
+parent = "Breads"
 sources = [
   { mean = [2550797, 2624055], note = "New French Bakery and Walmart ciabatta roll labels" },
   { fdc = 2707610, status = "estimated", note = "FNDDS Bread French or Vienna: what the labels do not report" },
@@ -929,21 +1532,25 @@ each = { grams = 85, per = "each", source = "both labels: 1 roll = 85 g" }
 
 [[food]]
 name = "Demi-baguette"
+parent = "Breads"
 fdc = 2707610                   # FNDDS: Bread, French or Vienna
 each = "mini baguette"
 
 [[food]]
 name = "Sourdough bread"
+parent = "Breads"
 fdc = 172675                    # SR: Bread, french or vienna (includes sourdough)
 each = { fdc = 2707610, portion = "medium or regular slice" }  # FNDDS: 1 medium slice = 64 g
 
 [[food]]
 name = "Flour tortilla (6 inch)"
+parent = "Breads"
 fdc = 175037                    # SR: Tortillas, ready-to-bake or -fry, flour, refrigerated
 each = 'tortilla medium (approx 6" dia)'
 
 [[food]]
 name = "Whole wheat pita"
+parent = "Breads"
 fdc = 174916                    # SR: Bread, pita, whole-wheat
 each = 'pita, large (6-1/2" dia)'
 
@@ -987,6 +1594,7 @@ volume = "tbsp"
 
 [[food]]
 name = "Tomato paste"
+parent = "Canned tomatoes"
 fdc = 170459                    # SR: Tomato products, canned, paste, without salt added
 volume = "tbsp"
 
@@ -1109,6 +1717,7 @@ volume = "cup"
 
 [[food]]
 name = "Black beans (canned)"
+parent = "Cooked legumes"
 fdc = 175188                    # SR: Beans, black turtle, mature seeds, canned (solids and liquid)
 
 [[food]]
@@ -1159,18 +1768,22 @@ proxy = true                    # the nearest dried fungus FDC has
 
 [[food]]
 name = "Almonds"
+parent = "Nuts and seeds"
 fdc = 170567                    # SR: Nuts, almonds
 
 [[food]]
 name = "Pecans"
+parent = "Nuts and seeds"
 fdc = 170182                    # SR: Nuts, pecans
 
 [[food]]
 name = "Pistachios (roasted salted)"
+parent = "Nuts and seeds"
 fdc = 169426                    # SR: Nuts, pistachio nuts, dry roasted, with salt added
 
 [[food]]
 name = "Dried cranberries"
+parent = "Dried fruits"
 fdc = 171723                    # SR: Cranberries, dried, sweetened
 
 [[food]]
@@ -1182,6 +1795,7 @@ volume = "cup chips (6 oz package)"
 
 [[food]]
 name = "Baby spinach"
+parent = "Leafy greens"
 fdc = 168462                    # SR: Spinach, raw
 volume = "cup"
 
@@ -1192,25 +1806,30 @@ proxy = true
 
 [[food]]
 name = "Buttermilk biscuits (refrigerated dough)"
+parent = "Doughs"
 fdc = 172668                    # SR: Biscuits, plain or buttermilk, refrigerated dough, higher fat
 sources = [{ fdc = 2707801, status = "estimated", moisture = true, note = "FNDDS Biscuit NFS (baked, scaled to the dough): what SR does not report" }]
 
 [[food]]
 name = "Cannellini beans (canned)"
+parent = "Cooked legumes"
 fdc = 175204                    # SR: Beans, white, mature seeds, canned (solids and liquid)
 sources = [{ fdc = 2707357, status = "estimated", moisture = true, note = "FNDDS White beans from canned: what SR does not report" }]
 
 [[food]]
 name = "Carrot"
+parent = "Root vegetables"
 fdc = 170393                    # SR: Carrots, raw
 
 [[food]]
 name = "Chickpeas (canned)"
+parent = "Cooked legumes"
 fdc = 175206                    # SR: Chickpeas, mature seeds, canned, solids and liquids
 sources = [{ fdc = 2707418, status = "estimated", moisture = true, note = "FNDDS Chickpeas from canned (scaled to solids and liquid): what SR does not report" }]
 
 [[food]]
 name = "Chickpeas (canned drained)"
+parent = "Cooked legumes"
 fdc = 173801                    # SR: Chickpeas, mature seeds, canned, drained, rinsed in tap water
 sources = [{ fdc = 2707418, status = "estimated", moisture = true, note = "FNDDS Chickpeas from canned: what SR does not report" }]
 
@@ -1222,19 +1841,23 @@ volume = "tsp"
 
 [[food]]
 name = "Crushed tomatoes (canned)"
+parent = "Canned tomatoes"
 fdc = 170501                    # SR: Tomatoes, crushed, canned
 
 [[food]]
 name = "Diced tomatoes (canned)"
+parent = "Canned tomatoes"
 fdc = 170051                    # SR: Tomatoes, red, ripe, canned, packed in tomato juice
 
 [[food]]
 name = "Dill"
+parent = "Fresh herbs"
 fdc = 172233                    # SR: Dill weed, fresh
 sources = [{ fdc = 2709796, status = "estimated", moisture = true, note = "FNDDS Parsley raw: a fresh herb, for what SR does not report of dill" }]
 
 [[food]]
 name = "Dried apricots"
+parent = "Dried fruits"
 fdc = 173941                    # SR: Apricots, dried, sulfured, uncooked
 
 [[food]]
@@ -1244,6 +1867,7 @@ volume = { portions = [[170150, "tbsp"], [171330, "tbsp"]] }
 
 [[food]]
 name = "Feta cheese"
+parent = "Cheeses"
 fdc = 173420                    # SR: Cheese, feta
 volume = "cup, crumbled"
 
@@ -1260,6 +1884,7 @@ volume = "tbsp"
 
 [[food]]
 name = "Pearl couscous (dry)"
+parent = "Pasta"
 fdc = 169699                    # SR: Couscous, dry
 sources = [{ fdc = 2708441, status = "estimated", moisture = true, note = "FNDDS Couscous plain cooked (scaled to dry): what SR does not report" }]
 proxy = true                    # Israeli (pearl) couscous is toasted pasta; FDC has only plain couscous
@@ -1267,7 +1892,7 @@ volume = "cup"
 
 [[food]]
 name = "Italian chicken sausage (raw)"
-parent = "Poultry"
+parent = "Poultry sausages"
 fdc = 173880                    # SR: Sausage, chicken or turkey, Italian style, lower sodium
 proxy = true                    # HelloFresh's is not sold as lower sodium; its sodium is likely higher
 
@@ -1278,10 +1903,12 @@ volume = { portions = [[171317, "tbsp, leaves"], [170938, "tbsp, leaves"]] }
 
 [[food]]
 name = "Kale"
+parent = "Leafy greens"
 fdc = 168421                    # SR: Kale, raw
 
 [[food]]
 name = "Pork breakfast sausage (raw)"
+parent = "Pork sausages"
 fdc = 172934                    # SR: Pork sausage, link/patty, unprepared
 proxy = true                    # HelloFresh's is maple-flavored
 
@@ -1300,6 +1927,7 @@ each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
 
 [[food]]
 name = "Portobello mushroom"
+parent = "Other vegetables"
 fdc = 169255                    # SR: Mushrooms, portabella, raw
 sources = [{ fdc = 2709793, status = "estimated", moisture = true, note = "FNDDS Mushrooms raw: what SR does not report" }]
 each = "piece whole"
@@ -1310,16 +1938,19 @@ fdc = 169656                    # SR: Sugars, powdered
 
 [[food]]
 name = "Ricotta salata"
+parent = "Cheeses"
 fdc = 173420                    # SR: Cheese, feta
 proxy = true                    # a pressed salted ricotta; FDC has none, feta is the nearest
 
 [[food]]
 name = "Shredded coconut (sweetened)"
+parent = "Nuts and seeds"
 fdc = 168586                    # SR: Nuts, coconut meat, dried (desiccated), sweetened, shredded
 volume = "cup, shredded"
 
 [[food]]
 name = "Cucumber"
+parent = "Other vegetables"
 fdc = 168409                    # SR: Cucumber, with peel, raw
 each = 'cucumber (8-1/4")'
 
@@ -1337,20 +1968,24 @@ volume = { portions = [[170938, "tsp, ground"], [170150, "tbsp"]] }
 
 [[food]]
 name = "Brussels sprouts"
+parent = "Other vegetables"
 fdc = 170383                    # SR: Brussels sprouts, raw
 
 [[food]]
 name = "Coleslaw mix"           # bagged shredded green cabbage, with a little carrot and red cabbage
+parent = "Other vegetables"
 fdc = 169975                    # SR: Cabbage, raw
 proxy = true
 
 [[food]]
 name = "White bread"
+parent = "Breads"
 fdc = 174924                    # SR: Bread, white, commercially prepared
 each = { grams = 27, per = "each", source = "SR 174924 gives a slice as 25 g and as 29 g; the mean, 27 g" }
 
 [[food]]
 name = "Flour tortilla (10 inch)"
+parent = "Breads"
 fdc = 175037                    # SR: Tortillas, ready-to-bake or -fry, flour, refrigerated
 each = 'tortilla (approx 10" dia)'
 
@@ -1392,6 +2027,7 @@ volume = "tsp"
 
 [[food]]
 name = "Cornstarch"
+parent = "Flours and starches"
 fdc = 169698                    # SR: Cornstarch
 volume = "cup"
 
@@ -1409,21 +2045,25 @@ volume = "tsp"
 
 [[food]]
 name = "Cottage cheese"
+parent = "Cheeses"
 fdc = 172179                    # SR: Cheese, cottage, creamed, large or small curd (the 4% milkfat the recipes ask for)
 volume = "cup, small curd (not packed)"
 
 [[food]]
 name = "Puff pastry"
+parent = "Doughs"
 fdc = 172790                    # SR: Puff pastry, frozen, ready-to-bake
 each = { fdc = 172738, portion = "sheet" }                     # SR, the same pastry baked: 1 sheet = 245 g
 
 [[food]]
 name = "Heavy cream"
+parent = "Milk and cream"
 fdc = 170859                    # SR: Cream, fluid, heavy whipping
 volume = "tbsp"
 
 [[food]]
 name = "Swiss cheese"
+parent = "Cheeses"
 fdc = 171251                    # SR: Cheese, swiss
 volume = "cup, shredded"
 
@@ -1434,41 +2074,49 @@ volume = "tsp"
 
 [[food]]
 name = "Ham (cooked)"
+parent = "Cooked ham"
 fdc = 167872                    # SR: Pork, cured, ham, boneless, regular (approximately 11% fat), roasted
 
 [[food]]
 name = "Flour tortilla (8 inch)"
+parent = "Breads"
 fdc = 175037                    # SR: Tortillas, ready-to-bake or -fry, flour, refrigerated
 each = { fdc = 173242, portion = 'tortilla (approx 7-8" dia)' }   # SR, the same without added calcium: 49 g
 
 [[food]]
 name = "Chia seeds"
+parent = "Nuts and seeds"
 fdc = 170554                    # SR: Seeds, chia seeds, dried
 sources = [{ fdc = 2707590, status = "estimated", note = "FNDDS Chia seeds: for what the SR record does not report" }]
 volume = { grams = 10.5, per = "tbsp", source = "FNDDS 2707590 Chia seeds: 1 cup = 168 g; SR gives only 1 oz" }
 
 [[food]]
 name = "Peanut butter (crunchy)"
+parent = "Nuts and seeds"
 fdc = 174265                    # SR: Peanut butter, chunk style, with salt
 volume = "tbsp"
 
 [[food]]
 name = "Blueberries"
+parent = "Fresh fruits"
 fdc = 171711                    # SR: Blueberries, raw
 volume = "cup"
 
 [[food]]
 name = "Raspberries"
+parent = "Fresh fruits"
 fdc = 167755                    # SR: Raspberries, raw
 volume = "cup"
 
 [[food]]
 name = "Walnuts"
+parent = "Nuts and seeds"
 fdc = 170187                    # SR: Nuts, walnuts, english
 volume = "cup, chopped"
 
 [[food]]
 name = "Banana"
+parent = "Fresh fruits"
 fdc = 173944                    # SR: Bananas, raw
 each = 'medium (7" to 7-7/8" long)'
 
