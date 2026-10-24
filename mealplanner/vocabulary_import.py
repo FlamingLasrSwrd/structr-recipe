@@ -17,6 +17,9 @@ Central foods (mealplanner/fdc.py) or a stated source. Loading it
                        stated weight with its source; with provenance and source
   RetentionFactor 1.0  on "Food" for each nutrient the owner decided is kept
                        through cooking (data-model.md Sec 18 J18)
+  ShelfLife            USDA FoodKeeper's, keyed by storage condition (and opened
+                       status, where it gives both), on each food that names a
+                       FoodKeeper product (J31)
   RetentionFactor      USDA's, keyed by nutrient and method, on a retention class
                        (a food Type its members sit under), and 1.0 on "Food" for
                        each method that applies no heat (J30)
@@ -114,6 +117,7 @@ class Food:
     volume: Measure | None = None
     label: "Label | None" = None
     retention: tuple[tuple[str, str], ...] = ()   # (method, USDA row code): a retention class's factors
+    keeps: tuple[int, bool] | None = None         # (FoodKeeper product id, a proxy): how long it keeps (J31)
 
     @property
     def fdc(self) -> int | None:
@@ -156,6 +160,7 @@ class Vocabulary:
     kept_in_cooking: tuple[str, ...]      # FDC nutrient ids
     fdc: dict | None = None               # the pinned subsets merged: {"nutrients": ..., "foods": ...}
     retention: Retention | None = None
+    shelf_table: dict | None = None       # the pinned FoodKeeper products: data/foodkeeper/foodkeeper.json
 
     def ids(self) -> set[int]:
         """Every FDC food the file refers to."""
@@ -378,10 +383,11 @@ def _measure(raw, first: Source | None, where: str, want_volume: bool, problems:
     return Measure(portions=((fid, raw.get("portion", "")),), status=raw.get("status", default))
 
 
-def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None) -> Vocabulary:
+def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None, shelf_table: dict | None = None) -> Vocabulary:
     """A Vocabulary, or VocabularyError naming every problem. With `fdc` (the
     pinned subsets merged), every FDC id and portion label is checked against it;
-    with `table` (the pinned USDA retention rows), every row a food names."""
+    with `table` (the pinned USDA retention rows), every row a food names; with
+    `shelf_table` (the pinned FoodKeeper products), every product a food names."""
     problems: list[str] = []
 
     def name_ok(where, value) -> bool:
@@ -413,7 +419,7 @@ def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None) ->
     methods, equipment = named("method"), named("equipment")
 
     foods = []
-    allowed = {"name", "parent", "fdc", "proxy", "sources", "each", "volume", "note", "label", "retention"}
+    allowed = {"name", "parent", "fdc", "proxy", "sources", "each", "volume", "note", "label", "retention", "foodkeeper"}
     for i, raw in enumerate(data.get("food", []), 1):
         where = f"food {i}"
         for key in sorted(set(raw) - allowed):
@@ -442,7 +448,9 @@ def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None) ->
             rows = {}
         for method in sorted(set(rows) - {m.name for m in methods}):
             problems.append(f"{where} retention: {method!r} is not a method in the file")
-        food = Food(raw["name"], raw.get("parent", ROOT_FOOD), tuple(sources), each, volume, label, tuple(sorted(rows.items())))
+        keeps = _keeps(raw.get("foodkeeper"), where, shelf_table, problems)
+        food = Food(raw["name"], raw.get("parent", ROOT_FOOD), tuple(sources), each, volume, label,
+                    tuple(sorted(rows.items())), keeps)
         if fdc is not None:
             for fid in sorted(Vocabulary((), (food,), (), (), ()).ids()):
                 if str(fid) not in fdc["foods"]:
@@ -483,7 +491,23 @@ def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None) ->
                 problems.append(f"nutrient {name!r} has the same name as a food, method or equipment")
     if problems:
         raise VocabularyError(problems)
-    return Vocabulary(tuple(subsets), tuple(foods), methods, equipment, tuple(kept), fdc, retention)
+    return Vocabulary(tuple(subsets), tuple(foods), methods, equipment, tuple(kept), fdc, retention, shelf_table)
+
+
+def _keeps(raw, where: str, shelf_table: dict | None, problems: list[str]) -> tuple[int, bool] | None:
+    """A food's FoodKeeper product: an id, or { id = n, proxy = true } for a near kind of food."""
+    if raw is None:
+        return None
+    if isinstance(raw, dict) and set(raw) <= {"id", "proxy"}:
+        pid, proxy = raw.get("id"), bool(raw.get("proxy", False))
+    else:
+        pid, proxy = raw, False
+    if isinstance(pid, bool) or not isinstance(pid, int):
+        problems.append(f"{where}: foodkeeper is a FoodKeeper product id, or {{ id = n, proxy = true }}")
+        return None
+    if shelf_table is not None and str(pid) not in shelf_table["products"]:
+        problems.append(f"{where}: FoodKeeper product {pid} is not in the pinned table (run tools/foodkeeper_extract.py)")
+    return pid, proxy
 
 
 def _retention(cfg: dict, foods: list[Food], methods: tuple[Named, ...], fdc: dict | None, table: dict | None,
@@ -535,7 +559,7 @@ def read_vocabulary(path: str, *, check_subset: bool = True, check_table: bool =
     table (check_table, which needs check_subset)."""
     with open(path, "rb") as fh:
         data = tomllib.load(fh)
-    fdc = table = None
+    fdc = table = shelf_table = None
     root = os.path.dirname(os.path.dirname(os.path.abspath(path)))
     if check_subset:
         cfg = data.get("source") or {}
@@ -548,7 +572,11 @@ def read_vocabulary(path: str, *, check_subset: bool = True, check_table: bool =
         if check_table and pinned:
             with open(os.path.join(root, pinned)) as fh:
                 table = json.load(fh)
-    return parse_vocabulary(data, fdc, table)
+        pinned = (data.get("shelf_life") or {}).get("table")
+        if check_table and pinned:
+            with open(os.path.join(root, pinned)) as fh:
+                shelf_table = json.load(fh)
+    return parse_vocabulary(data, fdc, table, shelf_table)
 
 
 # -- writing ---------------------------------------------------------------
@@ -750,7 +778,49 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> Imported:
             food_ids[ROOT_FOOD])
     if vocabulary.retention:
         _write_retention(sync, vocabulary, food_ids, method_ids, nutrient_ids, kinds["RetentionFactor"])
+    if vocabulary.shelf_table:
+        _write_shelf_lives(sync, vocabulary, food_ids)
     return Imported(sync.counts, sync.affected)
+
+
+def _write_shelf_lives(sync: Sync, vocabulary: Vocabulary, food_ids: dict) -> None:
+    """Each food's FoodKeeper shelf lives as ShelfLife defaults on it, keyed by storage condition, and
+    by opened status where FoodKeeper gives a time before and after opening (J31). How long a food
+    keeps changes no recipe's nutrition, so these mark no food as changed. A default of this shape
+    on a food of the file that the file no longer gives is deleted, with its value."""
+    from mealplanner.foodkeeper import shelf_lives
+
+    names = ("Fridge", "Freezer", "Pantry", "Sealed", "Opened", "ShelfLife")
+    rows = sync.rows("DomainType")
+    missing = [n for n in names if n not in rows]
+    if missing:
+        raise VocabularyError([f"shelf lives need the DomainTypes {missing} (the build's seed vocabulary)"])
+    ids = {n: rows[n]["id"] for n in names}
+    wanted: set[str] = set()
+    for food in vocabulary.foods:
+        if not food.keeps:
+            continue
+        pid, proxy = food.keeps
+        for keys, days, source in shelf_lives(vocabulary.shelf_table["products"][str(pid)]):
+            name = f"{food.name} shelf life {' '.join(keys)}"
+            wanted.add(name)
+            qty = sync.ensure("QuantitySpecification", f"{name} value", {"value": round(days, 6), "unit": "days",
+                                                                        "status": "default"})
+            sync.ensure("DefaultSpecification", name, {
+                "forType": food_ids[food.name], "hasKind": ids["ShelfLife"], "hasValue": qty,
+                "keyedBy": [ids[k] for k in keys], "provenance": "estimated" if proxy else "sourced",
+                "source": source + (", a near kind of food" if proxy else "")})
+    in_file = {food_ids[f.name] for f in vocabulary.foods}
+    keys_allowed = {ids[n] for n in names[:5]}
+    for spec in list(sync.rows("DefaultSpecification").values()):
+        keys = {k["id"] for k in spec.get("keyedBy") or []}
+        if ((spec.get("hasKind") or {}).get("id") != ids["ShelfLife"] or (spec.get("forType") or {}).get("id") not in in_file
+                or spec["name"] in wanted or not keys or not keys <= keys_allowed):
+            continue
+        sync.delete("DefaultSpecification", spec)
+        value = sync.rows("QuantitySpecification").get(f"{spec['name']} value")
+        if value:
+            sync.delete("QuantitySpecification", value)
 
 
 def _write_retention(sync: Sync, vocabulary: Vocabulary, food_ids: dict, method_ids: dict, nutrient_ids: dict,

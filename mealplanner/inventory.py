@@ -27,8 +27,9 @@ in REVIEW.md questions.
 Invariant 15 (no more used than there was) is an audit over the same
 quantities, overdraws()/find_overdraws(), not a write-time check.
 
-Expiration is (when the food began to exist) + (the ShelfLife default for
-its Perishability type, in days), per Sec 5.5. "When it began to exist" is
+Expiration is (when the food began to exist) + (its ShelfLife, in days), per
+Sec 5.5: its food's own, from USDA FoodKeeper (J31), resolved up the food
+hierarchy, else its Perishability type's. "When it began to exist" is
 the start of the Process the portion `beginsToExistDuring` (a purchase, or
 the cook that made a leftover), and where none is recorded, its EARLIEST
 observed/imputed mass Measurement. It used to be the LATEST weighing, so
@@ -256,10 +257,10 @@ def find_overdraws(client) -> list[Overdraw]:
 
 
 def shelf_life_days(
-    client, perishability_type_id: str, opened_status_name: str = "Sealed", storage_condition_name: str = "Fridge",
+    client, type_id: str, opened_status_name: str = "Sealed", storage_condition_name: str = "Fridge",
 ) -> float | None:
-    """The ShelfLife default for a Perishability type in a given storage
-    condition and opened status, in days, or None if none resolves.
+    """The ShelfLife default for a type (a food, or a Perishability type) in a given
+    storage condition and opened status, in days, or None if none resolves.
 
     Resolved by (kind, keyedBy) through mealplanner/defaults.py (data-model.md
     Sec 8's compound key, e.g. keyedBy [Fridge, Sealed] vs [Fridge, Opened]):
@@ -271,8 +272,10 @@ def shelf_life_days(
     Both dimensions default to the more conservative/common case when
     unknown -- but note the caller decides that (instance_expiration), and
     that choice is an open question (REVIEW.md #9), not a settled rule."""
-    keys = {dt(client, storage_condition_name), dt(client, opened_status_name)}
-    resolved = resolve_default(client, perishability_type_id, dt(client, "ShelfLife"), keys)
+    ids = [_type_or_none(client, n) for n in ("ShelfLife", storage_condition_name, opened_status_name)]
+    if None in ids:
+        return None                      # a graph without them can hold no shelf life of this kind
+    resolved = resolve_default(client, type_id, ids[0], set(ids[1:]))
     if resolved is None:
         return None
     if resolved.quantity.get("unit") != "days" or resolved.quantity.get("value") is None:
@@ -281,6 +284,13 @@ def shelf_life_days(
             f"got {resolved.quantity.get('value')!r} {resolved.quantity.get('unit')!r}"
         )
     return resolved.quantity["value"]
+
+
+def _type_or_none(client, name: str) -> str | None:
+    found = client.get("/structr/rest/DomainType", params={"name": name})["result"]
+    if len(found) > 1:
+        raise LookupError(f"expected at most one DomainType named {name!r}, found {len(found)}")
+    return found[0]["id"] if found else None
 
 
 def container_opened_status(client, portion: dict) -> str | None:
@@ -342,19 +352,53 @@ def origin_time(client, portion: dict) -> datetime | None:
     return _parse(beginning)
 
 
+def own_shelf_storages(client, food_type_id: str) -> set[str]:
+    """The storage conditions a food's own ShelfLife defaults name (FoodKeeper's, J31)."""
+    node = client.get_all("DomainType", food_type_id)["result"]
+    out: set[str] = set()
+    for ref in node.get("defaultSpecifications", []):
+        spec = client.get_all("DefaultSpecification", ref["id"])["result"]
+        if (spec.get("hasKind") or {}).get("name") == "ShelfLife":
+            out |= {k.get("name") for k in spec.get("keyedBy", [])}
+    return out
+
+
+def assumed_storage(client, portion: dict) -> str:
+    """Where a portion in no container is taken to be kept: where its food keeps, the fridge if its
+    own shelf lives name the fridge, else the pantry if they name the pantry, else the fridge (J31).
+    Flour bought without saying where is in the pantry; chicken is in the fridge."""
+    food = (portion.get("instanceOf") or {}).get("id")
+    own = own_shelf_storages(client, food) if food else set()
+    return next((storage for storage in ("Fridge", "Pantry") if storage in own), "Fridge")
+
+
+def portion_shelf_life(client, portion: dict, opened_status_name: str, storage_condition_name: str) -> float | None:
+    """How long a portion keeps, in days: its food's ShelfLife (FoodKeeper's, J31), resolved up the
+    food hierarchy, else its Perishability type's; None if neither resolves."""
+    food = portion.get("instanceOf")
+    if food:
+        days = shelf_life_days(client, food["id"], opened_status_name, storage_condition_name)
+        if days is not None:
+            return days
+    perishability = portion.get("hasPerishabilityType")
+    if perishability:
+        return shelf_life_days(client, perishability["id"], opened_status_name, storage_condition_name)
+    return None
+
+
 def instance_expiration(client, portion: dict, now: datetime) -> tuple[bool, float | None]:
     """(is_expired, days_until_expiry) for one PortionOfSubstance/
     DiscreteWholeItem. days_until_expiry is negative if already expired.
     (False, None) if there isn't enough data to compute (no mass
-    Measurement made by `now`, or no ShelfLife default resolves for its
-    Perishability type).
+    Measurement made by `now`, or no shelf life resolves: portion_shelf_life).
 
     The clock starts at origin_time() (purchase or the cook that made it), else
     at the earliest observed/imputed mass Measurement made by `now`. A
     Measurement counts only if it is made by `now`, like current_magnitude, and
     at least one is needed: expiry is only reported for food we know exists."""
-    perishability = portion.get("hasPerishabilityType")
-    quality_full = mass_quality(client, portion) if perishability else None
+    if not portion.get("hasPerishabilityType") and not portion.get("instanceOf"):
+        return False, None
+    quality_full = mass_quality(client, portion)
     if quality_full is None:
         return False, None
 
@@ -363,8 +407,8 @@ def instance_expiration(client, portion: dict, now: datetime) -> tuple[bool, flo
         return False, None
     started = origin_time(client, portion) or weighed[0]
     opened_status = container_opened_status(client, portion) or "Sealed"
-    storage_condition = container_storage_condition(client, portion) or "Fridge"
-    days = shelf_life_days(client, perishability["id"], opened_status, storage_condition)
+    storage_condition = container_storage_condition(client, portion) or assumed_storage(client, portion)
+    days = portion_shelf_life(client, portion, opened_status, storage_condition)
     if days is None:
         return False, None
     expiry = started.timestamp() + days * 86400.0

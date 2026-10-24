@@ -252,11 +252,28 @@ function onHand(portion) {
   return [level, weighing, since];
 }
 
+// inventory.assumed_storage: a portion in no container is kept where its food keeps (J31)
+function assumedStorage(portion) {
+  const own = {};
+  for (const d of portion.instanceOf ? defaultsOf(portion.instanceOf, "ShelfLife") : []) {
+    for (const k of d.keyedBy || []) own[k.name] = true;
+  }
+  return ["Fridge", "Pantry"].find((storage) => own[storage]) || "Fridge";
+}
+
+// inventory.portion_shelf_life: its food's shelf life (FoodKeeper's), else its perishability class's
+function portionShelfLife(portion, keys) {
+  const valid = (d) => d && d.hasValue && d.hasValue.unit === "days" && d.hasValue.value != null ? d.hasValue.value : null;
+  const own = portion.instanceOf ? valid(resolveDefault(portion.instanceOf, "ShelfLife", keys)) : null;
+  if (own != null) return own;
+  return portion.hasPerishabilityType ? valid(resolveDefault(portion.hasPerishabilityType, "ShelfLife", keys)) : null;
+}
+
 // inventory.instance_expiration: days until it expires (negative: expired), or null if it cannot be told
 const typeId = (name) => { const t = $.find("DomainType", {name: name})[0]; return t ? t.id : null; };
 function daysUntilExpiry(portion) {
-  const perishability = portion.hasPerishabilityType, quality = massQuality(portion);
-  if (!perishability || !quality) return [null, "no perishability"];
+  const quality = massQuality(portion);
+  if (!quality || (!portion.instanceOf && !portion.hasPerishabilityType)) return [null, "no food or perishability"];
   const weighed = weighingsOf(quality).filter(([t]) => t <= NOW);
   if (!weighed.length) return [null, "not weighed yet"];
   let started = weighed[0][0];
@@ -268,11 +285,12 @@ function daysUntilExpiry(portion) {
   }
   const box = portion.locatedIn;
   const opened = (box && box.hasOpenedStatus && box.hasOpenedStatus.name) || "Sealed";
-  const kept = (box && box.hasStorageCondition && box.hasStorageCondition.name) || "Fridge";
-  const shelf = resolveDefault(perishability, "ShelfLife", [typeId(kept), typeId(opened)]);
-  const q = shelf && shelf.hasValue;
-  if (!q || q.unit !== "days" || q.value == null) return [null, "no shelf life for " + perishability.name + ", " + kept + ", " + opened];
-  return [(started.getTime() + q.value * 86400e3 - NOW.getTime()) / 86400e3, kept + ", " + opened];
+  const stated = box && box.hasStorageCondition && box.hasStorageCondition.name;
+  const kept = stated || assumedStorage(portion);
+  const days = portionShelfLife(portion, [typeId(kept), typeId(opened)]);
+  const where = kept + ", " + opened + (stated ? "" : ", assumed");
+  if (days == null) return [null, "no shelf life " + (kept === "Pantry" ? "in the pantry" : kept === "Fridge" ? "in the fridge" : "in the freezer") + " (" + where + ")"];
+  return [(started.getTime() + days * 86400e3 - NOW.getTime()) / 86400e3, where];
 }
 
 // subtypes_of: a Type and every Type below it

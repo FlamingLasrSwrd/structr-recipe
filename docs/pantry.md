@@ -67,12 +67,10 @@ These are findings, recorded rather than worked around (CLAUDE.md, "When somethi
    built schema's `isAboutQuality` reaches Qualities only. So expiry comes from a Perishability
    Class's defaults or not at all. Recording the date would need that relationship to reach
    `Disposition`, a schema change.
-4. **Most foods have no Perishability Class, so most expiries are unknown.** The vocabulary gives
-   foods none, the build seeds four classes (*Fresh Meat*, *Cooked Leftover*, *Produce*, *Dry
-   Goods*), and only *Fresh Meat* and *Cooked Leftover* have shelf lives. Buying asks for a class and
-   remembers the last one used for a food (computed from the latest portion of it, not stored).
-   Curating classes and their shelf lives is real work, like the vocabulary was; USDA FSIS's
-   FoodKeeper data would be a public source for it.
+4. ~~**Most foods have no Perishability Class, so most expiries are unknown.**~~ Answered by
+   FoodKeeper (2026-10-24, data-model.md J31): each food now carries USDA FoodKeeper's shelf lives,
+   which come before a class's; a class serves a food FoodKeeper gives no time for. Nine foods
+   FoodKeeper sends to the package's printed date still have none (point 3).
 5. **A cook's leftovers are not stock.** Recipes store no output mass (J28), so a cook writes no
    leftover portion; leftovers stay where the planner keeps them, as leftover entries of the week.
 6. **Not built yet:** undoing a booking (Grocy's journal), a journal on the page, prices paid

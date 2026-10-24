@@ -58,6 +58,7 @@ const PANTRY_ACTIONS = {
     const amount = amountFrom(r), unit = String(r.unit || "g");
     bookingGrams(food, amount, unit);
     const keeps = r.keeps ? typeNamed(String(r.keeps)) : lastPerishability(food);
+    const sealed = typeNamed("Sealed"), where = typeNamed(storage);
     const process = bookProcess(booking, "Purchase", "Purchase " + token, NOW);
     const name = "Purchase " + token + " -- " + food.name;
     const box = ensureNode(booking, "ContainerObject", name + " container", {
@@ -67,7 +68,11 @@ const PANTRY_ACTIONS = {
     const quality = ensureNode(booking, "Quality", name + " mass Quality", {hasKind: typeNamed("Mass"), inheresIn: portion});
     ensureNode(booking, "Measurement", name + " mass bought", {value: amount, unit: unit, status: "observed",
                                                               hasTime: stamp(NOW), isAboutQuality: quality});
-    if (!keeps) booking.notes.push(food.name + ": no perishability class, so no expiry (choose one when buying)");
+    const shelf = resolveDefault(food, "ShelfLife", [where.id, sealed.id]);
+    if (!keeps && !(shelf && shelf.hasValue && shelf.hasValue.unit === "days" && shelf.hasValue.value != null)) {
+      booking.notes.push(food.name + ": no shelf life known for it in the " + storage.toLowerCase()
+                         + ", so no expiry (name a perishability class when buying)");
+    }
   },
   // pantry.use
   use: (booking, r, token) => {
@@ -143,7 +148,8 @@ let html = nav("pantry") + "<h1>Pantry</h1>" + said
   + "<details class=\"buy\" open><summary>Buy</summary>"
   + form("buy", {}, "<input name=\"food\" list=\"foods\" required placeholder=\"food\" size=\"24\">" + amountInputs("g")
     + "<select name=\"storage\">" + options(STORAGE, "Fridge") + "</select>"
-    + "<select name=\"keeps\"><option value=\"\">keeps as last time</option>" + options(classes) + "</select>", "Add to pantry")
+    + "<select name=\"keeps\" title=\"For a food FoodKeeper gives no time for\"><option value=\"\">keeps as FoodKeeper says</option>"
+    + options(classes) + "</select>", "Add to pantry")
   + "<datalist id=\"foods\">" + foods.map((f) => "<option value=\"" + esc(f) + "\">").join("") + "</datalist></details>"
   + "<p class=\"note\">" + rows.length + " foods on hand, " + rows.filter((r) => r.days != null).length
   + " with a known shelf life. Soonest to expire first.</p>"
