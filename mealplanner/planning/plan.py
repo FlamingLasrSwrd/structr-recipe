@@ -8,15 +8,17 @@ from time import monotonic
 
 from mealplanner.planning.commit import commit_plan
 from mealplanner.planning.diagnose import Diagnosis, diagnose
-from mealplanner.planning.evaluate import Evaluation
+from mealplanner.planning.evaluate import Evaluation, evaluate
 from mealplanner.planning.extract import SlotSpec, build_problem
 from mealplanner.planning.model import PlanningProblem
+from mealplanner.planning.proposal import ProposalError, picks_from
 from mealplanner.planning.report import describe_plan
 from mealplanner.planning.search import SearchResult, solve
 from mealplanner.planning.shortlist import FACTOR, SHORTLIST_ABOVE
 
 REPORT_RESERVE_S = 30.0    # kept back from a whole run's budget for what follows the search: the reports, a diagnosis
 MIN_SEARCH_S = 10.0        # the search's least time, even when reading has used up the budget
+PROPOSAL = "saved proposal"
 
 
 @dataclass
@@ -34,7 +36,8 @@ class PlanResult:
     def text(self) -> str:
         lines = list(self.problem.notes)
         if self.evaluation is not None:
-            proof = "optimal" if self.search.proven else f"best found by {self.search.method} (not proven optimal)"
+            proof = ("the saved proposal, checked against the graph again" if self.search.method == PROPOSAL
+                     else "optimal" if self.search.proven else f"best found by {self.search.method} (not proven optimal)")
             lines.append(f"Plan ({proof}):")
             lines.append(describe_plan(self.problem, self.evaluation))
         elif self.diagnosis is not None:
@@ -46,7 +49,8 @@ def plan_week(
     client, meal_plan_id: str, template: list[SlotSpec], now: datetime, *, method: str = "auto",
     commit: bool = False, name_prefix: str = "", servings_eaten: float = 1.0, max_difficulty: str | None = None,
     leftover_days: float | None = None, leftovers: bool = True, portions: tuple = (), eater_portions: dict | None = None,
-    shortlist_above: int | None = SHORTLIST_ABOVE, deadline: float | None = None, **search_options,
+    shortlist_above: int | None = SHORTLIST_ABOVE, deadline: float | None = None, proposal: dict | None = None,
+    **search_options,
 ) -> PlanResult:
     """Read the MealPlan, search for the best week for the slots in `template`,
     and (only if asked, and only if a plan meets every hard constraint) write it
@@ -61,7 +65,26 @@ def plan_week(
     deadline (a time.monotonic() value): when the whole run should be done (the
     owner's decision, 2026-10-22: about five minutes for a menu). Each search then
     has the time left, less REPORT_RESERVE_S for the reports, and at least
-    MIN_SEARCH_S. Without one, `time_limit_s` is each search's own limit."""
+    MIN_SEARCH_S. Without one, `time_limit_s` is each search's own limit.
+
+    proposal: a week proposed earlier (planning/proposal.py), to be checked and committed
+    instead of searching again. The whole book is read, so every recipe it names is there; it
+    raises ProposalError if the week no longer fits it, or if it no longer meets every hard
+    target, and nothing is written."""
+    if proposal is not None:
+        problem = build_problem(
+            client, meal_plan_id, template, now, servings_eaten=servings_eaten, max_difficulty=max_difficulty,
+            leftover_days=leftover_days, leftovers=leftovers, portions=portions, eater_portions=eater_portions,
+            shortlist_above=None,
+        )
+        evaluation = evaluate(problem, picks_from(problem, proposal))
+        if not (evaluation.legal and evaluation.feasible):
+            raise ProposalError("the proposal no longer meets every rule and hard target: "
+                                + "; ".join(evaluation.problems or [f"{len(evaluation.violations)} hard target group(s) missed"]))
+        result = PlanResult(problem, SearchResult(evaluation, False, 0, PROPOSAL), evaluation, None)
+        if commit:
+            result.committed = commit_plan(client, meal_plan_id, problem, evaluation, name_prefix=name_prefix)
+        return result
     factor, widened = FACTOR, []
     while True:
         problem = build_problem(

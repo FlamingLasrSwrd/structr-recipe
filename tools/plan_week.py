@@ -1,7 +1,14 @@
 """Plan a week of the owner's meals: propose every slot, report the nutrients, and (with --commit) write it.
 
     python3 tools/plan_week.py private/week.toml            # propose; writes only the week's MealPlan
-    python3 tools/plan_week.py private/week.toml --commit   # also write the proposed meals as entries
+    python3 tools/plan_week.py private/week.toml --commit   # write the week proposed last as entries
+    python3 tools/plan_week.py private/week.toml --commit --fresh   # search again and write that
+
+A proposal is kept beside the week file (private/week.proposal.json; planning/proposal.py), and
+--commit writes that week, the one the owner reviewed, after reading the graph again and checking
+it still meets every hard target (the owner's decision, 2026-10-23): a search under a time limit
+is not repeatable to the meal. With no proposal kept for the week, or with --fresh, it searches
+and writes what it finds, as before. The proposal file is removed once it is committed.
 
 private/week.toml:
     start = 2026-10-05                  # the first day
@@ -38,6 +45,7 @@ the file names a price level, what the week's meals cost (mealplanner/prices.py)
 """
 
 import argparse
+import json
 import os
 import sys
 import tomllib
@@ -54,6 +62,7 @@ from mealplanner.nutrition_scope import active_entries, entry_start, nutrition_r
 from mealplanner.planning.extract import SlotSpec
 from mealplanner.planning.nutrients import describe_nutrients
 from mealplanner.planning.plan import plan_week
+from mealplanner.planning.proposal import ProposalError, to_data
 from mealplanner.prices import describe_cost
 from mealplanner.vocabulary_import import Sync
 
@@ -200,8 +209,10 @@ def main(argv=None) -> int:
     started = monotonic()                    # total_time_s counts from here
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("week", help="the week file, e.g. private/week.toml")
-    parser.add_argument("--commit", action="store_true", help="write the proposed meals as MealPlanEntries")
+    parser.add_argument("--commit", action="store_true", help="write the week proposed last as MealPlanEntries")
+    parser.add_argument("--fresh", action="store_true", help="with --commit: search again instead of writing the proposal")
     args = parser.parse_args(argv)
+    kept = os.path.splitext(args.week)[0] + ".proposal.json"
     client = connect(owner_data_ok=True)     # the owner's weeks are their own data
     client.wait_until_ready()
     try:
@@ -216,11 +227,26 @@ def main(argv=None) -> int:
         limits = {"deadline": started + float(week["total_time_s"])}
     else:
         limits = {"time_limit_s": float(week.get("time_limit_s", 30))}
-    result = plan_week(client, meal_plan_id, slots, datetime.now(timezone.utc), commit=args.commit,
-                       leftovers=week.get("leftovers", True), leftover_days=week.get("leftover_days"),
-                       portions=tuple(week.get("portions", [])),
-                       eater_portions={p: tuple(v) for p, v in week.get("portions_by_person", {}).items()},
-                       **limits, **({"shortlist_above": week["shortlist_above"]} if "shortlist_above" in week else {}))
+    proposal = None
+    if args.commit and not args.fresh and os.path.exists(kept):
+        with open(kept, encoding="utf-8") as fh:
+            proposal = json.load(fh)
+        if proposal.get("week") != week["start"].isoformat():
+            print(f"problem: {kept} is the proposal for the week of {proposal.get('week')}, not {week['start']}; "
+                  f"propose this week first, or use --fresh")
+            return 1
+        print(f"committing the week proposed at {proposal.get('proposed')} (score then {proposal.get('score', 0):.3f}), kept in {kept}")
+    try:
+        result = plan_week(client, meal_plan_id, slots, datetime.now(timezone.utc), commit=args.commit,
+                           leftovers=week.get("leftovers", True), leftover_days=week.get("leftover_days"),
+                           portions=tuple(week.get("portions", [])),
+                           eater_portions={p: tuple(v) for p, v in week.get("portions_by_person", {}).items()},
+                           proposal=proposal,
+                           **limits, **({"shortlist_above": week["shortlist_above"]} if "shortlist_above" in week else {}))
+    except ProposalError as exc:
+        print(f"problem: the kept proposal cannot be committed: {exc}")
+        print("nothing was written; propose the week again, or commit with --fresh")
+        return 1
     print(result.text())
     if result.evaluation is not None:
         print()
@@ -230,8 +256,12 @@ def main(argv=None) -> int:
             print(describe_cost(client, result.problem, result.evaluation, week["prices"], week.get("days", 7)))
         if args.commit:
             print(f"\ncommitted {len(result.committed)} entries")
+            if proposal is not None:
+                os.remove(kept)
         else:
-            print("\n(proposed only: run with --commit to write it)")
+            with open(kept, "w", encoding="utf-8") as fh:
+                json.dump(to_data(result.problem, result.evaluation, week["start"].isoformat()), fh, indent=1)
+            print(f"\n(proposed only: run with --commit to write this week; it is kept in {kept})")
     print()
     print(history(client, meal_plan_id))
     return 0 if result.evaluation is not None else 1
