@@ -38,7 +38,9 @@ function intake(entry, nutrientId, unit, person) {
 
 // nutrition_scope.nutrition_report: one row per (target, group); a group is a meal, a day or the week
 function report(week) {
-  const entries = activeEntries(week).filter((e) => !eatenByNoOne(e));
+  // a skipped meal with something not in the book eaten instead: in its groups with no figure
+  const instead = (week.hasEntry || []).filter((e) => e.isSkipped && e.eatenInstead);
+  const entries = activeEntries(week).filter((e) => !eatenByNoOne(e)).concat(instead);
   const rows = [];
   for (const target of (week.hasConstraint || []).filter((c) => c.type === "NutritionTarget")) {
     const nutrient = target.forNutrient, range = target.hasTargetRange;
@@ -72,6 +74,10 @@ function report(week) {
       let total = scope !== "per_meal" ? perDay * days : 0;
       const unknown = baselineUnknown.map((name) => name + " (baseline)");
       for (const entry of groups[key]) {
+        if (entry.isSkipped) {
+          if (!target.forPerson || personServings(entry, target.forPerson)[0] > 0) unknown.push(entry.name + " (" + entry.eatenInstead + " instead)");
+          continue;
+        }
         const amount = intake(entry, nutrient.id, range.unit, target.forPerson);
         if (amount == null) unknown.push(entry.name);
         else total += amount;

@@ -333,7 +333,7 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
             ceiling = most + round(known_fixed * NS)          # the most this group could hold
             lo = None if target.minimum is None else round(target.minimum * NS)
             hi = None if target.maximum is None else round(target.maximum * NS)
-            if target.hard:
+            if target.hard and has_open:          # a group of committed meals alone is settled (evaluate._violations)
                 if relaxed:
                     if hi is not None:
                         if unknown_fixed:

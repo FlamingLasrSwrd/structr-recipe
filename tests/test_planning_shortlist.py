@@ -256,7 +256,8 @@ class Widening(unittest.TestCase):
         diagnosis = SimpleNamespace(feasible=False, closest=None)
         self.diagnosis = diagnosis
         with mock.patch.object(planning, "build_problem", build), mock.patch.object(planning, "solve", solve), \
-                mock.patch.object(planning, "diagnose", return_value=diagnosis):
+                mock.patch.object(planning, "diagnose", return_value=diagnosis), \
+                mock.patch.object(planning, "settled", return_value=[]):
             result = planning.plan_week(None, "week", [], None, **plan_kw)
         return result, factors
 

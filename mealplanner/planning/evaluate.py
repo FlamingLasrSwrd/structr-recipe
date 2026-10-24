@@ -638,9 +638,13 @@ class Evaluation:
 
 
 def _violations(problem: PlanningProblem, groups) -> list[Violation]:
+    """The hard targets' groups the plan breaks. A group of committed meals alone is settled before
+    the plan, and nothing the plan decides can change it, so it is not judged (diagnose.settled says
+    what such a group misses): judged, a day already eaten that missed a target would leave no plan
+    for the rest of the week (the owner's request, 2026-10-24, to change the menu as the week goes)."""
     found = []
     for g in groups:
-        if not g.target.hard:
+        if not g.target.hard or not g.has_open:
             continue
         kind, measure, bound = group_violation(g)
         if kind:
@@ -814,7 +818,7 @@ def prefix_bound(problem: PlanningProblem, partial) -> Bound:
     resolved, _ = resolve(problem, partial)
     groups = group_states(problem, resolved)
     weights = problem.weights
-    violation = sum(group_violation(g)[1] for g in groups if g.target.hard)
+    violation = sum(group_violation(g)[1] for g in groups if g.target.hard and g.has_open)
     if problem.requests:
         room = request_room(problem)
         for _, candidates, count in problem.wanted():

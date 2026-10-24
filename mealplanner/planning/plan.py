@@ -7,7 +7,7 @@ from datetime import datetime
 from time import monotonic
 
 from mealplanner.planning.commit import commit_plan
-from mealplanner.planning.diagnose import Diagnosis, describe_violation, diagnose
+from mealplanner.planning.diagnose import Diagnosis, describe_violation, diagnose, settled
 from mealplanner.planning.evaluate import Evaluation, evaluate
 from mealplanner.planning.extract import SlotSpec, build_problem
 from mealplanner.planning.model import PlanningProblem
@@ -113,6 +113,7 @@ def plan_week(
             shortlist_above=None, requests=requests, preps=preps, cooking_time=cooking_time,
             repeat_tolerance=repeat_tolerance,
         )
+        problem.notes.extend(settled(problem))
         evaluation = evaluate(problem, picks_from(problem, proposal))
         if not (evaluation.legal and (evaluation.feasible or keeps_requests(problem, evaluation))):
             raise ProposalError("the proposal no longer meets every rule and hard target: "
@@ -143,6 +144,7 @@ def plan_week(
         factor *= 2
     for size in widened:
         problem.notes.append(f"a shortlist of {size} recipes held no week meeting every hard target, so it was doubled")
+    problem.notes.extend(settled(problem))
     if search.best is not None and search.best.feasible:
         result = PlanResult(problem, search, search.best, None)
         if commit:

@@ -76,17 +76,29 @@ def _impossible_alone(problem: PlanningProblem) -> list[str]:
             continue
         t = g.target
         label = f"{t.name} on {g.label}"
-        if g.unassigned == 0:
-            kind, _, bound = group_violation(g)
-            if kind:
-                out.append(f"{label}: the entries already fixed for it {'break it' if kind != 'unverifiable' else 'cannot be certified'}")
-            continue
+        if not g.has_open:
+            continue                               # settled before the plan (settled, below)
         kind, _, bound = group_violation(g)
         if kind == "below_min":
             out.append(f"{label}: even the best possible pick in every open slot reaches {g.total + g.gain:g} against a minimum of {t.minimum:g}")
         elif kind == "above_max":
             out.append(f"{label}: the entries already fixed for it exceed the maximum of {t.maximum:g}")
     return out + _too_few_recipes(problem, resolved)
+
+
+def settled(problem: PlanningProblem) -> list[str]:
+    """The hard targets' groups of committed meals alone that miss: settled before the plan, so not
+    judged (evaluate._violations), and said here, a line each."""
+    resolved, _ = resolve(problem, initial_partial(problem))
+    out = []
+    for g in group_states(problem, resolved):
+        if not g.target.hard or g.has_open:
+            continue
+        kind, measure, bound = group_violation(g)
+        if kind:
+            v = Violation(g.target.name, g.target.nutrient_name or g.target.nutrient, g.label, kind, g.total, bound, measure)
+            out.append(f"settled before this plan, so not judged: {describe_violation(v)}")
+    return out
 
 
 def _too_few_recipes(problem: PlanningProblem, resolved) -> list[str]:

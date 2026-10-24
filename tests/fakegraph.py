@@ -80,10 +80,12 @@ class WritableGraph(FakeGraph):
     RELATIONS = {"hierarchy", "parent", "isAbout", "forNutrient", "identifierScheme", "denotesType", "inScheme",
                  "forType", "hasKind", "hasValue", "keyedBy", "hasTargetRange", "instanceOf", "memberOfSet",
                  "inheresIn", "isAboutQuality", "wasDerivedFrom", "forPerson", "members", "hasBaseline", "servingOf",
-                 "requestsRecipe"}
+                 "requestsRecipe", "memberOf", "references", "hasPlannedConsumption", "shareOf", "eatenBy",
+                 "consumesLeftoverFrom"}
     REVERSES = {"forType": "defaultSpecifications", "memberOfSet": "hasMemberPart", "parent": "children",
                 "inheresIn": "bearerOf", "isAboutQuality": "measurements", "wasDerivedFrom": "imputedMeasurements",
-                "forPerson": "nutritionTargets", "servingOf": "servingProfiles"}
+                "forPerson": "nutritionTargets", "servingOf": "servingProfiles", "memberOf": "hasEntry",
+                "shareOf": "hasShare", "consumesLeftoverFrom": "sourceForLeftoverEntries"}
 
     def __init__(self):
         super().__init__()

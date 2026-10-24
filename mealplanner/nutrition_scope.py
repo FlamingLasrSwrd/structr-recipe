@@ -557,6 +557,13 @@ def active_entries(client, meal_plan: dict) -> list[dict]:
     return [e for e in entries if not e.get("isSkipped")]
 
 
+def eaten_instead_entries(client, meal_plan: dict) -> list[dict]:
+    """Skipped meals with something eaten in their place that is not in the book
+    (MealPlanEntry.eatenInstead, mealplanner/menu_changes.py): their nutrition is not known."""
+    entries = [client.get_all("MealPlanEntry", ref["id"])["result"] for ref in meal_plan.get("hasEntry", [])]
+    return [e for e in entries if e.get("isSkipped") and e.get("eatenInstead")]
+
+
 def baseline_plans(client, meal_plan: dict) -> list[dict]:
     """The Plans a MealPlan counts as eaten every day, outside its planned meals:
     supplements, the morning coffee (MealPlan.hasBaseline, data-model J25)."""
@@ -653,7 +660,9 @@ def nutrition_report(client, meal_plan_id: str) -> list[dict]:
     Status: ok / below_min / above_max / indeterminate (some entry has no
     nutrient data, so the total is a lower bound and a shortfall can't be
     concluded). Totals cover the planned meals and the baseline (a day's worth
-    for each day judged, none for a single meal). A person's target
+    for each day judged, none for a single meal). A skipped meal with something
+    eaten in its place that the book does not hold (eatenInstead) is in its
+    groups as an entry with no figure, for the people who ate it. A person's target
     (NutritionTarget.forPerson, Sec 19 K4) counts their meal shares and their
     own baseline."""
     client = ReadCache(client)      # read-only: each node is fetched once for the whole report
@@ -663,6 +672,9 @@ def nutrition_report(client, meal_plan_id: str) -> list[dict]:
         for c in meal_plan.get("hasConstraint", []) if c["type"] == "NutritionTarget"
     ]
     entries = [e for e in active_entries(client, meal_plan) if not eaten_by_no_one(client, e)]
+    eaten_instead = eaten_instead_entries(client, meal_plan)                   # eaten, nutrition unknown
+    instead = {e["id"] for e in eaten_instead}
+    entries += eaten_instead
     rows = []
     for target in targets:
         nutrient, range_ref = target.get("forNutrient"), target.get("hasTargetRange")
@@ -702,6 +714,10 @@ def nutrition_report(client, meal_plan_id: str) -> list[dict]:
             unknown = [f"{name} (baseline)" for name in baseline_unknown]
             assumed = []
             for entry in groups[key]:
+                if entry["id"] in instead:
+                    if person_id is None or entry_person_servings(client, entry, person_id)[0] > 0:
+                        unknown.append(f"{entry['name']} ({entry['eatenInstead']} instead)")
+                    continue
                 intake, was_assumed = entry_nutrient_intake(client, entry, nutrient["id"], rng["unit"], person_id)
                 if intake is None:
                     unknown.append(entry["name"])
