@@ -623,6 +623,12 @@ def _request_violations(problem: PlanningProblem, picks) -> list[Violation]:
     return found
 
 
+def cook_minutes(problem: PlanningProblem, candidate) -> float:
+    """A cook's working minutes for the week's total (Weights.cooking_time): its own, or the meal's
+    budget where it states none, so a recipe with no time is not taken to take none."""
+    return candidate.minutes if candidate.minutes is not None else problem.weights.time_budget_minutes
+
+
 def _time_term(problem: PlanningProblem, r: Resolved) -> float:
     if r.kind == "leftover" or r.prep is not None:
         return 1.0                                    # nothing to cook at the meal, so nothing to overrun
@@ -705,6 +711,8 @@ def evaluate(problem: PlanningProblem, picks) -> Evaluation:
         terms["soft_exclusion"] -= candidate.soft_penalty
         terms["stock"] += weights.stock * (coverage or 0.0)
         terms["waste"] += weights.waste * urgency
+        if weights.cooking_time and r.kind == "cook":        # the week's cooking, at a meal or a prep session
+            terms["cooking_time"] = terms.get("cooking_time", 0.0) - weights.cooking_time * cook_minutes(problem, candidate) / 60.0
         details.append({
             "slot": slot.key, "kind": r.kind, "recipe": candidate.name,
             "source": problem.slots[r.source].key if r.source is not None else None,
@@ -765,6 +773,8 @@ def prefix_bound(problem: PlanningProblem, partial) -> Bound:
         ceiling -= problem.candidates[r.candidate].soft_penalty
         if r.kind == "cook":
             ceiling += weights.stock + weights.waste
+            # a cook placed takes its minutes for good; an open slot may yet cook nothing (leftovers)
+            ceiling -= weights.cooking_time * cook_minutes(problem, problem.candidates[r.candidate]) / 60.0
     for g in groups:
         if not g.has_open:
             continue

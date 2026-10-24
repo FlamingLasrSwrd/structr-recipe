@@ -119,7 +119,7 @@ def build_problem(
     servings_eaten: float = 1.0, max_difficulty: str | None = None, leftover_days: float | None = None,
     leftovers: bool = True, portions: tuple = (), eater_portions: dict | None = None,
     shortlist_above: int | None = SHORTLIST_ABOVE, shortlist_factor: float = FACTOR, requests: tuple = (),
-    preps: tuple = (),
+    preps: tuple = (), cooking_time: float = 0.0,
 ) -> PlanningProblem:
     """Read the MealPlan, the recipes, the stock and the constraints into a
     PlanningProblem for the slots in `template` (an iterable of SlotSpec).
@@ -139,6 +139,8 @@ def build_problem(
     this week (model.Request): each is read whatever the shortlist says, and a meal named
     ("Wed Dinner") pins it there. RequestError when a name or a meal matches nothing.
 
+    cooking_time: the week file's weight on the week's total cooking time (Weights.cooking_time).
+
     preps: PrepSessions, when the week may cook ahead (docs/optimizer-design.md Sec 12). A dish
     already committed at one (an entry at its start that no one eats) takes its share of the
     session's dishes and minutes."""
@@ -155,7 +157,7 @@ def build_problem(
     weights = Weights(
         time=number(meal_plan.get("timeBudgetWeight"), 0.5), variety=number(meal_plan.get("varietyWeight"), 0.5),
         stock=number(meal_plan.get("stockWeight"), 0.0), waste=number(meal_plan.get("wasteWeight"), 0.0),
-        time_budget_minutes=number(meal_plan.get("timeBudgetMinutes"), 60.0),
+        time_budget_minutes=number(meal_plan.get("timeBudgetMinutes"), 60.0), cooking_time=cooking_time,
     )
 
     # Every figure for one nutrient is read in one unit, the unit of the first target

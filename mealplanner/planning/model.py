@@ -82,13 +82,16 @@ class Lot:
 
 @dataclass(frozen=True)
 class Weights:
-    """The MealPlan's own weights, with the selector's defaults."""
+    """The MealPlan's own weights, with the selector's defaults. `cooking_time` is the week file's
+    alone (the owner's decision, 2026-10-24: "an optional preference that can be adjusted week-to-
+    week"): points off the score per hour of the week's cooking; 0, the default, ignores it."""
 
     time: float = 0.5
     variety: float = 0.5
     stock: float = 0.0
     waste: float = 0.0
     time_budget_minutes: float = 60.0
+    cooking_time: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -248,7 +251,7 @@ class PlanningProblem:
                 raise ValueError(f"the request for {r.name!r} is pinned to a slot that is not an open slot of the week")
         if len(set(pinned)) != len(pinned):
             raise ValueError("two requests are pinned to one meal")
-        for w in (self.weights.time, self.weights.variety, self.weights.stock, self.weights.waste):
+        for w in (self.weights.time, self.weights.variety, self.weights.stock, self.weights.waste, self.weights.cooking_time):
             if w < 0:
                 raise ValueError("weights must not be negative (the search bounds rely on it)")
         if self.max_difficulty is not None and self.max_difficulty not in DIFFICULTY_ORDER:
