@@ -713,3 +713,30 @@ def nutrition_report(client, meal_plan_id: str) -> list[dict]:
                          "unknown": unknown, "assumed_default_servings": assumed,
                          "status": _status(total, bool(unknown), min_val, max_val)})
     return rows
+
+
+def week_totals(rows: list[dict]) -> list[dict]:
+    """Each daily target over the whole week, from nutrition_report's rows (the owner's request,
+    2026-10-24): the days' totals added up and judged against the day's range times the days judged.
+    One row per daily target, group "week", with "days" judged and "day_statuses" counted. A day with
+    an unknown figure leaves the week's total a lower bound, as it does the day's; days with no meals
+    are not judged, so they count neither way."""
+    by_target: dict[str, list[dict]] = {}
+    for r in rows:
+        if r["scope"] == "daily" and r["group"] is not None:
+            by_target.setdefault(r["target"], []).append(r)
+    out = []
+    for name, days in by_target.items():
+        first, n = days[0], len(days)
+        week_min = None if first["min"] is None else first["min"] * n
+        week_max = None if first["max"] is None else first["max"] * n
+        total = sum(r["total"] for r in days)
+        unknown = list(dict.fromkeys(u for r in days for u in r["unknown"]))
+        counted: dict[str, int] = {}
+        for r in days:
+            counted[r["status"]] = counted.get(r["status"], 0) + 1
+        out.append({key: first[key] for key in ("target", "nutrient", "scope", "strictness", "min", "max", "unit")}
+                   | {"group": "week", "days": n, "week_min": week_min, "week_max": week_max, "total": total,
+                      "unknown": unknown, "day_statuses": counted,
+                      "status": _status(total, bool(unknown), week_min, week_max)})
+    return out

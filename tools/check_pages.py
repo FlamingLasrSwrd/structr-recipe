@@ -8,7 +8,8 @@ superuser (Structr honours the X-User headers for pages) and compares the data b
 
   week        every committed entry: cook or leftovers, the recipe, servings cooked and eaten, each
               person's share, and when a dish made ahead must be started (planning/commit.py writes them)
-  nutrition   nutrition_scope.nutrition_report: each target's total and status, per meal, day or week
+  nutrition   nutrition_scope.nutrition_report: each target's total and status, per meal, day or week;
+              week_totals: each daily target's days added up, and its status
   recipes     nutrition_scope.stored_figure for each recipe and nutrient shown
   recipe      one recipe's ingredients and stored figures, for the first recipe in the book
   pantry      inventory.current_magnitude and instance_expiration for every portion on hand
@@ -34,7 +35,7 @@ from mealplanner.prices import price_table
 from mealplanner.profiles import ProfileError
 from mealplanner.shopping import shopping_list
 from mealplanner.nutrition_scope import (
-    FMT, _source_plan, active_entries, entry_servings_eaten, nutrition_report, stored_figure,
+    FMT, _source_plan, active_entries, entry_servings_eaten, nutrition_report, stored_figure, week_totals,
 )
 from structr_client import ReadCache
 
@@ -92,6 +93,7 @@ def check_week(client, reads, week: dict, problems: list[str]) -> int:
 def check_nutrition(client, week: dict, problems: list[str]) -> int:
     shown = {(r["target"], r["group"]): r for r in page_data(client, f"nutrition/{week['id']}")}
     rows = nutrition_report(client, week["id"])
+    rows += week_totals(rows)
     if set(shown) != {(r["target"], r["group"]) for r in rows}:
         problems.append(f"nutrition {week['name']!r}: the page judges {len(shown)} groups, nutrition_report {len(rows)}")
     for r in rows:

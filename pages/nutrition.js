@@ -83,20 +83,50 @@ function report(week) {
   return rows;
 }
 
+// nutrition_scope.week_totals: each daily target's days added up, judged against its range times the days judged
+function weekTotals(rows) {
+  const byTarget = {};
+  for (const r of rows) if (r.scope === "daily" && r.group != null) (byTarget[r.target] = byTarget[r.target] || []).push(r);
+  return Object.keys(byTarget).map((name) => {
+    const days = byTarget[name], first = days[0], n = days.length;
+    const weekMin = first.min == null ? null : first.min * n, weekMax = first.max == null ? null : first.max * n;
+    const total = days.reduce((s, r) => s + r.total, 0);
+    const unknown = Array.from(new Set([].concat.apply([], days.map((r) => r.unknown))));
+    const counted = {};
+    for (const r of days) counted[r.status] = (counted[r.status] || 0) + 1;
+    return Object.assign({}, first, {group: "week", days: n, week_min: weekMin, week_max: weekMax, total: total, unknown: unknown,
+                                     day_statuses: counted, status: status(total, unknown.length > 0, weekMin, weekMax)});
+  });
+}
+
 const WORDS = {ok: "met", below_min: "under", above_max: "over", indeterminate: "unknown", unsupported: "not judged"};
-const rangeText = (r) => (r.min != null && r.max != null ? number(r.min, 0) + "–" + number(r.max, 0)
-  : r.min != null ? "at least " + number(r.min, 0) : r.max != null ? "at most " + number(r.max, 0) : "any") + " " + esc(r.unit);
+const rangeWords = (r) => (r.min != null && r.max != null ? number(r.min, 0) + "–" + number(r.max, 0)
+  : r.min != null ? "at least " + number(r.min, 0) : r.max != null ? "at most " + number(r.max, 0) : "any") + " " + r.unit;
+const rangeText = (r) => esc(rangeWords(r));
 const cell = (r) => "<td class=\"" + r.status + "\" title=\"" + esc(WORDS[r.status] + (r.unknown && r.unknown.length ? ": no figure for " + r.unknown.join(", ") : "")) + "\">"
   + (r.status === "unsupported" ? "–" : number(r.total, r.total >= 100 ? 0 : 1)) + "</td>";
 
-function table(rows, columns, label) {
+// the week's total of a daily target: its range over the days judged, and how many days were each
+function weekCell(t) {
+  const range = rangeWords({min: t.week_min, max: t.week_max, unit: t.unit});
+  const days = ["ok", "below_min", "above_max", "indeterminate"].filter((s) => t.day_statuses[s])
+    .map((s) => t.day_statuses[s] + " " + WORDS[s]).join(", ");
+  const why = WORDS[t.status] + " for the week: " + range + " over " + t.days + (t.days === 1 ? " day" : " days") + "; days: " + days
+    + (t.unknown.length ? "; no figure for " + t.unknown.join(", ") : "");
+  return "<td class=\"" + t.status + " total\" title=\"" + esc(why) + "\">" + number(t.total, t.total >= 100 ? 0 : 1)
+    + " <small>" + esc(WORDS[t.status]) + "</small></td>";
+}
+
+function table(rows, columns, label, totals) {
   const byTarget = {};
   for (const r of rows) (byTarget[r.target] = byTarget[r.target] || []).push(r);
-  let html = "<table><thead><tr><th>Target</th><th>Range</th>" + columns.map((c) => "<th>" + esc(label(c)) + "</th>").join("") + "</tr></thead><tbody>";
+  let html = "<table><thead><tr><th>Target</th><th>Range</th>" + columns.map((c) => "<th>" + esc(label(c)) + "</th>").join("")
+    + (totals ? "<th class=\"total\">Week</th>" : "") + "</tr></thead><tbody>";
   for (const name of Object.keys(byTarget).sort((a, b) => byTarget[a][0].nutrient.localeCompare(byTarget[b][0].nutrient))) {
     const first = byTarget[name][0];
     html += "<tr><td>" + esc(first.nutrient) + (first.hard ? " <span class=\"hard\">hard</span>" : "") + "</td><td>" + rangeText(first) + "</td>"
-      + columns.map((c) => { const r = byTarget[name].find((x) => x.group === c); return r ? cell(r) : "<td></td>"; }).join("") + "</tr>";
+      + columns.map((c) => { const r = byTarget[name].find((x) => x.group === c); return r ? cell(r) : "<td></td>"; }).join("")
+      + (totals ? (totals[name] ? weekCell(totals[name]) : "<td></td>") : "") + "</tr>";
   }
   return html + "</tbody></table>";
 }
@@ -107,18 +137,22 @@ let data = [];
 if (!week) {
   html += "<p>No week has been committed yet: <code>tools/plan_week.py --commit</code> writes one.</p>";
 } else {
-  data = report(week);
+  const rows = report(week), totals = weekTotals(rows);
+  data = rows.concat(totals);
   html += "<h2>" + esc(week.name) + "</h2>" + weekPicker("nutrition", week)
     + "<p class=\"note\">Each day: the baseline and the person's share of every meal, from stored figures per serving. "
     + "<span class=\"ok\">met</span> <span class=\"below_min\">under</span> <span class=\"above_max\">over</span> "
-    + "<span class=\"indeterminate\">unknown</span>; hover a cell for why.</p>";
-  const people = Array.from(new Set(data.map((r) => r.person))).sort((a, b) => String(a).localeCompare(String(b)));
+    + "<span class=\"indeterminate\">unknown</span>; hover a cell for why. "
+    + "Week: a daily target's days added up, against its range times the days with meals.</p>";
+  const people = Array.from(new Set(rows.map((r) => r.person))).sort((a, b) => String(a).localeCompare(String(b)));
   for (const person of people) {
-    const mine = data.filter((r) => r.person === person);
+    const mine = rows.filter((r) => r.person === person);
     html += "<h3>" + esc(person || "Everyone") + "</h3>";
     const daily = mine.filter((r) => r.scope === "daily" && r.group);
     const days = Array.from(new Set(daily.map((r) => r.group))).sort();
-    if (days.length) html += table(daily, days, (d) => dayLabel(new Date(d + "T12:00:00Z"), "UTC"));
+    const mineTotals = {};
+    for (const t of totals) if (t.person === person) mineTotals[t.target] = t;
+    if (days.length) html += table(daily, days, (d) => dayLabel(new Date(d + "T12:00:00Z"), "UTC"), mineTotals);
     const weekly = mine.filter((r) => r.scope === "weekly" && r.group);
     if (weekly.length) html += "<h4>The whole week</h4>" + table(weekly, ["week"], () => "Week");
     const meals = mine.filter((r) => r.scope === "per_meal" && r.group);
