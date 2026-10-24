@@ -5,10 +5,12 @@
 
 The superuser cannot sign in to pages, so reading them in a browser needs a user of its own. The
 owner decided (2026-10-23) that the pages need no more security than that for now: the instance is
-local and behind a firewall. It is a Structr `User`, not a `Person`: the household's people keep no
-passwords. The password is typed without being shown and is stored nowhere but in Structr, as
-Structr stores passwords. For the same name again, it sets a new password. Needs
-STRUCTR_SUPERUSER_PASSWORD and STRUCTR_URL.
+local and behind a firewall. A name of one of the household's people (a `Person`, which is also a
+Structr account, data-model.md K1) gives that person a password, so they sign in as themselves:
+the owner's choice for Elijah, the same day. Any other name is a Structr `User` of its own. The
+password is typed without being shown and is stored nowhere but in Structr, as Structr stores
+passwords. For the same name again, it sets a new password. Needs STRUCTR_SUPERUSER_PASSWORD and
+STRUCTR_URL.
 """
 
 import argparse
@@ -41,9 +43,13 @@ def main(argv=None, ask=input, ask_secret=getpass.getpass) -> int:
     client = connect(owner_data_ok=True)     # an account on the owner's instance is theirs to make
     client.wait_until_ready()
     persons = client.get("/structr/rest/Person", params={"name": name})["result"]
-    if persons:
-        print(f"problem: {name!r} is a person of the household, who keep no passwords; choose another name")
+    if len(persons) > 1:
+        print(f"problem: {len(persons)} people are named {name!r}; nothing was changed")
         return 1
+    if persons:
+        client.patch(f"/structr/rest/Person/{persons[0]['id']}", {"password": password})
+        print(f"{name}: a person of the household, who can now sign in at {client.base_url}/structr/html/login")
+        return 0
     users = client.get("/structr/rest/User", params={"name": name})["result"]
     if users:
         client.patch(f"/structr/rest/User/{users[0]['id']}", {"password": password})
