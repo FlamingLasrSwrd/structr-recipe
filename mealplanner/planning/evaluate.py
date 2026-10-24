@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass, field
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 from mealplanner.nutrition_scope import calendar_day, day_zone
 from mealplanner.planning.model import DIFFICULTY_ORDER, Pick, PlanningProblem, Target
@@ -82,6 +82,7 @@ class Resolved:
     source: int | None
     eaten: float                  # over everyone who eats it
     shares: tuple = ()            # ((eater, servings), ...)
+    prep: int | None = None       # a cook made at this prep session, not at the meal
 
 
 def share_of(r: Resolved, eater: str) -> float:
@@ -98,7 +99,7 @@ def resolve(problem: PlanningProblem, partial) -> tuple[list, list]:
         shares = pick_shares(problem, i, pick)
         eaten = sum(servings for _, servings in shares)
         if pick.candidate is not None:
-            resolved[i] = Resolved("cook", pick.candidate, None, eaten, shares)
+            resolved[i] = Resolved("cook", pick.candidate, None, eaten, shares, pick.prep)
         else:
             source = resolved[pick.source] if 0 <= pick.source < i else None
             resolved[i] = Resolved("leftover", source.candidate if source else None, pick.source, eaten, shares)
@@ -194,6 +195,68 @@ def _ineligible_reason(problem: PlanningProblem, i: int, candidate) -> str | Non
     return None
 
 
+def cook_start(problem: PlanningProblem, i: int, r: Resolved | None) -> datetime:
+    """When the cook resolved at slot i happens: at its prep session if it is made at one, else at the meal."""
+    return problem.preps[r.prep].start if r is not None and r.prep is not None else problem.slots[i].start
+
+
+def prep_reason(problem: PlanningProblem, i: int, candidate, k: int) -> str | None:
+    """Why this recipe cannot be made at prep session k for open slot i, or None if it can
+    (docs/optimizer-design.md Sec 12): the session is past, or the dish would not be ready by the
+    meal, or would not keep until it, or takes longer than the session has. Static for a problem."""
+    key = ("prep", i, candidate.id, k)
+    if key not in problem._cache:
+        problem._cache[key] = _prep_reason(problem, i, candidate, k)
+    return problem._cache[key]
+
+
+def _prep_reason(problem: PlanningProblem, i: int, candidate, k: int) -> str | None:
+    session, meal = problem.preps[k], problem.slots[i].start
+    if problem.now is not None and session.start < problem.now:
+        return f"{session.key} is past"
+    if candidate.leftover_days is None:
+        return "it is not kept, so it cannot be made ahead"
+    if candidate.minutes is None:
+        return "its time is not stated, so it cannot be fitted into a session"
+    if candidate.minutes > session.minutes + EPS:
+        return f"it takes longer than {session.key} has"
+    if session.start + timedelta(minutes=candidate.minutes, hours=candidate.ahead_hours) > meal:
+        return f"made at {session.key}, it would not be ready by the meal"
+    if meal > session.start + timedelta(days=candidate.leftover_days):
+        return f"made at {session.key}, it would not keep until the meal"
+    return None
+
+
+def session_use(problem: PlanningProblem, partial, skip: int | None = None) -> dict:
+    """{prep session: (dishes made at it, their working minutes)} over the assigned slots other than `skip`."""
+    used: dict = {}
+    for j, pick in enumerate(partial):
+        if j == skip or pick is None or pick.prep is None:
+            continue
+        dishes, minutes = used.get(pick.prep, (0, 0.0))
+        used[pick.prep] = (dishes + 1, minutes + (problem.candidates[pick.candidate].minutes or 0.0))
+    return used
+
+
+def prep_options(problem: PlanningProblem, partial, i: int, variants: list) -> list:
+    """The Picks that make a recipe at a prep session for open slot i, leaving out a session the
+    other slots' dishes have filled."""
+    key = ("prep cooks", i)
+    if key not in problem._cache:
+        problem._cache[key] = tuple(
+            (k, c.id) for k in range(len(problem.preps))
+            for c in sorted(problem.candidates.values(), key=lambda c: (c.name, c.id))
+            if ineligible_reason(problem, i, c) is None and prep_reason(problem, i, c, k) is None)
+    used = session_use(problem, partial, skip=i)
+    out = []
+    for k, cid in problem._cache[key]:
+        session, (dishes, minutes) = problem.preps[k], used.get(k, (0, 0.0))
+        if dishes + 1 > session.dishes or minutes + problem.candidates[cid].minutes > session.minutes + EPS:
+            continue
+        out.extend(Pick(candidate=cid, prep=k, **v) for v in variants)
+    return out
+
+
 def leftover_reason(problem: PlanningProblem, resolved, j: int, i: int) -> str | None:
     """Why slot i cannot eat the leftovers of the cook at slot j, or None if it can.
     Leftovers follow the recipe's meal-type tags, as a fresh cook does (D9, the
@@ -205,9 +268,10 @@ def leftover_reason(problem: PlanningProblem, resolved, j: int, i: int) -> str |
     candidate = problem.candidates[source.candidate]
     if candidate.leftover_days is None:
         return "leftovers of this recipe are not planned"
-    start = problem.slots[j].start
+    start = cook_start(problem, j, source)          # a dish made at a prep session keeps from then
     now = problem.slots[i].start
-    if now < start + timedelta(minutes=candidate.minutes or 0.0):
+    ready = start + timedelta(minutes=candidate.minutes or 0.0, hours=candidate.ahead_hours if source.prep is not None else 0.0)
+    if now < ready:
         return "not cooked yet"
     if now > start + timedelta(days=candidate.leftover_days):
         return "past its keeping time"
@@ -227,6 +291,8 @@ def options(problem: PlanningProblem, partial, i: int) -> list:
             for v in variants
         )
     picks = list(problem._cache[key])
+    if problem.preps:
+        picks.extend(prep_options(problem, partial, i, variants))
     request = problem.pinned().get(i)
     if request is not None:                       # a recipe asked for at this meal: a fresh cook of it, nothing else
         return [p for p in picks if p.candidate in request.candidates]
@@ -277,13 +343,23 @@ def slot_max_intake(problem: PlanningProblem, i: int, nutrient: str, eater: str 
 def slot_groups(problem: PlanningProblem, target: Target) -> list[tuple[str, list[int]]]:
     n = len(problem.slots)
     if target.scope == "per_meal":
-        return [(problem.slots[i].key, [i]) for i in range(n)]
+        return [(problem.slots[i].key, [i]) for i in eaten_slots(problem)]
     if target.scope == "weekly":
-        return [("week", list(range(n)))] if n else []
+        return [("week", eaten_slots(problem))] if n else []
     days: dict[str, list[int]] = {}
-    for i, slot in enumerate(problem.slots):
+    for i in eaten_slots(problem):
+        slot = problem.slots[i]
         days.setdefault(calendar_day(slot.start, day_zone(target.day_boundary) or timezone.utc).isoformat(), []).append(i)
     return sorted(days.items())
+
+
+def eaten_slots(problem: PlanningProblem) -> list[int]:
+    """The slots someone eats: every open slot, and every fixed one but an entry no one eats (a dish
+    made at a prep session, eaten as leftovers later), which is not a meal to judge."""
+    key = ("eaten slots",)
+    if key not in problem._cache:
+        problem._cache[key] = [i for i, slot in enumerate(problem.slots) if slot.fixed is None or slot_eaten(problem, i) > EPS]
+    return problem._cache[key]
 
 
 def intake(problem: PlanningProblem, r: Resolved, nutrient: str, eater: str | None = None) -> float | None:
@@ -447,11 +523,12 @@ def allocate_stock(problem: PlanningProblem, resolved, cooked) -> dict[int, tupl
     for lots in pools.values():
         lots.sort(key=lambda lot: (lot[0] is None, lot[0].timestamp() if lot[0] else 0.0))
     out = {}
-    for i, r in enumerate(resolved):
-        if r is None or r.kind != "cook" or cooked[i] <= 0:
-            continue
+    cooks = sorted((i for i, r in enumerate(resolved) if r is not None and r.kind == "cook" and cooked[i] > 0),
+                   key=lambda i: (cook_start(problem, i, resolved[i]), i))      # in the order they are cooked
+    for i in cooks:
+        r = resolved[i]
         candidate = problem.candidates[r.candidate]
-        start = problem.slots[i].start
+        start = cook_start(problem, i, r)
         coverages, urgency = [], 0.0
         for pool in sorted(candidate.demand):
             need = candidate.demand[pool] * cooked[i] / candidate.yield_servings
@@ -544,8 +621,8 @@ def _request_violations(problem: PlanningProblem, picks) -> list[Violation]:
 
 
 def _time_term(problem: PlanningProblem, r: Resolved) -> float:
-    if r.kind == "leftover":
-        return 1.0                                    # nothing to cook, so nothing to overrun
+    if r.kind == "leftover" or r.prep is not None:
+        return 1.0                                    # nothing to cook at the meal, so nothing to overrun
     return time_fit_score(problem.candidates[r.candidate].minutes, problem.weights.time_budget_minutes)
 
 
@@ -590,10 +667,20 @@ def evaluate(problem: PlanningProblem, picks) -> Evaluation:
                 problems.append(f"{slot.key}: unknown recipe {pick.candidate!r}")
                 continue
             reason = ineligible_reason(problem, i, candidate)
+            if not reason and pick.prep is not None:
+                reason = (prep_reason(problem, i, candidate, pick.prep) if 0 <= pick.prep < len(problem.preps)
+                          else "no such prep session")
         else:
             reason = leftover_reason(problem, resolved, pick.source, i)
         if reason:
             problems.append(f"{slot.key}: {reason}")
+
+    for k, (dishes, minutes) in sorted(session_use(problem, picks).items()):
+        session = problem.preps[k] if 0 <= k < len(problem.preps) else None
+        if session is not None and dishes > session.dishes:
+            problems.append(f"{session.key}: {dishes} dishes, more than its {session.dishes}")
+        if session is not None and minutes > session.minutes + EPS:
+            problems.append(f"{session.key}: {minutes:g} minutes of work, more than its {session.minutes:g}")
 
     weights = problem.weights
     groups = group_states(problem, resolved)
@@ -620,6 +707,7 @@ def evaluate(problem: PlanningProblem, picks) -> Evaluation:
             "source": problem.slots[r.source].key if r.source is not None else None,
             "time_fit": time_fit, "variety": bonuses.get(i, 1.0), "coverage": coverage, "urgency": urgency,
             "cooked_servings": cooked[i] if r.kind == "cook" else 0.0, "eaten": r.eaten,
+            "prep": problem.preps[r.prep].key if r.prep is not None else None,
         })
         if problem.eaters:
             details[-1]["shares"] = {e: servings for e, servings in r.shares}

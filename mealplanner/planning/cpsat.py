@@ -38,7 +38,7 @@ from datetime import timedelta
 
 from mealplanner.planning.evaluate import (
     REQUEST_MEASURE, baseline_in, basic_reason, evaluate, ineligible_reason, initial_partial, intake, meal_type_reason,
-    resolve, slot_groups,
+    prep_reason, resolve, slot_groups,
 )
 from mealplanner.planning.model import Pick, PlanningProblem
 from mealplanner.planning.search import SearchResult
@@ -82,7 +82,7 @@ def solve(
         built["model"].add(built["violation"] <= first["value"])
         # Start the second solve from the first one's plan: it already meets the bound, and
         # with portions the tight bound left the search without a first solution in 60 s.
-        for var in list(built["x"].values()) + list(built["y"].values()) + list(built["q"].values()):
+        for var in list(built["x"].values()) + list(built["y"].values()) + list(built["p"].values()) + list(built["q"].values()):
             built["model"].add_hint(var, first["solver"].boolean_value(var))
         second = _run(built, problem, time_limit_s, workers, minimise_violation=False)
         second["proven"] = second.get("proven", False) and first.get("proven", False)
@@ -126,40 +126,66 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
         for c in candidates:
             if ineligible_reason(problem, i, c) is None and (i not in pinned or c.id in pinned[i].candidates):
                 x[i, c.id] = m.new_bool_var(f"x_{i}_{c.id}")
+    # p[s,c,k]: cook recipe c for slot s at prep session k (docs/optimizer-design.md Sec 12)
+    p: dict = {}
+    for i in open_slots:
+        for c in candidates:
+            if (i, c.id) not in x:
+                continue
+            for k in range(len(problem.preps)):
+                if prep_reason(problem, i, c, k) is None:
+                    p[i, c.id, k] = m.new_bool_var(f"p_{i}_{c.id}_{k}")
     y: dict = {}
     for s in open_slots:
         if s in pinned:
             continue
+        when = problem.slots[s].start
         for j in range(s):
             for c in candidates:
                 if c.leftover_days is None or basic_reason(problem, c) is not None:
                     continue
                 if meal_type_reason(problem, s, c) is not None:
                     continue
+                keeps = lambda start: start + timedelta(days=c.leftover_days)
                 if j in open_set:
-                    if (j, c.id) not in x:
+                    # the cook at j may be made at the meal or at a session; each route has its own timing
+                    routes = []
+                    start = problem.slots[j].start
+                    if (j, c.id) in x and start + timedelta(minutes=c.minutes or 0.0) <= when <= keeps(start):
+                        routes.append(x[j, c.id])
+                    for k, session in enumerate(problem.preps):
+                        ready = session.start + timedelta(minutes=c.minutes or 0.0, hours=c.ahead_hours)
+                        if (j, c.id, k) in p and ready <= when <= keeps(session.start):
+                            routes.append(p[j, c.id, k])
+                    if not routes:
                         continue
+                    y[s, j, c.id] = m.new_bool_var(f"y_{s}_{j}_{c.id}")
+                    m.add(y[s, j, c.id] <= sum(routes))
                 else:
                     source = fixed_resolved[j]
                     if source is None or source.kind != "cook" or source.candidate != c.id:
                         continue
-                start = problem.slots[j].start
-                ready = start + timedelta(minutes=c.minutes or 0.0)
-                keeps = start + timedelta(days=c.leftover_days)
-                if problem.slots[s].start < ready or problem.slots[s].start > keeps:
-                    continue
-                y[s, j, c.id] = m.new_bool_var(f"y_{s}_{j}_{c.id}")
-                if j in open_set:
-                    m.add_implication(y[s, j, c.id], x[j, c.id])
+                    start = problem.slots[j].start
+                    if when < start + timedelta(minutes=c.minutes or 0.0) or when > keeps(start):
+                        continue
+                    y[s, j, c.id] = m.new_bool_var(f"y_{s}_{j}_{c.id}")
 
     by_slot: dict = {s: [] for s in open_slots}
     uses_of: dict = {}                     # (s, candidate id) -> the variables that mean "slot s eats candidate"
     for (s, cid), var in x.items():
         by_slot[s].append(var)
         uses_of.setdefault((s, cid), []).append(var)
+    for (s, cid, k), var in p.items():
+        by_slot[s].append(var)
+        uses_of.setdefault((s, cid), []).append(var)
     for (s, j, cid), var in y.items():
         by_slot[s].append(var)
         uses_of.setdefault((s, cid), []).append(var)
+    for k, session in enumerate(problem.preps):     # each session's dishes and working minutes, both hard
+        made = [(var, problem.candidates[cid].minutes) for (s, cid, kk), var in p.items() if kk == k]
+        if made:
+            m.add(sum(var for var, _ in made) <= session.dishes)
+            m.add(sum(var * round(minutes * 100) for var, minutes in made) <= round(session.minutes * 100))
     for s in open_slots:
         if by_slot[s]:
             m.add_exactly_one(by_slot[s])
@@ -218,6 +244,12 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
     for (s, cid), var in x.items():
         c = problem.candidates[cid]
         coef = round(w.time * time_fit_score(c.minutes, w.time_budget_minutes) * OS) - round(c.soft_penalty * OS)
+        if optimistic:
+            coef += round((w.stock + w.waste) * OS)
+        objective.append((var, coef))
+    for (s, cid, k), var in p.items():                  # made ahead: nothing to cook at the meal, as leftovers
+        c = problem.candidates[cid]
+        coef = round(w.time * 1.0 * OS) - round(c.soft_penalty * OS)
         if optimistic:
             coef += round((w.stock + w.waste) * OS)
         objective.append((var, coef))
@@ -353,7 +385,8 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
     # ---- the recipes asked for and pinned to no meal: each cooked fresh as often as asked
     for name, wanted, count in problem.wanted():
         fixed_cooks = sum(1 for i in range(n) if i not in open_set and problem.slots[i].fixed.candidate in wanted)
-        chances = [var for (i, cid), var in x.items() if cid in wanted and i not in pinned]
+        chances = [var for (i, cid), var in x.items() if cid in wanted and i not in pinned] \
+            + [var for (i, cid, _), var in p.items() if cid in wanted and i not in pinned]
         cooks = sum(chances) + fixed_cooks
         if relaxed:
             short = m.new_int_var(0, count, f"short_request_{name}")
@@ -367,7 +400,7 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
     model_objective = sum(var * coef for var, coef in objective)
     violation = sum(var * coef for var, coef in violation_terms) + violation_constant
     return {
-        "model": m, "x": x, "y": y, "q": q, "levels": levels, "objective": model_objective, "constant": constant,
+        "model": m, "x": x, "y": y, "p": p, "q": q, "levels": levels, "objective": model_objective, "constant": constant,
         "violation": violation, "exact_stock": exact_stock, "open": open_slots,
     }
 
@@ -422,7 +455,12 @@ def _hint(built: dict, problem: PlanningProblem, picks) -> None:
         pick, r = picks[s], resolved[s]
         if r is None or r.candidate is None:
             continue
-        var = built["x"].get((s, r.candidate)) if pick.candidate is not None else built["y"].get((s, pick.source, r.candidate))
+        if pick.candidate is None:
+            var = built["y"].get((s, pick.source, r.candidate))
+        elif pick.prep is not None:
+            var = built["p"].get((s, r.candidate, pick.prep))
+        else:
+            var = built["x"].get((s, r.candidate))
         if var is not None:
             m.add_hint(var, 1)
         for e, servings in r.shares:
@@ -447,6 +485,9 @@ def _picks(built: dict, problem: PlanningProblem, solver) -> tuple:
     for (s, cid), var in built["x"].items():
         if solver.boolean_value(var):
             picks[s] = Pick(candidate=cid, **amounts(s))
+    for (s, cid, k), var in built["p"].items():
+        if solver.boolean_value(var):
+            picks[s] = Pick(candidate=cid, prep=k, **amounts(s))
     for (s, j, cid), var in built["y"].items():
         if solver.boolean_value(var):
             picks[s] = Pick(source=j, **amounts(s))

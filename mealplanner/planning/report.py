@@ -39,8 +39,9 @@ def describe_plan(problem: PlanningProblem, evaluation: Evaluation) -> str:
             lines.append(f"  {when}  {slot.key}: leftover {d['recipe']} from {d['source']}{_eats(d, problem)}")
         else:
             servings = d["cooked_servings"]
-            lines.append(f"  {when}  {slot.key}: cook {d['recipe']} for {servings:g} serving{'s' if servings != 1 else ''}"
-                         f"{_eats(d, problem)}{_ahead(problem, pick, slot)}")
+            made = f"made at {d['prep']}: {d['recipe']}" if d.get("prep") else f"cook {d['recipe']}"
+            lines.append(f"  {when}  {slot.key}: {made} for {servings:g} serving{'s' if servings != 1 else ''}"
+                         f"{_eats(d, problem)}{'' if d.get('prep') else _ahead(problem, pick, slot)}")
     terms = ", ".join(f"{name} {value:+.3f}" for name, value in evaluation.terms.items() if abs(value) > 1e-12)
     lines.append(f"  score {evaluation.objective:.3f} ({terms or 'no weighted terms'})")
     return "\n".join(lines)

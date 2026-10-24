@@ -35,7 +35,7 @@ from mealplanner.nutrition_scope import (
     SERVING_BASIS, active_entries, baseline_day_intake, baseline_plans, convert_nutrient, entry_servings_eaten,
     entry_start, serving_nutrient_figure, stored_serving_profiles, target_scope_problem,
 )
-from mealplanner.planning.model import Candidate, Fixed, Lot, PlanningProblem, Request, Slot, Target, Weights
+from mealplanner.planning.model import Candidate, Fixed, Lot, PlanningProblem, PrepSession, Request, Slot, Target, Weights
 from mealplanner.planning.shortlist import FACTOR, SHORTLIST_ABOVE, choose
 from mealplanner.planning_view_schema import TYPE as VIEW_TYPE, VIEW as PLANNING_VIEW
 from mealplanner.recipe_nutrition import PREFETCH_ABOVE
@@ -119,6 +119,7 @@ def build_problem(
     servings_eaten: float = 1.0, max_difficulty: str | None = None, leftover_days: float | None = None,
     leftovers: bool = True, portions: tuple = (), eater_portions: dict | None = None,
     shortlist_above: int | None = SHORTLIST_ABOVE, shortlist_factor: float = FACTOR, requests: tuple = (),
+    preps: tuple = (),
 ) -> PlanningProblem:
     """Read the MealPlan, the recipes, the stock and the constraints into a
     PlanningProblem for the slots in `template` (an iterable of SlotSpec).
@@ -136,7 +137,11 @@ def build_problem(
 
     requests: (recipe name, meal or None) pairs, the recipes the owner asked to have cooked
     this week (model.Request): each is read whatever the shortlist says, and a meal named
-    ("Wed Dinner") pins it there. RequestError when a name or a meal matches nothing."""
+    ("Wed Dinner") pins it there. RequestError when a name or a meal matches nothing.
+
+    preps: PrepSessions, when the week may cook ahead (docs/optimizer-design.md Sec 12). A dish
+    already committed at one (an entry at its start that no one eats) takes its share of the
+    session's dishes and minutes."""
     client = ReadCache(client)
     # Read in bulk what the recipes read node by node: profiled on the owner's week, these
     # types were 21,297 of 21,804 requests, one node each (552 of 589 s of reading). The
@@ -243,7 +248,7 @@ def build_problem(
             continue
         eaten, _ = entry_servings_eaten(client, payload)
         shares = _entry_shares(client, payload, people) if people else ()
-        if people and not shares:
+        if people and not shares and eaten > 0:          # one no one eats is a dish made at a prep session
             first = next(iter(people.values()))["name"]
             slot_notes.append(f"entry {payload['name']!r} says nothing of who ate it: counted as {first}'s")
         common = dict(name=payload["name"], entry_id=payload["id"], shares=shares)
@@ -390,6 +395,16 @@ def build_problem(
         if not answer:
             raise RequestError(f"{name!r} is asked for, but has no yield in servings, so it cannot be planned")
         wanted.append(Request(name, answer, _pinned_slot(slots, on, name) if on else None))
+    sessions = []
+    for session in preps:
+        made = [(slot, candidates.get(slot.fixed.candidate)) for slot in slots if slot.fixed is not None
+                and slot.fixed.candidate is not None and slot.fixed.eaten <= 0 and slot.start == session.start]
+        dishes = session.dishes - len(made)
+        minutes = session.minutes - sum((c.minutes or 0.0) for _, c in made if c is not None)
+        if made:
+            notes.append(f"{session.key} already makes {', '.join(s.fixed.name for s, _ in made)}")
+        if dishes >= 1 and minutes > 0:
+            sessions.append(PrepSession(session.key, session.start, minutes, dishes))
     if wanted:
         notes.append("asked for this week: " + ", ".join(r.name + (f" ({slots[r.slot].key})" if r.slot is not None else "")
                                                          for r in wanted))
@@ -398,7 +413,7 @@ def build_problem(
         for root, pool_lots in lots_by_pool.items() for lot in pool_lots
     )
     return PlanningProblem(slots=tuple(slots), candidates=candidates, lots=lots, notes=notes, book_size=len(book),
-                           requests=tuple(wanted), **week)
+                           requests=tuple(wanted), preps=tuple(sessions), **week)
 
 
 def _figures(client, plan: dict, unit_of: dict) -> tuple[dict, set, set]:

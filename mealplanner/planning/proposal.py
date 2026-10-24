@@ -32,6 +32,8 @@ def to_data(problem: PlanningProblem, evaluation: Evaluation, week_start: str) -
         meal: dict = {"slot": slot.key}
         if pick.candidate is not None:
             meal["cook"] = problem.candidates[pick.candidate].name
+            if pick.prep is not None:
+                meal["made_at"] = problem.preps[pick.prep].key
         else:
             meal["leftover_of"] = problem.slots[pick.source].key
         if pick.shares is not None:
@@ -48,6 +50,7 @@ def picks_from(problem: PlanningProblem, data: dict) -> tuple:
     if data.get("format") != FORMAT:
         raise ProposalError(f"a proposal of format {data.get('format')!r}, not {FORMAT}")
     index = {slot.key: i for i, slot in enumerate(problem.slots)}
+    sessions = {session.key: k for k, session in enumerate(problem.preps)}
     recipes: dict = {}
     for c in problem.candidates.values():
         recipes.setdefault(c.name, []).append(c.id)
@@ -72,7 +75,11 @@ def picks_from(problem: PlanningProblem, data: dict) -> tuple:
             if len(ids) != 1:
                 problems.append(f"{key}: {meal['cook']!r} is {'not' if not ids else 'more than once'} in the recipe book now")
                 continue
-            picks[i] = Pick(candidate=ids[0], portion=portion, shares=shares)
+            prep = sessions.get(meal["made_at"]) if "made_at" in meal else None
+            if "made_at" in meal and prep is None:
+                problems.append(f"{key}: made at {meal['made_at']!r}, which is not a prep session of this week now")
+                continue
+            picks[i] = Pick(candidate=ids[0], portion=portion, shares=shares, prep=prep)
         else:
             source = index.get(meal.get("leftover_of"))
             if source is None:

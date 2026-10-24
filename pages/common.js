@@ -127,6 +127,9 @@ function servingsEaten(holder) {
   return [1.0, true];
 }
 
+// nutrition_scope.eaten_by_no_one: a dish made at a prep session, eaten later as leftovers
+const eatenByNoOne = (entry) => !(entry.hasShare || []).length && !servingsEaten(entry)[1] && servingsEaten(entry)[0] <= 0;
+
 // nutrition_scope.entry_person_servings
 function personServings(entry, person) {
   const shares = entry.hasShare || [];

@@ -120,21 +120,38 @@ class Slot:
 
 
 @dataclass(frozen=True)
+class PrepSession:
+    """A time set aside to cook ahead (docs/optimizer-design.md Sec 12): a dish made at it
+    feeds later meals while it keeps. `minutes` is the working time it has, `dishes` the most
+    dishes made in it; both are hard."""
+
+    key: str
+    start: datetime
+    minutes: float
+    dishes: int = 2
+
+
+@dataclass(frozen=True)
 class Pick:
     """What fills a slot: a fresh cook of `candidate`, or the leftovers of the
     cook at slot index `source`. Exactly one is set. `portion` is the servings
     eaten by a slot's one eater, one of their portion levels; None means the
     default. A slot with several eaters takes `shares` instead: one portion per
-    eater, in the order of `slot_eaters` (data-model.md Sec 19 K5)."""
+    eater, in the order of `slot_eaters` (data-model.md Sec 19 K5). A fresh cook
+    with `prep` set is made at that prep session (an index into the problem's
+    `preps`), not at the meal."""
 
     candidate: str | None = None
     source: int | None = None
     portion: float | None = None
     shares: tuple | None = None
+    prep: int | None = None
 
     def __post_init__(self):
         if (self.candidate is None) == (self.source is None):
             raise ValueError("a Pick is either a fresh cook (candidate) or a leftover (source), not both or neither")
+        if self.prep is not None and self.candidate is None:
+            raise ValueError("only a fresh cook can be made at a prep session")
 
 
 @dataclass(frozen=True)
@@ -179,6 +196,7 @@ class PlanningProblem:
     # shortlist of them was read and searched (planning/shortlist.py); 0 when not counted.
     book_size: int = 0
     requests: tuple = ()               # Request: the recipes the owner asked to have cooked this week
+    preps: tuple = ()                  # PrepSession: when the week may cook ahead, in time order
     _cache: dict = field(default_factory=dict, repr=False, compare=False)
 
     def __post_init__(self):
@@ -215,6 +233,12 @@ class PlanningProblem:
                 raise ValueError(f"fixed slot {slot.key!r} cooks {fixed.candidate!r}, which is not among the candidates")
             if fixed.source is not None and not 0 <= fixed.source < i:
                 raise ValueError(f"fixed slot {slot.key!r} takes leftovers from a slot that does not come before it")
+        self.preps = tuple(self.preps)
+        for session in self.preps:
+            if session.start.tzinfo is None:
+                raise ValueError(f"prep session {session.key!r} has a start time with no timezone")
+            if session.minutes <= 0 or session.dishes < 1:
+                raise ValueError(f"prep session {session.key!r} needs some minutes and at least one dish")
         self.requests = tuple(self.requests)
         pinned = [r.slot for r in self.requests if r.slot is not None]
         for r in self.requests:
