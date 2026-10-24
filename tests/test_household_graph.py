@@ -8,7 +8,7 @@ serving. Jamie's baseline is a shake with 5 g of protein a day; Alex has none.
 
 import unittest
 
-from mealplanner.nutrition_scope import nutrition_report
+from mealplanner.nutrition_scope import nutrition_report, week_totals
 from mealplanner.planning.commit import commit_plan
 from mealplanner.planning.evaluate import evaluate
 from mealplanner.planning.extract import SlotSpec, build_problem
@@ -133,6 +133,40 @@ class Report(unittest.TestCase):
         g.nodes["e1"]["hasPlannedConsumption"] = Ref("e1 eaten")
         (row,) = [r for r in nutrition_report(g, "week") if r["target"] == "nobody's"]
         self.assertEqual((row["total"], row["assumed_default_servings"]), (24.0, ["e1"]))
+
+
+class WeekTotals(unittest.TestCase):
+    """nutrition_scope.week_totals: a daily target's days added up and judged against its range times
+    the days judged (the owner's request, 2026-10-24)."""
+
+    def week(self, jamie, alex):
+        g = household()
+        for name, day, e, c in zip(("e1", "e2"), (28, 29), jamie, alex):
+            add_entry(g, name, "omelette", at(day, 18), servings=e + c)
+            share(g, name, "p-jamie", e)
+            share(g, name, "p-alex", c)
+        return {r["target"]: r for r in week_totals(nutrition_report(g, "week"))}
+
+    def test_a_short_day_made_up_on_another_meets_the_week(self):
+        rows = self.week(jamie=(1.5, 0.5), alex=(0.5, 0.5))          # Jamie 41 g, then 17 g: under 20 that day
+        jamie = rows["jamie floor"]
+        self.assertEqual((jamie["group"], jamie["days"], jamie["total"], jamie["week_min"], jamie["week_max"]), ("week", 2, 58.0, 40.0, None))
+        self.assertEqual((jamie["status"], jamie["day_statuses"]), ("ok", {"ok": 1, "below_min": 1}))
+
+    def test_under_and_over_for_the_week(self):
+        rows = self.week(jamie=(0.5, 0.5), alex=(1.5, 1.5))          # Jamie 17 g a day; Alex 36 g a day, capped at 30
+        self.assertEqual((rows["jamie floor"]["total"], rows["jamie floor"]["status"]), (34.0, "below_min"))
+        self.assertEqual((rows["alex cap"]["total"], rows["alex cap"]["week_max"], rows["alex cap"]["status"]), (72.0, 60.0, "above_max"))
+
+    def test_only_daily_targets_and_an_unknown_day_leaves_it_open(self):
+        g = household()
+        add_target(g, "jamie week", 50, None, scope="weekly", strictness="soft", weight=0.3)
+        add_recipe(g, "mystery", output_grams=100, protein_per_100g=None, provenance="sourced", yield_servings=1, minutes=5)
+        add_entry(g, "e1", "omelette", at(28, 18), servings=1.0)
+        add_entry(g, "e2", "mystery", at(29, 18), servings=1.0)
+        rows = {r["target"]: r for r in week_totals(nutrition_report(g, "week"))}
+        self.assertNotIn("jamie week", rows)
+        self.assertEqual((rows["nobody's"]["total"], rows["nobody's"]["status"], rows["nobody's"]["unknown"]), (24.0, "indeterminate", ["e2"]))
 
 
 if __name__ == "__main__":
