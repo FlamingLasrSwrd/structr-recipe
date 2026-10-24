@@ -33,6 +33,7 @@ PAGES = {                    # name: (title, script)
     "recipe": ("Recipe", "recipe.js"),
     "nutrition": ("Nutrition", "nutrition.js"),
     "pantry": ("Pantry", "pantry.js"),
+    "shopping": ("Shopping list", "shopping.js"),
 }
 LOGIN = "login"
 LOGIN_GRANT = {"signature": "_login", "flags": 64}     # an anonymous POST to /structr/rest/login (cheatsheet)

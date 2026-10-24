@@ -12,6 +12,8 @@ superuser (Structr honours the X-User headers for pages) and compares the data b
   recipes     nutrition_scope.stored_figure for each recipe and nutrient shown
   recipe      one recipe's ingredients and stored figures, for the first recipe in the book
   pantry      inventory.current_magnitude and instance_expiration for every portion on hand
+  shopping    shopping.shopping_list: each food to buy, what is needed and on hand, the cost at
+              "Home prices" where it exists, and what the pantry covers
 
 for every week with entries. Read-only, so meant for the owner's instance as well as any other.
 Exits 1 on any difference.
@@ -27,6 +29,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner.connection import connect
 from mealplanner.inventory import current_magnitude, instance_expiration, mass_quality
+from mealplanner.prices import price_table
+from mealplanner.profiles import ProfileError
+from mealplanner.shopping import shopping_list
 from mealplanner.nutrition_scope import (
     FMT, _source_plan, active_entries, entry_servings_eaten, nutrition_report, stored_figure,
 )
@@ -159,6 +164,32 @@ def check_pantry(client, reads, problems: list[str]) -> int:
     return counted
 
 
+def check_shopping(client, week: dict, problems: list[str]) -> int:
+    shown = page_data(client, f"shopping/{week['id']}")
+    try:
+        prices = price_table(client, "Home prices")
+    except ProfileError:
+        prices = None
+    want = shopping_list(client, week["id"], datetime.now(timezone.utc), prices)
+    got = {row["food"]: row for row in shown["to_buy"]}
+    if set(got) != {line.food for line in want.to_buy}:
+        problems.append(f"shopping {week['name']!r}: the page lists {sorted(set(got) ^ {l.food for l in want.to_buy})} differently")
+    for line in want.to_buy:
+        row = got.get(line.food)
+        if row is None:
+            continue
+        for key, value in (("buy", line.buy), ("need", line.need), ("have", line.have), ("cost", line.cost)):
+            if not close(row[key], value):
+                problems.append(f"shopping {week['name']!r}, {line.food}: {key} shown {row[key]!r}, is {value!r}")
+        if utc(row["first"]) != line.first_needed:
+            problems.append(f"shopping {week['name']!r}, {line.food}: first needed {row['first']!r}, is {line.first_needed!r}")
+    if sorted(r["food"] for r in shown["covered"]) != [line.food for line in want.covered]:
+        problems.append(f"shopping {week['name']!r}: the pantry covers differ")
+    if shown["unquantified"] != want.unquantified or sorted(shown["not_bought"]) != want.not_bought:
+        problems.append(f"shopping {week['name']!r}: what has no amount, or is not bought, differs")
+    return len(want.to_buy)
+
+
 def main(argv=None) -> int:
     client = connect(owner_data_ok=True)     # read-only
     client.wait_until_ready()
@@ -168,7 +199,8 @@ def main(argv=None) -> int:
     for week in weeks:
         entries = check_week(client, reads, week, problems)
         groups = check_nutrition(client, week, problems)
-        print(f"{week['name']}: {entries} entries, {groups} target groups")
+        bought = check_shopping(client, week, problems)
+        print(f"{week['name']}: {entries} entries, {groups} target groups, {bought} foods to buy")
     print(f"recipes: {check_recipes(client, reads, problems)} shown")
     print(f"pantry: {check_pantry(client, reads, problems)} portions on hand")
     for problem in problems:

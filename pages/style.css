@@ -11,4 +11,5 @@ th { font-weight: 600; white-space: nowrap; } td.num, td.ok, td.below_min, td.ab
 span.ok, span.below_min, span.above_max, span.indeterminate { padding: 0 6px; border-radius: 3px; }
 .note, small { color: var(--muted); } .estimated { font-style: italic; } .hard { font-size: 0.8em; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
 .ahead { color: var(--muted); font-size: 0.9em; } dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; } dt { color: var(--muted); }
+table.shopping tr.done td { text-decoration: line-through; opacity: 0.55; } table.shopping input { width: 1.2em; height: 1.2em; }
 form { display: grid; gap: 8px; max-width: 320px; } input, button { font: inherit; padding: 6px 8px; }

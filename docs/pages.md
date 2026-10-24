@@ -6,6 +6,7 @@ Structr serves four pages and a recipe page from the planner's own graph (the ow
 | Page | Address | What it shows |
 |---|---|---|
 | Week | `/structr/html/week[/<MealPlan id>]` | a committed week's meals by day: cook or leftovers, servings cooked, each person's servings, and when to start a dish made ahead (J29) |
+| Shopping | `/structr/html/shopping[/<MealPlan id>][?prices=<level>]` | a committed week's shopping list, as `tools/shopping_list.py` makes it: by the day each food is first needed, what to buy (a count where the recipes count it), what is on hand, the cost at a price level (default `Home prices`), what the pantry covers and what a recipe gives no amount for; a tick box on each line, remembered in that browser. Stock policies' levels are not applied here (the tool applies them; the page says so when one exists) |
 | Recipes | `/structr/html/recipes[?meal=Breakfast]` | the book the planner chooses from (no baselines, nothing retired): meal types, minutes, difficulty, servings, and energy, protein, fibre and sodium a serving where targets are about them |
 | Recipe | `/structr/html/recipe/<Plan id>` | one version: where it came from, its facts, its ingredients and amounts step by step, and every stored figure per serving with what it rests on. Instructions are not stored, so not shown |
 | Nutrition | `/structr/html/nutrition[/<MealPlan id>]` | each of the week's targets judged at its own scope, per person: met, under, over or unknown, per day (and per meal or week where a target is scoped so) |
@@ -21,7 +22,7 @@ Each page is one server-side script: `pages/common.js`, then `pages/<name>.js`, 
 JavaScript engine (GraalJS) as the signed-in user, inside a `Page > html > (head, body)` tree that
 `tools/install_pages.py` creates. The scripts work their figures out again, as the Python modules do,
 each function naming the one it follows: `nutrition_scope.nutrition_report` and its helpers,
-`inventory.current_magnitude` and `instance_expiration`, `defaults.resolve_default`,
+`inventory.current_magnitude` and `instance_expiration`, `shopping.shopping_list`, `defaults.resolve_default`,
 `unit_conversion.convert_to_grams`. That is the cost of pages served by Structr: Python cannot run
 there. `tools/check_pages.py` is the guard: it renders every page, reads the data block each prints
 (`<script id="page-data">`), and compares it with Python's answer for the same graph.
