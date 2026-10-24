@@ -62,6 +62,7 @@ class TheWeekFile(unittest.TestCase):
                 with mock.patch.object(tool, "connect", return_value=client), \
                         mock.patch.object(tool, "ensure_week", return_value="week"), \
                         mock.patch.object(tool, "template", return_value=[]), \
+                        mock.patch.object(tool, "requests_elsewhere", return_value=[]), \
                         mock.patch.object(tool, "plan_week", fake_plan), mock.patch.object(tool, "history", return_value=""), \
                         mock.patch("builtins.print"):
                     started = tool.monotonic()

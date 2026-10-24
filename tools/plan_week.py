@@ -32,7 +32,9 @@ private/week.toml:
     cook = ["Adobo loco steak", { recipe = "Balsamic fig chicken", on = "Wed Dinner" }]
                                         # optional: recipes to cook this week, each at least once (twice if
                                         # listed twice); the planner picks the meal, portions and leftovers,
-                                        # unless `on` names the meal ("Wed Dinner" or "Wed 28 Oct Dinner")
+                                        # unless `on` names the meal ("Wed Dinner" or "Wed 28 Oct Dinner").
+                                        # The recipes asked for the week from the recipe pages' "Cook in
+                                        # the week of ..." button are added, once each (mealplanner/requests.py)
     repeat_tolerance = 2                # optional: the most meals of the week one recipe may be, fresh, as
                                         # leftovers or made at a prep session; a hard limit, this week only.
                                         # 1: never the same meal twice (so no leftovers); 2: cook once, eat
@@ -82,6 +84,7 @@ from mealplanner.planning.nutrients import describe_nutrients
 from mealplanner.planning.plan import plan_week
 from mealplanner.planning.proposal import ProposalError, to_data
 from mealplanner.prices import describe_cost
+from mealplanner.requests import week_start
 from mealplanner.vocabulary_import import Sync
 
 STRUCTR_TIME = "%Y-%m-%dT%H:%M:%S%z"
@@ -243,6 +246,21 @@ def ensure_week(client, week: dict) -> str:
     return sync.ensure("MealPlan", name, fields)
 
 
+def requests_elsewhere(client, meal_plan_id: str, today: date) -> list[str]:
+    """Recipes asked for from the recipe pages for a week not yet planned and not yet over, other
+    than this one (mealplanner/requests.py): a week file starting on another day leaves them out."""
+    lines = []
+    for plan in client.get_all("MealPlan")["result"]:
+        if plan["id"] == meal_plan_id or plan.get("hasEntry") or not plan.get("requestsRecipe"):
+            continue
+        start = week_start(plan)
+        if start is None or start + timedelta(days=7) <= today:
+            continue
+        names = ", ".join(sorted(r["name"] for r in plan["requestsRecipe"]))
+        lines.append(f"note: {plan['name']}, not this week, has recipes asked for from the recipe pages: {names}")
+    return lines
+
+
 def template(client, meal_plan_id: str, week: dict) -> list[SlotSpec]:
     """A slot for every meal of every day, except where a committed meal already is."""
     meal_plan = client.get_all("MealPlan", meal_plan_id)["result"]
@@ -296,6 +314,8 @@ def main(argv=None) -> int:
         week = read_week(args.week)
         meal_plan_id = ensure_week(client, week)
         slots = template(client, meal_plan_id, week)
+        for line in requests_elsewhere(client, meal_plan_id, datetime.now(week["zone"]).date()):
+            print(line)
     except WeekError as exc:
         for problem in exc.args[0]:
             print(f"problem: {problem}")

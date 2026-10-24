@@ -591,6 +591,12 @@
   "targetJsonName": "hasEntry",
   "targetMultiplicity": "*"
  },
+ "@schema | relationship MealPlan -[REQUESTS_RECIPE]-> RecipeIdentity": {
+  "sourceJsonName": "requestedIn",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "requestsRecipe",
+  "targetMultiplicity": "*"
+ },
  "@schema | relationship MealPlanEntry -[ABOUT]-> TemporalRegion": {
   "sourceJsonName": "mealPlanEntriesAbout",
   "sourceMultiplicity": "*",

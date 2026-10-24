@@ -12,6 +12,9 @@ same food, and it compares:
   what the inventory engine then says of the two portions: grams on hand, days to expiry;
   that sending the page's form again writes nothing new.
 
+It also asks for a recipe in the next week to plan from its page and takes it back, both
+through the page and through mealplanner/requests.py (pages/recipe.js; data-model.md J33).
+
 It also says whether the page could write as the superuser for a user who is not one
 ($.doPrivileged), which is what lets a household member's booking through. Exits 1 on any
 difference. Needs STRUCTR_SUPERUSER_PASSWORD and STRUCTR_URL.
@@ -23,16 +26,18 @@ import os
 import re
 import secrets
 import sys
-from datetime import datetime, timedelta, timezone
+import time
+from datetime import date, datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mealplanner import pantry
+from mealplanner import pantry, requests
 from mealplanner.connection import connect
 from mealplanner.inventory import FMT, instance_expiration
-from mealplanner.nutrition_scope import raw_inputs
+from mealplanner.nutrition_scope import day_zone, raw_inputs
 
 DATA = re.compile(r'<script type="application/json" id="booking-data">(.*?)</script>', re.S)
+PAGE_DATA = re.compile(r'<script type="application/json" id="page-data">(.*?)</script>', re.S)
 FIELDS = {     # what a booking writes on each type
     "TemporalRegion": ("hasBeginning",),
     "Process": ("hasKind", "occupiesTemporalRegion", "concretizes"),
@@ -210,6 +215,9 @@ def main(argv=None) -> int:
 
         print("cook")
         cook_check(check, client, t, args.food, args.keeps)
+
+        print("ask for a recipe next week")
+        request_check(check, client)
     finally:
         if not args.keep:
             for name in ("Pantry Operation", "Purchase", "Use", "Discarding"):
@@ -286,6 +294,69 @@ def cook_check(check: Check, client, t: dict, food: str, keeps: str) -> None:
     if not again["problem"] or "already cooked" not in again["problem"]:
         check.fail(f"cooking the same entry again: {again}")
     print(f"  {plan['name']}: drew {a or 'nothing'} both ways; short of {[s.food for s in short] or 'nothing'}")
+
+
+def request_check(check: Check, client) -> None:
+    """The recipe page's "Cook in the week of ..." (pages/recipe.js) against mealplanner/requests.py:
+    the week it offers, the request it writes and takes back, and that asking twice writes nothing."""
+    plan = next((p for p in client.get_all("Plan")["result"] if p.get("specializationOf")), None)
+    if plan is None:
+        check.fail("no recipe with a RecipeIdentity to ask for")
+        return
+    recipe = plan["specializationOf"]["id"]
+
+    def shown() -> dict:
+        r = client.session.get(f"{client.base_url}/structr/html/recipe/{plan['id']}", timeout=client.timeout)
+        r.raise_for_status()
+        return json.loads(PAGE_DATA.search(r.text).group(1))["request"]
+
+    def settled(start, want: list) -> list:
+        """The week's requests once the page's write has committed, a moment after it answers."""
+        for _ in range(20):
+            got = [r["id"] for r in requests.requested(client, start)]
+            if got == want:
+                break
+            time.sleep(0.25)
+        return got
+
+    weeks = sorted((w for w in client.get_all("MealPlan")["result"] if w.get("hasEntry") and requests.week_start(w)),
+                   key=requests.week_start)
+    zone = None                       # today is the latest week's local day, as pages/common.js weekZone has it
+    for c in (weeks[-1].get("hasConstraint") or []) if weeks else []:
+        if c["type"] == "NutritionTarget" and zone is None:
+            zone = day_zone(client.get_all("NutritionTarget", c["id"])["result"].get("dayBoundaryRule"))
+    offered = shown()
+    start = date.fromisoformat(offered["week"])
+    expected = requests.next_week_start(client, datetime.now(zone or timezone.utc).date())
+    if start != expected:
+        check.fail(f"the page offers the week of {start}, requests.next_week_start {expected}")
+    existed = requests._week(client, start) is not None
+    before = [r["id"] for r in requests.requested(client, start)]
+    if recipe in before:
+        print(f"  {plan['name']} is asked for that week already; left alone")
+        return
+    try:
+        got = check.page(f"recipe/{plan['id']}", do="ask", recipe=recipe, week=offered["week"], token=secrets.token_hex(4))
+        if got["problem"] or settled(start, before + [recipe]) != before + [recipe]:
+            check.fail(f"asking through the page: {got}")
+        week = requests._week(client, start)
+        if week and (week.get("visibleToAuthenticatedUsers"), week.get("visibleToPublicUsers")) != (True, False):
+            check.fail(f"{week['name']}: visibility not stated")
+        again = check.page(f"recipe/{plan['id']}", do="ask", recipe=recipe, week=offered["week"], token=secrets.token_hex(4))
+        if again["created"] or settled(start, before + [recipe]) != before + [recipe]:
+            check.fail(f"asking twice wrote again: {again}")
+        if not requests.withdraw(client, recipe, start) or settled(start, before) != before:
+            check.fail("requests.withdraw did not take back what the page asked for")
+        if not requests.ask(client, recipe, start) or not shown()["asked"]:
+            check.fail("the page does not see what requests.ask wrote")
+        check.page(f"recipe/{plan['id']}", do="withdraw", recipe=recipe, week=offered["week"], token=secrets.token_hex(4))
+        if settled(start, before) != before:
+            check.fail("withdrawing through the page left the request")
+    finally:
+        week = requests._week(client, start)
+        if not existed and week is not None and not week.get("requestsRecipe"):
+            client.delete(f"/structr/rest/MealPlan/{week['id']}")
+    print(f"  {plan['name']}: the week of {start}, asked for and taken back both ways")
 
 
 if __name__ == "__main__":

@@ -51,6 +51,17 @@ const pages = Math.max(1, Math.ceil(book.length / PAGE_SIZE));
 const shown = book.slice((pageNo - 1) * PAGE_SIZE, pageNo * PAGE_SIZE);
 const figures = columns.map((id) => figuresFor(nutrients[id][0], nutrients[id][1]));
 
+// the recipes asked for the next week to plan, from their pages' "Cook in the week of ..." (requests.py)
+function askedLine() {
+  const start = nextWeekStart(), asked = requestedIn(start).slice().sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  if (!asked.length) return "";
+  const linked = asked.map((r) => {
+    const latest = (r.planVersions || []).slice().sort((a, b) => String(a.name).localeCompare(String(b.name), "en", {numeric: true})).pop();
+    return latest ? "<a href=\"/structr/html/recipe/" + latest.id + "\">" + esc(r.name) + "</a>" : esc(r.name);
+  });
+  return "<p class=\"note\">Asked for the week of " + esc(weekWords(start)) + ": " + linked.join(", ") + ".</p>";
+}
+
 const link = (m, p) => "/structr/html/recipes?" + (m ? "meal=" + encodeURIComponent(m) + "&" : "") + "page=" + p;
 let html = nav("recipes") + "<h1>Recipes</h1><p class=\"filters\">"
   + [meal ? "<a href=\"/structr/html/recipes\">All</a>" : "<b>All</b>"]
@@ -58,7 +69,7 @@ let html = nav("recipes") + "<h1>Recipes</h1><p class=\"filters\">"
     .join(" · ") + " — " + book.length + " recipe" + (book.length === 1 ? "" : "s")
   + (pages > 1 ? ", page " + pageNo + " of " + pages + " " + (pageNo > 1 ? "<a href=\"" + link(meal, pageNo - 1) + "\">previous</a> " : "")
     + (pageNo < pages ? "<a href=\"" + link(meal, pageNo + 1) + "\">next</a>" : "") : "") + "</p>"
-  + "<table><thead><tr><th>Recipe</th><th>Meals</th><th>Minutes</th><th>Difficulty</th><th>Servings</th>"
+  + askedLine() + "<table><thead><tr><th>Recipe</th><th>Meals</th><th>Minutes</th><th>Difficulty</th><th>Servings</th>"
   + columns.map((id) => "<th>" + esc(nutrients[id][0].name) + "<br><small>" + esc(nutrients[id][1]) + " a serving</small></th>").join("")
   + "</tr></thead><tbody>";
 const data = [];
