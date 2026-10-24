@@ -37,8 +37,8 @@ from __future__ import annotations
 from datetime import timedelta
 
 from mealplanner.planning.evaluate import (
-    REQUEST_MEASURE, baseline_in, basic_reason, evaluate, ineligible_reason, initial_partial, intake, meal_type_reason,
-    prep_reason, resolve, slot_groups,
+    REQUEST_MEASURE, baseline_in, basic_reason, cook_minutes, evaluate, ineligible_reason, initial_partial, intake,
+    meal_type_reason, prep_reason, resolve, slot_groups,
 )
 from mealplanner.planning.model import Pick, PlanningProblem
 from mealplanner.planning.search import SearchResult
@@ -241,15 +241,18 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
     # ---- time, soft exclusion, and the stock/waste ceiling: coefficients on x and y
     optimistic = bool(problem.lots) and (w.stock + w.waste) > 0
     exact_stock = not optimistic
+    def cooking(c) -> int:                                 # the week's cooking time, when the week weighs it
+        return round(w.cooking_time * cook_minutes(problem, c) / 60.0 * OS)
+
     for (s, cid), var in x.items():
         c = problem.candidates[cid]
-        coef = round(w.time * time_fit_score(c.minutes, w.time_budget_minutes) * OS) - round(c.soft_penalty * OS)
+        coef = round(w.time * time_fit_score(c.minutes, w.time_budget_minutes) * OS) - round(c.soft_penalty * OS) - cooking(c)
         if optimistic:
             coef += round((w.stock + w.waste) * OS)
         objective.append((var, coef))
     for (s, cid, k), var in p.items():                  # made ahead: nothing to cook at the meal, as leftovers
         c = problem.candidates[cid]
-        coef = round(w.time * 1.0 * OS) - round(c.soft_penalty * OS)
+        coef = round(w.time * 1.0 * OS) - round(c.soft_penalty * OS) - cooking(c)
         if optimistic:
             coef += round((w.stock + w.waste) * OS)
         objective.append((var, coef))

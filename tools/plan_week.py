@@ -42,6 +42,10 @@ private/week.toml:
     time = 0.5
     variety = 0.5
     time_budget_minutes = 60
+    cooking_time = 1                    # this week only, not written: points off per hour of the week's
+                                        # cooking. 0 (the default) ignores it; about 0.5 a little, 1 a busy
+                                        # week, 2-4 a very busy one (measured: 610 min of cooking fell to
+                                        # 465 at 0.5-2 and 415 at 4, a 0.3-0.4 lower score otherwise)
 
 Without `household`, the week has one eater, as before households: `baseline = [...]` names
 what is counted every day, and the targets are those with the prefix that belong to no one.
@@ -141,6 +145,9 @@ def read_week(path: str) -> dict:
             week["preps"] = prep_sessions(week)
         except WeekError as exc:
             problems.extend(exc.args[0])
+    cooking = week.get("weights", {}).get("cooking_time", 0)
+    if isinstance(cooking, bool) or not isinstance(cooking, (int, float)) or cooking < 0:
+        problems.append(f"[weights] cooking_time is points an hour, 0 or more, like 1, not {cooking!r}")
     above = week.get("shortlist_above")
     if above is not None and (isinstance(above, bool) or not isinstance(above, int) or above < 1):
         problems.append(f"shortlist_above must be a whole number of recipes, like 60, not {above!r}")
@@ -299,6 +306,7 @@ def main(argv=None) -> int:
                            portions=tuple(week.get("portions", [])),
                            eater_portions={p: tuple(v) for p, v in week.get("portions_by_person", {}).items()},
                            proposal=proposal, requests=week["requests"], preps=week["preps"],
+                           cooking_time=float(week.get("weights", {}).get("cooking_time", 0)),
                            **limits, **({"shortlist_above": week["shortlist_above"]} if "shortlist_above" in week else {}))
     except RequestError as exc:
         print(f"problem: {exc}")

@@ -71,6 +71,7 @@ def scores(problem: PlanningProblem) -> dict[str, float]:
     out = {}
     for c in problem.candidates.values():
         score = w.time * time_fit_score(c.minutes, w.time_budget_minutes) - c.soft_penalty
+        score -= w.cooking_time * (c.minutes if c.minutes is not None else w.time_budget_minutes) / 60.0
         kcal = c.nutrients.get(energy) if energy else None
         for t in problem.targets:
             weight = HARD_WEIGHT if t.hard else t.weight
