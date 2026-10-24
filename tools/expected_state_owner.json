@@ -1207,6 +1207,20 @@
   ],
   "isAbstract": false
  },
+ "@schema | view NutrientProfile.planning": {
+  "properties": [
+   "amount",
+   "basis",
+   "forNutrient",
+   "id",
+   "name",
+   "provenance",
+   "servingOf",
+   "source",
+   "type",
+   "unit"
+  ]
+ },
  "Concept | Breakfast": {
   "inScheme": "<ConceptScheme:Meal Type>",
   "name": "Breakfast"
