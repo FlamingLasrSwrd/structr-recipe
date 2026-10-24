@@ -35,7 +35,7 @@ from mealplanner.nutrition_scope import (
     SERVING_BASIS, active_entries, baseline_day_intake, baseline_plans, convert_nutrient, entry_servings_eaten,
     entry_start, serving_nutrient_figure, stored_serving_profiles, target_scope_problem,
 )
-from mealplanner.planning.model import Candidate, Fixed, Lot, PlanningProblem, Slot, Target, Weights
+from mealplanner.planning.model import Candidate, Fixed, Lot, PlanningProblem, Request, Slot, Target, Weights
 from mealplanner.planning.shortlist import FACTOR, SHORTLIST_ABOVE, choose
 from mealplanner.planning_view_schema import TYPE as VIEW_TYPE, VIEW as PLANNING_VIEW
 from mealplanner.recipe_nutrition import PREFETCH_ABOVE
@@ -80,11 +80,45 @@ def stored_figures_view(client) -> str:
     return "all"
 
 
+class RequestError(ValueError):
+    """A recipe asked for that the week cannot take: no such recipe, or no such meal to pin it to."""
+
+
+def _requested_plans(client, plans: list, name: str) -> list[str]:
+    """The Plans that answer a request by name: a recipe's versions ("<name> v<n>", or a version of the
+    RecipeIdentity of that name), or the one Plan of that name."""
+    found = []
+    for plan in plans:
+        recipe_ref = plan.get("specializationOf")
+        recipe = client.get_all("RecipeIdentity", recipe_ref["id"])["result"].get("name") if recipe_ref else None
+        base, _, version = plan["name"].rpartition(" v")
+        if plan["name"] == name or recipe == name or (base == name and version.isdigit()):
+            found.append(plan["id"])
+    if not found:
+        raise RequestError(f"no recipe named {name!r} to cook this week")
+    return found
+
+
+def _pinned_slot(slots: list, on: str, name: str) -> int:
+    """The open slot `on` names: its whole label ("Wed 28 Oct Dinner"), or a weekday and a meal type
+    ("Wed Dinner")."""
+    exact = [i for i, s in enumerate(slots) if s.fixed is None and s.key == on]
+    if exact:
+        return exact[0]
+    day, _, meal = on.partition(" ")
+    found = [i for i, s in enumerate(slots) if s.fixed is None and s.key.split(" ")[0].lower() == day.lower()
+             and (s.meal_type or "").lower() == meal.strip().lower()]
+    if len(found) != 1:
+        raise RequestError(f"{name!r} is asked for on {on!r}, which is " + ("no open meal of the week" if not found else
+                           f"{len(found)} meals of the week: name one, like {slots[found[0]].key!r}"))
+    return found[0]
+
+
 def build_problem(
     client, meal_plan_id: str, template, now: datetime, *,
     servings_eaten: float = 1.0, max_difficulty: str | None = None, leftover_days: float | None = None,
     leftovers: bool = True, portions: tuple = (), eater_portions: dict | None = None,
-    shortlist_above: int | None = SHORTLIST_ABOVE, shortlist_factor: float = FACTOR,
+    shortlist_above: int | None = SHORTLIST_ABOVE, shortlist_factor: float = FACTOR, requests: tuple = (),
 ) -> PlanningProblem:
     """Read the MealPlan, the recipes, the stock and the constraints into a
     PlanningProblem for the slots in `template` (an iterable of SlotSpec).
@@ -98,7 +132,11 @@ def build_problem(
     before its recipes are read in full: every recipe's stored figures, meal types and
     minutes are read, the best fits to the week are kept (planning/shortlist.py, with
     `shortlist_factor`), and only those, with any a committed meal cooks, are read for
-    their ingredients, stock and exclusions. `book_size` says how many there were."""
+    their ingredients, stock and exclusions. `book_size` says how many there were.
+
+    requests: (recipe name, meal or None) pairs, the recipes the owner asked to have cooked
+    this week (model.Request): each is read whatever the shortlist says, and a meal named
+    ("Wed Dinner") pins it there. RequestError when a name or a meal matches nothing."""
     client = ReadCache(client)
     # Read in bulk what the recipes read node by node: profiled on the owner's week, these
     # types were 21,297 of 21,804 requests, one node each (552 of 589 s of reading). The
@@ -252,6 +290,10 @@ def build_problem(
     for person in people.values():
         baseline_ids |= {ref["id"] for ref in person.get("hasBaseline", [])}
     all_plans = client.get_all("Plan")["result"]
+    asked = [(name, on, _requested_plans(client, [p for p in all_plans if p["id"] not in baseline_ids], name))
+             for name, on in requests]
+    for _, _, plan_ids in asked:
+        forced.update(plan_ids)            # read in full whatever the shortlist says, retired or not
     stored_in_use = any(plan.get("servingProfiles") for plan in all_plans)
     if stored_in_use:
         client.prefetch_where("NutrientProfile", basis=SERVING_BASIS, view=stored_figures_view(client))
@@ -342,11 +384,21 @@ def build_problem(
             ahead_hours=plan.get("makeAheadHours") or 0.0,
         )
     notes.extend(slot_notes + baseline_notes)
+    wanted = []
+    for name, on, plan_ids in asked:
+        answer = frozenset(pid for pid in plan_ids if pid in candidates)
+        if not answer:
+            raise RequestError(f"{name!r} is asked for, but has no yield in servings, so it cannot be planned")
+        wanted.append(Request(name, answer, _pinned_slot(slots, on, name) if on else None))
+    if wanted:
+        notes.append("asked for this week: " + ", ".join(r.name + (f" ({slots[r.slot].key})" if r.slot is not None else "")
+                                                         for r in wanted))
     lots = tuple(
         Lot(pool=root, grams=lot.grams, expires=lot.expires, name=lot.name)
         for root, pool_lots in lots_by_pool.items() for lot in pool_lots
     )
-    return PlanningProblem(slots=tuple(slots), candidates=candidates, lots=lots, notes=notes, book_size=len(book), **week)
+    return PlanningProblem(slots=tuple(slots), candidates=candidates, lots=lots, notes=notes, book_size=len(book),
+                           requests=tuple(wanted), **week)
 
 
 def _figures(client, plan: dict, unit_of: dict) -> tuple[dict, set, set]:

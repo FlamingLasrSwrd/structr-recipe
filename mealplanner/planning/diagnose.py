@@ -59,6 +59,8 @@ def describe_violation(v: Violation) -> str:
         return f"{where}: {v.total:g} against a minimum of {v.bound:g} ({v.bound - v.total:g} short)"
     if v.kind == "above_max":
         return f"{where}: {v.total:g} against a maximum of {v.bound:g} ({v.total - v.bound:g} over)"
+    if v.kind == "not_cooked":
+        return f"{v.nutrient}: asked for {v.bound:g} time(s) this week, cooked {v.total:g}"
     return f"{where}: cannot be certified, an entry has no {v.nutrient} figure"
 
 

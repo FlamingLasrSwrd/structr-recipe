@@ -32,6 +32,9 @@ from mealplanner.planning.model import DIFFICULTY_ORDER, Pick, PlanningProblem, 
 from mealplanner.scoring import NEUTRAL, nutrition_fit_score, time_fit_score, variety_bonus, waste_urgency
 
 EPS = 1e-9
+# What a recipe the owner asked for and the week leaves out adds to the violation measure: as
+# much as a hard target missed by its whole range, so relaxed mode and the bounds weigh it as one.
+REQUEST_MEASURE = 1.0
 
 
 # ---------------------------------------------------------------- assignments
@@ -224,6 +227,9 @@ def options(problem: PlanningProblem, partial, i: int) -> list:
             for v in variants
         )
     picks = list(problem._cache[key])
+    request = problem.pinned().get(i)
+    if request is not None:                       # a recipe asked for at this meal: a fresh cook of it, nothing else
+        return [p for p in picks if p.candidate in request.candidates]
     if any(c.leftover_days is not None for c in problem.candidates.values()):
         resolved, _ = resolve(problem, partial[:i] + [None] * (len(partial) - i))
         for j in range(i):
@@ -507,6 +513,36 @@ def _violations(problem: PlanningProblem, groups) -> list[Violation]:
     return found
 
 
+def request_room(problem: PlanningProblem) -> dict:
+    """For each wanted recipe (PlanningProblem.wanted), the open slots pinned to no request where
+    one of its versions may be cooked fresh."""
+    key = ("request room",)
+    if key not in problem._cache:
+        pinned = problem.pinned()
+        problem._cache[key] = {
+            candidates: frozenset(i for i in problem.open_slots() if i not in pinned and any(
+                ineligible_reason(problem, i, problem.candidates[c]) is None for c in candidates))
+            for _, candidates, _ in problem.wanted()}
+    return problem._cache[key]
+
+
+def requests_cooked(problem: PlanningProblem, partial, candidates: frozenset) -> int:
+    """Fresh cooks of these recipes at slots pinned to no request, fixed slots included."""
+    pinned = problem.pinned()
+    return sum(1 for i, pick in enumerate(partial)
+               if i not in pinned and pick is not None and pick.candidate in candidates)
+
+
+def _request_violations(problem: PlanningProblem, picks) -> list[Violation]:
+    found = []
+    for name, candidates, count in problem.wanted():
+        cooked = requests_cooked(problem, picks, candidates)
+        if cooked < count:
+            found.append(Violation(f"{name}, asked for", name, "the week", "not_cooked", cooked, count,
+                                   (count - cooked) * REQUEST_MEASURE))
+    return found
+
+
 def _time_term(problem: PlanningProblem, r: Resolved) -> float:
     if r.kind == "leftover":
         return 1.0                                    # nothing to cook, so nothing to overrun
@@ -545,6 +581,9 @@ def evaluate(problem: PlanningProblem, picks) -> Evaluation:
                 problems.append(f"{slot.key}: {len(eaters)} people eat this meal, so give shares, not one portion")
             elif pick.portion not in problem.portion_levels(eaters[0]):
                 problems.append(f"{slot.key}: a portion of {pick.portion:g} is not one of {list(problem.portion_levels(eaters[0]))}")
+        request = problem.pinned().get(i)
+        if request is not None and pick.candidate not in request.candidates:
+            problems.append(f"{slot.key}: {request.name} was asked for here")
         if pick.candidate is not None:
             candidate = problem.candidates.get(pick.candidate)
             if candidate is None:
@@ -558,7 +597,7 @@ def evaluate(problem: PlanningProblem, picks) -> Evaluation:
 
     weights = problem.weights
     groups = group_states(problem, resolved)
-    violations = _violations(problem, groups)
+    violations = _violations(problem, groups) + _request_violations(problem, picks)
     bonuses = variety_bonuses(problem, resolved)
     stock = allocate_stock(problem, resolved, cooked)
 
@@ -615,6 +654,11 @@ def prefix_bound(problem: PlanningProblem, partial) -> Bound:
     groups = group_states(problem, resolved)
     weights = problem.weights
     violation = sum(group_violation(g)[1] for g in groups if g.target.hard)
+    if problem.requests:
+        room = request_room(problem)
+        for _, candidates, count in problem.wanted():
+            left = sum(1 for i in room[candidates] if partial[i] is None)
+            violation += max(0, count - requests_cooked(problem, partial, candidates) - left) * REQUEST_MEASURE
     bonuses = variety_bonuses(problem, resolved)
     ceiling = 0.0
     for i, slot in enumerate(problem.slots):
