@@ -18,3 +18,5 @@ form.inline { display: inline-flex; flex-wrap: wrap; gap: 4px; max-width: none; 
 form.inline input, form.inline select, form.inline button { padding: 3px 6px; } form.inline input[type=number] { width: 6em; }
 details summary { cursor: pointer; color: var(--accent); } details.buy { margin: 8px 0 12px; }
 p.problem { background: var(--over); padding: 6px 10px; border-radius: 4px; } p.booked { background: var(--ok); padding: 6px 10px; border-radius: 4px; }
+tr.skipped td { color: var(--muted); } span.skipped { text-decoration: line-through; }
+details.change { display: inline-block; margin-left: 6px; } details.change summary { cursor: pointer; font-size: 0.9em; color: var(--muted); }

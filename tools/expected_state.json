@@ -140,6 +140,13 @@
   "propertyType": "Double",
   "unique": false
  },
+ "@schema | property MealPlanEntry.eatenInstead": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "String",
+  "unique": false
+ },
  "@schema | property MealPlanEntry.hasPlannedServings": {
   "format": null,
   "indexed": false,

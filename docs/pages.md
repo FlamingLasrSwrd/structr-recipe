@@ -7,7 +7,7 @@ page's "Mark cooked" (docs/pantry.md).
 
 | Page | Address | What it shows |
 |---|---|---|
-| Week | `/structr/html/week[/<MealPlan id>]` | a committed week's meals by day: cook or leftovers, servings cooked, each person's servings, and when to start a dish made ahead (J29). **Mark cooked** on a meal not yet cooked takes its ingredients out of the pantry, soonest to expire first, and says what the pantry did not hold (`pantry.cook`) |
+| Week | `/structr/html/week[/<MealPlan id>]` | a committed week's meals by day: cook or leftovers, servings cooked, each person's servings, and when to start a dish made ahead (J29). **Mark cooked** on a meal not yet cooked takes its ingredients out of the pantry, soonest to expire first, and says what the pantry did not hold (`pantry.cook`). **Didn't make it** (or **Won't make it**, for a meal still to come) skips a meal not cooked, with what was eaten instead: a recipe from the book (suggested as you type) is planned in its place for the same people and servings; anything else is kept in its words, and leaves those people's nutrition for the day unknown; nothing frees the meal. Skipping a cook skips the meals that were to eat its leftovers. **Undo** plans a skipped meal again. When meals still to come are free, the page says to plan them with `tools/plan_week.py` (`menu_changes.skip`, `unskip`; data-model.md J34) |
 | Shopping | `/structr/html/shopping[/<MealPlan id>][?prices=<level>]` | a committed week's shopping list, as `tools/shopping_list.py` makes it: by the day each food is first needed, what to buy (a count where the recipes count it), what is on hand, the cost at a price level (default `Home prices`), what the pantry covers and what a recipe gives no amount for; a tick box on each line, remembered in that browser. Stock policies' levels are not applied here (the tool applies them; the page says so when one exists) |
 | Recipes | `/structr/html/recipes[?meal=Breakfast]` | the book the planner chooses from (no baselines, nothing retired): meal types, minutes, difficulty, servings, and energy, protein, fibre and sodium a serving where targets are about them |
 | Recipe | `/structr/html/recipe/<Plan id>` | one version: where it came from, its facts, its ingredients and amounts step by step, and every stored figure per serving with what it rests on. Instructions are not stored, so not shown. A **Cook in the week of ...** button asks for the recipe in the next week to plan, and takes it back (`mealplanner/requests.py`, data-model.md J33); the recipe book lists what that week has asked for |
@@ -115,7 +115,11 @@ with the grant `--login` installs, and read every page with its session. Signed 
 `tools/check_bookings.py` found every booking the same both ways: buy (600 g, 5 days to expiry as
 Fresh Meat in the fridge), the same purchase sent again (nothing written), use (450 g left), count
 (420 g), open (2 days left), freeze (90 days: opened, in the freezer), discard (none left), and a cook
-of a two-serving braise drawing 500 g of chicken; and, later that day, a recipe asked for in the next week to plan from its page, asked again (nothing written) and taken back, through the page and through `mealplanner/requests.py` alike. A page's write commits a moment (about 0.3 s) after it answers, so the check waits for it. `$.doPrivileged` exists on Structr 6.0.0, so the
+of a two-serving braise drawing 500 g of chicken; and, later that day, a recipe asked for in the next week to plan from its page, asked again (nothing written) and taken back, through the page and through `mealplanner/requests.py` alike. A page's write commits a moment (about 0.3 s) after it answers, so the check waits for it; and a week's menu changed
+(a cook skipped with another recipe eaten instead, its leftover meal skipped with it, undone, then
+skipped with takeout instead) on two weeks alike, the same both ways. The nutrition page and
+`nutrition_report` agreed on a meal eaten instead (the day unknown) and on one skipped with nothing
+instead (the day short), once the development instance had stored figures per serving. `$.doPrivileged` exists on Structr 6.0.0, so the
 pages book as the superuser for whoever is signed in. Not yet seen: a household member's own booking
 through a browser, which needs their sign-in.
 

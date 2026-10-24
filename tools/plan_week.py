@@ -48,10 +48,17 @@ private/week.toml:
     time = 0.5
     variety = 0.5
     time_budget_minutes = 60
+    stock = 0.5                         # optional: how much using what the pantry holds counts, and using
+    waste = 0.5                         # what will expire soonest (both 0 unless given); with a week under
+                                        # way, they steer the free meals to what was bought for skipped ones
     cooking_time = 1                    # this week only, not written: points off per hour of the week's
                                         # cooking. 0 (the default) ignores it; about 0.5 a little, 1 a busy
                                         # week, 2-4 a very busy one (measured: 610 min of cooking fell to
                                         # 465 at 0.5-2 and 415 at 4, a 0.3-0.4 lower score otherwise)
+
+Changing the menu as the week goes (the week page's "Didn't make it"; mealplanner/menu_changes.py): a
+skipped meal with nothing eaten instead is free. Once the week has meals committed, running this again
+plans only the free meals still to come, around everything else, and --commit writes them.
 
 Without `household`, the week has one eater, as before households: `baseline = [...]` names
 what is counted every day, and the targets are those with the prefix that belong to no one.
@@ -77,7 +84,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mealplanner.connection import connect
 from mealplanner.household import latest_plan as household_latest_plan
 from mealplanner.profiles import ProfileError
-from mealplanner.nutrition_scope import active_entries, entry_start, nutrition_report
+from mealplanner.nutrition_scope import active_entries, eaten_instead_entries, entry_start, nutrition_report
 from mealplanner.planning.extract import RequestError, SlotSpec
 from mealplanner.planning.model import PrepSession
 from mealplanner.planning.nutrients import describe_nutrients
@@ -155,6 +162,10 @@ def read_week(path: str) -> dict:
     cooking = week.get("weights", {}).get("cooking_time", 0)
     if isinstance(cooking, bool) or not isinstance(cooking, (int, float)) or cooking < 0:
         problems.append(f"[weights] cooking_time is points an hour, 0 or more, like 1, not {cooking!r}")
+    for key in ("stock", "waste"):
+        value = week.get("weights", {}).get(key, 0)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+            problems.append(f"[weights] {key} is a weight, 0 or more, like 0.5, not {value!r}")
     tolerance = week.get("repeat_tolerance")
     if tolerance is not None:
         if isinstance(tolerance, bool) or not isinstance(tolerance, int) or tolerance < 1:
@@ -239,8 +250,8 @@ def ensure_week(client, week: dict) -> str:
     fields = {"isAbout": region, "hasConstraint": targets, "hasBaseline": baseline,
               "forHousehold": household["id"] if household else None}
     weights = week.get("weights", {})
-    for key, field_name in (("time", "timeBudgetWeight"), ("variety", "varietyWeight"),
-                            ("time_budget_minutes", "timeBudgetMinutes")):
+    for key, field_name in (("time", "timeBudgetWeight"), ("variety", "varietyWeight"), ("stock", "stockWeight"),
+                            ("waste", "wasteWeight"), ("time_budget_minutes", "timeBudgetMinutes")):
         if key in weights:
             fields[field_name] = float(weights[key])
     return sync.ensure("MealPlan", name, fields)
@@ -261,19 +272,30 @@ def requests_elsewhere(client, meal_plan_id: str, today: date) -> list[str]:
     return lines
 
 
-def template(client, meal_plan_id: str, week: dict) -> list[SlotSpec]:
-    """A slot for every meal of every day, except where a committed meal already is."""
+def template(client, meal_plan_id: str, week: dict, now: datetime | None = None, notes: list | None = None) -> list[SlotSpec]:
+    """A slot for every meal of every day, except where a committed meal already is, or a skipped
+    one with something else eaten in its place (mealplanner/menu_changes.py). Once the week has
+    meals committed, it is under way: a meal skipped before `now` is not planned again, only the
+    free meals still to come."""
     meal_plan = client.get_all("MealPlan", meal_plan_id)["result"]
-    taken = {entry_start(client, e) for e in active_entries(client, meal_plan)}
-    slots = []
+    taken = {entry_start(client, e) for e in active_entries(client, meal_plan) + eaten_instead_entries(client, meal_plan)}
+    taken = {t.astimezone(timezone.utc) for t in taken if t}
+    under_way = now is not None and bool(meal_plan.get("hasEntry"))
+    slots, past = [], 0
     for d in range(week.get("days", 7)):
         day = week["start"] + timedelta(days=d)
         for meal in week["meals"]:
             start = datetime.combine(day, meal["time"], week["zone"])
-            if start.astimezone(timezone.utc) in {t.astimezone(timezone.utc) for t in taken if t}:
+            if start.astimezone(timezone.utc) in taken:
+                continue
+            if under_way and start < now:
+                past += 1
                 continue
             eaters = tuple(meal["eaters"]) if meal.get("eaters") else None
             slots.append(SlotSpec(start, meal["type"], f"{day.strftime('%a %d %b')} {meal['type']}", eaters))
+    if past and notes is not None:
+        notes.append(f"the week is under way: {past} free meal{'s' if past != 1 else ''} already past "
+                     f"{'are' if past != 1 else 'is'} not planned again")
     return slots
 
 
@@ -313,7 +335,10 @@ def main(argv=None) -> int:
     try:
         week = read_week(args.week)
         meal_plan_id = ensure_week(client, week)
-        slots = template(client, meal_plan_id, week)
+        under_way: list[str] = []
+        slots = template(client, meal_plan_id, week, datetime.now(timezone.utc), under_way)
+        for line in under_way:
+            print(f"note: {line}")
         for line in requests_elsewhere(client, meal_plan_id, datetime.now(week["zone"]).date()):
             print(line)
     except WeekError as exc:

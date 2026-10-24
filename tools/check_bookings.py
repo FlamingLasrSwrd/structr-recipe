@@ -13,7 +13,9 @@ same food, and it compares:
   that sending the page's form again writes nothing new.
 
 It also asks for a recipe in the next week to plan from its page and takes it back, both
-through the page and through mealplanner/requests.py (pages/recipe.js; data-model.md J33).
+through the page and through mealplanner/requests.py (pages/recipe.js; data-model.md J33), and
+changes a week's menu (a meal skipped with a recipe or something else eaten instead, and undone)
+through the week page and through mealplanner/menu_changes.py (pages/week.js; J34).
 
 It also says whether the page could write as the superuser for a user who is not one
 ($.doPrivileged), which is what lets a household member's booking through. Exits 1 on any
@@ -31,7 +33,7 @@ from datetime import date, datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mealplanner import pantry, requests
+from mealplanner import menu_changes, pantry, requests
 from mealplanner.connection import connect
 from mealplanner.inventory import FMT, instance_expiration
 from mealplanner.nutrition_scope import day_zone, raw_inputs
@@ -39,14 +41,14 @@ from mealplanner.nutrition_scope import day_zone, raw_inputs
 DATA = re.compile(r'<script type="application/json" id="booking-data">(.*?)</script>', re.S)
 PAGE_DATA = re.compile(r'<script type="application/json" id="page-data">(.*?)</script>', re.S)
 FIELDS = {     # what a booking writes on each type
-    "TemporalRegion": ("hasBeginning",),
+    "TemporalRegion": ("hasBeginning", "hasEnd"),
     "Process": ("hasKind", "occupiesTemporalRegion", "concretizes"),
     "ContainerObject": ("hasStorageCondition", "hasOpenedStatus"),
     "PortionOfSubstance": ("instanceOf", "beginsToExistDuring", "locatedIn", "hasPerishabilityType"),
     "Quality": ("hasKind", "inheresIn"),
     "Measurement": ("value", "unit", "status", "hasTime", "isAboutQuality"),
     "Allocation": ("isAbout", "hasParticipationRole", "hasActualQuantity", "process", "fulfills"),
-    "MealPlanEntry": ("fulfilledBy",),
+    "MealPlanEntry": ("fulfilledBy", "isSkipped", "eatenInstead", "references", "hasPlannedServings", "isAbout", "memberOf"),
     "TypeHierarchy": (), "DomainType": ("hierarchy", "isLookupBearing"),
 }
 SEEN = ("visibleToAuthenticatedUsers", "visibleToPublicUsers")
@@ -155,7 +157,7 @@ def main(argv=None) -> int:
     check = Check(client)
     before = {name for name in ("Pantry Operation", "Purchase", "Use", "Discarding") if check.nodes(name)}
     t = {k: secrets.token_hex(4) for k in ("buy", "use", "count", "discard", "cook", "pybuy", "pyuse", "pycount",
-                                            "pydiscard", "pycook", "week", "stock")}
+                                            "pydiscard", "pycook", "week", "stock", "menu", "pymenu")}
     now = datetime.now(timezone.utc)
     try:
         print("buy")
@@ -218,6 +220,9 @@ def main(argv=None) -> int:
 
         print("ask for a recipe next week")
         request_check(check, client)
+
+        print("change the menu: skip, eat something else instead, undo")
+        menu_check(check, client, t)
     finally:
         if not args.keep:
             for name in ("Pantry Operation", "Purchase", "Use", "Discarding"):
@@ -294,6 +299,89 @@ def cook_check(check: Check, client, t: dict, food: str, keeps: str) -> None:
     if not again["problem"] or "already cooked" not in again["problem"]:
         check.fail(f"cooking the same entry again: {again}")
     print(f"  {plan['name']}: drew {a or 'nothing'} both ways; short of {[s.food for s in short] or 'nothing'}")
+
+
+def menu_check(check: Check, client, t: dict) -> None:
+    """The week page's "Didn't make it" and "Undo" (pages/week.js) against mealplanner/menu_changes.py, on
+    two weeks made for the check alike, a cook and a meal of its leftovers each: one changed through the
+    page, one through Python. Each step must leave both weeks the same, the nodes made field by field."""
+    plans = [p for p in client.get_all("Plan")["result"] if p.get("specializationOf")]
+    if len(plans) < 2:
+        check.fail("fewer than two recipes with a RecipeIdentity: the menu change is not checked")
+        return
+    dish, other = plans[0], plans[1]
+    begins = datetime.now(timezone.utc) + timedelta(days=1)
+
+    def make(type_name, name, fields):
+        node = client.post(f"/structr/rest/{type_name}", {"name": name, **fields, "visibleToAuthenticatedUsers": True,
+                                                          "visibleToPublicUsers": False})["result"][0]
+        check.made.append((type_name, node))
+        return node
+
+    weeks = {}
+    for side in ("menu", "pymenu"):
+        name = f"CHECK menu {t[side]}"
+        week = make("MealPlan", name, {})
+        dinner_at = make("TemporalRegion", f"{name} dinner region", {"hasBeginning": begins.strftime(FMT),
+                                                                      "hasEnd": (begins + timedelta(hours=1)).strftime(FMT)})
+        lunch_at = make("TemporalRegion", f"{name} lunch region", {"hasBeginning": (begins + timedelta(hours=18)).strftime(FMT)})
+        dinner = make("MealPlanEntry", f"{name} Dinner -- {dish['name']}", {
+            "memberOf": week, "isSkipped": False, "references": dish["id"], "hasPlannedServings": 2.0, "isAbout": dinner_at})
+        lunch = make("MealPlanEntry", f"{name} Lunch -- {dish['name']}", {
+            "memberOf": week, "isSkipped": False, "consumesLeftoverFrom": dinner, "isAbout": lunch_at})
+        weeks[side] = (week, dinner, lunch)
+
+    def page(action, entry, **extra):
+        got = check.page(f"week/{weeks['menu'][0]}", do=action, entry=entry, token=secrets.token_hex(4), **extra)
+        check.remember(got["created"])
+        time.sleep(1.0)                    # a page's write commits a moment after it answers
+        return got
+
+    def python(call, *args):
+        try:
+            change = call(client, *args)
+        except menu_changes.MenuError as exc:
+            return str(exc)
+        check.remember(change.created)
+        return None
+
+    def same(step: str) -> None:
+        for k in (1, 2):
+            a = check.shape("MealPlanEntry", client.get_all("MealPlanEntry", weeks["menu"][k])["result"], [t["menu"]])
+            b = check.shape("MealPlanEntry", client.get_all("MealPlanEntry", weeks["pymenu"][k])["result"], [t["pymenu"]])
+            if a != b:
+                check.fail(f"{step}: {'dinner' if k == 1 else 'lunch'}: page {a}, Python {b}")
+
+    _, p_dinner, p_lunch = weeks["menu"]
+    _, y_dinner, y_lunch = weeks["pymenu"]
+    got = page("skip", p_dinner, instead=other["name"].lower())
+    py = python(menu_changes.skip, y_dinner, other["name"].lower())
+    if got["problem"] or py:
+        check.fail(f"skip, {other['name']} instead: page {got['problem']!r}, Python {py!r}")
+    same("skip, a recipe instead")
+    made = f"CHECK menu {{}} Dinner -- {other['name']}"
+    check.same_nodes("the meal planned instead", [made.format(t["menu"]), made.format(t["menu"]) + " region"], [t["menu"]],
+                     [made.format(t["pymenu"]), made.format(t["pymenu"]) + " region"], [t["pymenu"]])
+    got, py = page("unskip", p_dinner), python(menu_changes.unskip, y_dinner)
+    if not got["problem"] or not py or "planned at this meal now" not in got["problem"]:
+        check.fail(f"undo while the meal instead holds its time: page {got['problem']!r}, Python {py!r}")
+    page("skip", _by_name(client, made.format(t["menu"])))
+    python(menu_changes.skip, _by_name(client, made.format(t["pymenu"])))
+    got, py = page("unskip", p_dinner), python(menu_changes.unskip, y_dinner)
+    if got["problem"] or py:
+        check.fail(f"undo: page {got['problem']!r}, Python {py!r}")
+    same("undo")
+    got, py = page("skip", p_dinner, instead="takeout"), python(menu_changes.skip, y_dinner, "takeout")
+    same("skip, something else instead")
+    got, py = page("unskip", p_lunch), python(menu_changes.unskip, y_lunch)
+    if not got["problem"] or not py:
+        check.fail(f"undo of a meal whose leftovers were never made: page {got['problem']!r}, Python {py!r}")
+    print(f"  {dish['name']}: skipped with {other['name']} instead, undone, skipped with takeout instead: the same both ways")
+
+
+def _by_name(client, name: str) -> str:
+    (row,) = [r for r in client.get("/structr/rest/MealPlanEntry", params={"name": name})["result"] if r.get("type") == "MealPlanEntry"]
+    return row["id"]
 
 
 def request_check(check: Check, client) -> None:

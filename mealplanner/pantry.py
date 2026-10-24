@@ -268,6 +268,8 @@ def cook(client, entry_id: str, when: datetime, token: str) -> tuple[Booking, li
     entry = client.get_all("MealPlanEntry", entry_id)["result"]
     if entry.get("fulfilledBy"):
         raise PantryError(f"{entry.get('name')}: already cooked")
+    if entry.get("isSkipped"):
+        raise PantryError(f"{entry.get('name')}: skipped, so not cooked (undo the skip first)")
     plan_ref = entry.get("references")
     if not plan_ref or entry.get("hasPlannedServings") is None:
         raise PantryError(f"{entry.get('name')}: not a cook (leftovers need nothing from the pantry)")
