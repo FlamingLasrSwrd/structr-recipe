@@ -7,7 +7,7 @@ The kitchen is tests/test_planning_extract.py's: an omelette (yield 2) takes 300
 
 import unittest
 
-from mealplanner.inventory import current_magnitude, instance_expiration, mass_quality
+from mealplanner.inventory import instance_expiration
 from mealplanner.pantry import PantryError, buy, cook, discard, move, on_hand, open_portion, stock_take, use
 from tests.fakegraph import Ref, WritableGraph, at, when
 from tests.planning_graph import add_entry, add_portion, add_type
