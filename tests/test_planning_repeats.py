@@ -169,6 +169,20 @@ class CpSat(unittest.TestCase):
                 if stock_is_exact(p):
                     self.assertAlmostEqual(got.best.objective, want.best.objective, delta=TOL, msg=seed)
 
+    def test_a_recipe_only_committed_meals_take_over_puts_its_cost_on_the_ceiling(self):
+        """The omelette is a breakfast and the open meals are lunch and dinner, so no variable can
+        choose it: its two committed meals, one over, are a constant the proven ceiling must carry."""
+        tagged = tuple(replace(c, meal_types=frozenset({"Breakfast"} if c.id == "omelette" else {"Lunch", "Dinner"})) for c in KEPT)
+        breakfast = Fixed(candidate="omelette", cooked=2.0, name="omelette, committed")
+        slots = [slot("breakfast", when(28, 8), "Breakfast", fixed=breakfast),
+                 slot("brunch", when(28, 10), "Breakfast", fixed=Fixed(source=0, name="omelette leftovers")),
+                 slot("lunch", when(28, 12), "Lunch"), slot("dinner", when(28, 18), "Dinner")]
+        p = problem(slots, tagged, weights=replace(WEIGHTS, repeats=2.0), repeat_tolerance=1)
+        want, got = oracle(p).best, cpsat.solve(p)
+        self.assertAlmostEqual(want.terms["repeats"], -2.0)
+        self.assertTrue(got.proven)
+        self.assertAlmostEqual(got.upper_bound, want.objective, delta=CEILING_TOL)
+
     def test_committed_meals_count_in_cpsat_too(self):
         for fixed_meals in (1, 2):
             breakfast = Fixed(candidate="omelette", cooked=2.0, name="omelette, committed")

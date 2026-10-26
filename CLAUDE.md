@@ -66,7 +66,7 @@ review, so what the README and REVIEW.md claim has to be true.
 ## Commands
 
 ```bash
-python3 -m unittest discover -s tests -t .        # offline; no Structr needed (9 solver tests skip without OR-tools)
+python3 -m unittest discover -s tests -t .        # offline; no Structr needed (29 solver tests skip without OR-tools)
 .venv/bin/python -m unittest discover -s tests -t .   # the same with OR-tools (locally: .venv; cloud: /opt/solver-venv/bin/python)
 python3 tools/check_names.py                       # undefined names and unused imports (no pyflakes here)
 python3 scripts/23a_schema_drift_test.py           # offline schema-helper test
