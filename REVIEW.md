@@ -74,8 +74,12 @@ since the second review: **Person and households are in** (the owner's decision,
 **Security is out of scope by the owner's choice** ("local behind a firewall, I don't need security at
 the moment", 2026-10-23), and it shows. The pages write as the superuser for anyone signed in
 (`$.doPrivileged`), a write is a link with a token rather than a form post, the sign-in page is public,
-and every node is visible to every signed-in user. `docs/self-hosting.md` step 4 lists what a release
-would need. Findings here are welcome, but they describe a known posture rather than a regression.
+and every node is visible to every signed-in user. Two consequences the firewall does not cover were
+written down on 2026-10-26: Structr's port is published on every interface, so the whole home network
+reaches it, and since a booking's token is not tied to the session, a page on another site could book
+through a signed-in browser. `docs/self-hosting.md` says both, ranks what a release would need (step 4),
+and weighs the security of each way of giving the pages one backend. Findings here are welcome, but they
+describe a known posture rather than a regression.
 
 ## Running it
 
