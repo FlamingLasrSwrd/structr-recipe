@@ -19,7 +19,8 @@ run at home would take, in the order it would be done, and the decisions that ar
 - **Security:** none to speak of, by the owner's choice for a machine behind a firewall (2026-10-23):
   pages write as the superuser for anyone signed in (`$.doPrivileged`), writes travel as plain links
   (`?do=...`), the sign-in page is public, and Structr's admin UI shares the port.
-- **Backup:** none (an open item in `REVIEW.md`).
+- **Backup:** `tools/backup.py` (2026-10-26, `docs/backups.md`): a dump at every stop of the owner's
+  stack, checked by restoring it into a throwaway stack; built for this machine's stack names and paths.
 - **Tests:** offline, run locally; GitHub runs nothing (the owner's choice, 2026-10-24).
 
 ## Licences and content
@@ -70,9 +71,11 @@ Each step says what is done when it is done.
    SchemaNode" and "never add a trait to a populated type" (CLAUDE.md hard rules 1 and 2) become
    compatibility promises to every install. *Done when* an instance built by the previous release
    upgrades with one command and passes `tools/check_pages.py`.
-6. **Backup and restore.** A documented, and optionally scheduled, dump of the Neo4j database and
-   Structr's files volume, and a restore tested on a throwaway instance. *Done when* a restore of
-   last night's dump on a clean machine passes `tools/check_pages.py`.
+6. **Backup and restore.** Built for the owner's instance on 2026-10-26 (`tools/backup.py`,
+   `docs/backups.md`): a dump at every stop, checked by restoring it into a throwaway stack and
+   comparing every page with Python. A release needs it to take its stack names, ports and paths from
+   the install, and to offer a schedule for a stack that stays up. *Done when* a restore of last
+   night's dump on a clean machine passes `tools/check_pages.py`.
 7. **Sizing.** The stack needs about 3.5 GB (Neo4j 1.5 GB, Structr 2 GB, measured for about 1,000
    recipes, 2026-10-23); the planner container adds a few hundred MB while it runs. Documented, with
    the compose caps as defaults.

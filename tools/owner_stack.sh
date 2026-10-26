@@ -5,7 +5,8 @@
 #   tools/owner_stack.sh build   first time only: start it, run the full build, then
 #                                tools/make_owner_instance.py (removes demos, marks it the owner's)
 #   tools/owner_stack.sh up      start it and wait until it answers
-#   tools/owner_stack.sh stop    stop it; the data stays in its volumes
+#   tools/owner_stack.sh stop    stop it, backing it up as it stops (tools/backup.py; NO_BACKUP=1 skips the
+#                                backup); the data stays in its volumes
 #   tools/owner_stack.sh url     print the STRUCTR_URL to use with tools/import_recipe.py
 #
 # Never `docker compose -p mealplanner-owner down -v`: -v deletes the volumes, which hold the
@@ -47,7 +48,13 @@ case "${1:-}" in
     echo "export STRUCTR_URL=$url"
     ;;
   stop)
-    compose stop
+    if [ -n "${NO_BACKUP:-}" ]; then
+      compose stop
+    elif ! python3 tools/backup.py now --leave-stopped; then
+      echo "The backup failed (above); the stack is stopped anyway." >&2
+      compose stop
+      exit 1
+    fi
     ;;
   url)
     echo "$url"
