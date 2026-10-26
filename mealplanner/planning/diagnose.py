@@ -20,8 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from mealplanner.planning.evaluate import (
-    Evaluation, Violation, basic_reason, group_states, group_violation, ineligible_reason, initial_partial, meals_of,
-    recipe_key, repeat_room, resolve,
+    Evaluation, Violation, basic_reason, group_states, group_violation, initial_partial, resolve,
 )
 from mealplanner.planning.model import PlanningProblem
 from mealplanner.planning.search import auto
@@ -83,7 +82,7 @@ def _impossible_alone(problem: PlanningProblem) -> list[str]:
             out.append(f"{label}: even the best possible pick in every open slot reaches {g.total + g.gain:g} against a minimum of {t.minimum:g}")
         elif kind == "above_max":
             out.append(f"{label}: the entries already fixed for it exceed the maximum of {t.maximum:g}")
-    return out + _too_few_recipes(problem, resolved)
+    return out
 
 
 def settled(problem: PlanningProblem) -> list[str]:
@@ -98,27 +97,6 @@ def settled(problem: PlanningProblem) -> list[str]:
         if kind:
             v = Violation(g.target.name, g.target.nutrient_name or g.target.nutrient, g.label, kind, g.total, bound, measure)
             out.append(f"settled before this plan, so not judged: {describe_violation(v)}")
-    return out
-
-
-def _too_few_recipes(problem: PlanningProblem, resolved) -> list[str]:
-    """Meal types with more open meals than their recipes may fill within the repeat tolerance: each
-    recipe that may be eaten at one fills at most the tolerance, less its committed meals. A
-    recipe tagged for two meal types is counted in both, so a type not listed may still run short."""
-    if problem.repeat_tolerance is None:
-        return []
-    fixed, _ = meals_of(problem, resolved)
-    by_type: dict = {}
-    for i in problem.open_slots():
-        by_type.setdefault(problem.slots[i].meal_type, []).append(i)
-    out = []
-    for meal_type, slots in sorted(by_type.items(), key=lambda item: str(item[0])):
-        recipes = {recipe_key(problem, c.id) for c in problem.candidates.values()
-                   if any(ineligible_reason(problem, i, c) is None for i in slots)}
-        room = sum(repeat_room(problem, fixed.get(key, 0)) for key in recipes)
-        if room < len(slots):
-            out.append(f"{len(slots)} {meal_type or 'open'} meals, but the {len(recipes)} recipe(s) for them may fill only "
-                       f"{room} at {problem.repeat_tolerance} meal(s) each (repeat_tolerance): raise it, or add recipes")
     return out
 
 

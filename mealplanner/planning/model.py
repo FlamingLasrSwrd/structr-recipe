@@ -84,7 +84,9 @@ class Lot:
 class Weights:
     """The MealPlan's own weights, with the selector's defaults. `cooking_time` is the week file's
     alone (the owner's decision, 2026-10-24: "an optional preference that can be adjusted week-to-
-    week"): points off the score per hour of the week's cooking; 0, the default, ignores it."""
+    week"): points off the score per hour of the week's cooking; 0, the default, ignores it. `repeats`
+    is the week file's too: points off per meal of a recipe beyond PlanningProblem.repeat_tolerance,
+    counted only when the week sets a tolerance (the owner's decision, 2026-10-26: a soft preference)."""
 
     time: float = 0.5
     variety: float = 0.5
@@ -92,6 +94,7 @@ class Weights:
     waste: float = 0.0
     time_budget_minutes: float = 60.0
     cooking_time: float = 0.0
+    repeats: float = 1.0              # points off per meal of a recipe beyond the week's repeat_tolerance
 
 
 @dataclass(frozen=True)
@@ -200,9 +203,10 @@ class PlanningProblem:
     book_size: int = 0
     requests: tuple = ()               # Request: the recipes the owner asked to have cooked this week
     preps: tuple = ()                  # PrepSession: when the week may cook ahead, in time order
-    # The most meals of the week one recipe may be, fresh, as leftovers or made at a prep session
-    # (the owner's request, 2026-10-24: "How often would you tolerate eating the same meal in a
-    # week?"); a hard limit, the week file's alone. None: no limit, as before.
+    # How many meals of the week one recipe may be, fresh, as leftovers or made at a prep session,
+    # before each more costs Weights.repeats (the owner's request, 2026-10-24: "How often would you
+    # tolerate eating the same meal in a week?"; a soft preference, the owner's decision 2026-10-26).
+    # The week file's alone. None: nothing is counted, as before.
     repeat_tolerance: int | None = None
     _cache: dict = field(default_factory=dict, repr=False, compare=False)
 
@@ -255,7 +259,8 @@ class PlanningProblem:
                 raise ValueError(f"the request for {r.name!r} is pinned to a slot that is not an open slot of the week")
         if len(set(pinned)) != len(pinned):
             raise ValueError("two requests are pinned to one meal")
-        for w in (self.weights.time, self.weights.variety, self.weights.stock, self.weights.waste, self.weights.cooking_time):
+        for w in (self.weights.time, self.weights.variety, self.weights.stock, self.weights.waste, self.weights.cooking_time,
+                  self.weights.repeats):
             if w < 0:
                 raise ValueError("weights must not be negative (the search bounds rely on it)")
         if self.repeat_tolerance is not None and (isinstance(self.repeat_tolerance, bool)

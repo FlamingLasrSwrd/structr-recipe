@@ -35,10 +35,11 @@ private/week.toml:
                                         # unless `on` names the meal ("Wed Dinner" or "Wed 28 Oct Dinner").
                                         # The recipes asked for the week from the recipe pages' "Cook in
                                         # the week of ..." button are added, once each (mealplanner/requests.py)
-    repeat_tolerance = 2                # optional: the most meals of the week one recipe may be, fresh, as
-                                        # leftovers or made at a prep session; a hard limit, this week only.
-                                        # 1: never the same meal twice (so no leftovers); 2: cook once, eat
-                                        # twice; left out: no limit, the variety weight alone spacing repeats
+    repeat_tolerance = 2                # optional: how many meals of the week one recipe may be, fresh, as
+                                        # leftovers or made at a prep session, before each more costs
+                                        # [weights] repeats points (1 unless given); this week only. 1: the same
+                                        # meal twice costs; 2: cook once, eat twice; left out: nothing counted,
+                                        # the variety weight alone spacing repeats
     prep = [{ at = "Sun 14:00", minutes = 180, dishes = 3 }]
                                         # optional: meal-prep sessions. A dish may be made at one and eaten at
                                         # later meals while it keeps; the session's minutes of work and number
@@ -51,6 +52,8 @@ private/week.toml:
     stock = 0.5                         # optional: how much using what the pantry holds counts, and using
     waste = 0.5                         # what will expire soonest (both 0 unless given); with a week under
                                         # way, they steer the free meals to what was bought for skipped ones
+    repeats = 1                         # this week only, not written: points off per meal over repeat_tolerance;
+                                        # 1 weighs a meal over about as cooking_time = 1 weighs an hour of work
     cooking_time = 1                    # this week only, not written: points off per hour of the week's
                                         # cooking. 0 (the default) ignores it; about 0.5 a little, 1 a busy
                                         # week, 2-4 a very busy one (measured: 610 min of cooking fell to
@@ -167,14 +170,11 @@ def read_week(path: str) -> dict:
         if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
             problems.append(f"[weights] {key} is a weight, 0 or more, like 0.5, not {value!r}")
     tolerance = week.get("repeat_tolerance")
-    if tolerance is not None:
-        if isinstance(tolerance, bool) or not isinstance(tolerance, int) or tolerance < 1:
-            problems.append(f"repeat_tolerance is the most meals of the week one recipe may be, like 2, not {tolerance!r}")
-        else:
-            for name in sorted({name for name, _ in requests}):
-                asked = sum(1 for n, _ in requests if n == name)
-                if asked > tolerance:
-                    problems.append(f"cook: {name} is asked for {asked} times, more than the repeat_tolerance of {tolerance}")
+    if tolerance is not None and (isinstance(tolerance, bool) or not isinstance(tolerance, int) or tolerance < 1):
+        problems.append(f"repeat_tolerance is how many meals of the week one recipe may be, like 2, not {tolerance!r}")
+    repeats = week.get("weights", {}).get("repeats", 1)
+    if isinstance(repeats, bool) or not isinstance(repeats, (int, float)) or repeats < 0:
+        problems.append(f"[weights] repeats is points off per meal over the repeat_tolerance, 0 or more, like 1, not {repeats!r}")
     above = week.get("shortlist_above")
     if above is not None and (isinstance(above, bool) or not isinstance(above, int) or above < 1):
         problems.append(f"shortlist_above must be a whole number of recipes, like 60, not {above!r}")
@@ -366,6 +366,7 @@ def main(argv=None) -> int:
                            proposal=proposal, requests=week["requests"], preps=week["preps"],
                            cooking_time=float(week.get("weights", {}).get("cooking_time", 0)),
                            repeat_tolerance=week.get("repeat_tolerance"),
+                           repeat_weight=float(week.get("weights", {}).get("repeats", 1)),
                            **limits, **({"shortlist_above": week["shortlist_above"]} if "shortlist_above" in week else {}))
     except RequestError as exc:
         print(f"problem: {exc}")

@@ -119,7 +119,7 @@ def build_problem(
     servings_eaten: float = 1.0, max_difficulty: str | None = None, leftover_days: float | None = None,
     leftovers: bool = True, portions: tuple = (), eater_portions: dict | None = None,
     shortlist_above: int | None = SHORTLIST_ABOVE, shortlist_factor: float = FACTOR, requests: tuple = (),
-    preps: tuple = (), cooking_time: float = 0.0, repeat_tolerance: int | None = None,
+    preps: tuple = (), cooking_time: float = 0.0, repeat_tolerance: int | None = None, repeat_weight: float = 1.0,
 ) -> PlanningProblem:
     """Read the MealPlan, the recipes, the stock and the constraints into a
     PlanningProblem for the slots in `template` (an iterable of SlotSpec).
@@ -142,7 +142,8 @@ def build_problem(
     mealplanner/requests.py) are added, each once, unless the week file names it already.
 
     cooking_time: the week file's weight on the week's total cooking time (Weights.cooking_time).
-    repeat_tolerance: the most meals of the week one recipe may be (PlanningProblem.repeat_tolerance).
+    repeat_tolerance, repeat_weight: how many meals of the week one recipe may be before each more costs
+    repeat_weight points (PlanningProblem.repeat_tolerance, Weights.repeats).
 
     preps: PrepSessions, when the week may cook ahead (docs/optimizer-design.md Sec 12). A dish
     already committed at one (an entry at its start that no one eats) takes its share of the
@@ -161,6 +162,7 @@ def build_problem(
         time=number(meal_plan.get("timeBudgetWeight"), 0.5), variety=number(meal_plan.get("varietyWeight"), 0.5),
         stock=number(meal_plan.get("stockWeight"), 0.0), waste=number(meal_plan.get("wasteWeight"), 0.0),
         time_budget_minutes=number(meal_plan.get("timeBudgetMinutes"), 60.0), cooking_time=cooking_time,
+        repeats=repeat_weight,
     )
 
     # Every figure for one nutrient is read in one unit, the unit of the first target

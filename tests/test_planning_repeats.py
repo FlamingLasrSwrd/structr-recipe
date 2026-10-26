@@ -1,33 +1,36 @@
-"""The week's repeat tolerance (PlanningProblem.repeat_tolerance; docs/optimizer-design.md Sec 12):
-the owner's request, 2026-10-24, "How often would you tolerate eating the same meal in a week?".
+"""The week's repeat tolerance (PlanningProblem.repeat_tolerance, Weights.repeats; docs/optimizer-design.md
+Sec 12): the owner's request, 2026-10-24, "How often would you tolerate eating the same meal in a week?",
+and their decision, 2026-10-26, that it is a soft preference.
 
-The day of three (tests/planning_fixtures.py) with leftovers kept 3 days. A recipe may be eaten at
-no more than the tolerance's meals of the week, fresh, as leftovers or made at a prep session; a
-recipe's versions are one recipe; meals already committed count, and the planner adds none to a
-recipe they already take past it.
+The day of three (tests/planning_fixtures.py) with leftovers kept 3 days and the week's cooking weighed
+heavily, so that leftovers pay: left alone, the best day cooks buttered pasta once and eats it three
+times. Each meal of a recipe beyond the tolerance, fresh, as leftovers or made at a prep session, costs
+Weights.repeats; a recipe's versions are one recipe, and committed meals count.
 """
 
+import random
 import unittest
 from dataclasses import replace
 
 from mealplanner.planning import cpsat
-from mealplanner.planning.diagnose import diagnose
-from mealplanner.planning.evaluate import evaluate, meals_of, options, resolve
+from mealplanner.planning.evaluate import evaluate, meals_of, options, prefix_bound, resolve
 from mealplanner.planning.model import Fixed, Pick, PrepSession, Weights
 from mealplanner.planning.report import describe_plan
-from mealplanner.planning.search import auto, beam, enumerate_assignments, exact, improve, oracle
+from mealplanner.planning.search import auto, beam, exact, improve, oracle
 from tests.planning_fixtures import cand, day_of_three, problem, slot, when
 from tests.test_planning_cpsat import stock_is_exact
 from tests.test_planning_search import SEEDS, TOL, random_problem
 from tests.test_plan_week_tool import WEEK, read, tool
+
+CEILING_TOL = 1e-5      # CP-SAT's ceiling is whole millionths of a point (cpsat.OS), each term rounded
 
 KEPT = tuple(replace(c, leftover_days=3.0) for c in (
     cand("buttered pasta", 12, 20), cand("veggie stir-fry", 10, 25), cand("omelette", 24, 35)))
 WEIGHTS = Weights(time=0.6, variety=0.3, time_budget_minutes=30.0, cooking_time=3.0)    # leftovers pay: pasta, eaten 3 times
 
 
-def day(tolerance, candidates=KEPT, **kw):
-    return day_of_three([], candidates, weights=WEIGHTS, repeat_tolerance=tolerance, **kw)
+def day(tolerance, repeats=1.0, candidates=KEPT, **kw):
+    return day_of_three([], candidates, weights=replace(WEIGHTS, repeats=repeats), repeat_tolerance=tolerance, **kw)
 
 
 def most_meals(p, ev) -> int:
@@ -35,147 +38,148 @@ def most_meals(p, ev) -> int:
     return max(fixed.get(k, 0) + open_.get(k, 0) for k in set(fixed) | set(open_))
 
 
-class Options(unittest.TestCase):
-    def test_a_recipe_at_its_tolerance_is_not_offered_again(self):
-        once = [Pick(candidate="omelette"), None, None]
-        self.assertFalse([o for o in options(day(1), once, 1) if o.candidate == "omelette" or o.source == 0])
-        twice = options(day(2), once, 1)
-        self.assertIn(Pick(source=0), twice)
-        self.assertNotIn(Pick(candidate="omelette"), options(day(2), [Pick(candidate="omelette"), Pick(source=0), None], 2))
-        self.assertNotIn(Pick(source=0), options(day(2), [Pick(candidate="omelette"), Pick(source=0), None], 2))
+class TheTerm(unittest.TestCase):
+    def test_each_meal_over_costs_the_weight_and_the_week_stays_legal(self):
+        picks = (Pick(candidate="omelette"), Pick(source=0), Pick(source=0))
+        ev = evaluate(day(1, repeats=2.0), picks)
+        self.assertTrue(ev.legal)
+        self.assertAlmostEqual(ev.terms["repeats"], -2.0 * 2)                     # three omelettes, two over one
+        self.assertAlmostEqual(evaluate(day(2), picks).terms["repeats"], -1.0)
+        self.assertEqual(evaluate(day(3), picks).terms["repeats"], 0)
 
-    def test_without_one_nothing_changes(self):
-        once = [Pick(candidate="omelette"), None, None]
-        self.assertEqual(options(day(None), once, 1), options(day(3), once, 1))
-
-
-class Evaluated(unittest.TestCase):
-    def test_more_meals_than_tolerated_is_not_a_week(self):
-        ev = evaluate(day(1), (Pick(candidate="omelette"), Pick(source=0), Pick(candidate="buttered pasta")))
-        self.assertFalse(ev.legal)
-        self.assertEqual(ev.problems, ["omelette: 2 meals this week, more than the 1 tolerated"])
-        self.assertTrue(evaluate(day(2), ev.picks).legal)
+    def test_nothing_counted_without_a_tolerance_or_a_weight(self):
+        picks = (Pick(candidate="omelette"), Pick(source=0), Pick(source=0))
+        self.assertNotIn("repeats", evaluate(day(None), picks).terms)
+        self.assertNotIn("repeats", evaluate(day(1, repeats=0.0), picks).terms)
 
     def test_a_recipes_versions_are_one_recipe(self):
         versions = (replace(KEPT[2], id="omelette v1", recipe="omelette"), replace(KEPT[2], id="omelette v2", recipe="omelette"),
                     KEPT[0])
-        ev = evaluate(day(1, versions), (Pick(candidate="omelette v1"), Pick(candidate="omelette v2"), Pick(candidate="buttered pasta")))
-        self.assertEqual(ev.problems, ["omelette: 2 meals this week, more than the 1 tolerated"])
+        ev = evaluate(day(1, candidates=versions), (Pick(candidate="omelette v1"), Pick(candidate="omelette v2"), Pick(candidate="buttered pasta")))
+        self.assertAlmostEqual(ev.terms["repeats"], -1.0)
 
-    def test_committed_meals_count_and_stand(self):
+    def test_committed_meals_count(self):
         breakfast = Fixed(candidate="omelette", cooked=2.0, name="omelette, committed")
         slots = [slot("breakfast", when(28, 8), fixed=breakfast), slot("lunch", when(28, 12)), slot("dinner", when(28, 18))]
         p = problem(slots, KEPT, weights=WEIGHTS, repeat_tolerance=1)
-        self.assertFalse(evaluate(p, (Pick(candidate="omelette"), Pick(source=0), Pick(candidate="buttered pasta"))).legal)
-        best = oracle(p).best
-        self.assertEqual(most_meals(p, best), 1)
-        self.assertNotIn("omelette", [x.candidate for x in best.picks[1:]])
+        ev = evaluate(p, (Pick(candidate="omelette"), Pick(source=0), Pick(candidate="buttered pasta")))
+        self.assertAlmostEqual(ev.terms["repeats"], -1.0)                         # the committed omelette and its leftovers
 
     def test_a_dish_made_at_a_prep_session_is_one_meal_and_its_leftovers_more(self):
         session = PrepSession("prep", when(27, 14), 120.0, 2)
         p = day(1, preps=(session,), now=when(26, 9))
-        self.assertTrue(evaluate(p, (Pick(candidate="omelette", prep=0), Pick(candidate="veggie stir-fry"), Pick(candidate="buttered pasta"))).legal)
-        self.assertFalse(evaluate(p, (Pick(candidate="omelette", prep=0), Pick(source=0), Pick(candidate="buttered pasta"))).legal)
+        made = evaluate(p, (Pick(candidate="omelette", prep=0), Pick(source=0), Pick(candidate="buttered pasta")))
+        self.assertAlmostEqual(made.terms["repeats"], -1.0)
+
+    def test_the_options_are_every_meal_still(self):
+        once = [Pick(candidate="omelette"), None, None]
+        self.assertEqual(options(day(1), once, 1), options(day(None), once, 1))
+
+    def test_what_cannot_be_asked(self):
+        for bad in (0, -1, True, 1.5):
+            with self.assertRaises(ValueError):
+                day(bad)
+        with self.assertRaises(ValueError):
+            day(2, repeats=-1.0)
 
 
 class TheBestWeek(unittest.TestCase):
-    def test_every_search_keeps_to_it_and_agrees(self):
-        free = oracle(day(None)).best
-        self.assertEqual(most_meals(day(None), free), 3)            # weighed cooking: one cook, eaten three times
+    def test_a_light_weight_still_repeats_a_heavy_one_keeps_to_it_and_every_search_agrees(self):
+        self.assertEqual(most_meals(day(None), oracle(day(None)).best), 3)
+        self.assertEqual(most_meals(day(1, repeats=0.05), oracle(day(1, repeats=0.05)).best), 3)
+        for tolerance in (1, 2):
+            self.assertLessEqual(most_meals(day(tolerance, repeats=10.0), oracle(day(tolerance, repeats=10.0)).best), tolerance)
         for tolerance in (1, 2, 3):
-            p = day(tolerance)
-            best = oracle(p).best
-            self.assertLessEqual(most_meals(p, best), tolerance)
-            for result in (exact(p), beam(p), auto(p, time_limit_s=2), improve(p, evaluate(p, best.picks))):
-                self.assertAlmostEqual(result.best.objective, best.objective, msg=(tolerance, result.method))
-                self.assertLessEqual(most_meals(p, result.best), tolerance, msg=(tolerance, result.method))
-        self.assertFalse([x for x in oracle(day(1)).best.picks if x.source is not None])     # 1: no leftovers at all
+            for weight in (0.5, 1.0, 10.0):
+                p = day(tolerance, repeats=weight)
+                best = oracle(p).best
+                for result in (exact(p), beam(p), auto(p, time_limit_s=2), improve(p, evaluate(p, oracle(day(None)).best.picks))):
+                    self.assertAlmostEqual(result.best.objective, best.objective, msg=(tolerance, weight, result.method))
 
-    def test_the_report_says_the_most(self):
-        p = day(2)
+    def test_the_bound_never_falls_below_what_a_week_comes_to(self):
+        rng = random.Random(7)
+        p = day(1, repeats=2.0)
+        for _ in range(200):
+            partial = [None] * 3
+            for i in range(3):
+                partial[i] = rng.choice(options(p, partial, i))
+            final = evaluate(p, partial).objective
+            for k in range(4):
+                self.assertGreaterEqual(prefix_bound(p, partial[:k] + [None] * (3 - k)).objective, final - 1e-9)
+
+    def test_the_report_says_the_most_and_what_it_cost(self):
+        p = day(1, repeats=0.05)
         text = describe_plan(p, oracle(p).best)
-        self.assertIn("repeats: at most 2 meal(s) of one recipe this week; the most, 2:", text)
+        self.assertIn("repeats: 1 meal(s) of one recipe tolerated this week; the most, 3: buttered pasta; 2 meal(s) over, 0.1 point(s) off", text)
 
 
-def limited(seed: int):
+def tolerant(seed: int):
+    """A random problem (its weights draw no repeats weight, so 1) at a tolerance of 1 or 2."""
     return replace(random_problem(seed), repeat_tolerance=1 + seed % 2, _cache={})
 
 
 class RandomWeeks(unittest.TestCase):
-    """tests/test_planning_search.py's random problems, at a tolerance of 1 or 2."""
-
-    def test_the_options_leave_out_exactly_the_weeks_over_it(self):
-        for seed in SEEDS[:40]:
-            p, free = limited(seed), random_problem(seed)
-            legal = [a for a in enumerate_assignments(free) if evaluate(p, a).legal]
-            self.assertEqual(list(enumerate_assignments(p)), legal, seed)
-
     def test_the_exact_search_agrees_with_the_oracle(self):
-        bound = 0
+        priced = 0
         for seed in SEEDS:
-            p = limited(seed)
+            p = tolerant(seed)
             for relaxed in (False, True):
                 want, got = oracle(p, relaxed=relaxed), exact(p, relaxed=relaxed)
                 self.assertEqual(want.best is None, got.best is None, (seed, relaxed))
                 if want.best:
                     self.assertAlmostEqual(want.best.objective, got.best.objective, delta=TOL, msg=(seed, relaxed))
-                    self.assertLessEqual(most_meals(p, got.best), p.repeat_tolerance)
-            bound += oracle(random_problem(seed)).best is not None and oracle(p).best is None
-        self.assertGreater(bound, 0)               # the limit genuinely leaves some weeks with no plan
-
-
-class TooFew(unittest.TestCase):
-    def test_a_week_short_of_recipes_says_so(self):
-        dinners = tuple(replace(c, meal_types=frozenset({"Dinner"})) for c in KEPT[:1])
-        slots = [slot(f"d{d}", when(d, 18), "Dinner") for d in (27, 28, 29)]
-        p = problem(slots, dinners, weights=WEIGHTS, repeat_tolerance=2)
-        self.assertIsNone(oracle(p).best)
-        self.assertIn("3 Dinner meals, but the 1 recipe(s) for them may fill only 2 at 2 meal(s) each (repeat_tolerance)",
-                      " ".join(diagnose(p, time_limit_s=2).impossible_alone))
-
-    def test_it_is_a_whole_number_of_meals(self):
-        for bad in (0, -1, True, 1.5):
-            with self.assertRaises(ValueError):
-                day(bad)
+            free = oracle(random_problem(seed)).best
+            priced += free is not None and abs(evaluate(p, free.picks).objective - free.objective) > TOL
+        self.assertGreater(priced, 5)              # the term genuinely prices some weeks' best plans
 
 
 class TheWeekFile(unittest.TestCase):
     def test_read_and_checked(self):
-        self.assertEqual(read(WEEK + "repeat_tolerance = 2\n")["repeat_tolerance"], 2)
+        week = read(WEEK + "repeat_tolerance = 2\n[weights]\nrepeats = 1.5\n")
+        self.assertEqual((week["repeat_tolerance"], week["weights"]["repeats"]), (2, 1.5))
         self.assertIsNone(read(WEEK).get("repeat_tolerance"))
         for bad in ("0", "1.5", '"twice"', "true"):
             with self.assertRaises(tool.WeekError) as caught:
                 read(WEEK + f"repeat_tolerance = {bad}\n")
-            self.assertIn("repeat_tolerance is the most meals of the week one recipe may be", " ".join(caught.exception.args[0]))
+            self.assertIn("repeat_tolerance is how many meals of the week one recipe may be", " ".join(caught.exception.args[0]))
+        with self.assertRaises(tool.WeekError):
+            read(WEEK + "[weights]\nrepeats = -1\n")
 
-    def test_a_recipe_asked_for_more_often_than_tolerated(self):
-        with self.assertRaises(tool.WeekError) as caught:
-            read(WEEK + 'repeat_tolerance = 1\ncook = ["Omelette", "Omelette"]\n')
-        self.assertIn("cook: Omelette is asked for 2 times, more than the repeat_tolerance of 1", caught.exception.args[0])
+    def test_a_recipe_asked_for_more_often_than_tolerated_is_only_priced(self):
+        self.assertEqual(len(read(WEEK + 'repeat_tolerance = 1\ncook = ["Omelette", "Omelette"]\n')["requests"]), 2)
 
 
 @unittest.skipUnless(cpsat.available(), "OR-tools is not installed")
 class CpSat(unittest.TestCase):
-    def test_cpsat_keeps_to_it_as_the_oracle_does(self):
+    def test_cpsat_prices_repeats_as_the_oracle_does(self):
         for tolerance in (1, 2, 3):
-            p = day(tolerance)
-            result = cpsat.solve(p)
-            self.assertAlmostEqual(result.best.objective, oracle(p).best.objective, msg=tolerance)
-            self.assertLessEqual(most_meals(p, result.best), tolerance)
+            for weight in (0.5, 10.0):
+                p = day(tolerance, repeats=weight)
+                result = cpsat.solve(p)
+                self.assertAlmostEqual(result.best.objective, oracle(p).best.objective, msg=(tolerance, weight))
+                self.assertGreaterEqual(result.upper_bound, oracle(p).best.objective - CEILING_TOL)
 
     def test_cpsat_agrees_on_random_weeks(self):
         for seed in SEEDS:
-            p = limited(seed)
+            p = tolerant(seed)
             want, got = oracle(p), cpsat.solve(p)
             self.assertEqual(want.best is None, got.best is None, seed)
-            if want.best and stock_is_exact(p):
-                self.assertAlmostEqual(got.best.objective, want.best.objective, delta=TOL, msg=seed)
+            if want.best:
+                self.assertGreaterEqual(got.upper_bound, want.best.objective - CEILING_TOL, f"seed {seed}: the ceiling is below the optimum")
+                if stock_is_exact(p):
+                    self.assertAlmostEqual(got.best.objective, want.best.objective, delta=TOL, msg=seed)
 
     def test_committed_meals_count_in_cpsat_too(self):
-        breakfast = Fixed(candidate="omelette", cooked=2.0, name="omelette, committed")
-        slots = [slot("breakfast", when(28, 8), fixed=breakfast), slot("lunch", when(28, 12)), slot("dinner", when(28, 18))]
-        p = problem(slots, KEPT, weights=WEIGHTS, repeat_tolerance=1)
-        self.assertAlmostEqual(cpsat.solve(p).best.objective, oracle(p).best.objective)
+        for fixed_meals in (1, 2):
+            breakfast = Fixed(candidate="omelette", cooked=2.0, name="omelette, committed")
+            slots = [slot("breakfast", when(28, 8), fixed=breakfast)]
+            if fixed_meals == 2:
+                slots.append(slot("brunch", when(28, 10), fixed=Fixed(source=0, name="omelette leftovers")))
+            slots += [slot("lunch", when(28, 12)), slot("dinner", when(28, 18))]
+            p = problem(slots, KEPT, weights=WEIGHTS, repeat_tolerance=1)
+            result = cpsat.solve(p)
+            self.assertAlmostEqual(result.best.objective, oracle(p).best.objective, msg=fixed_meals)
+            self.assertGreaterEqual(result.upper_bound, oracle(p).best.objective - CEILING_TOL, msg=fixed_meals)
 
 
 if __name__ == "__main__":

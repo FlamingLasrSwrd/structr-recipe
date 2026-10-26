@@ -38,7 +38,7 @@ from datetime import timedelta
 
 from mealplanner.planning.evaluate import (
     REQUEST_MEASURE, baseline_in, basic_reason, cook_minutes, evaluate, ineligible_reason, initial_partial, intake,
-    meal_type_reason, meals_of, prep_reason, recipe_key, repeat_room, resolve, slot_groups,
+    meal_type_reason, meals_of, prep_reason, recipe_key, resolve, slot_groups,
 )
 from mealplanner.planning.model import Pick, PlanningProblem
 from mealplanner.planning.search import SearchResult
@@ -186,13 +186,6 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
         if made:
             m.add(sum(var for var, _ in made) <= session.dishes)
             m.add(sum(var * round(minutes * 100) for var, minutes in made) <= round(session.minutes * 100))
-    if problem.repeat_tolerance is not None:      # the most meals of one recipe this week, hard
-        fixed_meals, _ = meals_of(problem, fixed_resolved)
-        meals: dict = {}
-        for (s, cid), variables in uses_of.items():
-            meals.setdefault(recipe_key(problem, cid), []).extend(variables)
-        for key, variables in meals.items():
-            m.add(sum(variables) <= repeat_room(problem, fixed_meals.get(key, 0)))
     for s in open_slots:
         if by_slot[s]:
             m.add_exactly_one(by_slot[s])
@@ -298,6 +291,22 @@ def _build(problem: PlanningProblem, relaxed: bool) -> dict:
                             m.add(b <= round(days * cap)).only_enforce_if([mine, theirs] + apart)
                     elif fixed_resolved[t] is not None and fixed_resolved[t].candidate == c.id:
                         m.add(b <= round(days * cap)).only_enforce_if([mine] + apart)
+
+    # ---- meals of one recipe beyond the week's repeat tolerance (evaluate.meals_over), each costing w.repeats
+    if problem.repeat_tolerance is not None and w.repeats > 0:
+        fixed_meals, _ = meals_of(problem, fixed_resolved)
+        meals: dict = {}
+        for (s, cid), variables in uses_of.items():
+            meals.setdefault(recipe_key(problem, cid), []).extend(variables)
+        coef = round(w.repeats * OS)
+        for key in sorted(set(meals) | set(fixed_meals)):
+            committed = fixed_meals.get(key, 0)
+            if key not in meals:
+                constant -= coef * max(0, committed - problem.repeat_tolerance)
+                continue
+            over = m.new_int_var(0, len(meals[key]) + committed, f"repeats_over_{len(objective)}")
+            m.add(over >= sum(meals[key]) + committed - problem.repeat_tolerance)
+            objective.append((over, -coef))
 
     # ---- nutrition targets
     violation_terms: list = []             # (variable or None, coefficient) for the relaxed measure

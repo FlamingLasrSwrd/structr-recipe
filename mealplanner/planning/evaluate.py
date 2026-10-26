@@ -298,13 +298,13 @@ def options(problem: PlanningProblem, partial, i: int) -> list:
         picks.extend(prep_options(problem, partial, i, variants))
     request = problem.pinned().get(i)
     if request is not None:                       # a recipe asked for at this meal: a fresh cook of it, nothing else
-        return tolerated(problem, partial, i, [p for p in picks if p.candidate in request.candidates])
+        return [p for p in picks if p.candidate in request.candidates]
     if any(c.leftover_days is not None for c in problem.candidates.values()):
         resolved, _ = resolve(problem, partial[:i] + [None] * (len(partial) - i))
         for j in range(i):
             if leftover_reason(problem, resolved, j, i) is None:
                 picks.extend(Pick(source=j, **v) for v in variants)
-    return tolerated(problem, partial, i, picks)
+    return picks
 
 
 # ---------------------------------------------------------------- repeats
@@ -335,31 +335,15 @@ def meals_of(problem: PlanningProblem, resolved, skip: int | None = None) -> tup
     return fixed, open_
 
 
-def repeat_room(problem: PlanningProblem, fixed_meals: int) -> int:
-    """The meals of a recipe the open slots may have: the tolerance less the meals already committed
-    (a committed week over it stands; the planner adds none)."""
-    return max(0, problem.repeat_tolerance - fixed_meals)
-
-
-def tolerated(problem: PlanningProblem, partial, i: int, picks: list) -> list:
-    """The picks for open slot i that keep each recipe within the week's repeat tolerance
-    (PlanningProblem.repeat_tolerance), given the other slots' meals."""
+def meals_over(problem: PlanningProblem, resolved) -> int:
+    """The meals beyond the week's repeat tolerance, over every recipe: what Weights.repeats is paid
+    on (the owner's decision, 2026-10-26: a soft preference). Committed meals count, so a recipe they
+    take past it costs for each meal more. Adding a meal never lowers it, so the count at a partial
+    assignment is a floor on the final one."""
     if problem.repeat_tolerance is None:
-        return picks
-    rest = list(partial)
-    rest[i] = None
-    resolved, _ = resolve(problem, rest)
+        return 0
     fixed, open_ = meals_of(problem, resolved)
-
-    def fits(pick) -> bool:
-        source = resolved[pick.source] if pick.candidate is None else None
-        cid = pick.candidate if pick.candidate is not None else (source.candidate if source else None)
-        if cid is None:
-            return True
-        key = recipe_key(problem, cid)
-        return open_.get(key, 0) + 1 <= repeat_room(problem, fixed.get(key, 0))
-
-    return [p for p in picks if fits(p)]
+    return sum(max(0, fixed.get(k, 0) + open_.get(k, 0) - problem.repeat_tolerance) for k in set(fixed) | set(open_))
 
 
 def portion_variants(problem: PlanningProblem, i: int) -> list[dict]:
@@ -750,13 +734,6 @@ def evaluate(problem: PlanningProblem, picks) -> Evaluation:
         if session is not None and minutes > session.minutes + EPS:
             problems.append(f"{session.key}: {minutes:g} minutes of work, more than its {session.minutes:g}")
 
-    if problem.repeat_tolerance is not None:
-        fixed, open_ = meals_of(problem, resolved)
-        for key, meals in sorted(open_.items()):
-            if meals > repeat_room(problem, fixed.get(key, 0)):
-                problems.append(f"{recipe_label(problem, key)}: {meals + fixed.get(key, 0)} meals this week, more than "
-                                f"the {problem.repeat_tolerance} tolerated")
-
     weights = problem.weights
     groups = group_states(problem, resolved)
     violations = _violations(problem, groups) + _request_violations(problem, picks)
@@ -788,6 +765,8 @@ def evaluate(problem: PlanningProblem, picks) -> Evaluation:
         })
         if problem.eaters:
             details[-1]["shares"] = {e: servings for e, servings in r.shares}
+    if problem.repeat_tolerance is not None and weights.repeats:
+        terms["repeats"] = -weights.repeats * meals_over(problem, resolved)
     for g in groups:
         if g.has_open:
             terms["nutrition"] += g.target.weight * soft_fit(g)
@@ -841,6 +820,8 @@ def prefix_bound(problem: PlanningProblem, partial) -> Bound:
             ceiling += weights.stock + weights.waste
             # a cook placed takes its minutes for good; an open slot may yet cook nothing (leftovers)
             ceiling -= weights.cooking_time * cook_minutes(problem, problem.candidates[r.candidate]) / 60.0
+    if problem.repeat_tolerance is not None:
+        ceiling -= weights.repeats * meals_over(problem, resolved)        # only grows as meals are added
     for g in groups:
         if not g.has_open:
             continue

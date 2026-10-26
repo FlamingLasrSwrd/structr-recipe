@@ -79,7 +79,7 @@ def plan_week(
     leftover_days: float | None = None, leftovers: bool = True, portions: tuple = (), eater_portions: dict | None = None,
     shortlist_above: int | None = SHORTLIST_ABOVE, deadline: float | None = None, proposal: dict | None = None,
     requests: tuple = (), preps: tuple = (), cooking_time: float = 0.0, repeat_tolerance: int | None = None,
-    **search_options,
+    repeat_weight: float = 1.0, **search_options,
 ) -> PlanResult:
     """Read the MealPlan, search for the best week for the slots in `template`,
     and (only if asked, and only if a plan meets every hard constraint) write it
@@ -100,7 +100,8 @@ def plan_week(
     each at least once, or at the meal named (extract.build_problem; model.Request).
     preps: model.PrepSessions, when the week may cook ahead (docs/optimizer-design.md Sec 12).
     cooking_time: how much the week's total cooking time counts against it, points an hour (Weights).
-    repeat_tolerance: the most meals of the week one recipe may be, a hard limit; None: none.
+    repeat_tolerance, repeat_weight: how many meals of the week one recipe may be before each more costs
+    repeat_weight points (a soft preference, the owner's decision 2026-10-26); None: nothing counted.
 
     proposal: a week proposed earlier (planning/proposal.py), to be checked and committed
     instead of searching again. The whole book is read, so every recipe it names is there; it
@@ -111,7 +112,7 @@ def plan_week(
             client, meal_plan_id, template, now, servings_eaten=servings_eaten, max_difficulty=max_difficulty,
             leftover_days=leftover_days, leftovers=leftovers, portions=portions, eater_portions=eater_portions,
             shortlist_above=None, requests=requests, preps=preps, cooking_time=cooking_time,
-            repeat_tolerance=repeat_tolerance,
+            repeat_tolerance=repeat_tolerance, repeat_weight=repeat_weight,
         )
         problem.notes.extend(settled(problem))
         evaluation = evaluate(problem, picks_from(problem, proposal))
@@ -130,7 +131,7 @@ def plan_week(
             client, meal_plan_id, template, now, servings_eaten=servings_eaten, max_difficulty=max_difficulty,
             leftover_days=leftover_days, leftovers=leftovers, portions=portions, eater_portions=eater_portions,
             shortlist_above=shortlist_above, shortlist_factor=factor, requests=requests, preps=preps,
-            cooking_time=cooking_time, repeat_tolerance=repeat_tolerance,
+            cooking_time=cooking_time, repeat_tolerance=repeat_tolerance, repeat_weight=repeat_weight,
         )
         if deadline is not None:
             left = deadline - monotonic() - REPORT_RESERVE_S

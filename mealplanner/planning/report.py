@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from mealplanner.planning.evaluate import Evaluation, meals_of, recipe_label, resolve
+from mealplanner.planning.evaluate import Evaluation, meals_of, meals_over, recipe_label, resolve
 from mealplanner.planning.model import PlanningProblem
 
 
@@ -47,12 +47,15 @@ def describe_plan(problem: PlanningProblem, evaluation: Evaluation) -> str:
     lines.append(f"  cooking this week: {int(minutes // 60)} h {int(minutes % 60):02d} min of work"
                  + (f" (weighed at {problem.weights.cooking_time:g} a point an hour)" if problem.weights.cooking_time else ""))
     if problem.repeat_tolerance is not None:
-        fixed, open_ = meals_of(problem, resolve(problem, list(evaluation.picks))[0])
+        resolved = resolve(problem, list(evaluation.picks))[0]
+        fixed, open_ = meals_of(problem, resolved)
         meals = {key: fixed.get(key, 0) + open_.get(key, 0) for key in set(fixed) | set(open_)}
         most = max(meals.values(), default=0)
         names = sorted(recipe_label(problem, key) for key, count in meals.items() if count == most)
-        lines.append(f"  repeats: at most {problem.repeat_tolerance} meal(s) of one recipe this week; the most, {most}: "
-                     + (", ".join(names[:3]) + (f" and {len(names) - 3} more" if len(names) > 3 else "")))
+        over = meals_over(problem, resolved)
+        lines.append(f"  repeats: {problem.repeat_tolerance} meal(s) of one recipe tolerated this week; the most, {most}: "
+                     + ", ".join(names[:3]) + (f" and {len(names) - 3} more" if len(names) > 3 else "")
+                     + (f"; {over} meal(s) over, {problem.weights.repeats * over:g} point(s) off" if over else ""))
     terms = ", ".join(f"{name} {value:+.3f}" for name, value in evaluation.terms.items() if abs(value) > 1e-12)
     lines.append(f"  score {evaluation.objective:.3f} ({terms or 'no weighted terms'})")
     return "\n".join(lines)
