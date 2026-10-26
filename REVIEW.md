@@ -1,10 +1,10 @@
 # Review guide
 
 A solo, AI-assisted build of a BFO-grounded meal-planning data model on Structr 6.x/Neo4j, and of the
-planner and pages that run on it. This guide is for the **third external code review**, of the
-repository as it is now. The first review read commit `0cc20f1` and the second `e8d1cbf`; this guide
-says what became of every finding from both, what our own audits found on top, what has been built
-since, and what is still open.
+planner and pages that run on it. Three external code reviews have read it: the first commit `0cc20f1`,
+the second `e8d1cbf`, the third the repository as of `523fc97` (2026-10-26). This guide says what became
+of every finding, what our own audits found on top, what was built between the reviews, and what is
+still open. It is ready for a fourth.
 
 **The history was rewritten on 2026-10-26** to take personal information out of it (the owner's
 decision): on `main`, every commit from "Add dietary and kitchen profiles" (2026-09-27, now `f58049f`) on
@@ -44,7 +44,7 @@ requests once the model met real recipes and a real household. In order of how m
   pantry profiles, public prices; the owner's data in its own instance, out of reach of the demos
   (`tools/owner_stack.sh`); memory caps after the 8 GB laptop froze; backups of that instance, checked
   by restoring them (`tools/backup.py`, `docs/backups.md`).
-- **Testing:** 745 offline tests (72 when the second review's fixes landed), two mutation sweeps
+- **Testing:** 748 offline tests (72 when the second review's fixes landed), two mutation sweeps
   (below), and checks of the pages against Python on real Structr.
 
 ## What is being reviewed
@@ -80,7 +80,7 @@ would need. Findings here are welcome, but they describe a known posture rather 
 ## Running it
 
 ```bash
-python3 -m unittest discover -s tests -t .            # 745 offline tests, no Structr (29 skip without OR-tools)
+python3 -m unittest discover -s tests -t .            # 748 offline tests, no Structr (29 skip without OR-tools)
 .venv/bin/python -m unittest discover -s tests -t .   # the same with OR-tools (requirements-solver.txt)
 python3 tools/check_names.py                          # undefined names and unused imports (no pyflakes here)
 python3 scripts/23a_schema_drift_test.py              # offline: the schema helpers against a drifted schema
@@ -106,6 +106,42 @@ maintainer's environment has been tested (Linux, Docker, Structr 6.0.0, Neo4j 20
 is in the snapshot because a validator is a method and can be silently replaced, which is what script
 `04` once did to script `07`'s. `tools/expected_state.json` is a golden file: if a script's output
 changes on purpose, regenerate it and read the diff.
+
+**After round 3's fixes (2026-10-26)** the pages were installed on the development instance, and
+`check_bookings` found every booking the same, bookings sent at once included, and `check_pages` 0
+differences. The rebuild was not repeated: the fixes change the pages and the tools, not a script, and
+no script installs the pages. The owner's instance has the new pages once `tools/install_pages.py` is
+run against it.
+
+## Round 3: the review of `523fc97`
+
+An "adversarial review" in seven sections: findings ranked P0 and P1, over-engineering, further gaps,
+alternative architectures, testing and operations, and an order of work. It did not run the stack, and
+said so. Numbered here in the order the review raises them. Each was checked against the code first.
+The fix for #9, the review's first in its order of work, is commit `38e8e62`; the documents and the
+rest are the commit after it.
+
+| # | Finding | Status |
+|---|---|---|
+| 1 | P0: not safe for untrusted users (superuser writes, links not form posts, a public sign-in page, every node visible to every signed-in user) | **Agreed, and known:** out of scope by the owner's choice (above). It is the review's reading of this guide's own list. `docs/self-hosting.md` step 4 is what a release needs |
+| 2 | P1: the planner does not do all it is said to: "minimize waste" is a reward for using stock near expiry, not a penalty for what goes unused; stock is soft; cost is reported, not optimized | **Right about one document.** `docs/CLAUDE.md` said the tool "generates a weekly plan satisfying ... minimal ingredient waste"; it now says what the planner is meant to do and what it does, term by term (`optimizer-design.md` §12 already did, and this guide's open items listed all three). The objective is the owner's to change: a waste penalty, a cost term and weeks to judge the objective by are in `docs/todo.md` |
+| 3 | P1: the documents' authority is out of step with the code: `docs/CLAUDE.md` single-user, without Person/Agent, "the optimizer has never been designed", Rev 4.2; the README two reviews | **Wrong about the commit it reviewed.** Every one of those quotes is from `e8d1cbf`, the second review's commit (`git show e8d1cbf:docs/CLAUDE.md`, lines 7, 13, 44, 52), as are the "44 scripts" and "214 named entities" it cites from this guide. At `523fc97` `docs/CLAUDE.md` says Rev 4.5, households, Person/Agent in, and the optimizer built; `tests/test_docs.py` has failed on a wrong revision since round 2 #22. The README's "two" was right then, a third review not having happened. **One it did not name was real:** the build sketch, marked authoritative, opened "Maps the Rev. 4.1 data model"; it now says what it covers. `tests/test_docs.py` now also fails if the README's or `docs/CLAUDE.md`'s count of reviews differs from the rounds recorded here, if the sketch names another revision than the model's, or if this guide's count of offline tests is not the real one |
+| 4 | P1: the model says more than the build enforces; the documents should tell represented, computed, validated and enforced apart | **Already so where it was asked, now said in the model too.** `mealplanner/domain_invariants.py` records each invariant as structural, write-time, computation or audit, partial, deferred or not built, a test checks it covers all thirty, and the README counts each kind. The model's §11 listed the rules without saying so; it now says they are the model's, and where the build stands |
+| 5 | The pages repeat the Python in JavaScript: two sources of truth | **Agreed, open** (this guide's open items). One backend for the pages is in `docs/todo.md`; the parity checks stay until the JavaScript is gone |
+| 6 | The StructrScript `resolveDefault` disagrees with `mealplanner/defaults.py` | **Known** (round 2 #5: nothing calls it). Removing it is a schema change, run on the owner's instance too: in `docs/todo.md` |
+| 7 | The build workflow is heavy (61 scripts, about 9½ minutes) and couples demos, migrations and setup | **Mostly as asked already.** Demos and checks remove what they make (test-data convention below), a schema migration for an existing instance is a numbered script declaring `owner_data_ok` and run there too (`CLAUDE.md`), and the owner's instance is never rebuilt. Found answering it: the development instance had about 20 nodes from earlier interrupted runs of `tools/check_bookings.py`, which removes only what it made itself; a sweep is in `docs/todo.md` |
+| 8 | The pantry does not keep a history of storage: opening and moving are not dated, thawing does not restart the clock, and an estimated expiry feeds the planner | **Known** (`docs/pantry.md`, model J12). The page now heads the column "Expires (estimate)" and says under the table what the estimate rests on and what it leaves out (`pages/pantry.js`). A dated history reverses a scope decision (freezing and thawing are not modeled transitions): `docs/todo.md` |
+| 9 | A page's write becomes visible about 0.3 s after the page answers; two quick presses can make two nodes of one name; check-then-create is not idempotent at once; confirm only after the write | **Right, and worse than stated; fixed** (`38e8e62`). Reproduced first on the development instance: one purchase form sent four times at once made four Processes of one name and every page said "booked"; two recipes asked for in one week at once made two MealPlans of one name; and the first try showed a commit refused (a unique name taken) after the page had said "booked". Each booking now runs in a transaction of its own that first writes to one lock node, so the next waits for its commit and then finds what it made, and the page answers once its booking is saved; a booking that fails is undone whole and said (`pages/common.js`, `docs/pages.md`; what Structr does is in `docs/structr-cheatsheet.md`). `tools/check_bookings.py` now sends bookings at once and reads without waiting: against the earlier pages it reports all three problems, against these all the same, and a booking by a signed-in user who is not the superuser was booked once, as the superuser. **Open:** a booking from the terminal (Python) is not serialized with one from a page |
+| 10 | Leftovers are not stock; no journal or undo | **Known, open** (`docs/pantry.md`; invariants 23, 24, 27). `docs/todo.md` |
+| 11 | The recipe model serves planning better than cooking: no step times, heat, doneness, alternatives, purchase forms; "to taste" optional; a discarded marinade counted as eaten | **Known, open** (model J20, J24; this guide's open items). The facts a step still lacks are on the owner's list (`docs/todo.md`), facts only (`docs/recipe-copyright.md`) |
+| 12 | Nutrition and cost need clear uncertainty: estimates and unknowns visible; cost a floor | **Mostly so.** A hard target is never decided on an unknown, placeholder or unmarked figure (J15); the planner's report names each recipe whose figures rest on estimates (J21); a recipe page gives each figure's source; a day with an unknown figure is "indeterminate", never met; a cost is called a floor. **Open:** the nutrition page does not mark a total that rests on estimates (`docs/todo.md`) |
+| 13 | Alternatives: a smaller application model mapped to BFO, PostgreSQL with an append-only ledger, maintained projections, one solver | **Noted.** The review recommends none of them now, and neither do we; BFO is already design discipline, not a runtime dependency (`docs/CLAUDE.md`). The owner's call if the project becomes a product |
+| 14 | Batch the planner's reads into one snapshot and compute in memory; 95 requests and 3.1 s for a small run | **Partly a mix-up.** The 95 requests are the per-slot selector's (round 2 #15). The planner already reads the week once through a `ReadCache` and searches in memory (`planning/extract.py`). It is right that those reads are many requests, not one consistent snapshot, so a write during them could be half seen: `docs/todo.md` |
+| 15 | Restore automated checks: the offline suite, the name check and the schema-drift test, OR-tools in its own job, a slow integration job | **Declined for GitHub by the owner** (2026-10-24: GitHub runs nothing). The point that a check should not rest on remembering stands: a git pre-push hook running the same is offered in `docs/todo.md` |
+| 16 | Backups: restore onto a real instance untested; copies on the same disk | **Partly.** `verify` restores every backup it checks into a real throwaway stack with the same code `restore` uses to load it (`put_back`), and the first was verified so (above). What has run only against faked Docker is `restore`'s sequence around that: the safety backup, stopping the owner's stack, starting it again. Copying backups off the machine is the owner's to-do (`docs/backups.md`) |
+
+**Where the review was wrong:** #3's quotes, from an older commit than the one it reviewed, and #14's
+request count, the selector's. **Where it was right and worse than stated:** #9.
 
 ## Round 2: the review of `e8d1cbf`
 
@@ -136,7 +172,7 @@ changes on purpose, regenerate it and read the diff.
 | 21 | Greedy selection can't enforce hard minimums | **Built, unreviewed.** A per-slot selector cannot meet a hard minimum: `docs/optimizer-design.md` §2 shows it on a 3-slot day run against the real scoring functions (greedy reaches 36 g against 70 g while 63 of 125 menus are feasible, and no one-slot swap repairs it). The planner (`mealplanner/planning/`, `plan_week`) chooses the week as a whole, so a minimum is a constraint on the day's final total; when none can be met it returns the closest plan and the exact shortfall instead. Verified offline (hand-worked cases, an independent brute-force oracle over 80 random problems, bound-soundness checks, and score equality with the selector for a single slot) and against real Structr (`scripts/26a`, which confirms the committed day with `nutrition_report`). **Limits:** a full week's plan is not proven optimal (the search says so). An optional CP-SAT adapter (OR-tools) was added and agrees with the brute-force oracle, but measured on synthetic weeks it does not prove full weeks either: it and the dependency-free search each prove some weeks the other cannot, and neither proves a 21-slot, 30-recipe week (§12). The objective is a proposal (§4.5). The selector itself is unchanged and still only scores a minimum |
 | 22 | Documents drift from each other and the code | **Partly fixed.** `CLAUDE.md` said Rev 4.2 while the model was 4.3. Now `tests/test_docs.py` fails if the revision, the structural-type count, or the invariant tracker's coverage disagree with the code. There is still no machine-readable manifest |
 | 23 | "~35" vs 50 structural types | **Fixed, and the fix was itself wrong first.** I copied "50" from a comment in `structural_types.py`; the new test showed the real count is **51** (`ExclusionConstraint` was added after that comment was written). All three places corrected |
-| 24 | Not enough automated tests | **Fixed in part:** an offline suite over the pure logic (`tests/`, no Structr), 745 tests today, run before each push (by CI until 2026-10-24), and two mutation sweeps (own audits 19 and 25). It covers the review's own list: future events, mixed units, zero values, optional ingredients, subtype/supertype collisions, overlapping policies, multiple defaults, multiple outputs. Still missing: most invariants have no test beyond the demo scripts |
+| 24 | Not enough automated tests | **Fixed in part:** an offline suite over the pure logic (`tests/`, no Structr), counted under Running it, run before each push (by CI until 2026-10-24), and two mutation sweeps (own audits 19 and 25). It covers the review's own list: future events, mixed units, zero values, optional ingredients, subtype/supertype collisions, overlapping policies, multiple defaults, multiple outputs. Still missing: most invariants have no test beyond the demo scripts |
 
 **The review's suggested architecture**, one shared "which stock pool does this belong to" layer, is partly done: `typetree.py`, `defaults.py` and `reservation.Reserved` now own the hierarchy walks, default resolution and pool accounting that used to be reimplemented per module. Pool resolution for eligibility, policy and waste scoring is still spread across `reservation.py` and the selector.
 
@@ -196,7 +232,7 @@ Between and before the reviews.
 
 19. **Mutation sweeps found corners no test reached** (2026-10-23): each module's code was broken one change at a time and the tests run, and every change the tests did not notice became a test. They found two things the climb left open (`dd83f71`), the difficulty cap and three corners of the shortlist (`017dd37`), four of the stored recipe nutrition (`bbe298a`), five stock-allocation cases (`727302f`), hard rule 4 in the vocabulary import (`2806898`), CP-SAT offering a committed cook's leftovers only (`b81e0d5`), the nutrition report's other scopes and shares (`5acc157`), and the weights of a cup, a spoon and an egg (`9e78382`).
 20. **The GitHub check failed for eight pushes before anyone looked.** `tools/check_names.py` found two unused imports in a test; the local run was the unit tests alone. The owner then had the workflow removed (2026-10-24), and the name check is run with the tests before each push.
-21. **A page's write commits a moment after the page answers** (about 0.3 s, measured 2026-10-24): a read straight after it sees nothing. `tools/check_bookings.py` waits; a person reloading does not notice. Two presses within that moment could each make a node of one name, which the next read refuses (data-model.md J33's open note).
+21. **A page's write commits a moment after the page answers** (about 0.3 s, measured 2026-10-24): a read straight after it sees nothing. `tools/check_bookings.py` waits; a person reloading does not notice. Two presses within that moment could each make a node of one name, which the next read refuses. The third review ranked it first; it is fixed (round 3 #9 below).
 22. **A day already eaten could block the rest of the week.** A hard target over meals all committed was judged like any other, so a past day that missed one left no feasible plan for what remained. Such a group is now settled, not judged, and said (`diagnose.settled`; optimizer-design §12). Found designing menu changes, before any week hit it.
 23. **The development instance had drifted from the scripts:** it lacked the schema of `30a` to `37a`, so a check of the nutrition page there compared nothing against something (every recipe unknown on the page, worked out in Python). Found when the comparison disagreed on a recipe with figures; brought up to date and given stored figures, it agreed (2026-10-26).
 24. **The first rule for where a loose portion is kept** dated flour, rice, cans and oil as if refrigerated, or not at all, and put garlic in the fridge. It is now where the food keeps longest unopened (J31, `inventory.assumed_storage`).
@@ -220,8 +256,10 @@ Beyond the open rows above:
   unused near-expiry stock, a soft difficulty term.
 - **The pages duplicate the Python in JavaScript.** Each page follows a Python function by function,
   and `tools/check_pages.py` and `tools/check_bookings.py` compare them on real Structr; nothing makes a
-  change to one side reach the other. Bookings by a signed-in household member, rather than the
-  superuser, are untested.
+  change to one side reach the other. A booking by a signed-in user who is not the superuser was checked
+  on the development instance with a test account (round 3 #9); one through a browser, by a household
+  member signed in as themselves, has not been made. Bookings from the pages run one at a time; one from
+  the terminal is not serialized with them.
 - **Security** is out of scope by choice (above).
 - **Nutrition from ingredients** (J18): vitamins and minerals lose what USDA's retention table says
   (J30), every fat is kept (J32); vitamins D, E and K and added sugars have no factor and are counted
@@ -232,7 +270,7 @@ Beyond the open rows above:
   Recipes keep facts only, never their source's instructions (`docs/recipe-copyright.md`), and a step
   records its method, inputs, output and equipment but not yet its time, heat or doneness
   (`docs/todo.md`).
-- **The pantry** (`docs/pantry.md`): thawing does not restart the clock, opening does not either, a
+- **The pantry** (`docs/pantry.md`): an expiry is an estimate, and the page says so: thawing does not restart the clock, opening does not either, a
   printed best-before date cannot be recorded (invariant 2 reaches a Quality only), a cook's leftovers
   are not stock, and there is no journal to undo a booking.
 - **Menu changes** (J34): leftovers of an earlier meal eaten instead have no form; the planner leaves a

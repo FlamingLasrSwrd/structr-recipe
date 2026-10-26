@@ -1300,7 +1300,43 @@ docs and `Structr.find()`/`Structr.get()` used above appear to be the
 same API under two different global aliases (`$` and `Structr`) — both
 were seen working live via `Structr.X`; `$.X` was only spot-checked for
 `print`. Reach for `Structr.X` first since that's what's actually been
-exercised end-to-end here.
+exercised end-to-end here. (Since then the pages, `pages/*.js`, use `$.X`
+throughout, and it works.)
+
+### A page's writes, transactions and locks (✅ probed 2026-10-26, 6.0.0, a throwaway page)
+
+The pages' bookings (`pages/common.js` `runBooking`) rest on these:
+
+- **A page's own writes commit after the page has answered** (about 0.3 s
+  later). A read straight after sees nothing yet, and a commit that fails
+  (a validator, a `unique` name taken: `422 Unable to commit transaction,
+  validation failed`, logged by `HtmlServlet`) fails after the browser has
+  been told it worked.
+- **Two requests at once do not see each other's writes**, so a
+  find-then-create in each makes two nodes of one name. Neo4j's own locks
+  do serialize them where both write the same node: creating a
+  relationship to a shared node, or `SET` on one, waits until the other
+  transaction has committed. Only reads made *after* that wait see what
+  the other made.
+- **A read repeated within one transaction answers as it did the first
+  time**, even after such a wait: a `$.find` run before the lock and again
+  after it found nothing both times while the other request's node had
+  committed. Take the lock before any read the write depends on.
+- **`$.doInNewTransaction(worker, onError)`** runs `worker` in a
+  transaction of its own and commits it before returning (the worker is
+  run once when it returns nothing). A thrown error rolls it back and
+  reaches `onError` as a plain error (not the thrown class: say what you
+  need to say before throwing). A refused commit reaches `onError` too.
+  Inside `$.doPrivileged(...)` it runs as the superuser, for a signed-in
+  user who is not one as well.
+- **`$.cypher(query)`** works in a page, inside the current transaction,
+  and returns an array of plain objects (`[{"n": 1}]`). It can write a
+  node Structr has no type for (a label of its own); REST does not list
+  such a node. `MERGE` without a uniqueness constraint is not safe at
+  once: four requests each made their own node.
+- **Structr's `unique` validation is safe at once**: four requests each
+  creating a `TypeHierarchy` of one new name left one, the other three
+  refused at commit.
 
 ---
 

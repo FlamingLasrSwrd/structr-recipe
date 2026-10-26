@@ -33,6 +33,31 @@ class DocumentsAgree(unittest.TestCase):
         self.assertIn(f"{n} types", (DOCS / "structr-build-sketch.md").read_text())
 
 
+class WhatTheGuideCounts(unittest.TestCase):
+    """The third review read an older README and an older docs/CLAUDE.md beside the current REVIEW.md
+    and found them disagreeing; these are the counts more than one document states."""
+
+    NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+
+    def test_the_number_of_code_reviews_is_the_number_of_rounds_recorded(self):
+        rounds = len(re.findall(r"(?m)^## Round \d+:", (ROOT / "REVIEW.md").read_text()))
+        for path, pattern in ((ROOT / "README.md", r"through (\w+) external code reviews"),
+                              (DOCS / "CLAUDE.md", r"the code has had (\w+) external reviews")):
+            said = re.search(pattern, path.read_text())
+            self.assertIsNotNone(said, f"{path.name} should say how many external code reviews there have been")
+            self.assertEqual(self.NUMBERS.get(said.group(1)), rounds, f"{path.name}: {said.group(0)!r}, REVIEW.md records {rounds}")
+
+    def test_the_build_sketch_names_the_revision_the_model_is_at(self):
+        model = re.search(r"\(Rev\. ([0-9.]+)\)", (DOCS / "data-model.md").read_text().splitlines()[0]).group(1)
+        self.assertIn(f"the model is now Rev. {model}", (DOCS / "structr-build-sketch.md").read_text())
+
+    def test_the_guide_states_the_real_number_of_tests(self):
+        real = unittest.defaultTestLoader.discover(str(ROOT / "tests"), top_level_dir=str(ROOT)).countTestCases()
+        stated = {int(n.replace(",", "")) for n in re.findall(r"\b(\d[\d,]*) offline tests", (ROOT / "REVIEW.md").read_text())}
+        self.assertTrue(stated, "REVIEW.md should say how many offline tests there are")
+        self.assertEqual(stated, {real}, "REVIEW.md's count of offline tests")
+
+
 class InvariantTrackerIsComplete(unittest.TestCase):
     def test_every_invariant_from_1_to_30_appears_in_the_tracker(self):
         source = (ROOT / "mealplanner" / "domain_invariants.py").read_text()

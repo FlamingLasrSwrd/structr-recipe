@@ -115,11 +115,28 @@ with the grant `--login` installs, and read every page with its session. Signed 
 `tools/check_bookings.py` found every booking the same both ways: buy (600 g, 5 days to expiry as
 Fresh Meat in the fridge), the same purchase sent again (nothing written), use (450 g left), count
 (420 g), open (2 days left), freeze (90 days: opened, in the freezer), discard (none left), and a cook
-of a two-serving braise drawing 500 g of chicken; and, later that day, a recipe asked for in the next week to plan from its page, asked again (nothing written) and taken back, through the page and through `mealplanner/requests.py` alike. A page's write commits a moment (about 0.3 s) after it answers, so the check waits for it; and a week's menu changed
+of a two-serving braise drawing 500 g of chicken; and, later that day, a recipe asked for in the next week to plan from its page, asked again (nothing written) and taken back, through the page and through `mealplanner/requests.py` alike. and a week's menu changed
 (a cook skipped with another recipe eaten instead, its leftover meal skipped with it, undone, then
 skipped with takeout instead) on two weeks alike, the same both ways. The nutrition page and
 `nutrition_report` agreed on a meal eaten instead (the day unknown) and on one skipped with nothing
 instead (the day short), once the development instance had stored figures per serving. `$.doPrivileged` exists on Structr 6.0.0, so the
-pages book as the superuser for whoever is signed in. Not yet seen: a household member's own booking
-through a browser, which needs their sign-in.
+pages book as the superuser for whoever is signed in.
+
+**One booking at a time (2026-10-26, the third review's #9, first in its order of work).** Until then a page's write
+committed a moment (about 0.3 s) after the page answered, in the page's own transaction, and two bookings
+at once each looked for their nodes before either had committed: one purchase form sent four times at
+once made four Processes of one name, and all four pages said "booked"; two recipes asked for in one week
+at once made two MealPlans of one name; and a commit refused by a validator, after the page had answered,
+was reported as booked. Now each booking runs in a transaction of its own (`$.doInNewTransaction`),
+which first writes to one lock node, so a second booking waits until the first has committed and then
+finds what it made; the page answers once its booking is saved, and a booking that fails, by a problem
+found or at the commit, is undone whole and said. `tools/install_pages.py` makes the lock node, a node
+outside the model (label `MealPlannerBookingLock`, no Structr type), and a booking without it is
+refused. `tools/check_bookings.py` sends bookings at once (the purchase four times, two recipes in one
+week) and reads straight after each page answers; against the earlier pages it reports all three
+problems. A booking by a signed-in user who is not the superuser (a test account, deleted afterwards)
+was booked once, as the superuser, and shown on the page that answered. Not covered: a booking from the
+terminal (`mealplanner/pantry.py` and the others write through REST, a request at a time) is not
+serialized with one from a page. Not yet seen: a household member's own booking through a browser,
+which needs their sign-in.
 

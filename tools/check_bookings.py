@@ -17,7 +17,7 @@ through the page and through mealplanner/requests.py (pages/recipe.js; data-mode
 changes a week's menu (a meal skipped with a recipe or something else eaten instead, and undone)
 through the week page and through mealplanner/menu_changes.py (pages/week.js; J34).
 
-Then it sends bookings at the same moment, as a double press or two people do (REVIEW.md round 3 #1):
+Then it sends bookings at the same moment, as a double press or two people do (REVIEW.md round 3 #9):
 one purchase form four times must make one purchase, and two recipes asked for in one week at once
 must both be kept, in one MealPlan. Every check reads straight after the page answers, since a page
 commits its booking before it answers.

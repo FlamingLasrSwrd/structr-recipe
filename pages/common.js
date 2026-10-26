@@ -314,7 +314,7 @@ function subtypesOf(type) {
 // name before it is created, so sending a form twice writes nothing new (CLAUDE.md hard rule 5).
 // Writes run as the superuser ($.doPrivileged), as the tools' do, and state their visibility (rule 4).
 //
-// One booking at a time, each committed before the page answers (REVIEW.md round 3 #1; measured on
+// One booking at a time, each committed before the page answers (REVIEW.md round 3 #9; measured on
 // Structr 6.0.0, docs/structr-cheatsheet.md). Two presses at once each found no node of a name and each
 // made one, and a page answered "booked" before its write committed, even when the commit then failed.
 // So a booking runs in a transaction of its own, which first writes to one lock node: Neo4j holds that

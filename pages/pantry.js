@@ -153,7 +153,7 @@ let html = nav("pantry") + "<h1>Pantry</h1>" + said
   + "<datalist id=\"foods\">" + foods.map((f) => "<option value=\"" + esc(f) + "\">").join("") + "</datalist></details>"
   + "<p class=\"note\">" + rows.length + " foods on hand, " + rows.filter((r) => r.days != null).length
   + " with a known shelf life. Soonest to expire first.</p>"
-  + "<table><thead><tr><th>Food</th><th>On hand</th><th>Weighed</th><th>Expires</th><th></th></tr></thead><tbody>";
+  + "<table><thead><tr><th>Food</th><th>On hand</th><th>Weighed</th><th>Expires (estimate)</th><th></th></tr></thead><tbody>";
 const data = [];
 for (const r of rows) {
   const told = Array.isArray(r.level);
@@ -176,6 +176,8 @@ for (const r of rows) {
     + "</td><td>" + (told ? esc(dayLabel(r.level[2], "UTC")) + " <small>(" + esc(r.level[1].status) + ")</small>" : "") + "</td><td>" + expires
     + "</td><td>" + actions + "</td></tr>";
 }
-html += "</tbody></table><p class=\"note\">Imputed: an amount from the pantry profile, not a weighing. Freezing keeps a "
-  + "portion's shelf life as if it had always been frozen (storage is a tag, not a history: docs/pantry.md).</p>";
+html += "</tbody></table><p class=\"note\">Imputed: an amount from the pantry profile, not a weighing. An expiry is an "
+  + "estimate: the shelf life for how a portion is kept now, opened or sealed, counted from when it was bought or first weighed. "
+  + "When it was opened, frozen or moved is not recorded, so freezing keeps a portion's shelf life as if it had always been "
+  + "frozen, and opening one judges it as if opened from the start (storage is a tag, not a history: docs/pantry.md).</p>";
 $.print(html + "<script type=\"application/json\" id=\"page-data\">" + JSON.stringify(data).replace(/</g, "\\u003c") + "</script>");

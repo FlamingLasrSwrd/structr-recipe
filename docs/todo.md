@@ -27,8 +27,28 @@ Nothing here is started. Each item says where it came from. The owner decides wh
 | A count, or a meal, for a recipe asked for from its page | 2026-10-24 | The week file still says "twice" or "on Wed Dinner" (J33) |
 | A review of the FoodKeeper and retention matches | 2026-10-24 | Each food's product and each class's rows, for the owner to check (J30, J31) |
 
+## From the third review (2026-10-26), waiting on the owner
+
+What the review recommended that is more than a fix (`REVIEW.md` round 3 says what was fixed at once).
+
+| Item | Review | What it would take |
+|---|---|---|
+| **One backend for what the pages compute and book** | #5 | Today each page repeats a Python function in JavaScript, and `check_pages.py` and `check_bookings.py` compare the two. A small Python service beside Structr (the planner container of `docs/self-hosting.md` step 3) would answer the pages, so each computation and booking exists once; the checks stay until the JavaScript is gone. It would also let a booking from the terminal take the pages' lock (below) |
+| **Bookings from the terminal one at a time with the pages'** | #9 | The pages' bookings are serialized by a lock node (`docs/pages.md`); `mealplanner/pantry.py`, `requests.py` and `menu_changes.py` write a REST request at a time and cannot hold it. Through the backend above, or a page endpoint the tools call |
+| **Storage and opening as a history** | #8 | Opening, freezing and moving recorded as dated events, and shelf life worked out over the sequence of conditions. It reverses a scope decision (`docs/CLAUDE.md`: freezing and thawing are not modeled transitions) and overlaps "Thawing restarts the clock" above. Until then the pantry page says its expiry is an estimate and why |
+| **A cook's leftovers as stock** | #10 | A cook books a leftover portion with its amount, origin, storage and expiry, which later meals and the next week's planner draw on (invariants 23, 24 and 27; `docs/pantry.md`). With "a pantry journal, and undoing a booking" above, as compensating bookings rather than edits |
+| **Waste and cost in the objective** | #2 | A penalty for stock left to expire unused, and a cost term, each defined and tested on its own before the documents say the planner minimizes waste or spending. Objective changes: the owner's call (`docs/optimizer-design.md` §4.5) |
+| **Weeks to judge the objective by** | #2 | Representative weeks, including ones where nutrition pulls against time, waste, repeats, cost or stock, with the owner's verdict on each plan, kept as fixtures the planner is checked against |
+| **Retire the StructrScript `resolveDefault`** | #6 | A schema-only script removing the method (nothing calls it; `mealplanner/defaults.py` resolves by kind and keys), run on the owner's instance too, and the build sketch and cheatsheet brought along |
+| **Checks that run themselves** | #15 | GitHub runs nothing (the owner's choice, 2026-10-24). A git pre-push hook in the repository, enabled with `git config core.hooksPath`, would run both interpreters' suites, `check_names.py` and `23a` before every push, so nothing rests on remembering |
+| **The planner reads one consistent snapshot** | #14 | `extract.build_problem` reads through a `ReadCache` and searches in memory, but its reads are many requests, so a write during them could be half seen. One server-side read, or a check that nothing changed between the first read and the last |
+| **The nutrition page marks totals that rest on estimates** | #12 | The planner's report names the recipes whose figures rest on estimates (J21) and a recipe page gives each figure's source; the week's nutrition page shows met, under, over or indeterminate without saying which totals rest on estimates. `nutrition_report` would say it too, so the page and the Python still agree |
+| **`check_bookings.py` sweeps what an interrupted run left** | #7 | The development instance holds about 20 time regions and a few nodes from earlier interrupted checks; the check removes only what it made itself |
+
 ## For the owner to do
 
 - Sign in as Elijah and press one booking button: page bookings for a signed-in household member are
   untested (`docs/pages.md`).
 - Copy `~/mealplanner-backups` off this machine now and then (`docs/backups.md`).
+- Install the pages on your instance again, so its bookings run one at a time (2026-10-26):
+  `STRUCTR_URL=http://localhost:8085 python3 tools/install_pages.py`.

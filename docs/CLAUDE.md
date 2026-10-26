@@ -4,7 +4,7 @@ Read this before touching anything else.
 
 ## What this is
 
-A meal-planning tool, single-user until the owner chose (2026-09-28) to move toward households of several people who share meals, each with their own profile. It generates a weekly plan satisfying difficulty, nutrition, meal-type coverage, time budgets, inventory and expiration awareness, and minimal ingredient waste. The data model is BFO-grounded and has been through four major revisions and two external adversarial reviews. **The modeling is done; the build is not.**
+A meal-planning tool, single-user until the owner chose (2026-09-28) to move toward households of several people who share meals, each with their own profile. It is meant to generate a weekly plan satisfying difficulty, nutrition, meal-type coverage, time budgets, inventory and expiration awareness, and minimal ingredient waste. What the planner does today is narrower, and `optimizer-design.md` §12 says exactly what: hard nutrition targets, hard exclusions, meal types and an optional difficulty cap are constraints; time, variety, stock, soft nutrition targets, soft exclusions, the week's cooking time and repeats are weighed; the waste term rewards using stock near its expiry rather than penalizing what goes unused; cost is reported, not optimized. The data model is BFO-grounded and has been through four major revisions and two external adversarial design reviews; the code has had three external reviews (`REVIEW.md`). **The modeling is done; the build is not.**
 
 ## Document status — read this table first
 
