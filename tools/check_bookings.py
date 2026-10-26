@@ -17,6 +17,11 @@ through the page and through mealplanner/requests.py (pages/recipe.js; data-mode
 changes a week's menu (a meal skipped with a recipe or something else eaten instead, and undone)
 through the week page and through mealplanner/menu_changes.py (pages/week.js; J34).
 
+Then it sends bookings at the same moment, as a double press or two people do (REVIEW.md round 3 #1):
+one purchase form four times must make one purchase, and two recipes asked for in one week at once
+must both be kept, in one MealPlan. Every check reads straight after the page answers, since a page
+commits its booking before it answers.
+
 It also says whether the page could write as the superuser for a user who is not one
 ($.doPrivileged), which is what lets a household member's booking through. Exits 1 on any
 difference. Needs STRUCTR_SUPERUSER_PASSWORD and STRUCTR_URL.
@@ -28,7 +33,7 @@ import os
 import re
 import secrets
 import sys
-import time
+import threading
 from datetime import date, datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -223,6 +228,9 @@ def main(argv=None) -> int:
 
         print("change the menu: skip, eat something else instead, undo")
         menu_check(check, client, t)
+
+        print("bookings sent at the same moment")
+        race_check(check, client, args.food, args.keeps)
     finally:
         if not args.keep:
             for name in ("Pantry Operation", "Purchase", "Use", "Discarding"):
@@ -334,7 +342,6 @@ def menu_check(check: Check, client, t: dict) -> None:
     def page(action, entry, **extra):
         got = check.page(f"week/{weeks['menu'][0]}", do=action, entry=entry, token=secrets.token_hex(4), **extra)
         check.remember(got["created"])
-        time.sleep(1.0)                    # a page's write commits a moment after it answers
         return got
 
     def python(call, *args):
@@ -379,6 +386,74 @@ def menu_check(check: Check, client, t: dict) -> None:
     print(f"  {dish['name']}: skipped with {other['name']} instead, undone, skipped with takeout instead: the same both ways")
 
 
+def at_once(client, path: str, forms: list) -> list[str]:
+    """Each form sent to the page at the same moment, each on a connection of its own: the answers."""
+    ready, answers = threading.Barrier(len(forms)), [None] * len(forms)
+
+    def send(i):
+        session = type(client.session)()
+        session.headers.update(client.session.headers)
+        ready.wait()
+        r = session.get(f"{client.base_url}/structr/html/{path}", params=forms[i], timeout=client.timeout)
+        r.raise_for_status()
+        answers[i] = r.text
+    threads = [threading.Thread(target=send, args=(i,)) for i in range(len(forms))]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    if None in answers:
+        raise RuntimeError(f"/structr/html/{path}: a request sent at once got no answer")
+    return answers
+
+
+def race_check(check: Check, client, food: str, keeps: str) -> None:
+    """Bookings sent at the same moment (pages/common.js runBooking). Before the bookings' lock, four
+    presses of one purchase made four Processes of one name, and two people asking for recipes could
+    each make the week's MealPlan, or the one write over the other's list."""
+    token = secrets.token_hex(4)
+    form = dict(do="buy", food=food, amount="600", unit="g", storage="Fridge", keeps=keeps, token=token)
+    answers = at_once(client, "pantry", [form] * 4)
+    told = [json.loads(DATA.search(a).group(1)) for a in answers]
+    for got in told:
+        check.remember(got["created"])
+    check.remember([f"Purchase {token}"])
+    purchases = [type_name for type_name, _ in check.nodes(f"Purchase {token}")]
+    booked = sum(1 for got in told if got["created"])
+    if purchases != ["Process"] or booked != 1 or any(got["problem"] for got in told):
+        check.fail(f"one purchase sent four times at once: {purchases.count('Process')} Process(es) of its name, "
+                   f"{booked} page(s) said they booked it, problems {[got['problem'] for got in told if got['problem']]}")
+    portion = f"Purchase {token} -- {food}"
+    unseen = sum(1 for a in answers if portion not in {row["portion"] for row in json.loads(PAGE_DATA.search(a).group(1))})
+    if unseen:
+        check.fail(f"{unseen} of the four pages did not show the purchase they answered for")
+
+    plans = [p for p in client.get_all("Plan")["result"] if p.get("specializationOf")][:2]
+    if len(plans) < 2:
+        check.fail("fewer than two recipes with a RecipeIdentity: asking at once is not checked")
+        return
+    start = date(2099, 12, 28)                # a week nothing else plans
+    name = requests.WEEK_NAME.format(start.isoformat())
+    if requests._week(client, start) is not None:
+        check.fail(f"{name} exists already: asking at once is not checked")
+        return
+    recipes = [p["specializationOf"]["id"] for p in plans]
+    try:
+        told = [json.loads(DATA.search(a).group(1)) for a in at_once(client, f"recipe/{plans[0]['id']}", [
+            dict(do="ask", recipe=r, week=start.isoformat(), token=secrets.token_hex(4)) for r in recipes])]
+        weeks = [r for r in client.get("/structr/rest/MealPlan", params={"name": name})["result"] if r.get("type") == "MealPlan"]
+        asked = sorted(r["id"] for r in requests.requested(client, start)) if len(weeks) == 1 else None
+        if len(weeks) != 1 or asked != sorted(recipes) or any(got["problem"] for got in told):
+            check.fail(f"two recipes asked for in one week at once: {len(weeks)} MealPlan(s) named {name}, asked {asked}, "
+                       f"problems {[got['problem'] for got in told if got['problem']]}")
+    finally:
+        for week in client.get("/structr/rest/MealPlan", params={"name": name})["result"]:
+            if week.get("type") == "MealPlan":
+                client.delete(f"/structr/rest/MealPlan/{week['id']}")
+    print(f"  one purchase sent four times: {purchases.count('Process')} made, {booked} said so; "
+          f"two recipes asked for at once: {len(weeks)} week, {len(asked or [])} kept")
+
+
 def _by_name(client, name: str) -> str:
     (row,) = [r for r in client.get("/structr/rest/MealPlanEntry", params={"name": name})["result"] if r.get("type") == "MealPlanEntry"]
     return row["id"]
@@ -399,13 +474,8 @@ def request_check(check: Check, client) -> None:
         return json.loads(PAGE_DATA.search(r.text).group(1))["request"]
 
     def settled(start, want: list) -> list:
-        """The week's requests once the page's write has committed, a moment after it answers."""
-        for _ in range(20):
-            got = [r["id"] for r in requests.requested(client, start)]
-            if got == want:
-                break
-            time.sleep(0.25)
-        return got
+        """The week's requests, read as soon as the page has answered."""
+        return [r["id"] for r in requests.requested(client, start)]
 
     weeks = sorted((w for w in client.get_all("MealPlan")["result"] if w.get("hasEntry") and requests.week_start(w)),
                    key=requests.week_start)

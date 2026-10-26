@@ -313,6 +313,16 @@ function subtypesOf(type) {
 // A form carries a token made when the page was drawn, and every node a booking writes is found by
 // name before it is created, so sending a form twice writes nothing new (CLAUDE.md hard rule 5).
 // Writes run as the superuser ($.doPrivileged), as the tools' do, and state their visibility (rule 4).
+//
+// One booking at a time, each committed before the page answers (REVIEW.md round 3 #1; measured on
+// Structr 6.0.0, docs/structr-cheatsheet.md). Two presses at once each found no node of a name and each
+// made one, and a page answered "booked" before its write committed, even when the commit then failed.
+// So a booking runs in a transaction of its own, which first writes to one lock node: Neo4j holds that
+// write until the commit, so a second booking waits there and then finds what the first made. The lock
+// comes before any read, because a read repeated within a transaction answers as it did the first time.
+// tools/install_pages.py makes the lock node, outside the model (no Structr type; nothing else reads it):
+// made by the first booking instead, two bookings in that first moment each made one.
+const LOCK = "MATCH (l:MealPlannerBookingLock) WITH l ORDER BY elementId(l) LIMIT 1 SET l.at = timestamp() RETURN count(l) AS n";
 const SEEN = {visibleToAuthenticatedUsers: true, visibleToPublicUsers: false};
 const stamp = (d) => d.toISOString().replace(/\.\d{3}Z$/, "+0000");
 const newToken = () => Math.random().toString(16).slice(2, 10);
@@ -369,10 +379,23 @@ function runBooking(actions) {
   const token = String($.request.token || "");
   if (!/^[0-9a-f]{4,16}$/.test(token)) return "<p class=\"problem\">Problem: the form had no token; reload the page and try again.</p>";
   const booking = {process: null, created: [], notes: []};
-  let problem = null;                   // caught inside: an error may not cross doPrivileged as itself
-  const run = () => {
-    try { actions[action](booking, $.request, token); } catch (e) { if (e instanceof BookingError) problem = e.message; else throw e; }
+  let problem = null;                   // said inside: an error does not cross a transaction as itself
+  const work = () => {
+    try {
+      const lock = $.cypher(LOCK);
+      if (!lock.length || !lock[0].n) throw new BookingError("the bookings' lock is missing: install the pages again (tools/install_pages.py)");
+      actions[action](booking, $.request, token);
+    } catch (e) {
+      problem = e instanceof BookingError ? e.message : "the booking failed: " + (e.message || e);
+      throw e;                          // so that nothing of it is kept
+    }
   };
+  const failed = (e) => {               // thrown above, or the commit refused (a validator, a unique name)
+    if (!problem) problem = "the booking was not saved: " + (e && e.message || e);
+    booking.created = [];
+    booking.notes = [];
+  };
+  const run = () => { $.doInNewTransaction(work, failed); };
   const privileged = typeof $.doPrivileged === "function";
   if (privileged) $.doPrivileged(run); else run();
   // what was booked, for tools/check_bookings.py

@@ -10,7 +10,8 @@ user and prints the page. They hold no data; the pantry and week pages' forms bo
 (docs/pantry.md), so they are meant for the owner's instance as well as any other. Every element is
 visible to signed-in users only, the sign-in page to anyone.
 
-Pages are code: each run replaces each page whole. Its elements are deleted first, since deleting a
+Before the pages, it makes the one node their bookings lock so that they run one at a time
+(ensure_booking_lock; pages/common.js). Pages are code: each run replaces each page whole. Its elements are deleted first, since deleting a
 Page leaves them behind (verified on Structr 6.0.0), and every element states its `tag`, without which
 Structr 6 renders nothing. Needs STRUCTR_SUPERUSER_PASSWORD and STRUCTR_URL.
 
@@ -36,6 +37,11 @@ PAGES = {                    # name: (title, script)
     "pantry": ("Pantry", "pantry.js"),
     "shopping": ("Shopping list", "shopping.js"),
 }
+LOCK_PAGE = "booking-lock"     # made, read once and removed: the bookings' lock (ensure_booking_lock)
+LOCK_SCRIPT = """${{
+$.cypher("MATCH (l:MealPlannerBookingLock) WITH l ORDER BY elementId(l) SKIP 1 DELETE l");
+$.print("booking locks: " + $.cypher("MERGE (l:MealPlannerBookingLock {name: 'bookings'}) RETURN count(l) AS n")[0].n);
+}}"""
 LOGIN = "login"
 LOGIN_GRANT = {"signature": "_login", "flags": 64}     # an anonymous POST to /structr/rest/login (cheatsheet)
 PRIVATE = {"visibleToAuthenticatedUsers": True, "visibleToPublicUsers": False}
@@ -82,6 +88,22 @@ def build_page(client, name: str, title: str, body: str, *, body_type: str = "te
     return page
 
 
+def ensure_booking_lock(client) -> None:
+    """The one node every page booking writes to first, so that bookings run one at a time (pages/common.js).
+    Made here, where nothing runs beside it; made by the first booking, two at once each made their own.
+    Cypher runs only inside Structr here, so a page made for the purpose makes it and is removed. A second
+    lock node, left by an earlier way of making it, is deleted."""
+    remove_page(client, LOCK_PAGE)
+    build_page(client, LOCK_PAGE, "Booking lock", LOCK_SCRIPT)
+    try:
+        r = client.session.get(f"{client.base_url}/structr/html/{LOCK_PAGE}", timeout=client.timeout)
+        r.raise_for_status()
+        if "booking locks: 1" not in r.text:
+            raise RuntimeError(f"the bookings' lock was not made: {r.text[:300]}")
+    finally:
+        remove_page(client, LOCK_PAGE)
+
+
 def login_grants(client) -> list[dict]:
     return client.get("/structr/rest/ResourceAccess", params={"signature": LOGIN_GRANT["signature"]})["result"]
 
@@ -100,6 +122,8 @@ def main(argv=None) -> int:
             client.delete(f"/structr/rest/ResourceAccess/{grant['id']}")
             print("removed the anonymous login grant")
         return 0
+    ensure_booking_lock(client)
+    print("bookings: one lock node")
     for name, (title, page_file) in PAGES.items():
         removed = remove_page(client, name)
         build_page(client, name, title, script(page_file))

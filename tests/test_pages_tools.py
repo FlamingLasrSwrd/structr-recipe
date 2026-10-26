@@ -47,7 +47,10 @@ class PageGraph:
 
 
 def run(tool, argv, g):
-    with mock.patch.object(tool, "connect", return_value=g), redirect_stdout(io.StringIO()):
+    """The bookings' lock is made by rendering a page, which the fake graph cannot: tools/check_bookings.py
+    checks it on real Structr."""
+    with mock.patch.object(tool, "connect", return_value=g), mock.patch.object(tool, "ensure_booking_lock"), \
+            redirect_stdout(io.StringIO()):
         return tool.main(argv)
 
 
