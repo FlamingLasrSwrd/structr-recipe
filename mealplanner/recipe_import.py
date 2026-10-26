@@ -51,6 +51,9 @@ MEAL_TYPE_SCHEME = "Meal Type"
 TOP_KEYS = {"name", "version", "source", "servings", "minutes", "ahead_hours", "difficulty", "meal_types", "dish", "steps",
             "baseline"}
 STEP_KEYS = {"name", "method", "makes", "inputs", "equipment"}
+# A step's name is a label of a few words, never the source's instructions, which are not stored
+# (docs/recipe-copyright.md): the file has no field for them, and this keeps a name from holding them.
+STEP_NAME_MAX = 80
 INPUT_KEYS = {"food", "amount", "unit", "optional"}
 
 
@@ -189,7 +192,10 @@ def parse_recipe(data: dict) -> RecipeDoc:
         for key in sorted(set(raw) - STEP_KEYS):
             problems.append(f"{where}: unknown key {key!r} (allowed: {', '.join(sorted(STEP_KEYS))})")
         label = raw.get("name", f"step {i}")
-        _safe_name(f"{where} name", label, problems)
+        if _safe_name(f"{where} name", label, problems) and len(label) > STEP_NAME_MAX:
+            problems.append(f"{where}: its name is {len(label)} characters; a step's name is a label of a few words "
+                            f"(at most {STEP_NAME_MAX}), not the recipe's instructions, which are not stored "
+                            f"(docs/recipe-copyright.md)")
         method = raw.get("method")
         if method is not None:
             _safe_name(f"{where} method", method, problems)

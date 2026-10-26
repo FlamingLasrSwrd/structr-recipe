@@ -20,6 +20,8 @@ A meal-planning tool, single-user until the owner chose (2026-09-28) to move tow
 | `pages.md` | 📘 Guide, as built (2026-10-23), unreviewed by the owner | the pages Structr serves (week, recipes, nutrition, pantry): how they are built, what they do not do that Python does, and how signing in works |
 | `prices.md` | 📘 Guide, as built | where the interim food prices come from, how they are layered, the owner's own prices, and what a recipe or a week costs |
 | `backups.md` | 📘 Guide, as built (2026-10-26) | how the owner's instance is backed up, how a backup is checked, and how one is put back |
+| `recipe-copyright.md` | 📘 Guide (2026-10-26), research, not legal advice | what a recipe import may keep and what it may not, the rules for imports, and what a hosted service would add |
+| `todo.md` | 📋 List, kept for the owner | future work: asked for, offered and waiting, and the owner's own to-dos |
 | `pantry.md` | 📘 Guide, as built (2026-10-23) | the pantry's bookings (buy, use, count, open, freeze, discard, cook) and what does not fit the model yet |
 | `self-hosting.md` | 📝 **Plan, not started** (2026-10-24) | what releasing the project for others to run at home would take, step by step, and the owner's decisions it needs |
 | `verification-and-sharing.md` | 📝 **Proposal, being built** | how checks by people (stock takes, purchases, confirmed or corrected figures) and several users with shared and private data fit the model. The owner accepted its Person (§3.3) and household (§3.5) designs on 2026-09-28; `data-model.md` §19 records what the model now says, and the proposal says what is still to build |

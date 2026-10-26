@@ -103,7 +103,9 @@ once and eating them on later days is ordinary leftovers, within their keeping t
 ## Transcribing a recipe
 
 Only facts are transcribed: ingredients, amounts, servings, times and the order of operations.
-A page's own instructions are not copied; its address goes in `source`. Choices a transcription
+A page's own instructions are not copied; its address goes in `source`. What may be kept and what
+may not, with the law behind it, is in `docs/recipe-copyright.md`; a step's name is a label of at
+most 80 characters. Choices a transcription
 makes go in a comment at the top of the file. The conventions so far (`docs/data-model.md` §18 J20):
 
 - **A seasoning "to taste"** is `optional`, with no amount. An ingredient with no amount would make

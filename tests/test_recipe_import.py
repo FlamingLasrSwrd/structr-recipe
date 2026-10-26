@@ -100,6 +100,13 @@ class Parse(unittest.TestCase):
         self.assertTrue(any("servings" in p for p in self.problems(dict(data, servings=2))))
         self.assertTrue(any("true or false" in p for p in self.problems(good(baseline="yes"))))
 
+    def test_a_steps_name_is_a_label_not_its_instructions(self):
+        data = good()
+        data["steps"][0]["name"] = "Bring a large pot of salted water to a boil and then add the noodles"   # 70
+        parse_recipe(data)
+        data["steps"][0]["name"] += " and stir until tender"
+        self.assertTrue(any("a label of a few words" in p for p in self.problems(data)))
+
     def test_only_the_last_step_may_leave_out_makes(self):
         data = good()
         del data["steps"][0]["makes"]
