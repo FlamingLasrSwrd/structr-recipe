@@ -7,8 +7,10 @@ says what became of every finding from both, what our own audits found on top, w
 since, and what is still open.
 
 **The history was rewritten on 2026-10-26** to take personal information out of it (the owner's
-decision): commits from 2026-09-27 on have new ids. The commits of the first two reviews and of their
-fixes kept theirs, and the ids this guide cites are the new ones.
+decision): on `main`, every commit from "Add dietary and kitchen profiles" (2026-09-27, now `f58049f`) on
+has a new id, and so has every commit of the unmerged branch `claude/laughing-maxwell-8yaern`. The
+commits of the first two reviews and of their fixes kept theirs, and the ids this guide cites are the
+new ones.
 
 Nothing here asks you to trust a claim. Every "fixed" names the code and a test you can run, and every
 "open" says why it is open. Where a review was found to be wrong or overstated, that is stated too,
