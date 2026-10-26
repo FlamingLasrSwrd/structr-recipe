@@ -6,6 +6,10 @@ repository as it is now. The first review read commit `0cc20f1` and the second `
 says what became of every finding from both, what our own audits found on top, what has been built
 since, and what is still open.
 
+**The history was rewritten on 2026-10-26** to take personal information out of it (the owner's
+decision): commits from 2026-09-27 on have new ids. The commits of the first two reviews and of their
+fixes kept theirs, and the ids this guide cites are the new ones.
+
 Nothing here asks you to trust a claim. Every "fixed" names the code and a test you can run, and every
 "open" says why it is open. Where a review was found to be wrong or overstated, that is stated too,
 with the evidence.
@@ -188,7 +192,7 @@ Between and before the reviews.
 17. **A large collection read returned its first page only.** Structr leaves `result_count` and `page_count` out of a big collection's response; `StructrClient.get_all` took a missing count to mean one page, so at 13,000 NutrientProfiles it returned 500, and the vocabulary import, finding nothing, created all 13,000 again. Found loading the HelloFresh recipes on a throwaway instance, before the owner's; the client now reads until a short page (`tests/test_client.py`, `docs/structr-cheatsheet.md`).
 18. **A mean over repeated FDC ids counted each id once.** A spice blend written as parts (turmeric twice for 2:1) was loaded as equal parts, contradicting its own note; found when the live figures for one recipe disagreed with the independent calculation. Repeats now count (`vocabulary_import.composition`).
 
-19. **Mutation sweeps found corners no test reached** (2026-10-23): each module's code was broken one change at a time and the tests run, and every change the tests did not notice became a test. They found two things the climb left open (`b1ec671`), the difficulty cap and three corners of the shortlist (`4dfd360`), four of the stored recipe nutrition (`28981e3`), five stock-allocation cases (`ee325ef`), hard rule 4 in the vocabulary import (`db25639`), CP-SAT offering a committed cook's leftovers only (`c948944`), the nutrition report's other scopes and shares (`b9343d1`), and the weights of a cup, a spoon and an egg (`c3c3f0f`).
+19. **Mutation sweeps found corners no test reached** (2026-10-23): each module's code was broken one change at a time and the tests run, and every change the tests did not notice became a test. They found two things the climb left open (`dd83f71`), the difficulty cap and three corners of the shortlist (`017dd37`), four of the stored recipe nutrition (`bbe298a`), five stock-allocation cases (`727302f`), hard rule 4 in the vocabulary import (`2806898`), CP-SAT offering a committed cook's leftovers only (`b81e0d5`), the nutrition report's other scopes and shares (`5acc157`), and the weights of a cup, a spoon and an egg (`9e78382`).
 20. **The GitHub check failed for eight pushes before anyone looked.** `tools/check_names.py` found two unused imports in a test; the local run was the unit tests alone. The owner then had the workflow removed (2026-10-24), and the name check is run with the tests before each push.
 21. **A page's write commits a moment after the page answers** (about 0.3 s, measured 2026-10-24): a read straight after it sees nothing. `tools/check_bookings.py` waits; a person reloading does not notice. Two presses within that moment could each make a node of one name, which the next read refuses (data-model.md J33's open note).
 22. **A day already eaten could block the rest of the week.** A hard target over meals all committed was judged like any other, so a past day that missed one left no feasible plan for what remained. Such a group is now settled, not judged, and said (`diagnose.settled`; optimizer-design §12). Found designing menu changes, before any week hit it.

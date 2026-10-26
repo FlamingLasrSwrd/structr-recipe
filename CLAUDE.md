@@ -60,6 +60,13 @@ review, so what the README and REVIEW.md claim has to be true.
   test notices (this has found real gaps). Report failures with their output; say what you did
   not verify.
 - No emojis in README.md or LICENSE. Never print, log or commit `.env` or a password.
+- **No personal information in the repository** (the owner's decision, 2026-10-26): "do not use any
+  identifying information except my name". Not the other household members' names, nobody's age, sex,
+  activity, targets, supplements or doses, not where the owner lives. People in tests and examples are
+  placeholders (Jamie, Alex), a time zone in them is `America/Edmonton`, and the owner's own choices
+  are described without their values. Those live only in `private/` and the owner's instance. The
+  history was rewritten once, on 2026-10-26 and at the owner's word, to take such details out; that is
+  the one exception to never rewriting published history.
 - An optimizer objective, weights or search are proposals for the owner to retune
   (`docs/optimizer-design.md`): do not change them silently.
 
