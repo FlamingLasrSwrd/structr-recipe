@@ -9,7 +9,7 @@ import unittest
 from mealplanner.recipe_import import (
     Heat, RecipeFormatError, RecipeResolutionError, export_plan, import_recipe, parse_recipe,
 )
-from tests.fakegraph import Ref, WritableGraph
+from tests.fakegraph import Ref, WritableGraph, cascading_schema
 
 FILE = """
 name = "Roast Chicken and Rice"
@@ -155,6 +155,7 @@ def kitchen() -> RecipeGraph:
         g.add("DomainType", kind, kind, hierarchy=Ref("Quality Kind"))
     g.add("ConceptScheme", "Meal Type", "Meal Type")
     g.add("Concept", "Dinner", "Dinner", inScheme=Ref("Meal Type"))
+    cascading_schema(g)                  # scripts/44a has run: a Step's dependents go with it
     return g
 
 

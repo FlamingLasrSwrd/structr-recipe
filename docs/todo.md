@@ -78,3 +78,11 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
   python3 tools/import_vocabulary.py` (the capabilities, the toaster oven and the grill, and what each tool
   can do), then `install_pages.py` and `install_methods.py` as above. Rehearsed on a throwaway built as
   yours was.
+- For the Structr features of 2026-10-27 (`docs/structr-features.md` §5, batches 1 and 2), after the
+  steps above: the next `bash tools/owner_stack.sh up` recreates the Structr container with Structr's
+  changelog on (a new volume, which `backup.py` backs up with the others), a health check, and keys
+  the schema does not know refused; the data volumes are untouched. Then, with the stack up:
+  `STRUCTR_URL=http://localhost:8085 python3 scripts/44a_cascading_delete_schema.py` (it reads first, and
+  changes nothing if any quantity is held twice), and restart Structr as above. If Structr's admin
+  interface ever refuses an edit with "Rejecting input with unknown JSON key", the setting is
+  `STRUCTR_jsonrestservlet_unknowninput_validation_mode` in `docker-compose.yml`.

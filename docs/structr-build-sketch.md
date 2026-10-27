@@ -194,6 +194,14 @@ Per the cheatsheet, `targetJsonName` becomes the property on the **source** type
 
 Write one throwaway relationship first and read the resulting property names back before building on the pattern.
 
+**What a recipe's Step owns is deleted with it** (2026-10-27, `scripts/44a`, `mealplanner/cascade_schema.py`).
+Structr's `cascadingDeleteFlag` is source-to-target on Step `HAS_SPECIFICATION`, `HAS_WORKING_TIME` and
+`HAS_WAITING_TIME`; Specification `HAS_SPECIFIED_QUANTITY`, `HAS_STATE_REQUIREMENT` and `HAS_SUBSTITUTION_RULE`;
+and StateRequirement `EXPECTED_VALUE_QTY`. Deleting a Step deletes its Specifications, and they their quantities,
+state requirements and rules, in one transaction. Structr deletes a target even when something else still points
+at it, so each of these targets belongs to its owner alone: the importer names each after what owns it, and 44a
+refuses to set the flags over a node held twice. Every other relationship deletes nothing but itself.
+
 ---
 
 ## 7. Gotchas already known to hit this build

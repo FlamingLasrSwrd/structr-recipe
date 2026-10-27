@@ -287,9 +287,16 @@ def format_verify(ctx):
                "code missing": status({}, "SpkPattern")}
     sample = ctx.raw("POST", "/structr/rest/SpkRange", {"closed": 150.0, "visibleToAuthenticatedUsers": True})[1]
     results["why closed 150"] = str(sample)[:200]
+    # an edit: a valid node PATCHed out of range, then read back
+    edited = ctx.create("SpkRange", {"closed": 10.0})
+    results["edit closed 10 to 150"] = ctx.raw("PATCH", f"/structr/rest/SpkRange/{edited}", {"closed": 150.0})[0]
+    results["after the edit"] = (ctx.node("SpkRange", edited) or {}).get("closed")
+    results["edit closed 10 to 20"] = ctx.raw("PATCH", f"/structr/rest/SpkRange/{edited}", {"closed": 20.0})[0]
     ok = (results["closed -1"] == 422 and results["closed 50"] == 201 and results["closed 150"] == 422
-          and results["code abc"] == 422 and results["code ABC"] == 201)
-    return answer(ok, "a numeric interval and a string pattern in `format` refuse values outside them",
+          and results["code abc"] == 422 and results["code ABC"] == 201
+          and results["edit closed 10 to 150"] == 422 and results["after the edit"] == 10.0
+          and results["edit closed 10 to 20"] == 200)
+    return answer(ok, "a numeric interval and a string pattern in `format` refuse values outside them, on edits too",
                   f"declaring the formats: {declared}; statuses: {results}")
 
 
@@ -313,10 +320,16 @@ def onsave_verify(ctx):
     neg = ctx.raw("PUT", f"/structr/rest/SpkSaved/{node}", {"v": -1})
     before = ctx.raw("PUT", f"/structr/rest/SpkSaved/{node}", {"v": 999})
     fine = ctx.raw("PUT", f"/structr/rest/SpkSaved/{node}", {"v": 5})
+    patched = ctx.raw("PATCH", f"/structr/rest/SpkSaved/{node}", {"v": -2})        # what the project's tools send
+    created = ctx.raw("POST", "/structr/rest/SpkSaved", {"name": "spike saved negative", "v": -1,
+                                                        "visibleToAuthenticatedUsers": True})
     tok = lambda r: [e.get("token") for e in (r[1].get("errors") or [])] if isinstance(r[1], dict) else r[1]
-    return answer(neg[0] == 422 and "negative_on_save" in tok(neg) and "before_1" in tok(before) and fine[0] == 200,
+    return answer(neg[0] == 422 and "negative_on_save" in tok(neg) and "before_1" in tok(before) and fine[0] == 200
+                  and patched[0] == 422,
                   "onSave sees $.retrieve('modifications') with before and after, and can refuse an edit",
-                  f"v=-1: {neg[0]} {tok(neg)}; v=999: {before[0]} {tok(before)}; v=5: {fine[0]}")
+                  f"PUT v=-1: {neg[0]} {tok(neg)}; PUT v=999: {before[0]} {tok(before)}; PUT v=5: {fine[0]}; "
+                  f"PATCH v=-2: {patched[0]} {tok(patched)}; a create with v=-1 (does onSave run on a create?): "
+                  f"{created[0]} {tok(created)}")
 
 
 def grant_setup(ctx):

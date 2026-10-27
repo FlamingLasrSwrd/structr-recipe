@@ -75,6 +75,8 @@ def snapshot_schema(client) -> dict:
     for r in client.get("/structr/rest/SchemaRelationshipNode")["result"]:
         key = f"@schema | relationship {nodes.get(r.get('sourceId'), '?')} -[{r['relationshipType']}]-> {nodes.get(r.get('targetId'), '?')}"
         out[key] = {k: r.get(k) for k in ("sourceMultiplicity", "targetMultiplicity", "sourceJsonName", "targetJsonName")}
+        if r.get("cascadingDeleteFlag"):          # recorded where set (scripts/44a), so the rest read as before
+            out[key]["cascadingDeleteFlag"] = r["cascadingDeleteFlag"]
     for m in client.get("/structr/rest/SchemaMethod")["result"]:
         if installed_method(m):
             continue                       # code from methods/, like the pages: not instance state

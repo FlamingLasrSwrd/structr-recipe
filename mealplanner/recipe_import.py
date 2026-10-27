@@ -45,6 +45,7 @@ import tomllib
 from dataclasses import dataclass, field, replace
 
 from mealplanner.capability_schema import CAPABILITY_HIERARCHY
+from mealplanner.cascade_schema import delete_owned, not_cascading
 from mealplanner.identifier_schema import WEB_PAGE
 from mealplanner.nutrition_scope import COUNT_UNITS
 from mealplanner.step_facts_schema import DONENESS, HEAT_LEVEL, QUALITY_KIND_HIERARCHY, TEMPERATURE
@@ -867,32 +868,34 @@ def _delete_orphan_quantity(client, name: str) -> None:
 
 
 def _remove_stale(client, plan_id: str, keep_steps: set[str], keep_specs: set[str]) -> list[str]:
-    """Delete this Plan's Steps and Specifications (with their quantities) that
-    the file no longer has. Only ever called on a Plan that was never cooked, or
-    whose file matched it."""
+    """Delete this Plan's Steps and Specifications that the file no longer has, with
+    what each owns: a Step its Specifications and minutes, a Specification its
+    quantity, state requirements and substitution rules. Where scripts/44a has set
+    the flags, Structr deletes what they own in the same transaction
+    (mealplanner/cascade_schema.py); on an instance before it, a rebuild's earlier
+    scripts, each goes by hand. Only ever called on a Plan that was never cooked,
+    or whose file matched it."""
     removed = []
+    by_hand = None                       # asked of the instance once, when there is something to delete
+
+    def remove(type_name, node_id):
+        nonlocal by_hand
+        if by_hand is None:
+            by_hand = bool(not_cascading(client))
+        if by_hand:
+            delete_owned(client, type_name, node_id)
+        client.delete(f"/structr/rest/{type_name}/{node_id}")
+
     plan = client.get_all("Plan", plan_id)["result"]
     for step_ref in plan.get("steps", []):
         step = client.get_all("Step", step_ref["id"])["result"]
+        stale_step = step_ref["id"] not in keep_steps
         for spec_ref in step.get("hasSpecification", []):
-            if step_ref["id"] in keep_steps and spec_ref["id"] in keep_specs:
-                continue
-            spec = client.get_all("Specification", spec_ref["id"])["result"]
-            if spec.get("hasSpecifiedQuantity"):
-                client.delete(f"/structr/rest/QuantitySpecification/{spec['hasSpecifiedQuantity']['id']}")
-            for rule_ref in spec.get("hasSubstitutionRule") or []:
-                client.delete(f"/structr/rest/SubstitutionRule/{rule_ref['id']}")
-            for req_ref in spec.get("hasStateRequirement") or []:
-                req = client.get_all("StateRequirement", req_ref["id"])["result"]
-                if req.get("expectedValueQty"):
-                    client.delete(f"/structr/rest/QuantitySpecification/{req['expectedValueQty']['id']}")
-                client.delete(f"/structr/rest/StateRequirement/{req_ref['id']}")
-            client.delete(f"/structr/rest/Specification/{spec_ref['id']}")
-            removed.append(spec["name"])
-        if step_ref["id"] not in keep_steps:
-            for key in ("hasWorkingTime", "hasWaitingTime"):
-                if step.get(key):
-                    client.delete(f"/structr/rest/QuantitySpecification/{step[key]['id']}")
-            client.delete(f"/structr/rest/Step/{step_ref['id']}")
+            if stale_step or spec_ref["id"] not in keep_specs:
+                removed.append(spec_ref["name"])
+                if not stale_step:
+                    remove("Specification", spec_ref["id"])
+        if stale_step:
+            remove("Step", step_ref["id"])            # its Specifications with it
             removed.append(step["name"])
     return removed

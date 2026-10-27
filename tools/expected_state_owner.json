@@ -841,18 +841,21 @@
   "targetMultiplicity": "1"
  },
  "@schema | relationship Specification -[HAS_SPECIFIED_QUANTITY]-> QuantitySpecification": {
+  "cascadingDeleteFlag": 1,
   "sourceJsonName": "specificationsWithThisQuantity",
   "sourceMultiplicity": "*",
   "targetJsonName": "hasSpecifiedQuantity",
   "targetMultiplicity": "1"
  },
  "@schema | relationship Specification -[HAS_STATE_REQUIREMENT]-> StateRequirement": {
+  "cascadingDeleteFlag": 1,
   "sourceJsonName": "specification",
   "sourceMultiplicity": "1",
   "targetJsonName": "hasStateRequirement",
   "targetMultiplicity": "*"
  },
  "@schema | relationship Specification -[HAS_SUBSTITUTION_RULE]-> SubstitutionRule": {
+  "cascadingDeleteFlag": 1,
   "sourceJsonName": "forSpecification",
   "sourceMultiplicity": "1",
   "targetJsonName": "hasSubstitutionRule",
@@ -865,6 +868,7 @@
   "targetMultiplicity": "1"
  },
  "@schema | relationship StateRequirement -[EXPECTED_VALUE_QTY]-> QuantitySpecification": {
+  "cascadingDeleteFlag": 1,
   "sourceJsonName": "expectedValueOfStateReqs",
   "sourceMultiplicity": "*",
   "targetJsonName": "expectedValueQty",
@@ -877,18 +881,21 @@
   "targetMultiplicity": "1"
  },
  "@schema | relationship Step -[HAS_SPECIFICATION]-> Specification": {
+  "cascadingDeleteFlag": 1,
   "sourceJsonName": "step",
   "sourceMultiplicity": "1",
   "targetJsonName": "hasSpecification",
   "targetMultiplicity": "*"
  },
  "@schema | relationship Step -[HAS_WAITING_TIME]-> QuantitySpecification": {
+  "cascadingDeleteFlag": 1,
   "sourceJsonName": "waitingTimeOfSteps",
   "sourceMultiplicity": "*",
   "targetJsonName": "hasWaitingTime",
   "targetMultiplicity": "1"
  },
  "@schema | relationship Step -[HAS_WORKING_TIME]-> QuantitySpecification": {
+  "cascadingDeleteFlag": 1,
   "sourceJsonName": "workingTimeOfSteps",
   "sourceMultiplicity": "*",
   "targetJsonName": "hasWorkingTime",

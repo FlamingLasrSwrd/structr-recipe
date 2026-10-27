@@ -67,13 +67,13 @@ one does not (Python), one only reports (the endpoints). What each showed, and w
 | cascade_more | A flag set on a relationship that already has edges applies to them after a restart; cascades chain; **the target is deleted even when another node still points at it**, by the same relationship type or another | `HAS_SPECIFIED_QUANTITY`, `EXPECTED_VALUE_QTY` and the step times are declared many-to-one: one quantity could be shared. The importer never shares one (each is named after its owner), but the migration must check, and refuse if any is |
 | visibility | A type's `defaultVisibleToAuth` makes a node created without flags visible to every signed-in user, **but the node's stored `visibleToAuthenticatedUsers` still reads false** | Not a safety net for hard rule 4: every check that reads the flag would still call such a node hidden, and the flag would hide the slip the snapshot catches. Not adopted |
 | compound | Two properties marked `unique` and `compound` refuse a repeated pair (422 `already_taken`) and accept a new one | Ready for stage 5's per-household names |
-| format | `[0,100]`, `[0,100[`, `[0.0,100.0]` refuse values outside with 422 `must_be_in_range`, on Double and Integer, for creates and edits; **an open end (`[0,]`) is accepted but checks nothing**; a missing value passes. **A string pattern refuses a missing value** (`must_match`) | Invariant 12 can be a format with a large upper bound, covering edits the `onCreate` validator misses; never a pattern on an optional property |
-| onsave | `$.retrieve('modifications')` holds `before` and `after`; `$.error` in `onSave` refuses the edit (422) and nothing changes | `onSave` twins of the validators work, but see Batch 4 on the importers' two-step writes |
+| format | `[0,100]`, `[0,100[`, `[0.0,100.0]` refuse values outside with 422 `must_be_in_range`, on Double and Integer, for creates and edits (a PATCH out of range leaves the old value); **an open end (`[0,]`) is accepted but checks nothing**; a missing value passes. **A string pattern refuses a missing value** (`must_match`) | Invariant 12 can be a format with a large upper bound, covering edits the `onCreate` validator misses; never a pattern on an optional property |
+| onsave | `$.retrieve('modifications')` holds `before` and `after`; `$.error` in `onSave` refuses the edit (422, by PUT or PATCH) and nothing changes; `onSave` does not run on a create | `onSave` twins of the validators work, but see Batch 4 on the importers' two-step writes |
 | grant | A `SchemaGrant` (`schemaNode`, `principal`, `allowRead`, `allowWrite`, `allowDelete`, `allowAccessControl`) lets a group's members read and write every node of a type, owned by anyone, with no flags; a non-member sees none | Stage 5's curators of the shared vocabulary |
 | propagation | `permissionPropagation: "Out"` with `readPropagation: "Add"` (the others `"Keep"`): a read grant on a folder lets a user read its documents, which carry no grant | Stage 5: a household's MealPlan opening its entries |
 | labels | A node made before its type gained a trait lacks the trait's label and is refused as the target of a relationship to the trait; `POST /structr/rest/maintenance/createLabels {"type": ...}` adds it, and the same relationship is then accepted | Hard rule 2's "only fixable with direct Cypher" is out of date: `createLabels` is the supported fix. The rule's wording is the owner's to change (`docs/todo.md`) |
 | bulk | An array POST is one transaction (one duplicate in it: 422, nothing created); a PATCH array on a collection updates many | Batch 6 |
-| unknown | `STRUCTR_jsonrestservlet_unknowninput_validation_mode=reject` refuses a key the schema does not declare (422 "Rejecting input with unknown JSON key ...") and creates nothing | Batch 1: a misspelt key in a tool stops being stored silently as a stray property |
+| unknown | `STRUCTR_jsonrestservlet_unknowninput_validation_mode=reject` refuses a key the schema does not declare (422 "Rejecting input with unknown JSON key ...") and creates nothing | Batch 1: a misspelt key in a tool, or a tool run ahead of its migration, fails where it happens |
 | changelog | With `STRUCTR_application_changelog_enabled` and `..._user__centric_enabled`, `$.changelog(id, false)` lists `create` and `change` entries with `prev`, `val`, `userName` and time; kept as files in `/var/lib/structr/changelog`, **which is on no volume** | Batch 1, with a volume and a place in the backups |
 | cron | `STRUCTR_cronservice_tasks=<function>` and `STRUCTR_<function>_cronExpression` (six fields) run the function; it must exist when Structr starts | No task yet; a nightly check is a candidate |
 | polyglot | **No.** The image carries the GraalPy jars, but `Polyglot.eval('python', ...)` answers 422 and the log says "No language for id python found. Supported languages are: [js]" | Python cannot run inside Structr 6.0 as shipped: what a request does stays JavaScript (`methods/`) and the planner stays Python outside it, as Path S has it |
@@ -107,25 +107,33 @@ schema changes, offline tests whose expected values are worked out by hand, a de
 each to see the test notice it, a fresh rebuild ending in SNAPSHOT IDENTICAL, and the owner's steps
 in `docs/todo.md`.
 
-**Batch 1, operations: settings in `docker-compose.yml`, no schema change.**
+**Batch 1, operations: settings in `docker-compose.yml`, no schema change. Built 2026-10-27.**
 - A compose health check on `/structr/health/ready` (`curl` is in the image), so `docker compose ps`
   says when Structr is ready. `tools/wait_for_structr.sh` keeps its authenticated read, which also
-  proves the password.
+  proves the password. Readiness answered 503 now and then during a rebuild's schema changes, so a
+  run of migrations can show the container unhealthy for a while; nothing acts on the status.
 - The changelog on, with the user-centric log, on a volume of its own (`structr-changelog`) that
-  `tools/backup.py` backs up with the others. It records from the moment it is on; the history
-  before stays unknown.
+  `tools/backup.py` backs up with the others (`docs/backups.md`). It records from the moment it is
+  on; the history before stays unknown. A full rebuild left 34 to 36 MB of it.
 - Unknown input keys refused (`reject`). The rebuild is the check: every script and tool writes
-  through REST, so a rebuild that ends identical shows none sends a key the schema lacks.
+  through REST, so a rebuild that ends identical shows none sends a key the schema lacks. The first
+  one did not: script 04 sent `hasTime` before `recipe_schema` declares it (now it sends it only
+  once declared), and the importer's demo, numbered 29b, ran today's importer long before the
+  schema it writes (36a, 41a). It is now `44c`, after them. Nothing else in a build sends an unknown
+  key.
 
-**Batch 2, cascading delete (migration 44a).** Source-to-target on Step `HAS_SPECIFICATION`,
-`HAS_WORKING_TIME` and `HAS_WAITING_TIME`; Specification `HAS_SPECIFIED_QUANTITY`,
-`HAS_STATE_REQUIREMENT` and `HAS_SUBSTITUTION_RULE`; StateRequirement `EXPECTED_VALUE_QTY`. These
-are what `recipe_import._remove_stale` deletes by hand, one request each; with the flags, deleting a
-Step or a Specification takes its dependents in one transaction. 44a first checks that no target of
-these relationships has a second incoming edge of any kind (cascade_more: a shared target would be
-deleted from under its other owner) and refuses if one has. The importer then deletes Steps and
-Specifications only, and refuses to run against an instance without 44a. The offline graph learns
-the same flags.
+**Batch 2, cascading delete (migration 44a). Built 2026-10-27.** Source-to-target on Step
+`HAS_SPECIFICATION`, `HAS_WORKING_TIME` and `HAS_WAITING_TIME`; Specification
+`HAS_SPECIFIED_QUANTITY`, `HAS_STATE_REQUIREMENT` and `HAS_SUBSTITUTION_RULE`; StateRequirement
+`EXPECTED_VALUE_QTY` (`mealplanner/cascade_schema.py`). With the flags, the importer deletes a
+stale Step or Specification and Structr deletes what it owned in the same transaction, where
+`recipe_import._remove_stale` used to send a request for each. 44a first reads every node these
+point at and refuses, changing nothing, if one is held by anything else (cascade_more: it would be
+deleted from under the other holder). On an instance before 44a the importer still deletes each
+by hand (`cascade_schema.delete_owned`): a rebuild runs 41b to 43b, which import, before 44a. The
+offline graph deletes as Structr does, along the rows that carry the flag, and drops a deleted
+node's relationships everywhere. `scripts/44b` checks it all on real Structr, and the snapshot
+records each flag that is set.
 
 **Batch 3, invariant 12 as `format`.** `[0,1000000000]` on the quantity-bearing values
 (QuantitySpecification `value`, `minValue`, `maxValue`; Measurement `value`): the `onCreate`
@@ -138,7 +146,12 @@ a moment, and a twin of QuantitySpecification's check would refuse the first req
 change first (one PATCH that sets and clears), then the twins.
 
 **Batch 5, methods:** declared parameters for every argument a method reads, GET for the read-only
-ones, `includeInOpenAPI` with a tag for the planner contract. Needed before 7.1 in any case.
+ones, `includeInOpenAPI` with a tag for the planner contract. Needed before 7.1 in any case. Once a
+method declares one parameter, 6.0 drops every argument it does not declare (the params spike), so
+each method declares all it reads, `warmUp` included (`tools/install_methods.py`). The three booking
+methods take the fields of one action among many (`bookForCaller`): either every key any action
+reads is declared, or they take one declared object, for which a parameter type has to be found
+first (a spike: the documented types are numbers, dates, strings and booleans).
 
 **Batch 6, importers in one transaction:** a recipe written as array POSTs, so an interrupted import
 leaves nothing half-written, and measured against today's 8 to 19 s a recipe.

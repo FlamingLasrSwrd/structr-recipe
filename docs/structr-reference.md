@@ -520,8 +520,8 @@ On `SchemaNode`: `isAbstract`, `inheritedTraits`, `defaultVisibleToPublic`/`defa
   `added` and `removed` (relationships, by id): `$.retrieve('modifications')` (**[7.1]** also
   `$.modifications`). **[V6]** (6.0.0: `before`/`after` hold the old and new values of a changed
   property; `$.error(...)` in `onSave` refuses the edit with 422 and the stored value is
-  unchanged). An `onCreate`-only validator misses later edits; give it an `onSave` twin that runs
-  the same check (it does not run on the create itself).
+  unchanged, by PUT or PATCH; `onSave` does not run on a create). An `onCreate`-only validator misses
+  later edits; give it an `onSave` twin that runs the same check.
 - Other callbacks **[D7]**: `onUpload`/`onDownload` on files, `onOAuthLogin` on users, and
   user-defined functions named `onStructrLogin`, `onStructrLogout`, `onAcmeChallenge`,
   `afterAcmeChallenge`.

@@ -121,7 +121,44 @@ class WritableGraph(FakeGraph):
         self.patches += 1
 
     def delete(self, path):
+        """As on Structr: what the node owns through a relationship whose cascadingDeleteFlag the graph's
+        SchemaRelationshipNode rows set (cascading_schema below) goes with it, even if something else holds it."""
         node_id = path.rsplit("/", 1)[-1]
+        node = self.nodes[node_id]
+        owned = [ref.id for key in self._cascades().get(node["type"], ())
+                 for ref in (node.get(key) if isinstance(node.get(key), list) else [node.get(key)]) if isinstance(ref, Ref)]
         for key in self.REVERSES:
-            self._link(node_id, key, self.nodes[node_id].get(key), None)
+            self._link(node_id, key, node.get(key), None)
         del self.nodes[node_id]
+        for other in self.nodes.values():        # its relationships go with it, so no other node still names it
+            for key, value in other.items():
+                if isinstance(value, Ref) and value.id == node_id:
+                    other[key] = None
+                elif isinstance(value, list) and any(isinstance(v, Ref) and v.id == node_id for v in value):
+                    other[key] = [v for v in value if not (isinstance(v, Ref) and v.id == node_id)]
+        for target in owned:                  # inside Structr: not a request, so past any wrapper a test puts on delete
+            if target in self.nodes:
+                WritableGraph.delete(self, f"/structr/rest/{self.nodes[target]['type']}/{target}")
+
+    def _cascades(self) -> dict[str, list[str]]:
+        """{source type: the properties on it of its relationships set to cascade}, from the schema rows."""
+        names = {n["id"]: n["name"] for n in self.nodes.values() if n["type"] == "SchemaNode"}
+        out: dict[str, list[str]] = {}
+        for row in self.nodes.values():
+            if row["type"] == "SchemaRelationshipNode" and row.get("cascadingDeleteFlag") == 1:
+                out.setdefault(names[row["sourceId"]], []).append(row["targetJsonName"])
+        return out
+
+
+def cascading_schema(graph: FakeGraph, flag: int = 1) -> None:
+    """The schema rows of mealplanner/cascade_schema.py's relationships, with their cascadingDeleteFlag
+    (1 as scripts/44a leaves them; 0 as before it)."""
+    from mealplanner.cascade_schema import declarations
+    for source, rel_type, target, src_mult, tgt_mult, src_json, tgt_json in declarations():
+        for type_name in (source, target):
+            graph.nodes.setdefault(f"schema:{type_name}", {"id": f"schema:{type_name}", "type": "SchemaNode",
+                                                           "name": type_name, "inheritedTraits": []})
+        graph.add("SchemaRelationshipNode", f"schema:{rel_type}", name=rel_type, relationshipType=rel_type,
+                  sourceId=f"schema:{source}", targetId=f"schema:{target}", sourceMultiplicity=src_mult,
+                  targetMultiplicity=tgt_mult, sourceJsonName=src_json, targetJsonName=tgt_json,
+                  cascadingDeleteFlag=flag)
