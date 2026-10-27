@@ -69,38 +69,13 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
 - Sign in as Elijah and press one booking button: page bookings for a signed-in household member are
   untested (`docs/pages.md`).
 - Copy `~/mealplanner-backups` off this machine now and then (`docs/backups.md`).
-- Bring your instance up to date (2026-10-26), with its stack up: the schema migration for the
-  households' booking turns, a Structr restart, then the pages (their bookings now one at a time) and
-  the methods:
-  `STRUCTR_URL=http://localhost:8085 python3 scripts/40a_booking_lock_schema.py`, restart Structr
-  (`bash tools/owner_stack.sh stop`, which also backs it up, then `bash tools/owner_stack.sh up`), then
-  `STRUCTR_URL=http://localhost:8085 python3 tools/install_pages.py` and
-  `STRUCTR_URL=http://localhost:8085 python3 tools/install_methods.py`.
-- For a step's facts (2026-10-26), with the stack up: `STRUCTR_URL=http://localhost:8085 python3
-  scripts/41a_step_facts_schema.py`, restart Structr as above, then `STRUCTR_URL=http://localhost:8085
-  python3 tools/import_vocabulary.py` for the cut methods (Chopping, Dicing and the rest).
-- For substitutes (2026-10-26), with the stack up: `STRUCTR_URL=http://localhost:8085 python3
-  scripts/42a_substitution_schema.py`, restart Structr as above, then `STRUCTR_URL=http://localhost:8085
-  python3 tools/install_pages.py` and `STRUCTR_URL=http://localhost:8085 python3 tools/install_methods.py`
-  (the recipe page and `writeInstructions` write them).
-- For a tool named by what it does (2026-10-26), with the stack up: `STRUCTR_URL=http://localhost:8085
-  python3 scripts/43a_capability_schema.py`, restart Structr as above, then `STRUCTR_URL=http://localhost:8085
-  python3 tools/import_vocabulary.py` (the capabilities, the toaster oven and the grill, and what each tool
-  can do), then `install_pages.py` and `install_methods.py` as above. Rehearsed on a throwaway built as
-  yours was.
-- For the Structr features of 2026-10-27 (`docs/structr-features.md` §5, batches 1 and 2), after the
-  steps above: the next `bash tools/owner_stack.sh up` recreates the Structr container with Structr's
-  changelog on (a new volume, which `backup.py` backs up with the others), a health check, and keys
-  the schema does not know refused; the data volumes are untouched. Then, with the stack up:
-  `STRUCTR_URL=http://localhost:8085 python3 scripts/44a_cascading_delete_schema.py` (it reads first, and
-  changes nothing if any quantity is held twice), and restart Structr as above. If Structr's admin
-  interface ever refuses an edit with "Rejecting input with unknown JSON key", the setting is
-  `STRUCTR_jsonrestservlet_unknowninput_validation_mode` in `docker-compose.yml`. Then (batch 3)
-  `STRUCTR_URL=http://localhost:8085 python3 scripts/45a_non_negative_format.py`, which reads every
-  stored quantity first and changes nothing if one is negative, and restart Structr again. Then (batch
-  4) `STRUCTR_URL=http://localhost:8085 python3 scripts/46a_onsave_validators.py`, which checks every
-  stored node of six types against its validator first and installs nothing if one breaks it, and
-  restart Structr again.
+- ~~Bring your instance up to date: migrations 40a to 46a, the vocabulary, the pages and the methods~~
+  **Done 2026-10-27**, on 7.1.0: the seven migrations in order (44a found no shared target, 45a no
+  negative quantity, 46a no stored node breaking its rule among 8,022 quantities, 43 measurements, 1,726
+  specifications and 56 planning constraints), one restart, then `import_vocabulary.py` (269 created,
+  9 changed; the 55 recipes using the 5 changed foods worked out again, every figure unchanged),
+  `install_pages.py` and `install_methods.py`. After it, `check_pages` found no difference, through the
+  methods too, and `check_instructions` none in 1,145 sentences.
 - Decide whether Structr should refuse a delete that leaves a meal entry, a substitution rule, a
   default or a reservation breaking its rule (`docs/structr-features.md` §5, batch 4). Today those four
   rules are checked only as a node is made. Checking them on every change too would make Structr
