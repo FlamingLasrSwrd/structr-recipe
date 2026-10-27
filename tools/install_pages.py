@@ -5,13 +5,14 @@
     python3 tools/install_pages.py --remove   # remove every page this installs, and the grant
 
 The pages, at /structr/html/<name>: week, shopping, recipes, recipe/<id>, nutrition and pantry. Each
-is one server-side script (pages/common.js, then pages/<name>.js) that reads the graph as the signed-in
+is one server-side script (the engine code in pages/lib/, in name order, then pages/common.js, then
+pages/<name>.js) that reads the graph as the signed-in
 user and prints the page. They hold no data; the pantry and week pages' forms book pantry changes
 (docs/pantry.md), so they are meant for the owner's instance as well as any other. Every element is
 visible to signed-in users only, the sign-in page to anyone.
 
 Before the pages, it makes the one node their bookings lock so that they run one at a time
-(ensure_booking_lock; pages/common.js). Pages are code: each run replaces each page whole. Its elements are deleted first, since deleting a
+(ensure_booking_lock; pages/lib/40_bookings.js). Pages are code: each run replaces each page whole. Its elements are deleted first, since deleting a
 Page leaves them behind (verified on Structr 6.0.0), and every element states its `tag`, without which
 Structr 6 renders nothing. Needs STRUCTR_SUPERUSER_PASSWORD and STRUCTR_URL.
 
@@ -53,9 +54,15 @@ def read(name: str) -> str:
         return fh.read()
 
 
+def engine() -> str:
+    """The engine code the pages and the Structr methods share: every pages/lib/*.js, in name order."""
+    lib = os.path.join(PAGES_DIR, "lib")
+    return "\n".join(read(os.path.join("lib", f)) for f in sorted(os.listdir(lib)) if f.endswith(".js"))
+
+
 def script(page_file: str) -> str:
     """The page's Content: one ${{ ... }} block, the shared helpers first."""
-    return "${{\n" + read("common.js") + "\n" + read(page_file) + "\n}}"
+    return "${{\n" + engine() + "\n" + read("common.js") + "\n" + read(page_file) + "\n}}"
 
 
 def remove_page(client, name: str) -> int:
@@ -89,7 +96,7 @@ def build_page(client, name: str, title: str, body: str, *, body_type: str = "te
 
 
 def ensure_booking_lock(client) -> None:
-    """The one node every page booking writes to first, so that bookings run one at a time (pages/common.js).
+    """The one node every page booking writes to first, so that bookings run one at a time (pages/lib/40_bookings.js).
     Made here, where nothing runs beside it; made by the first booking, two at once each made their own.
     Cypher runs only inside Structr here, so a page made for the purpose makes it and is removed. A second
     lock node, left by an earlier way of making it, is deleted."""

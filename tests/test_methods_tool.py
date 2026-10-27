@@ -66,7 +66,8 @@ class InstallMethods(unittest.TestCase):
             source = m["source"]
             self.assertTrue(source.startswith("{\n" + self.tool.MARK + f"methods/{name}.js\n" + self.tool.WARM_UP + "\n"))
             self.assertTrue(source.endswith("\n}"))
-            self.assertIn(self.tool.read(self.tool.COMMON), source)
+            self.assertIn(self.tool.engine(), source)
+            self.assertNotIn("function nav(", source)                       # the pages' shell is not part of it
             self.assertNotIn("schemaNode", m)                              # a user-defined function, no type
         self.assertEqual(sorted(g.calls), sorted((n, {"warmUp": True}) for n in installed))   # each called once, to warm it
 
@@ -105,9 +106,9 @@ class InstallMethods(unittest.TestCase):
         self.assertEqual(g.nodes[theirs]["source"], "{ return 1; }")
 
     def test_no_method_declares_a_name_the_shared_library_has(self):
-        """A method runs as one script after pages/common.js, as a page does (test_pages_tools)."""
+        """A method runs as one script after pages/lib/, as a page does (test_pages_tools)."""
         declared = lambda text: set(re.findall(r"^(?:const|let|var|function)\s+([A-Za-z_$][\w$]*)", text, re.M))
-        shared = declared(self.tool.read(self.tool.COMMON))
+        shared = declared(self.tool.engine())
         for name in self.files():
             self.assertEqual(declared(self.tool.read(os.path.join(self.tool.METHODS_DIR, name + ".js"))) & shared, set(), name)
 

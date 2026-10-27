@@ -20,7 +20,8 @@ nutrition pages show **committed** weeks only: a proposed week exists nowhere un
 
 ## How they are built
 
-Each page is one server-side script: `pages/common.js`, then `pages/<name>.js`, run by Structr's
+Each page is one server-side script: the engine code in `pages/lib/` (shared with the Structr methods,
+`docs/methods.md`), then `pages/common.js`, then `pages/<name>.js`, run by Structr's
 JavaScript engine (GraalJS) as the signed-in user, inside a `Page > html > (head, body)` tree that
 `tools/install_pages.py` creates. The scripts work their figures out again, as the Python modules do,
 each function naming the one it follows: `nutrition_scope.nutrition_report` and its helpers,
@@ -35,8 +36,8 @@ python3 tools/check_pages.py        # what they show, against Python
 ```
 
 **Bookings.** A form sends `?do=<booking>&token=<one per form>` to its page, and the page books it
-before it draws itself, as `mealplanner/pantry.py` does, function by function (`pages/common.js`,
-the bookings section; `pages/pantry.js`; `pages/week.js`). Every node is found by name before it is
+before it draws itself, as `mealplanner/pantry.py` does, function by function (`pages/lib/40_bookings.js`,
+`50_pantry.js`, `60_requests.js`; `pages/week.js`). Every node is found by name before it is
 created, so a form sent twice, or the page reloaded, writes nothing new; the page then clears the
 address. It writes as the superuser through Structr's `$.doPrivileged`, so a household member's
 booking needs no write grant of its own, and every node states its visibility. Each booking prints a

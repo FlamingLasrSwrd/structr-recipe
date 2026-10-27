@@ -6,8 +6,9 @@
 Each methods/<name>.js is the body of one user-defined function: called over REST as
 POST /structr/rest/<name> with a JSON body of its arguments ($.methodParameters), and from a page or
 another method as $.<name>({...}). It runs as whoever calls it, so Structr's access control applies.
-Its source is pages/common.js and then the file, in one block, { ... }, the form Structr runs as
-JavaScript (docs/structr-cheatsheet.md §3a): a method uses the engine code the pages use, not a copy.
+Its source is the engine code in pages/lib/ (every file, in name order) and then the file, in one block,
+{ ... }, the form Structr runs as JavaScript (docs/structr-cheatsheet.md §3a): a method uses the engine
+code the pages use, not a copy. pages/common.js, the pages' own shell, is not part of it.
 
 Every method begins by answering a call whose arguments are {"warmUp": true} with nothing, and this
 tool makes that call after installing or replacing one: a method called by several people at once
@@ -30,7 +31,7 @@ from mealplanner.connection import connect
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 METHODS_DIR = os.path.join(ROOT, "methods")
-COMMON = os.path.join(ROOT, "pages", "common.js")
+LIB = os.path.join(ROOT, "pages", "lib")
 MARK = "// installed by tools/install_methods.py from "      # tools/snapshot_state.py looks for this
 WARM_UP = "if (($.methodParameters || {}).warmUp === true) return null;"
 NAME = re.compile(r"^[a-z][a-zA-Z0-9]*$")                    # a Structr method name (cheatsheet §3a), no underscores
@@ -45,9 +46,14 @@ def read(path: str) -> str:
         return fh.read()
 
 
+def engine() -> str:
+    """Every pages/lib/*.js, in name order, as tools/install_pages.py puts them before a page."""
+    return "\n".join(read(os.path.join(LIB, f)) for f in sorted(os.listdir(LIB)) if f.endswith(".js"))
+
+
 def methods() -> dict[str, str]:
     """name: source, for every methods/<name>.js."""
-    common = read(COMMON)
+    common = engine()
     out = {}
     for fname in sorted(os.listdir(METHODS_DIR)):
         if not fname.endswith(".js"):

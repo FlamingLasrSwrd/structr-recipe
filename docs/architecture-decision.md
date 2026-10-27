@@ -211,7 +211,8 @@ Each stage ends in a check against what is there now, as the pages were built ag
    readable, not writable; bookings for a household one at a time (`Household.bookingTurn`, `scripts/40a`,
    since a Cypher write broke concurrent method calls); the figures as Python's. *Passed* on the
    development instance, twice, and three deliberate breaks were each caught.
-3. **The engine library,** split out of `pages/common.js` into files the pages and the methods share, and
+3. **The engine library,** split out of `pages/common.js` into files the pages and the methods share
+   (*done 2026-10-27:* `pages/lib/`, `docs/methods.md`; every check unchanged), and
    the rest of the request-time engines ported (net requirements and the shopping list, the nutrition
    report, menu changes, requests, every booking), each checked against Python by `check_pages.py` and
    `check_bookings.py`, extended to the methods.

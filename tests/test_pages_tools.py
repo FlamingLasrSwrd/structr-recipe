@@ -70,7 +70,8 @@ class InstallPages(unittest.TestCase):
                     self.assertEqual(n["tag"], n["type"].lower())              # without one Structr 6 renders nothing
                 self.assertEqual((n["visibleToAuthenticatedUsers"], n["visibleToPublicUsers"]), (True, False))
             (body,) = [n for n in elements if n["type"] == "Content" and n["contentType"] == "text/html"]
-            self.assertTrue(body["content"].startswith("${{\n// Shared by every page") and body["content"].endswith("\n}}"))
+            self.assertTrue(body["content"].startswith("${{\n" + self.tool.engine() + "\n" + self.tool.read("common.js"))
+                            and body["content"].endswith("\n}}"))
             self.assertIn(self.tool.read(self.tool.PAGES[name][1]), body["content"])
         self.assertEqual(g.of("ResourceAccess"), [])                          # no sign-in grant unless asked
 
@@ -97,12 +98,12 @@ class InstallPages(unittest.TestCase):
 
 class OneScriptPerPage(unittest.TestCase):
     def test_no_page_declares_a_name_the_shared_script_has(self):
-        """Each page runs as one script after pages/common.js: a name declared twice is a SyntaxError
+        """Each page runs as one script after pages/lib/ and pages/common.js: a name declared twice is a SyntaxError
         Structr only logs, and the page renders empty (found 2026-10-23: `baselines`)."""
         import re
         declared = lambda text: set(re.findall(r"^(?:const|let|var|function)\s+([A-Za-z_$][\w$]*)", text, re.M))
         tool = load()
-        shared = declared(tool.read("common.js"))
+        shared = declared(tool.engine()) | declared(tool.read("common.js"))
         for name, (_, page_file) in tool.PAGES.items():
             self.assertEqual(declared(tool.read(page_file)) & shared, set(), page_file)
 
@@ -155,3 +156,22 @@ class CreateLogin(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TheEngineFiles(unittest.TestCase):
+    def test_no_two_engine_files_and_the_shell_declare_one_name(self):
+        """pages/lib/ and pages/common.js run as one script too."""
+        import re
+        tool = load()
+        declared = lambda text: re.findall(r"^(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)", text, re.M)
+        lib = os.path.join(tool.PAGES_DIR, "lib")
+        names = [n for f in sorted(os.listdir(lib)) for n in declared(tool.read(os.path.join("lib", f)))]
+        names += declared(tool.read("common.js"))
+        self.assertEqual(sorted({n for n in names if names.count(n) > 1}), [])
+
+    def test_the_engine_needs_nothing_of_a_page(self):
+        """The methods run pages/lib/ without the pages' shell, so nothing there may use it."""
+        tool = load()
+        engine = tool.engine()
+        for name in ("esc(", "nav(", "chosenWeek(", "weekPicker(", "$.request", "$.current"):
+            self.assertNotIn(name, engine, name)

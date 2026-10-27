@@ -44,7 +44,7 @@ requests once the model met real recipes and a real household. In order of how m
   pantry profiles, public prices; the owner's data in its own instance, out of reach of the demos
   (`tools/owner_stack.sh`); memory caps after the 8 GB laptop froze; backups of that instance, checked
   by restoring them (`tools/backup.py`, `docs/backups.md`).
-- **Testing:** 765 offline tests (72 when the second review's fixes landed), two mutation sweeps
+- **Testing:** 767 offline tests (72 when the second review's fixes landed), two mutation sweeps
   (below), and checks of the pages against Python on real Structr.
 
 ## What is being reviewed
@@ -84,7 +84,7 @@ describe a known posture rather than a regression.
 ## Running it
 
 ```bash
-python3 -m unittest discover -s tests -t .            # 765 offline tests, no Structr (29 skip without OR-tools)
+python3 -m unittest discover -s tests -t .            # 767 offline tests, no Structr (29 skip without OR-tools)
 .venv/bin/python -m unittest discover -s tests -t .   # the same with OR-tools (requirements-solver.txt)
 python3 tools/check_names.py                          # undefined names and unused imports (no pyflakes here)
 python3 scripts/23a_schema_drift_test.py              # offline: the schema helpers against a drifted schema

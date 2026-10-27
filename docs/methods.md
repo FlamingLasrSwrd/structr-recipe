@@ -8,9 +8,20 @@ and the batch work. Two methods exist so far; the pages still do the rest, as th
 ## Methods as code
 
 Each `methods/<name>.js` is the body of one Structr user-defined function, installed by
-`tools/install_methods.py`. Its source is `pages/common.js` and then the file, in one `{ ... }` block,
-which is how Structr knows to run it as JavaScript (`structr-cheatsheet.md` §3a). So a method runs the
-same engine code the pages run, not a copy of it.
+`tools/install_methods.py`. Its source is the engine code in `pages/lib/` (every file, in name order)
+and then the file, in one `{ ... }` block, which is how Structr knows to run it as JavaScript
+(`structr-cheatsheet.md` §3a). The pages run the same files, then `pages/common.js` (their own shell:
+escaping, navigation, the week a page is about, a booking from a page's address), then their own
+script. So a method runs the engine code the pages run, not a copy of it.
+
+| `pages/lib/` | What |
+|---|---|
+| `10_units.js` | units, defaults resolved along a Type's hierarchy, days, how numbers are written |
+| `20_week.js` | a week's entries, who eats how much, a recipe's stored nutrition per serving |
+| `30_stock.js` | stock on hand and expiry |
+| `40_bookings.js` | how every booking writes, and one booking in a transaction of its own |
+| `50_pantry.js` | the pantry's bookings |
+| `60_requests.js` | recipes asked for a week |
 
 - **Calling one:** `POST /structr/rest/<name>` with a JSON body of its arguments (read as
   `$.methodParameters`), or `$.<name>({...})` from a page or another method. The answer is under `result`.
