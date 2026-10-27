@@ -1,6 +1,6 @@
 # Structr features: what this project uses, what it could use, and what the spikes found
 
-**Status: findings and a plan (2026-10-27), being built.** A read of all of Structr's documentation
+**Status: findings and a plan (2026-10-27); batches 1 to 4 built, 5 and 6 waiting on the owner.** A read of all of Structr's documentation
 (structr.org/docs, 84 pages, written for 7.x) and of the 7.1.0 release notes, checked against the
 6.0.0 this project runs: read-only probes of the development instance's schema metadata, endpoints
 and image, then spike tests on throwaway stacks (`tools/spikes/`). `docs/structr-reference.md` is
@@ -192,10 +192,20 @@ each method declares all it reads, `warmUp` included (`tools/install_methods.py`
 methods take the fields of one action among many (`bookForCaller`): either every key any action
 reads is declared, or they take one declared object, for which a parameter type has to be found
 first. The param_object spike found one: declared as Map (or Object, or String), an object arrives
-whole.
+whole. **Not built: waiting on the owner**, because it changes how every caller calls the methods
+(`docs/methods.md`): a booking would move from flat keys to one object, or declare every key any
+action reads, and a read method moved to GET is called with path segments instead of a POST body.
+Nothing on 6.0 needs it: 6.0 passes undeclared arguments to a method that declares none, and only
+7.1 refuses them. It belongs with a move to 7.1.
 
 **Batch 6, importers in one transaction:** a recipe written as array POSTs, so an interrupted import
-leaves nothing half-written, and measured against today's 8 to 19 s a recipe.
+leaves nothing half-written, and measured against today's 8 to 19 s a recipe. **Not built: waiting on
+the owner.** The importer upserts every node by name and links each to nodes made a moment before;
+an array POST is one transaction (the bulk spike) but a new node in it cannot name another new node
+by id. So it needs either Structr's nested objects with autocreation (`autocreationFlag`, not yet
+spiked) or a redesign that reads everything first and writes the new nodes in two arrays, then the
+links. Batch 2 already made a recipe's deletions one transaction each. It is worth measuring where
+an import's time goes before choosing.
 
 **Waiting on the owner, or on stage 5:** schema grants, propagation and compound uniqueness (stage
 5's sharing and names); the wording of hard rule 2 now that `createLabels` works; a changelog-based
