@@ -27,9 +27,16 @@ function joinWords(items) {
 function ingredientWords(ing, made) {
   const name = String(ing.food).toLowerCase();
   if (made[ing.food]) return "the " + name;
-  if (ing.amount == null) return name + (ing.optional ? ", to taste" : "");
-  const amount = writtenNumber(ing.amount) + (COUNTED_UNITS.indexOf(ing.unit) >= 0 ? "" : " " + ing.unit);
-  return amount + " " + name + (ing.optional ? " (optional)" : "");
+  const unit = COUNTED_UNITS.indexOf(ing.unit) >= 0 ? "" : " " + (ing.unit || "");
+  const alternatives = [];
+  for (const sub of ing.substitutes || []) {                // what may stand in, by its ratio; never one ruled out
+    if (sub.never) continue;
+    const scaled = ing.amount == null || sub.ratio === 1 ? "" : writtenNumber(ing.amount * sub.ratio) + unit + " ";
+    alternatives.push("or " + scaled + String(sub.food).toLowerCase());
+  }
+  const other = alternatives.length ? " (" + alternatives.join(", ") + ")" : "";
+  if (ing.amount == null) return name + other + (ing.optional ? ", to taste" : "");
+  return writtenNumber(ing.amount) + unit + " " + name + other + (ing.optional ? " (optional)" : "");
 }
 
 // instructions.sentence: step i (from 1), knowing what the steps before it made
@@ -112,7 +119,11 @@ function planSteps(plan) {
         else if (wanted["Heat Level"]) out.heat.push([k, {tool: name, temp: null, unit: null, level: wanted["Heat Level"][0]}]);
       } else {
         const q = spec.hasSpecifiedQuantity;
-        inputs.push([lastNumber(spec.name, "input"), {food: name, amount: q ? q.value : null, unit: q ? q.unit : null, optional: !!spec.isOptional}]);
+        const rules = (spec.hasSubstitutionRule || []).slice().sort((x, y) => lastNumber(x.name, "or") - lastNumber(y.name, "or"))
+          .map((r) => ({food: r.candidateType ? r.candidateType.name : null, ratio: r.substitutionRatio == null ? 1 : r.substitutionRatio,
+                        never: !!r.isExcluded}));
+        inputs.push([lastNumber(spec.name, "input"), {food: name, amount: q ? q.value : null, unit: q ? q.unit : null,
+                                                      optional: !!spec.isOptional, substitutes: rules}]);
       }
     }
     const byFirst = (a, b) => a[0] - b[0];

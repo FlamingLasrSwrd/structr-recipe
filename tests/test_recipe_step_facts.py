@@ -122,10 +122,12 @@ class RecipeGraph(WritableGraph):
 
     RELATIONS = WritableGraph.RELATIONS | {"plan", "step", "specifies", "hasSpecifiedQuantity", "specializationOf",
                                            "hasRecipeYield", "hasMealType", "denotes", "hasWorkingTime", "hasWaitingTime",
-                                           "isPrecededBy", "specification", "targetsProperty", "expectedValueQty"}
+                                           "isPrecededBy", "specification", "targetsProperty", "expectedValueQty",
+                                           "forSpecification", "candidateType"}
     REVERSES = {**WritableGraph.REVERSES, "plan": "steps", "step": "hasSpecification", "specification": "hasStateRequirement",
                 "hasWorkingTime": "workingTimeOfSteps", "hasWaitingTime": "waitingTimeOfSteps",
-                "expectedValueQty": "expectedValueOfStateReqs", "hasSpecifiedQuantity": "specificationsWithThisQuantity"}
+                "expectedValueQty": "expectedValueOfStateReqs", "hasSpecifiedQuantity": "specificationsWithThisQuantity",
+                "forSpecification": "hasSubstitutionRule"}
 
     def upsert(self, type_name, unique_prop, value, fields, **_):
         found = [n for n in self.nodes.values() if n["type"] == type_name and n.get(unique_prop) == value]

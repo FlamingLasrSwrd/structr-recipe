@@ -212,13 +212,13 @@ Each stage ends in a check against what is there now, as the pages were built ag
    since a Cypher write broke concurrent method calls); the figures as Python's. *Passed* on the
    development instance, twice, and three deliberate breaks were each caught.
 3. **The engine library,** split out of `pages/common.js` into files the pages and the methods share
-   (*done 2026-10-27:* `pages/lib/`, `docs/methods.md`; every check unchanged), and
+   (*done 2026-10-26:* `pages/lib/`, `docs/methods.md`; every check unchanged), and
    the rest of the request-time engines ported (net requirements and the shopping list, the nutrition
    report, menu changes, requests, every booking), each checked against Python by `check_pages.py` and
-   `check_bookings.py`, extended to the methods. *Every booking done (2026-10-27):* `bookWeek` and
+   `check_bookings.py`, extended to the methods. *Every booking done (2026-10-26):* `bookWeek` and
    `bookRequest`, checked as households by `check_households.py`, which found and closed a gap: a
    household's booking now acts on its own data only, never on what every signed-in user sees. *And
-   the reads (2026-10-27):* `nutritionReport` and `shoppingList`, from `pages/lib/80_nutrition.js` and
+   the reads (2026-10-26):* `nutritionReport` and `shoppingList`, from `pages/lib/80_nutrition.js` and
    `90_shopping.js`, which the pages now draw from, compared with Python by `check_pages.py` and, as a
    household, by the gate. Stage 3 is done.
 4. **The planner's JSON contract:** the problem in and the plan out as JSON; the planner run on a problem

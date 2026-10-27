@@ -276,6 +276,23 @@ STOCK_POLICY_ONCREATE = (
     'null)'
 )
 
+# --- IMPLEMENTED, added with substitutions (J36) -------------------------
+#
+# 21, 22: SubstitutionRule.onCreate (installed by scripts/42a). A rule is for
+#   an input Specification (22), and its candidate comes from the hierarchy
+#   that Specification's `specifies` is in (21): a food for a food, which is
+#   all recipe_import, the one writer of rules, ever draws. A rule with no
+#   Specification or no candidate is refused by the same two tests. onCreate
+#   only: a rule's Specification and candidate are in its name, so the
+#   importer never repoints one, it writes another.
+
+SUBSTITUTION_RULE_ONCREATE = (
+    'if(not(equal(this.forSpecification.hasParticipationRole, "input")), '
+    'error("forSpecification", "substitution_rule_must_be_for_an_input"), '
+    'if(not(equal(this.candidateType.hierarchy.id, this.forSpecification.specifies.hierarchy.id)), '
+    'error("candidateType", "candidate_must_come_from_the_hierarchy_the_input_specifies"), null))'
+)
+
 # --- DEFERRED ------------------------------------------------------------
 #
 # 2b: Measurement -[WAS_DERIVED_FROM]-> QuantitySpecification exists (33a) and
@@ -296,11 +313,13 @@ STOCK_POLICY_ONCREATE = (
 #   ambiguous what "exists" means operationally (createdDate vs BFO
 #   existence via beginsToExistDuring for generated entities); not
 #   implemented pending that decision.
-# 18: SubstitutionRule/via_substitution, not built.
+# 18: via_substitution (an Allocation saying which rule it used) is not
+#   built; the rules themselves are (scripts/42a), and nothing records a
+#   substitution made while cooking yet.
 # 19: StockReconciliation, not built.
-# 9a, 20, 21, 22: Concept.exactMatch/closeMatch, candidate_type,
-#   RecipeIdentity.defines_output_type -- none of these relations are
-#   built yet.
+# 9a, 20: Concept.exactMatch/closeMatch and
+#   RecipeIdentity.defines_output_type -- neither relation is built yet.
+#   (21 and 22 were deferred with them until scripts/42a; see above.)
 # 23, 24: leftover-reservation surplus/planned-consumption checks
 #   (MealPlanEntry.consumesLeftoverFrom, the reservation Role,
 #   targetsEntry) -- genuinely separate from 28 below: computing a

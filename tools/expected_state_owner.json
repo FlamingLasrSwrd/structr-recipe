@@ -49,6 +49,11 @@
   "returnRawResult": false,
   "source": "if(and(not(empty(this.hasTargetLevel)), not(empty(this.hasReorderThreshold))), if(not(equal(this.hasTargetLevel.unit, this.hasReorderThreshold.unit)), error(\"hasTargetLevel\", \"target_and_reorder_threshold_must_share_a_unit\"), if(lt(this.hasTargetLevel.value, this.hasReorderThreshold.value), error(\"hasTargetLevel\", \"target_level_must_be_at_least_reorder_threshold\"), null)), null)"
  },
+ "@schema | method SubstitutionRule.onCreate": {
+  "isStatic": false,
+  "returnRawResult": false,
+  "source": "if(not(equal(this.forSpecification.hasParticipationRole, \"input\")), error(\"forSpecification\", \"substitution_rule_must_be_for_an_input\"), if(not(equal(this.candidateType.hierarchy.id, this.forSpecification.specifies.hierarchy.id)), error(\"candidateType\", \"candidate_must_come_from_the_hierarchy_the_input_specifies\"), null))"
+ },
  "@schema | property Allocation.hasParticipationRole": {
   "format": "input,output,instrument",
   "indexed": false,
@@ -383,6 +388,20 @@
   "indexed": false,
   "notNull": false,
   "propertyType": "Boolean",
+  "unique": false
+ },
+ "@schema | property SubstitutionRule.isExcluded": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Boolean",
+  "unique": false
+ },
+ "@schema | property SubstitutionRule.substitutionRatio": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Double",
   "unique": false
  },
  "@schema | property TemporalRegion.hasBeginning": {
@@ -827,6 +846,12 @@
   "targetJsonName": "hasStateRequirement",
   "targetMultiplicity": "*"
  },
+ "@schema | relationship Specification -[HAS_SUBSTITUTION_RULE]-> SubstitutionRule": {
+  "sourceJsonName": "forSpecification",
+  "sourceMultiplicity": "1",
+  "targetJsonName": "hasSubstitutionRule",
+  "targetMultiplicity": "*"
+ },
  "@schema | relationship Specification -[SPECIFIES]-> DomainType": {
   "sourceJsonName": "specifiedBySpecs",
   "sourceMultiplicity": "*",
@@ -897,6 +922,12 @@
   "sourceJsonName": "targetLevelOfPolicies",
   "sourceMultiplicity": "*",
   "targetJsonName": "hasTargetLevel",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship SubstitutionRule -[CANDIDATE_TYPE]-> DomainType": {
+  "sourceJsonName": "candidateOfRules",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "candidateType",
   "targetMultiplicity": "1"
  },
  "@schema | relationship UtensilSet -[HAS_MEMBER_PART]-> EquipmentObject": {

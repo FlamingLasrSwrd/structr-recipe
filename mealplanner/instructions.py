@@ -46,10 +46,17 @@ def ingredient(ing, made: set) -> str:
     name = ing.food.lower()
     if ing.food in made:
         return "the " + name
+    unit = "" if ing.unit in COUNTED else " " + (ing.unit or "")
+    alternatives = []
+    for sub in getattr(ing, "substitutes", ()):           # what may stand in, by its ratio; never one ruled out
+        if sub.never:
+            continue
+        scaled = "" if ing.amount is None or sub.ratio == 1 else number(ing.amount * sub.ratio) + unit + " "
+        alternatives.append("or " + scaled + sub.food.lower())
+    other = f" ({', '.join(alternatives)})" if alternatives else ""
     if ing.amount is None:
-        return name + (", to taste" if ing.optional else "")
-    amount = number(ing.amount) + ("" if ing.unit in COUNTED else " " + ing.unit)
-    return f"{amount} {name}" + (" (optional)" if ing.optional else "")
+        return name + other + (", to taste" if ing.optional else "")
+    return f"{number(ing.amount)}{unit} {name}" + other + (" (optional)" if ing.optional else "")
 
 
 def sentence(i: int, step, made: set) -> str:
@@ -98,7 +105,9 @@ def instructions(steps) -> list[str]:
 def as_data(steps) -> list[dict]:
     """Steps as plain data, the shape the writeInstructions method and pages/lib/75_instructions.js read."""
     return [{"label": s.label, "method": s.method, "makes": s.makes, "equipment": list(s.equipment),
-             "inputs": [{"food": i.food, "amount": i.amount, "unit": i.unit, "optional": i.optional} for i in s.inputs],
+             "inputs": [{"food": i.food, "amount": i.amount, "unit": i.unit, "optional": i.optional,
+                         "substitutes": [{"food": x.food, "ratio": x.ratio, "never": x.never} for x in i.substitutes]}
+                        for i in s.inputs],
              "heat": [{"tool": h.tool, "temp": h.temp, "unit": h.unit, "level": h.level} for h in s.heat],
              "minutes": s.minutes, "wait_minutes": s.wait_minutes,
              "after": list(s.after) if s.after is not None else None, "until": s.until,

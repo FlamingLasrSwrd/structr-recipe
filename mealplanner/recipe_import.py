@@ -14,6 +14,7 @@ What a file becomes (data-model.md Sec 5, the same shapes scripts/15c builds):
     QuantitySpecification ... yield     minutes, difficulty, hours made ahead
     Step <plan> step <i> -- <label>     instanceOf a Transformation Method
       Specification ... input <j> <food>   specifies a Food-Identity Type; quantity if stated
+        SubstitutionRule ... or <k> <food> what may stand in, and how much (J36)
       Specification ... output <type>      the Step's product
       Specification ... equipment <k> <x>  instrument role: a tool the Step needs
         StateRequirement ... heat          what the tool is set to: Temperature or Heat Level
@@ -63,7 +64,8 @@ UNTIL_MAX = 60                                   # "until golden": a few words o
 # A step's name is a label of a few words, never the source's instructions, which are not stored
 # (docs/recipe-copyright.md): the file has no field for them, and this keeps a name from holding them.
 STEP_NAME_MAX = 80
-INPUT_KEYS = {"food", "amount", "unit", "optional"}
+INPUT_KEYS = {"food", "amount", "unit", "optional", "substitutes"}
+SUBSTITUTE_KEYS = {"food", "ratio", "never"}
 
 
 class RecipeFormatError(ValueError):
@@ -87,11 +89,21 @@ class RecipeFrozenError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class Substitute:
+    """What may stand in for an ingredient (J36): `ratio` of it for one of the original, in the original's
+    unit; `never` says it must not, whatever similarity suggests."""
+    food: str
+    ratio: float = 1.0
+    never: bool = False
+
+
+@dataclass(frozen=True)
 class Ingredient:
     food: str
     amount: float | None = None
     unit: str | None = None
     optional: bool = False
+    substitutes: tuple[Substitute, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -255,7 +267,8 @@ def parse_recipe(data: dict) -> RecipeDoc:
             optional = item.get("optional", False)
             if not isinstance(optional, bool):
                 problems.append(f"{iw}: optional must be true or false")
-            inputs.append(Ingredient(food, None if amount is None else float(amount), unit, optional))
+            substitutes = _substitutes(iw, food, item.get("substitutes", []), problems)
+            inputs.append(Ingredient(food, None if amount is None else float(amount), unit, optional, substitutes))
         raw_tools = raw.get("equipment", [])
         if not isinstance(raw_tools, list):
             problems.append(f"{where}: equipment must be a list of names")
@@ -304,6 +317,10 @@ def parse_recipe(data: dict) -> RecipeDoc:
 
     steps = _order(steps, problems)
     made = [s.makes for s in steps]
+    for i, step in enumerate(steps, 1):
+        for ing in step.inputs:
+            if ing.substitutes and ing.food in made:
+                problems.append(f"step {i}: {ing.food!r} is made by an earlier step, so nothing stands in for it here")
     if len(set(made)) != len(made):
         problems.append("two steps make the same thing")
     for i, step in enumerate(steps):
@@ -321,6 +338,38 @@ def parse_recipe(data: dict) -> RecipeDoc:
         source=source, minutes=None if minutes is None else float(minutes), difficulty=difficulty,
         ahead_hours=None if ahead_hours is None else float(ahead_hours),
     )
+
+
+def _substitutes(where: str, food, raw, problems: list[str]) -> tuple[Substitute, ...]:
+    """An ingredient's substitutes: [{ food = "Margarine" }, { food = "Olive Oil", ratio = 0.75 }, { food = ..., never = true }]."""
+    if not isinstance(raw, list):
+        problems.append(f"{where}: substitutes must be a list of tables, each with a food")
+        return ()
+    out = []
+    for k, item in enumerate(raw, 1):
+        sw = f"{where} substitute {k}"
+        if not isinstance(item, dict):
+            problems.append(f"{sw} must be a table with a food")
+            continue
+        for key in sorted(set(item) - SUBSTITUTE_KEYS):
+            problems.append(f"{sw}: unknown key {key!r} (allowed: {', '.join(sorted(SUBSTITUTE_KEYS))})")
+        name = item.get("food")
+        if not _safe_name(f"{sw} food", name, problems):
+            continue
+        ratio, never = item.get("ratio", 1), item.get("never", False)
+        if not _number(ratio) or ratio <= 0:
+            problems.append(f"{sw}: ratio is how much of it for one of {food!r}, a number above 0, not {ratio!r}")
+            continue
+        if not isinstance(never, bool):
+            problems.append(f"{sw}: never must be true or false")
+            continue
+        if name == food:
+            problems.append(f"{sw}: {name!r} cannot stand in for itself")
+            continue
+        out.append(Substitute(name, float(ratio), never))
+    if len({s.food for s in out}) != len(out):
+        problems.append(f"{where}: a substitute is listed twice")
+    return tuple(out)
 
 
 def _heat(where: str, tool, item: dict, problems: list[str]) -> Heat | None:
@@ -433,6 +482,9 @@ def resolve(client, doc: RecipeDoc) -> Resolved:
         for ing in step.inputs:
             if ing.food not in products and ing.food not in foods:
                 foods[ing.food] = domain_type(ing.food, food_h, "ingredient")
+            for sub in ing.substitutes:
+                if sub.food not in foods:
+                    foods[sub.food] = domain_type(sub.food, food_h, "substitute")
     methods = {s.method: domain_type(s.method, method_h, "method") for s in doc.steps if s.method}
     equipment = {tool: domain_type(tool, equipment_h, "equipment") for s in doc.steps for tool in s.equipment}
     wanted_kinds = set()
@@ -514,7 +566,7 @@ def export_plan(client, plan_id: str) -> tuple:
                 qty = client.get_all("QuantitySpecification", spec["hasSpecifiedQuantity"]["id"])["result"]
                 amount, unit = qty.get("value"), qty.get("unit")
             inputs.append((_input_index(spec["name"]), Ingredient(spec["specifies"]["name"], amount, unit,
-                                                                  bool(spec.get("isOptional")))))
+                                                                  bool(spec.get("isOptional")), _rules(client, spec))))
         label = step["name"][len(f"{plan['name']} step {index} -- "):]
         method = (step.get("instanceOf") or {}).get("name")
         after = None
@@ -531,6 +583,18 @@ def export_plan(client, plan_id: str) -> tuple:
 
 def _minutes(client, ref: dict | None) -> float | None:
     return client.get_all("QuantitySpecification", ref["id"])["result"].get("value") if ref else None
+
+
+def _rules(client, spec: dict) -> tuple[Substitute, ...]:
+    """An input Specification's SubstitutionRules, in the order of the numbers in their names."""
+    rules = []
+    for ref in spec.get("hasSubstitutionRule") or []:
+        rule = client.get_all("SubstitutionRule", ref["id"])["result"]
+        k = int(rule["name"].rsplit(" or ", 1)[1].split(" ", 1)[0])
+        ratio = rule.get("substitutionRatio")
+        rules.append((k, Substitute((rule.get("candidateType") or {}).get("name"), 1.0 if ratio is None else float(ratio),
+                                    bool(rule.get("isExcluded")))))
+    return tuple(sub for _, sub in sorted(rules, key=lambda r: r[0]))
 
 
 def _requirements(client, spec: dict) -> dict:
@@ -646,6 +710,7 @@ def import_recipe(client, doc: RecipeDoc, *, check_only: bool = False) -> Import
                 "step": step_id, "hasParticipationRole": "input", "specifies": type_of[ing.food],
                 "hasSpecifiedQuantity": qty_id, "isOptional": ing.optional})
             keep_specs.add(spec_id)
+            _substitution_rules(client, spec_id, spec_name, ing, type_of)
             if qty_id is None:
                 _delete_orphan_quantity(client, f"{spec_name} quantity")
         out_name = output_name(doc, i, step)
@@ -673,7 +738,10 @@ def import_recipe(client, doc: RecipeDoc, *, check_only: bool = False) -> Import
     removed = _remove_stale(client, plan_id, keep_steps, keep_specs)
     report = ImportReport(recipe_id, plan_id, plan_unchanged=before == doc.plan_part() and not removed,
                           created_types=report_types, removed=removed)
+    ingredients = {ing.food for step in doc.steps for ing in step.inputs}      # a substitute is not eaten unless chosen
     for food, type_id in names.foods.items():
+        if food not in ingredients:
+            continue
         node = client.get_all("DomainType", type_id)["result"]
         if not node.get("nutrientProfilesAbout"):
             report.without_profiles.append(food)
@@ -703,6 +771,20 @@ def _write(client, type_name: str, name: str, fields: dict) -> str:
     if cleared:
         client.patch(f"/structr/rest/{type_name}/{node_id}", cleared)
     return node_id
+
+
+def _substitution_rules(client, spec_id: str, spec_name: str, ing: Ingredient, type_of: dict) -> None:
+    """An input Specification's SubstitutionRules, one per substitute, named "<spec> or <k> <food>" in the
+    file's order; any other rule of the Specification is deleted (J36)."""
+    keep = set()
+    for k, sub in enumerate(ing.substitutes, 1):
+        keep.add(_write(client, "SubstitutionRule", f"{spec_name} or {k} {sub.food}", {
+            "forSpecification": spec_id, "candidateType": type_of[sub.food], "substitutionRatio": sub.ratio,
+            "isExcluded": sub.never}))
+    spec = client.get_all("Specification", spec_id)["result"]
+    for ref in spec.get("hasSubstitutionRule") or []:
+        if ref["id"] not in keep:
+            client.delete(f"/structr/rest/SubstitutionRule/{ref['id']}")
 
 
 def _minutes_quantity(client, name: str, minutes: float | None) -> str | None:
@@ -762,6 +844,8 @@ def _remove_stale(client, plan_id: str, keep_steps: set[str], keep_specs: set[st
             spec = client.get_all("Specification", spec_ref["id"])["result"]
             if spec.get("hasSpecifiedQuantity"):
                 client.delete(f"/structr/rest/QuantitySpecification/{spec['hasSpecifiedQuantity']['id']}")
+            for rule_ref in spec.get("hasSubstitutionRule") or []:
+                client.delete(f"/structr/rest/SubstitutionRule/{rule_ref['id']}")
             for req_ref in spec.get("hasStateRequirement") or []:
                 req = client.get_all("StateRequirement", req_ref["id"])["result"]
                 if req.get("expectedValueQty"):

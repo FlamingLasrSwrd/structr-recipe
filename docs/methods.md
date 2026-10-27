@@ -135,7 +135,7 @@ households were granted, the weeks it names, the stock everyone sees it bought (
 - the household's nodes written visible to everyone: 47 failures, B1 could book on A's portion;
 - no grant to the household: 17 failures, A2 could not see A1's purchase;
 - no turn taken: four said they booked one purchase;
-- (2026-10-27) each own-data rule left out in turn: the cook drew on the stock everyone sees, which
+- (2026-10-26) each own-data rule left out in turn: the cook drew on the stock everyone sees, which
   expired first; a member booked a use on it; a meal everyone sees was changed (Structr's own rights
   then refused it, with a 403); and twice a household's request went to the shared week, by name. The
   last is a real gap the rule closes: finding by name had found the shared week before; and both of

@@ -166,12 +166,39 @@ inputs = [{ food = "Chicken", amount = 300, unit = "g" }]
 - **A recipe already cooked** is history: adding facts to its file is a change, so it loads as a new
   `version`.
 
+## What may stand in
+
+An ingredient may say what can take its place (`docs/data-model.md` §5.3, §18 J36):
+
+```toml
+inputs = [
+  { food = "Butter", amount = 3, unit = "tbsp", substitutes = [
+      { food = "Olive oil", ratio = 0.75 },   # 0.75 tbsp of oil for each tbsp of butter
+      { food = "Canola oil", ratio = 0.75 },
+      { food = "Peanut oil", never = true },  # never, however alike it seems
+  ] },
+  { food = "Lime", amount = 1, unit = "each", substitutes = [{ food = "Lemon" }] },   # ratio 1: as much
+]
+```
+
+- **A substitute is a food in the vocabulary**, as the ingredient is, and the loader names one that is
+  not. `ratio` (default 1) is how much of it for one of the ingredient, in the ingredient's unit.
+- **`never`** rules a food out. The model's rule is that an authored rule decides and a computed
+  similarity only suggests (§5.3); nothing computes suggestions yet, so for now `never` keeps a food
+  off the page and out of any later suggestion.
+- **Not for something an earlier step made** (give that step's ingredients their substitutes
+  instead), not the food itself, and not one food twice.
+- **Only the page reads them, for now.** The nutrition, the shopping list, the pantry and the planner
+  count the ingredient the recipe names; a cook that used the olive oil because the butter ran out
+  has no way to say so yet (invariant 18's `via_substitution`, not built).
+
 ## Instructions written from the steps
 
 The recipe page's **How to make it** writes each step as one sentence of our own from its facts, by
 fixed rules (`mealplanner/instructions.py`; `pages/lib/75_instructions.js` writes the same, word for
 word): the method's verb (or, with no method, the step's label), the ingredients with their amounts
-("the" for what an earlier step made), the tools with their heat, the doneness, the time, and
+("the" for what an earlier step made) and what may stand in, scaled by its ratio ("3 tbsp butter (or
+2.25 tbsp olive oil, or 2.25 tbsp canola oil)", the peanut oil left out), the tools with their heat, the doneness, the time, and
 "Meanwhile" for a step that does not follow the one before. The recipe above reads:
 
 1. Rinse the rice: 150 g rice, about 2 minutes.
@@ -189,7 +216,8 @@ A `RecipeIdentity` (meal types; an `Identifier` for the source page), a `Plan` n
 transformation method) with one input `Specification` per ingredient, an output `Specification`
 for what it makes, and an instrument `Specification` per piece of equipment. A step's minutes are
 QuantitySpecifications, its order is `isPrecededBy`, and a tool's heat or a product's doneness is a
-`StateRequirement` on its Specification (J35). The page's prose is not stored: a Step records what goes in, what comes out, how and with what, in order. An actual
+`StateRequirement` on its Specification (J35), and each substitute is a `SubstitutionRule` on its
+ingredient's Specification, naming the food, its ratio and whether it is ruled out (J36). The page's prose is not stored: a Step records what goes in, what comes out, how and with what, in order. An actual
 cook is a separate thing, a `Process` that concretizes the Plan with the quantities really used
 (`scripts/15c` shows one); there is no tool to record a cook yet. The dish's
 mass is not stored: nutrition per serving is worked out from the ingredients

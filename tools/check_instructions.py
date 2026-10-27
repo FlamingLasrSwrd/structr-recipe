@@ -4,7 +4,7 @@
     python3 tools/check_instructions.py [--count 400]
 
 Generates steps with every kind of fact (methods the verb list knows and does not, labels, amounts,
-units, optional and "to taste" ingredients, what earlier steps made, tools with a temperature or a heat
+units, optional and "to taste" ingredients, substitutes with a ratio or ruled out, what earlier steps made, tools with a temperature or a heat
 level or none, working and waiting minutes, the steps before, doneness in words and inside), sends them
 to the writeInstructions method, and compares each sentence with mealplanner/instructions.py's. It reads
 nothing of the instance, so it may be run on any. tools/check_pages.py compares each recipe page's
@@ -21,12 +21,19 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner.connection import connect
 from mealplanner.instructions import VERBS, as_data, instructions
-from mealplanner.recipe_import import HEAT_LEVELS, Heat, Ingredient, StepDoc
+from mealplanner.recipe_import import HEAT_LEVELS, Heat, Ingredient, StepDoc, Substitute
 
 FOODS = ["Rice", "Chicken Breast (raw)", "Garlic", "Jalapeño", "Olive Oil", "Salt", "Crème Fraîche", "Black Pepper"]
 TOOLS = ["Oven", "Skillet", "Saucepan", "Wok", "Tongs", "Sheet Pan"]
 UNITS = ["g", "kg", "tbsp", "tsp", "cup", "each", "whole", "oz", "pinch"]
 NUMBERS = [1, 2, 0.5, 0.125, 0.0625, 1 / 3, 2.5, 283.9056, 400, 1.75, 12, 0.333]
+
+
+def substitutes(rng: random.Random) -> tuple:
+    if rng.random() < 0.6:
+        return ()
+    return tuple(Substitute(food, rng.choice([1.0, 0.75, 2.0, 1 / 3]), rng.random() < 0.2)
+                 for food in rng.sample(["Margarine", "Olive Oil", "Greek Yogurt", "Lemon"], rng.randint(1, 3)))
 
 
 def random_steps(rng: random.Random) -> list[StepDoc]:
@@ -38,9 +45,10 @@ def random_steps(rng: random.Random) -> list[StepDoc]:
             if made and rng.random() < 0.3:
                 inputs.append(Ingredient(rng.choice(made)))
             elif rng.random() < 0.2:
-                inputs.append(Ingredient(rng.choice(FOODS), optional=rng.random() < 0.6))
+                inputs.append(Ingredient(rng.choice(FOODS), optional=rng.random() < 0.6, substitutes=substitutes(rng)))
             else:
-                inputs.append(Ingredient(rng.choice(FOODS), float(rng.choice(NUMBERS)), rng.choice(UNITS), rng.random() < 0.2))
+                inputs.append(Ingredient(rng.choice(FOODS), float(rng.choice(NUMBERS)), rng.choice(UNITS), rng.random() < 0.2,
+                                         substitutes(rng)))
         tools = rng.sample(TOOLS, rng.randint(0, 3))
         heat = []
         for tool in tools:

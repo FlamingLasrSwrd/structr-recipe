@@ -4,7 +4,7 @@ Every expected sentence below is written out by hand."""
 import unittest
 
 from mealplanner.instructions import as_data, instructions, join, number
-from mealplanner.recipe_import import Heat, Ingredient, StepDoc
+from mealplanner.recipe_import import Heat, Ingredient, StepDoc, Substitute
 
 
 def step(label="mix it", method=None, inputs=(Ingredient("Flour", 100.0, "g"),), makes="Dough", **facts):
@@ -34,6 +34,18 @@ class Sentences(unittest.TestCase):
             "Boil 400 g noodles (dry).",
             "Toss: the noodles (cooked), 3 tbsp butter, 4 garlic, salt, to taste and 5 g parsley (optional).",
         ])
+
+    def test_what_may_stand_in(self):
+        butter = Ingredient("Butter", 3.0, "tbsp", substitutes=(Substitute("Margarine"), Substitute("Olive Oil", 0.75),
+                                                                 Substitute("Lard", never=True)))
+        self.assertEqual(instructions([step(method="Mixing", inputs=(butter,))]),
+                         ["Mix 3 tbsp butter (or margarine, or 2.25 tbsp olive oil)."])
+        eggs = Ingredient("Eggs", 2.0, "each", substitutes=(Substitute("Flax Egg", 1.5),))
+        self.assertEqual(instructions([step(method="Mixing", inputs=(eggs,))]), ["Mix 2 eggs (or 3 flax egg)."])
+        salt = Ingredient("Salt", optional=True, substitutes=(Substitute("Soy Sauce", 2.0),))
+        self.assertEqual(instructions([step(method="Mixing", inputs=(salt,))]), ["Mix salt (or soy sauce), to taste."])
+        self.assertEqual(instructions([step(method="Mixing", inputs=(Ingredient("Lime", 1.0, "each", True, (Substitute("Lemon"),)),))]),
+                         ["Mix 1 lime (or lemon) (optional)."])
 
     def test_tools_and_their_heat(self):
         self.assertEqual(instructions([step(method="Roasting", equipment=("Oven",), heat=(Heat("Oven", temp=220.0, unit="C"),))]),
@@ -82,7 +94,7 @@ class AsData(unittest.TestCase):
                  wait_minutes=25.0, after=(), until="golden", inside=(165.0, "F"))
         (d,) = as_data([s])
         self.assertEqual(d, {"label": "mix it", "method": "Roasting", "makes": "Dough", "equipment": ["Oven"],
-                             "inputs": [{"food": "Flour", "amount": 100.0, "unit": "g", "optional": False}],
+                             "inputs": [{"food": "Flour", "amount": 100.0, "unit": "g", "optional": False, "substitutes": []}],
                              "heat": [{"tool": "Oven", "temp": 425.0, "unit": "F", "level": None}],
                              "minutes": 5.0, "wait_minutes": 25.0, "after": [], "until": "golden", "inside": [165.0, "F"]})
 

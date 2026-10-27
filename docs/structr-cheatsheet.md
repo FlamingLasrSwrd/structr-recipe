@@ -869,7 +869,7 @@ Confirmed dead ends, each isolated with its own test:
     Structr's memory grows with each: about 0.5 GB to 1.3 GB over a dozen
     reloads, and after a night of mutation runs (dozens, each installing
     methods and making a throwaway one) the 2 GB container was OOM-killed
-    (2026-10-27, exit 137). Restart Structr after much method churn, and
+    (2026-10-26, exit 137). Restart Structr after much method churn, and
     keep a check from making a throwaway method on every run.
   - ⚠️ **An object keeps the rights it was loaded with.** Inside
     `$.doPrivileged`, writing to a node the method had loaded as the member
