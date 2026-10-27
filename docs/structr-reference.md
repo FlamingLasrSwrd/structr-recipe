@@ -526,6 +526,12 @@ On `SchemaNode`: `isAbstract`, `inheritedTraits`, `defaultVisibleToPublic`/`defa
   property; `$.error(...)` in `onSave` refuses the edit with 422 and the stored value is
   unchanged, by PUT or PATCH; `onSave` does not run on a create). An `onCreate`-only validator misses
   later edits; give it an `onSave` twin that runs the same check.
+- **`onSave` also runs when only a node's relationships change** **[V6]**: when the node at the
+  other end is deleted, and when the link is set from the other end. If it then fails, that delete
+  or that write is refused. So a twin of a validator that reads a relationship makes Structr guard
+  the relationship: deleting what it names is refused while the node needs it. That may be wanted
+  (referential integrity) or may break deletes elsewhere; decide per validator, and remember
+  StructrScript's null comparisons (6.2): `lte(this.x.value, 0)` is true once `x` is gone.
 - Other callbacks **[D7]**: `onUpload`/`onDownload` on files, `onOAuthLogin` on users, and
   user-defined functions named `onStructrLogin`, `onStructrLogout`, `onAcmeChallenge`,
   `afterAcmeChallenge`.

@@ -87,4 +87,12 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
   interface ever refuses an edit with "Rejecting input with unknown JSON key", the setting is
   `STRUCTR_jsonrestservlet_unknowninput_validation_mode` in `docker-compose.yml`. Then (batch 3)
   `STRUCTR_URL=http://localhost:8085 python3 scripts/45a_non_negative_format.py`, which reads every
-  stored quantity first and changes nothing if one is negative, and restart Structr again.
+  stored quantity first and changes nothing if one is negative, and restart Structr again. Then (batch
+  4) `STRUCTR_URL=http://localhost:8085 python3 scripts/46a_onsave_validators.py`, which checks every
+  stored node of six types against its validator first and installs nothing if one breaks it, and
+  restart Structr again.
+- Decide whether Structr should refuse a delete that leaves a meal entry, a substitution rule, a
+  default or a reservation breaking its rule (`docs/structr-features.md` §5, batch 4). Today those four
+  rules are checked only as a node is made. Checking them on every change too would make Structr
+  refuse, for example, deleting a recipe version a planned meal still names, and some deletes (the
+  reset script's, the owner instance's purge) would first need to run in another order.

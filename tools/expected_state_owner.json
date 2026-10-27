@@ -4,6 +4,11 @@
   "returnRawResult": false,
   "source": "if(and(equal(this.hasParticipationRole, \"instrument\"), not(empty(this.hasActualQuantity))), error(\"hasActualQuantity\", \"instrument_role_must_not_have_quantity\"), null)"
  },
+ "@schema | method Allocation.onSave": {
+  "isStatic": false,
+  "returnRawResult": false,
+  "source": "if(and(equal(this.hasParticipationRole, \"instrument\"), not(empty(this.hasActualQuantity))), error(\"hasActualQuantity\", \"instrument_role_must_not_have_quantity\"), null)"
+ },
  "@schema | method DefaultSpecification.onCreate": {
   "isStatic": false,
   "returnRawResult": false,
@@ -24,12 +29,27 @@
   "returnRawResult": false,
   "source": "if(and(not(empty(this.value)), lt(this.value, 0)), error(\"value\", \"must_not_be_negative\"), if(and(not(empty(this.value)), empty(this.unit)), error(\"unit\", \"quantity_needs_a_unit\"), if(and(empty(this.value), empty(this.literalValue)), error(\"value\", \"must_have_value_or_literal_value\"), if(and(not(empty(this.isAboutQuality)), and(equal(this.isAboutQuality.hasKind.hierarchy.name, \"Nutrient\"), not(empty(this.isAboutQuality.inheresIn.beginsToExistDuring)))), if(not(equal(this.status, \"derived\")), error(\"status\", \"cooking_output_nutrient_content_must_be_derived\"), if(or(equal(this.status, \"observed\"), equal(this.status, \"imputed\")), if(gt(size(filter(this.isAboutQuality.measurements, and(equal(data.status, this.status), equal(data.hasTime, this.hasTime)))), 1), error(\"status\", \"duplicate_observed_or_imputed_measurement_at_same_time\"), null), null)), if(or(equal(this.status, \"observed\"), equal(this.status, \"imputed\")), if(gt(size(filter(this.isAboutQuality.measurements, and(equal(data.status, this.status), equal(data.hasTime, this.hasTime)))), 1), error(\"status\", \"duplicate_observed_or_imputed_measurement_at_same_time\"), null), null)))))"
  },
+ "@schema | method Measurement.onSave": {
+  "isStatic": false,
+  "returnRawResult": false,
+  "source": "if(and(not(empty(this.value)), lt(this.value, 0)), error(\"value\", \"must_not_be_negative\"), if(and(not(empty(this.value)), empty(this.unit)), error(\"unit\", \"quantity_needs_a_unit\"), if(and(empty(this.value), empty(this.literalValue)), error(\"value\", \"must_have_value_or_literal_value\"), if(and(not(empty(this.isAboutQuality)), and(equal(this.isAboutQuality.hasKind.hierarchy.name, \"Nutrient\"), not(empty(this.isAboutQuality.inheresIn.beginsToExistDuring)))), if(not(equal(this.status, \"derived\")), error(\"status\", \"cooking_output_nutrient_content_must_be_derived\"), if(or(equal(this.status, \"observed\"), equal(this.status, \"imputed\")), if(gt(size(filter(this.isAboutQuality.measurements, and(equal(data.status, this.status), equal(data.hasTime, this.hasTime)))), 1), error(\"status\", \"duplicate_observed_or_imputed_measurement_at_same_time\"), null), null)), if(or(equal(this.status, \"observed\"), equal(this.status, \"imputed\")), if(gt(size(filter(this.isAboutQuality.measurements, and(equal(data.status, this.status), equal(data.hasTime, this.hasTime)))), 1), error(\"status\", \"duplicate_observed_or_imputed_measurement_at_same_time\"), null), null)))))"
+ },
  "@schema | method PlanningConstraint.onCreate": {
   "isStatic": false,
   "returnRawResult": false,
   "source": "if(equal(this.strictness, \"soft\"), if(empty(this.weight), error(\"weight\", \"soft_constraint_requires_a_weight\"), null), null)"
  },
+ "@schema | method PlanningConstraint.onSave": {
+  "isStatic": false,
+  "returnRawResult": false,
+  "source": "if(equal(this.strictness, \"soft\"), if(empty(this.weight), error(\"weight\", \"soft_constraint_requires_a_weight\"), null), null)"
+ },
  "@schema | method QuantitySpecification.onCreate": {
+  "isStatic": false,
+  "returnRawResult": false,
+  "source": "if(and(not(empty(this.value)), lt(this.value, 0)), error(\"value\", \"must_not_be_negative\"), if(and(not(empty(this.minValue)), lt(this.minValue, 0)), error(\"minValue\", \"must_not_be_negative\"), if(and(not(empty(this.maxValue)), lt(this.maxValue, 0)), error(\"maxValue\", \"must_not_be_negative\"), if(and(or(not(empty(this.value)), or(not(empty(this.minValue)), not(empty(this.maxValue)))), empty(this.unit)), error(\"unit\", \"quantity_needs_a_unit\"), if(and(not(empty(this.value)), or(not(empty(this.minValue)), not(empty(this.maxValue)))), error(\"value\", \"must_not_have_both_scalar_value_and_range\"), if(and(empty(this.value), and(empty(this.minValue), empty(this.maxValue))), error(\"value\", \"must_have_either_value_or_range\"), if(and(not(empty(this.minValue)), not(empty(this.maxValue))), if(gt(this.minValue, this.maxValue), error(\"minValue\", \"min_must_not_exceed_max\"), null), null)))))))"
+ },
+ "@schema | method QuantitySpecification.onSave": {
   "isStatic": false,
   "returnRawResult": false,
   "source": "if(and(not(empty(this.value)), lt(this.value, 0)), error(\"value\", \"must_not_be_negative\"), if(and(not(empty(this.minValue)), lt(this.minValue, 0)), error(\"minValue\", \"must_not_be_negative\"), if(and(not(empty(this.maxValue)), lt(this.maxValue, 0)), error(\"maxValue\", \"must_not_be_negative\"), if(and(or(not(empty(this.value)), or(not(empty(this.minValue)), not(empty(this.maxValue)))), empty(this.unit)), error(\"unit\", \"quantity_needs_a_unit\"), if(and(not(empty(this.value)), or(not(empty(this.minValue)), not(empty(this.maxValue)))), error(\"value\", \"must_not_have_both_scalar_value_and_range\"), if(and(empty(this.value), and(empty(this.minValue), empty(this.maxValue))), error(\"value\", \"must_have_either_value_or_range\"), if(and(not(empty(this.minValue)), not(empty(this.maxValue))), if(gt(this.minValue, this.maxValue), error(\"minValue\", \"min_must_not_exceed_max\"), null), null)))))))"
@@ -44,7 +64,17 @@
   "returnRawResult": false,
   "source": "if(and(equal(this.hasParticipationRole, \"instrument\"), not(empty(this.hasSpecifiedQuantity))), error(\"hasSpecifiedQuantity\", \"instrument_role_must_not_have_quantity\"), null)"
  },
+ "@schema | method Specification.onSave": {
+  "isStatic": false,
+  "returnRawResult": false,
+  "source": "if(and(equal(this.hasParticipationRole, \"instrument\"), not(empty(this.hasSpecifiedQuantity))), error(\"hasSpecifiedQuantity\", \"instrument_role_must_not_have_quantity\"), null)"
+ },
  "@schema | method StockPolicy.onCreate": {
+  "isStatic": false,
+  "returnRawResult": false,
+  "source": "if(and(not(empty(this.hasTargetLevel)), not(empty(this.hasReorderThreshold))), if(not(equal(this.hasTargetLevel.unit, this.hasReorderThreshold.unit)), error(\"hasTargetLevel\", \"target_and_reorder_threshold_must_share_a_unit\"), if(lt(this.hasTargetLevel.value, this.hasReorderThreshold.value), error(\"hasTargetLevel\", \"target_level_must_be_at_least_reorder_threshold\"), null)), null)"
+ },
+ "@schema | method StockPolicy.onSave": {
   "isStatic": false,
   "returnRawResult": false,
   "source": "if(and(not(empty(this.hasTargetLevel)), not(empty(this.hasReorderThreshold))), if(not(equal(this.hasTargetLevel.unit, this.hasReorderThreshold.unit)), error(\"hasTargetLevel\", \"target_and_reorder_threshold_must_share_a_unit\"), if(lt(this.hasTargetLevel.value, this.hasReorderThreshold.value), error(\"hasTargetLevel\", \"target_level_must_be_at_least_reorder_threshold\"), null)), null)"

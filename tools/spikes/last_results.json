@@ -48,6 +48,14 @@
    "run": "2026-10-27 10:12"
   },
   {
+   "answer": "INFO",
+   "documented": "onSave runs when a node is modified; whether a relationship change counts is not said",
+   "found": "the held node deleted: 422 {'code': 422, 'message': 'Server-side scripting error', 'errors': [{'token': 'needs_held', 'type': 'SpkHolder', 'propert, the holder's held after: {'id': '2af37e085d6c4cd28cc5d8ae1ada31e7', 'type': 'SpkHeld', 'name': 'spike SpkHeld 1793124842.7506232'}; the link set from the other end to a held node its onSave forbids: 422 {'code': 422, 'message': 'Server-side scripting error', 'errors': [{'token': 'forbidden', 'type': 'SpkHolder', 'property, the holder now holds: 'spike SpkHeld 1793124844.031086'",
+   "spike": "onsave_links",
+   "question": "Does onSave run when only a node's relationships change?",
+   "run": "2026-10-27 12:14"
+  },
+  {
    "answer": "OK",
    "documented": "a SchemaGrant gives a group read and write on every instance of a type, without per-node grants",
    "found": "SchemaGrant keys ['allowAccessControl', 'allowDelete', 'allowRead', 'allowWrite', 'createdBy', 'createdDate', 'grantees', 'hidden', 'id', 'lastModifiedBy', 'lastModifiedDate', 'name', 'owner', 'ownerId', 'principal', 'schemaNode', 'staticSchemaNodeName', 'type', 'visibleToAuthenticatedUsers', 'visibleToPublicUsers']; created with ['allowRead', 'allowWrite']; a member sees 1 of 1, a non-member 0; the member's write: 200",

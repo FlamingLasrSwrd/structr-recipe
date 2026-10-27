@@ -58,8 +58,9 @@ Run with `bash tools/spikes/run_spikes.sh` (a throwaway stack on port 8084 with 
 `tools/spikes/docker-compose.spike.yml`; setup, a restart, then verify). The last run's raw results
 are in `tools/spikes/last_results.json`.
 
-Twenty-four spikes, run on 2026-10-27 against `structr/structr:6.0.0`: 21 behave as documented,
-one does not (Python), two only report (the endpoints, an object parameter). What each showed, and what it means here:
+Twenty-five spikes, run on 2026-10-27 against `structr/structr:6.0.0`: 21 behave as documented,
+one does not (Python), three only report (the endpoints, an object parameter, `onSave` on
+relationship changes). What each showed, and what it means here:
 
 | Spike | 6.0.0 showed | For this project |
 |---|---|---|
@@ -69,6 +70,7 @@ one does not (Python), two only report (the endpoints, an object parameter). Wha
 | compound | Two properties marked `unique` and `compound` refuse a repeated pair (422 `already_taken`) and accept a new one | Ready for stage 5's per-household names |
 | format | `[0,100]`, `[0,100[`, `[0.0,100.0]` refuse values outside with 422 `must_be_in_range`, on Double and Integer, for creates and edits (a PATCH out of range leaves the old value); **an open end (`[0,]`) is accepted but checks nothing**; a missing value passes. **A string pattern refuses a missing value** (`must_match`) | Invariant 12 can be a format with a large upper bound, covering edits the `onCreate` validator misses; never a pattern on an optional property |
 | onsave | `$.retrieve('modifications')` holds `before` and `after`; `$.error` in `onSave` refuses the edit (422, by PUT or PATCH) and nothing changes; `onSave` does not run on a create | `onSave` twins of the validators work, but see Batch 4 on the importers' two-step writes |
+| onsave_links | **`onSave` runs when only a node's relationships change**: deleting the node at the other end runs it (and a failing one refuses the delete), and so does setting the link from the other end | Batch 4: a twin of a validator that reads a relationship guards that relationship on delete, so only six validators got twins |
 | grant | A `SchemaGrant` (`schemaNode`, `principal`, `allowRead`, `allowWrite`, `allowDelete`, `allowAccessControl`) lets a group's members read and write every node of a type, owned by anyone, with no flags; a non-member sees none | Stage 5's curators of the shared vocabulary |
 | propagation | `permissionPropagation: "Out"` with `readPropagation: "Add"` (the others `"Keep"`): a read grant on a folder lets a user read its documents, which carry no grant | Stage 5: a household's MealPlan opening its entries |
 | labels | A node made before its type gained a trait lacks the trait's label and is refused as the target of a relationship to the trait; `POST /structr/rest/maintenance/createLabels {"type": ...}` adds it, and the same relationship is then accepted | Hard rule 2's "only fixable with direct Cypher" is out of date: `createLabels` is the supported fix. The rule's wording is the owner's to change (`docs/todo.md`) |
@@ -151,16 +153,37 @@ the bound with the format's. On a throwaway made to look built before (no format
 edited to -4, which the validators let through), 45a refused while that value was stored and set
 all four once it was gone.
 
-**Batch 4, `onSave` twins of the validators,** after a read-only check that the existing data
-breaks none of them: an edit of a node that already breaks its invariant would be refused, whatever
-the edit. Read so far: an `onSave` runs on PUT and PATCH but not on a create (the onsave spike), and
-a page's or method's writes are one transaction, checked at its end. The REST writers: the
-vocabulary, profile and household tools write a node's changes in one PATCH (`Sync.ensure`); the
-importer's `_write` upserts, then clears the fields given as None in a second request, so a node
-changing shape is briefly neither; the week's commit writes only open slots, so an entry never turns
-from a fresh cook into a leftover in place. Still open: how to check the stored data against each
-validator without writing it out again in Python. The evaluate spike answers it: a script evaluates
-each validator's expression, `error(` replaced, against every stored node.
+**Batch 4, `onSave` twins of six validators (migration 46a). Built 2026-10-27.** The onsave_links
+spike changed the plan: Structr runs a node's `onSave` when only its relationships change too, the
+node at the other end deleted or the link set from the other end, and a failing one refuses that
+delete or write. A twin of a validator that reads a relationship would therefore guard it. So
+twins went to the six whose result a removed link cannot turn from passing to failing, since they
+read the node's own properties, or a related node behind an `empty()` guard: QuantitySpecification,
+Measurement, Specification, Allocation, StockPolicy and PlanningConstraint
+(`domain_invariants.ONSAVE_TWINS`). The other four stay `onCreate` only, because their twins would
+refuse deletes elsewhere: MealPlanEntry (deleting a Plan an entry references), SubstitutionRule
+(deleting the food a rule names), DefaultSpecification (deleting its value first, which
+`lte(null, 0)` reads as zero or less: the reset script and the owner purge delete in that order) and
+Role (it reads its target entry and the cook that made its bearer, which other writes set one request
+at a time; not tried). Whether Structr should
+guard those references on delete is a change to how deleting works, the owner's to decide
+(`docs/todo.md`).
+
+Before installing, 46a checks every stored node of the six types against its validator, since an
+`onSave` refuses any edit of a node that already breaks it. A throwaway function runs each
+validator through `$.evaluateScript` (the evaluate spike) with its `error(...)` calls turned into
+plain strings (`domain_invariants.as_check`), and is removed again. The REST writers were read
+first: the vocabulary, profile and household tools write a node's changes in one PATCH
+(`Sync.ensure`); the importer's `_write` clears fields in a second request, but on these six types
+a node never changes shape between the two; the week's commit writes only open slots. `scripts/46b`
+edits each type out of its invariant on real Structr. To put the build's own writes through the
+twins, a throwaway was also built with 46a moved to just after 10b, where the six validators first
+exist: every later script ran under them, and the instance ended identical to an ordinary build's.
+It showed one thing: with the twins in, a validator's error comes before the format's on an edit
+too, so `scripts/45b` now accepts either token for an edit. On that instance, with all four batches in force, the pages and
+methods were installed and `check_bookings.py`, `check_pages.py` and `check_instructions.py` found no
+difference; `check_households.py` did too once the recipes' nutrition per serving was stored
+(`calculate_recipe_nutrition.py`), which its nutrition comparison needs on any fresh build.
 
 **Batch 5, methods:** declared parameters for every argument a method reads, GET for the read-only
 ones, `includeInOpenAPI` with a tag for the planner contract. Needed before 7.1 in any case. Once a

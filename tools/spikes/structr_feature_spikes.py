@@ -332,6 +332,35 @@ def onsave_verify(ctx):
                   f"{created[0]} {tok(created)}")
 
 
+def onsave_links_setup(ctx):
+    """Does a node's onSave run when only its relationships change: the node at the other end deleted,
+    or the link set from the other end? Its onSave refuses a holder without a held node, or one whose
+    held node is named "forbidden"."""
+    holder, held = ctx.schema_type("SpkHolder"), ctx.schema_type("SpkHeld")
+    ctx.schema_rel(holder, held, "SPK_HOLDS", "*", "1", "holders", "held")
+    source = 'if(empty(this.held), error("held", "needs_held"), if(equal(this.held.name, "forbidden"), error("held", "forbidden"), null))'
+    if not ctx.ok("GET", f"/structr/rest/SchemaMethod?schemaNode={holder}&name=onSave")["result"]:
+        ctx.ok("POST", "/structr/rest/SchemaMethod", {"schemaNode": holder, "name": "onSave", "source": source})
+
+
+def onsave_links_verify(ctx):
+    def made(type_name, fields):
+        return ctx.create(type_name, {"name": f"spike {type_name} {time.time()}", **fields})
+    held = made("SpkHeld", {})
+    holder = made("SpkHolder", {"held": held})
+    deleted = ctx.raw("DELETE", f"/structr/rest/SpkHeld/{held}")
+    held_after = (ctx.node("SpkHolder", holder) or {}).get("held")
+    other = made("SpkHeld", {})
+    holder2 = made("SpkHolder", {"held": other})
+    forbidden = ctx.create("SpkHeld", {"name": "forbidden"})
+    from_other_end = ctx.raw("PATCH", f"/structr/rest/SpkHeld/{forbidden}", {"holders": [holder2]})
+    now_holds = ((ctx.node("SpkHolder", holder2) or {}).get("held") or {}).get("name")
+    return {"answer": "INFO", "documented": "onSave runs when a node is modified; whether a relationship change counts is not said",
+            "found": f"the held node deleted: {deleted[0]} {str(deleted[1])[:120]}, the holder's held after: {held_after}; "
+                     f"the link set from the other end to a held node its onSave forbids: {from_other_end[0]} "
+                     f"{str(from_other_end[1])[:120]}, the holder now holds: {now_holds!r}"}
+
+
 def grant_setup(ctx):
     t = ctx.schema_type("SpkGranted")
     for u in USERS:
@@ -687,6 +716,7 @@ SPIKES = [
     ("compound", "Does compound uniqueness refuse a repeated pair?", compound_setup, compound_verify),
     ("format", "Do numeric intervals and string patterns in `format` validate?", format_setup, format_verify),
     ("onsave", "Does onSave see the modifications and refuse an edit?", onsave_setup, onsave_verify),
+    ("onsave_links", "Does onSave run when only a node's relationships change?", onsave_links_setup, onsave_links_verify),
     ("grant", "Does a SchemaGrant share a whole type with a group?", grant_setup, grant_verify),
     ("propagation", "Does read access propagate along a relationship?", propagation_setup, propagation_verify),
     ("labels", "Does createLabels fix the labels of nodes older than their trait?", labels_setup, labels_verify),

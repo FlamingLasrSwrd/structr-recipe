@@ -39,11 +39,15 @@ def main():
             failures.append(label)
         print(f"    [{'OK' if ok else 'FAIL'}] {label}")
 
-    def refused(call, token="must_be_in_range"):
+    # Refused by the format, or, once 46a has installed the onSave twins, by the validator first: its error
+    # ends the request before the format is checked, as on a create (below)
+    EDIT_TOKENS = ("must_be_in_range", "must_not_be_negative", "min_must_not_exceed_max")
+
+    def refused(call, tokens=EDIT_TOKENS):
         try:
             call()
         except StructrError as e:
-            return e.status == 422 and token in str(e.body)
+            return e.status == 422 and any(token in str(e.body) for token in tokens)
         return False
 
     sweep(client)
@@ -76,8 +80,8 @@ def main():
             "name": P + "made", "value": value, "unit": "g", "status": "specified", "visibleToAuthenticatedUsers": True})
         # The onCreate validator's error ends the request before Structr checks the format, so a negative
         # create is refused with the validator's token alone; past the bound, only the format refuses
-        check(refused(made(-2.0), "must_not_be_negative"), "made at -2: refused by the validator (invariant 12)")
-        check(refused(made(2e9)), "made at 2e9: refused by the format")
+        check(refused(made(-2.0), ("must_not_be_negative",)), "made at -2: refused by the validator (invariant 12)")
+        check(refused(made(2e9), ("must_be_in_range",)), "made at 2e9: refused by the format")
     finally:
         sweep(client)
     left = [n["name"] for t in ("Measurement", "QuantitySpecification") for n in client.get_all(t)["result"]

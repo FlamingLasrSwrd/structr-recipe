@@ -20,6 +20,8 @@ STATUS KEY:
                   silently skipped
 """
 
+import re
+
 # --- STRUCTURAL (no code -- verified, not assumed) --------------------
 #
 # 1 (partial): "No SDC inheres in a GDC" -- INHERES_IN's declared
@@ -302,6 +304,43 @@ SUBSTITUTION_RULE_ONCREATE = (
     'if(not(equal(this.candidateType.hierarchy.id, this.forSpecification.specifies.hierarchy.id)), '
     'error("candidateType", "candidate_must_come_from_the_hierarchy_the_input_specifies"), null))'
 )
+
+# --- ON EDITS TOO: onSave twins (docs/structr-features.md, batch 4) -------
+#
+# An onCreate validator sees a node as it is made, not as it is changed later. scripts/46a installs, for
+# the six below, an onSave method with the same source, which Structr runs on a PUT or PATCH of the node
+# (not on its create: the onsave spike). Structr also runs it when only the node's relationships change:
+# the node at the other end deleted, or the link set from the other end (the onsave_links spike). These
+# six read the node's own properties, or a related node only behind an empty() guard, so a link removed
+# cannot turn them from passing to failing: an edit is refused only when it breaks the invariant.
+#
+# The other four stay onCreate only, because a twin would refuse deletes elsewhere: MealPlanEntry (deleting
+# the Plan an entry references, or the entry a leftover comes from), SubstitutionRule (deleting the food
+# a rule names), DefaultSpecification (deleting its value first, which lte(null, 0) reads as a value of
+# zero or less) and Role (it reads its target entry and the cook that made its bearer, which other writes
+# set one request at a time; not tried). Twins
+# for them would make Structr guard those references on delete: a change of how deleting works, which is
+# the owner's to decide (docs/todo.md).
+
+ONSAVE_TWINS = (
+    ("QuantitySpecification", QUANTITY_SPECIFICATION_ONCREATE),
+    ("Measurement", MEASUREMENT_ONCREATE),
+    ("Specification", SPECIFICATION_ONCREATE),
+    ("Allocation", ALLOCATION_ONCREATE),
+    ("StockPolicy", STOCK_POLICY_ONCREATE),
+    ("PlanningConstraint", PLANNING_CONSTRAINT_ONCREATE),
+)
+
+
+def as_check(source: str) -> str:
+    """A validator's source turned into an expression that reports instead of refusing: each
+    error("property", "token") becomes the string "property: token", so evaluating it against a stored
+    node (Structr's evaluateScript, the evaluate spike) gives what the node breaks, or nothing."""
+    out = re.sub(r'error\("([^"]*)", "([^"]*)"\)', r'"\1: \2"', source)
+    if "error(" in out:
+        raise ValueError(f"an error() call not of the form error(\"property\", \"token\"): {source[:80]}")
+    return out
+
 
 # --- DEFERRED ------------------------------------------------------------
 #

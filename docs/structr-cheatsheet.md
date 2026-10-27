@@ -1450,7 +1450,7 @@ made through the UI.
 
 ## 10. Features spiked on 6.0.0 (✅ 2026-10-27, `tools/spikes/`)
 
-Twenty-four spikes against the 7.x documentation, on throwaway stacks, setup then a restart then
+Twenty-five spikes against the 7.x documentation, on throwaway stacks, setup then a restart then
 the check. The full table and what each means for this project are in `docs/structr-features.md`
 §3; `docs/structr-reference.md` is the project-agnostic version. The catches, the part worth
 remembering:
@@ -1478,6 +1478,9 @@ remembering:
   (an underscore inside a setting's name doubles).
 - **Unknown input keys:** `STRUCTR_jsonrestservlet_unknowninput_validation_mode=reject` turns a key
   the schema lacks into 422 "Rejecting input with unknown JSON key".
+- **`onSave` runs on relationship changes too:** deleting the node at the other end, or setting the
+  link from the other end, runs the node's `onSave`, and a failing one refuses that delete or write.
+  An `onSave` twin of a validator that reads a relationship therefore guards it.
 - **A JSON object as a method argument:** declared as `Map` (or `Object`, or `String`), it arrives
   whole; everything undeclared beside it is dropped.
 - **`$.evaluateScript(node, 'expression')`** runs a bare StructrScript expression (not `${...}`, which
