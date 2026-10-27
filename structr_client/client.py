@@ -1,6 +1,6 @@
 """Generic Structr REST client.
 
-Project-agnostic: knows how to talk to a Structr 6.x instance (auth,
+Project-agnostic: knows how to talk to a Structr 6.x or 7.1 instance (auth,
 idempotent schema setup, CRUD, upsert). Carries no knowledge of any
 particular project's types or field mappings — see docs/structr-cheatsheet.md
 for the empirical findings this implements.

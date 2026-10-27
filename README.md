@@ -1,6 +1,6 @@
 # structr-recipe
 
-A BFO-grounded data model for a meal-planning tool (for a household of several people who share meals, each with their own targets), built on Structr 6.x (a graph-database-backed low-code platform, running on Neo4j). The model is implementation-agnostic and covers recipes, inventory, cooking, meal planning, and nutrition; this repo is the Structr build of it, done incrementally with an AI assistant across several sessions, each step verified against a live instance rather than assumed correct.
+A BFO-grounded data model for a meal-planning tool (for a household of several people who share meals, each with their own targets), built on Structr 7.1 (a graph-database-backed low-code platform, running on Neo4j; 6.0 until 2026-10-27). The model is implementation-agnostic and covers recipes, inventory, cooking, meal planning, and nutrition; this repo is the Structr build of it, done incrementally with an AI assistant across several sessions, each step verified against a live instance rather than assumed correct.
 
 The design work (BFO/IAO/RO/PROV-O grounding, four major model revisions, two adversarial design reviews) came first and is documented under `docs/`. This repo is where that model got built and tested.
 

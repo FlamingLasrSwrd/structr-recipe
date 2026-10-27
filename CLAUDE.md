@@ -15,7 +15,7 @@ documents directly in `docs/`, in the same commit as the code they describe.
 ## What this is
 
 A BFO-grounded data model for a meal planner (single-user until 2026-09-28, now moving toward households
-of several people, `docs/data-model.md` §19), built on Structr 6 and Neo4j, plus the
+of several people, `docs/data-model.md` §19), built on Structr 7.1 (6.0 until 2026-10-27) and Neo4j, plus the
 Python that computes over it: inventory, reservation, nutrition, a per-slot selector, and a
 plan-level planner (`mealplanner/planning/`). The public repository is used for external code
 review, so what the README and REVIEW.md claim has to be true.

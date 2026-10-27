@@ -29,7 +29,7 @@ python3 -m pip --python /opt/solver-venv/bin/python install -q "ortools==9.15.67
 if command -v docker >/dev/null 2>&1; then
   docker info >/dev/null 2>&1 || { service docker start >/dev/null 2>&1 || true; sleep 5; }
   docker pull neo4j:2025.12.1 || true
-  docker pull structr/structr:6.0.0 || true
+  docker pull structr/structr:7.1.0 || true
 fi
 
 exit 0

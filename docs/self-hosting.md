@@ -11,8 +11,8 @@ planner's search and the batch work.
 
 ## Where it stands
 
-- **What runs:** three pieces on one machine. Neo4j holds the graph; Structr (6.0.0, the stock
-  image) serves the REST API and the pages (`pages/`, server-side JavaScript); the planner and every
+- **What runs:** three pieces on one machine. Neo4j holds the graph; Structr (7.1.0 since 2026-10-27,
+  the stock image) serves the REST API and the pages (`pages/`, server-side JavaScript); the planner and every
   tool are Python on the host (`tools/`, `mealplanner/`), talking to Structr over REST. The optional
   CP-SAT solver (OR-tools) lives in a virtualenv. Structr's container has no Python.
 - **How a week is made:** the owner edits `private/week.toml` and runs `tools/plan_week.py` in a

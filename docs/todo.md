@@ -18,6 +18,7 @@ Nothing here is started. Each item says where it came from. The owner decides wh
 | Item | Offered | What it would take |
 |---|---|---|
 | Batches 5 and 6 of the Structr features | 2026-10-27 | `docs/structr-features.md` §5: declared parameters and GET for the Structr methods (it changes how every caller calls them; needed only with Structr 7.1), and a recipe's import as one transaction (a spike of nested creation, or a redesign of the importer, after measuring where an import's time goes) |
+| The tools log in as an admin user, not the superuser | 2026-10-27 | In Structr 7.1 three wrong superuser passwords within 15 minutes block the superuser everywhere for that time, and if its second factor is ever turned on, every header request needs a fresh code. An admin `User` for the tools (made by a numbered script, its password in `.env`), and `mealplanner/connection.py` using it, keep the superuser for the admin interface alone |
 | The cheap security fixes | 2026-10-26 | Structr's port bound to this machine unless other devices should reach it; bookings as form posts with a token tied to the session; HTTPS once phones connect (`docs/self-hosting.md` step 4, which says why a firewall does not cover them, and ranks the rest) |
 | A "Plan the week" button and a preferences page | 2026-10-24, 2026-10-26 | A planner container watching the graph for a request to plan (self-hosting step 3); the week file's settings kept on the week's MealPlan and edited on a page |
 | Weights that read as shares of the score | 2026-10-26 | Today each weight is per unit (per meal, per target and day, per hour), so a term's pull grows with how many units it has (`docs/optimizer-design.md` §4.5). Scaling each family by its count would let a preference say "nutrition matters twice as much as time". An objective change: the owner's call |
@@ -51,6 +52,21 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
 | **`check_bookings.py` sweeps what an interrupted run left** | #7 | The development instance holds about 20 time regions and a few nodes from earlier interrupted checks; the check removes only what it made itself |
 
 ## For the owner to do
+
+- **Upgrade your instance to Structr 7.1.0** (2026-10-27, `docs/structr-features.md` §4), before the
+  steps below, with no other stack running. `bash tools/owner_stack.sh up` now refuses to start it on
+  the new image and prints these steps:
+  1. `python3 tools/backup.py now`: a backup of it as it is, on 6.0.
+  2. If you want to see what the upgrade would change first: `STRUCTR_MIGRATION_MODE=dry-run UPGRADE=1 bash
+     tools/owner_stack.sh up`, then `docker logs mealplanner-owner-structr-1 2>&1 | grep MigrationService`.
+     In a dry run Structr changes nothing and does not start, so the command ends in a time-out. On a
+     copy of your 2026-10-26 backup it found one change: a label on 58 schema nodes.
+  3. `UPGRADE=1 bash tools/owner_stack.sh up`. Rehearsed on that copy: nothing lost, and every page as
+     Python works it out.
+  Then the steps below run on 7.1.0; each was checked there. To go back, restore the backup of step 1
+  with `docker-compose.yml`'s Structr image set to `structr/structr:6.0.0` (`docs/backups.md`).
+- If you use the cloud environment: paste `cloud/setup.sh` again into its "Setup script" field at
+  claude.ai/code. It now pulls Structr 7.1.0 ahead of time (2026-10-27).
 
 - Decide the wording of hard rule 2 (`docs/CLAUDE.md`): it says a trait added to a populated type is
   "only fixable with direct Cypher", but Structr's `createLabels` maintenance command fixes it through

@@ -17,6 +17,11 @@ material here:
 
 Where the two conflict, trust ✅ over 📖.
 
+**Versions (2026-10-27).** The ✅ findings were made on 6.0.0. This project moved to 7.1.0 on
+2026-10-27, after its whole build ran there and came out identical (every script, the golden snapshot,
+the page, booking, household and instruction checks): what the build relies on holds on 7.1.0. The
+spikes (`tools/spikes/`, section 10) were run on both; where 7.1.0 differs, section 10 says so.
+
 ---
 
 ## 1. Running an instance (Docker)
@@ -31,7 +36,7 @@ services:
     volumes: [neo4j-database:/data, neo4j-logs:/logs]
     networks: {structr-network: {aliases: [neo4j]}}
   structr:
-    image: structr/structr:6.0.0
+    image: structr/structr:7.1.0
     depends_on: [neo4j]
     ports: ["8083:8082"]           # host:container — container always listens on 8082
     environment:
@@ -43,7 +48,7 @@ services:
       - STRUCTR_neo4j__default_database_connection_username=neo4j
       - STRUCTR_neo4j__default_database_connection_password=<password>
       - STRUCTR_nodeservice_active=neo4j_default
-      - STRUCTR_application_schema_automigration=true
+      - STRUCTR_application_migration_mode=apply   # 7.1; was application.schema.automigration=true
     volumes:
       - structr-files:/var/lib/structr/files
       - structr-repository:/var/lib/structr/repository
@@ -1448,7 +1453,7 @@ made through the UI.
 
 ---
 
-## 10. Features spiked on 6.0.0 (✅ 2026-10-27, `tools/spikes/`)
+## 10. Features spiked on 6.0.0 and 7.1.0 (✅ 2026-10-27, `tools/spikes/`)
 
 Twenty-five spikes against the 7.x documentation, on throwaway stacks, setup then a restart then
 the check. The full table and what each means for this project are in `docs/structr-features.md`
@@ -1487,6 +1492,17 @@ remembering:
   returns nothing) with `this` the node.
 - **Scheduled tasks by environment:** `STRUCTR_cronservice_tasks=<function>` and
   `STRUCTR_<function>_cronExpression=<six fields, seconds first>`; the function must exist at start.
+- **What 7.1.0 changes** (the same spikes run on it): a method that declares parameters refuses an
+  undeclared argument (422 "Unknown parameter(s) ... Enable 'Allow unknown parameters'"), so the object
+  argument above needs every key declared, `warmUp` too; methods declaring none still take anything.
+  `application.schema.automigration` no longer exists: `application.migration.mode` (`dry-run`,
+  `apply`, `off`) replaces it and defaults to `apply`, so a 7.1 container upgrades its database at
+  start. A fresh 7.1 install started with `STRUCTR_superuser_password` needs no setup token, and
+  `X-User`/`X-Password` headers work as before. **Permission propagation misbehaves**: with
+  `permissionPropagation: "Out"`, `readPropagation: "Add"`, a read grant on the folder to one user
+  let another signed-in user, with no grant, read the folder and its documents. Plain grants to a user
+  or a group still reach only them (the grant_direct spike), so do not use propagation on 7.1.0
+  without checking it again. Python still does not run.
 - Also behaving as documented: compound uniqueness, `onSave` with `$.retrieve('modifications')`,
   `SchemaGrant`, permission propagation (`"Out"`, `"Add"`, `"Keep"`), array POST as one
   transaction, `cache`, `schedule`, `sync` export of a query, `/structr/health/ready` without

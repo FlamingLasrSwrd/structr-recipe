@@ -90,19 +90,45 @@ relationship changes). What each showed, and what it means here:
 | health | `/structr/health/ready` 200 without credentials; `/structr/health` 200; `/structr/histogram` 200 from inside the container (`curl` is in the image) | Batch 1: a compose health check |
 | eam | `/structr/js/frontend/frontend.js` is served and DOM elements carry `eventMapping`, `triggeredActions`, `parameterMappings`, `reloadTargets` and the notification settings; the behaviour was not exercised | Bookings as posts: a spike of its own when the pages' cheap security fixes come up |
 
-## 4. If the project moves to 7.1
+## 4. The move to 7.1.0 (2026-10-27)
 
-- **The tools log in as the superuser** (`mealplanner/connection.py`). In 7.1, three wrong superuser
-  passwords within 15 minutes block it everywhere, and with its second factor on, header requests
-  need a fresh code each. The tools should use an admin user (`docs/todo.md`).
-- A fresh install needs a setup token (`STRUCTR_setup_token`): `cloud/bootstrap.sh`, the throwaway
-  rebuilds and `tools/owner_stack.sh build`.
-- Lower risk here: `assert()` and `sort()` changed meaning, but neither the pages nor the methods call
-  them (the pages sort with JavaScript's own `Array.sort`); undeclared method parameters are refused
-  only for methods that declare parameters; the session cookie becomes HttpOnly (the pages do not
-  read it); virtual types are removed (not used).
-- Gained: content extraction, vector search, named job queues, `/structr/rest/_serverLog`, the
-  `migrate` maintenance command, `$.modifications`.
+At the owner's word ("Upgrade to 7.1.0"), `docker-compose.yml` names `structr/structr:7.1.0`. What was
+checked first, each on a throwaway stack:
+
+- **The spikes**, all of them, on 7.1.0 (`tools/spikes/last_results.json`; the 6.0.0 results are kept
+  in `results_6.0.0.json`). Everything above holds, with three differences. A method that declares
+  parameters refuses undeclared arguments; none of ours declares any. Python still does not run.
+  **Permission propagation misbehaves**: a read grant on a folder to one user also let another user
+  read the folder and its documents. Plain grants to a user or a group, which keep households apart,
+  reach only them (a new spike, grant_direct). Do not use propagation (section 2, row 6) on 7.1.0
+  without spiking it again.
+- **The whole build** from nothing: all 74 scripts ran, and the snapshot is identical to the golden
+  file. No key was refused, the container was healthy, and the server log held no error.
+- **The pages and methods** installed on that build: `check_pages`, `check_bookings`,
+  `check_households` (households kept apart) and `check_instructions` found no difference.
+- **The owner's data**: the newest backup (2026-10-26) restored into a throwaway on 7.1.0. In
+  `dry-run`, Structr's migrations found one change to make (a `DataSource` label on 58 schema nodes),
+  changed nothing, and did not start; with `apply` it started, the graph kept its 42,386 nodes and
+  88,680 relationships, and `check_pages` found no difference on the week, the 53 recipes and the
+  43 pantry portions.
+
+What changed in the repository:
+
+- `application.schema.automigration` no longer exists in 7.1: `application.migration.mode` replaces it
+  (`docker-compose.yml`, from `STRUCTR_MIGRATION_MODE`, `apply` by default as in 7.1).
+- **Starting a stack on a new image upgrades its database**, and only a backup goes back. So
+  `tools/owner_stack.sh up` now runs `tools/image_guard.sh`, which refuses to start the owner's
+  container on another image than the one it last ran unless `UPGRADE=1` is given, and says how to
+  back up and dry-run first. The owner's steps are in `docs/todo.md`.
+- No setup token was needed: a fresh 7.1.0 started with the superuser password from the environment,
+  and the tools' header logins work as before.
+
+Still true of 7.1, unchanged by the move: three wrong superuser passwords within 15 minutes block it
+for that time, so a wrong password in `.env` locks the tools out briefly; the tools still log in as the
+superuser (an admin user for them is in `docs/todo.md`). `assert()` and `sort()` changed meaning, but
+neither the pages nor the methods call them, and the session cookie became HttpOnly, which the pages
+do not read. Gained, not yet used: content extraction, vector search, named job queues,
+`/structr/rest/_serverLog`, the `migrate` maintenance command, and `$.modifications`.
 
 ## 5. The plan
 

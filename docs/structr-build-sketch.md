@@ -1,6 +1,6 @@
 # Meal Planner — Structr Build Sketch
 
-Maps the data model onto Structr 6.x. Written against Rev. 4.1; the model is now Rev. 4.5 (`data-model.md`). What the later revisions changed in the schema is here where it touches the structural layer (§2: `Person`, `Household` and `MealShare`, §19 of the model), and otherwise in the `mealplanner/*_schema.py` declarations the numbered scripts install: the properties and relationships §17 to §19 added are declared there (most citing the row that added them), not repeated here. Assumes the cheatsheet's verified findings throughout, especially the retroactive-labeling trap, the `sourceJsonName`/`targetJsonName` inversion, and trait-level `unique` being global.
+Maps the data model onto Structr 6.x, and 7.1 since 2026-10-27, which builds it identically. Written against Rev. 4.1; the model is now Rev. 4.5 (`data-model.md`). What the later revisions changed in the schema is here where it touches the structural layer (§2: `Person`, `Household` and `MealShare`, §19 of the model), and otherwise in the `mealplanner/*_schema.py` declarations the numbered scripts install: the properties and relationships §17 to §19 added are declared there (most citing the row that added them), not repeated here. Assumes the cheatsheet's verified findings throughout, especially the retroactive-labeling trap, the `sourceJsonName`/`targetJsonName` inversion, and trait-level `unique` being global.
 
 ---
 

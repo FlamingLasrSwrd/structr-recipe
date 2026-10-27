@@ -79,6 +79,11 @@ beside yours as `private.restored-<name>/`, not over it: copy from it what you n
   is put on this machine's command line.
 - `down -v` is only ever run on the throwaway project. Never run it on `mealplanner-owner`.
 - A stack left running for days is backed up only when it stops; run `backup.py now` in between.
+- **A backup is put back under the Structr that `docker-compose.yml` names.** Since 2026-10-27 that is
+  7.1.0, which upgrades a database made by 6.0 when it starts (`application.migration.mode`, `apply` by
+  default). So a backup made before the upgrade, restored now, comes back upgraded; to have it on 6.0
+  again, set the image line back to `structr/structr:6.0.0` first. Each manifest records the images it
+  was made with.
 - The changelog lives in files, not in the graph, so it is backed up as a volume. A restore puts back
   the changelog the backup holds; restoring a backup made before the changelog leaves the changelog
   as it is, which then also lists the writes the restore undid.

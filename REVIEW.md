@@ -44,7 +44,7 @@ requests once the model met real recipes and a real household. In order of how m
   pantry profiles, public prices; the owner's data in its own instance, out of reach of the demos
   (`tools/owner_stack.sh`); memory caps after the 8 GB laptop froze; backups of that instance, checked
   by restoring them (`tools/backup.py`, `docs/backups.md`).
-- **Testing:** 825 offline tests (72 when the second review's fixes landed), two mutation sweeps
+- **Testing:** 830 offline tests (72 when the second review's fixes landed), two mutation sweeps
   (below), and checks of the pages against Python on real Structr.
 
 ## What is being reviewed
@@ -84,7 +84,7 @@ describe a known posture rather than a regression.
 ## Running it
 
 ```bash
-python3 -m unittest discover -s tests -t .            # 825 offline tests, no Structr (29 skip without OR-tools)
+python3 -m unittest discover -s tests -t .            # 830 offline tests, no Structr (29 skip without OR-tools)
 .venv/bin/python -m unittest discover -s tests -t .   # the same with OR-tools (requirements-solver.txt)
 python3 tools/check_names.py                          # undefined names and unused imports (no pyflakes here)
 python3 scripts/23a_schema_drift_test.py              # offline: the schema helpers against a drifted schema
@@ -106,7 +106,8 @@ same as `tools/expected_state.json`. On that build `tools/check_pages.py` found 
 count, open, move, discard, a cook, a recipe asked for, a menu changed and undone). On the owner's
 instance `check_pages` found 0 differences on a committed week of 21 meals and 448 target groups, 53
 recipes and 43 pantry portions, and so did a backup of it restored into a throwaway stack. Only the
-maintainer's environment has been tested (Linux, Docker, Structr 6.0.0, Neo4j 2025.12.1). The schema
+maintainer's environment has been tested (Linux, Docker, Structr 6.0.0 and, since 2026-10-27, 7.1.0, Neo4j
+2025.12.1). The schema
 is in the snapshot because a validator is a method and can be silently replaced, which is what script
 `04` once did to script `07`'s. `tools/expected_state.json` is a golden file: if a script's output
 changes on purpose, regenerate it and read the diff.

@@ -31,7 +31,9 @@ services:
         aliases: [neo4j]
 
   structr:
-    image: structr/structr:6.0.0
+    # 7.1.0 since 2026-10-27 (docs/structr-features.md §4). A stack started on a new image upgrades its
+    # database (application.migration.mode below); tools/owner_stack.sh asks first (tools/image_guard.sh).
+    image: structr/structr:7.1.0
     depends_on: [neo4j]
     mem_limit: 2g
     # The image starts Java from a shell script without exec, so a stop signal reached only
@@ -62,7 +64,10 @@ services:
       - STRUCTR_neo4j__default_database_connection_username=neo4j
       - STRUCTR_neo4j__default_database_connection_password=${NEO4J_PASSWORD}
       - STRUCTR_nodeservice_active=neo4j_default
-      - STRUCTR_application_schema_automigration=true
+      # Structr's migrations at start (7.1: application.schema.automigration became this). apply is
+      # 7.1's default; STRUCTR_MIGRATION_MODE=dry-run reports what an upgrade would change and stops,
+      # off leaves the database untouched.
+      - STRUCTR_application_migration_mode=${STRUCTR_MIGRATION_MODE:-apply}
       # Who created and changed what, with the old and new values (docs/structr-features.md,
       # batch 1): kept as files in /var/lib/structr/changelog, hence the volume below, which
       # tools/backup.py backs up with the others. It records from when it was turned on.

@@ -4,7 +4,8 @@
 #
 #   tools/owner_stack.sh build   first time only: start it, run the full build, then
 #                                tools/make_owner_instance.py (removes demos, marks it the owner's)
-#   tools/owner_stack.sh up      start it and wait until it answers
+#   tools/owner_stack.sh up      start it and wait until it answers; refuses a Structr image other than the one
+#                                it last ran unless UPGRADE=1 (tools/image_guard.sh: Structr upgrades its database)
 #   tools/owner_stack.sh stop    stop it, backing it up as it stops (tools/backup.py; NO_BACKUP=1 skips the
 #                                backup); the data stays in its volumes
 #   tools/owner_stack.sh url     print the STRUCTR_URL to use with tools/import_recipe.py
@@ -43,6 +44,7 @@ case "${1:-}" in
     ;;
   up)
     load_env
+    bash tools/image_guard.sh "$project-structr-1"    # a changed Structr image upgrades the data: only when asked
     compose up -d
     bash tools/wait_for_structr.sh "${WAIT_S:-300}"
     echo "export STRUCTR_URL=$url"
@@ -60,7 +62,7 @@ case "${1:-}" in
     echo "$url"
     ;;
   *)
-    sed -n '2,16p' "$0"
+    sed -n '2,17p' "$0"
     exit 2
     ;;
 esac
