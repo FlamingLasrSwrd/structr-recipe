@@ -864,6 +864,13 @@ Confirmed dead ends, each isolated with its own test:
     household; `$.find` and REST then show it to that household's members
     only (a 404 by id to anyone else); a member's `PUT` to a shared node is
     a 403.
+  - ⚠️ **Every method created, changed or deleted reloads the whole
+    schema** (0.6 to 1.7 s each, "Schema reload took ..." in the log), and
+    Structr's memory grows with each: about 0.5 GB to 1.3 GB over a dozen
+    reloads, and after a night of mutation runs (dozens, each installing
+    methods and making a throwaway one) the 2 GB container was OOM-killed
+    (2026-10-27, exit 137). Restart Structr after much method churn, and
+    keep a check from making a throwaway method on every run.
   - ⚠️ **An object keeps the rights it was loaded with.** Inside
     `$.doPrivileged`, writing to a node the method had loaded as the member
     was refused ("Modification of node ... by Person ... not permitted").

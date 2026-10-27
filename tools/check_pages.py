@@ -17,8 +17,9 @@ superuser (Structr honours the X-User headers for pages) and compares the data b
               "Home prices" where it exists, and what the pantry covers; a food a StockPolicy
               tops up is left out, since the page applies no policy (and says so)
 
-for every week with entries. Read-only, so meant for the owner's instance as well as any other.
-Exits 1 on any difference.
+for every week with entries. Where the Structr methods are installed (tools/install_methods.py), it
+compares nutritionReport's and shoppingList's answers with Python's the same way, called as the
+superuser. Read-only, so meant for the owner's instance as well as any other. Exits 1 on any difference.
 """
 
 import json
@@ -90,18 +91,29 @@ def check_week(client, reads, week: dict, problems: list[str]) -> int:
     return len(entries)
 
 
-def check_nutrition(client, week: dict, problems: list[str]) -> int:
-    shown = {(r["target"], r["group"]): r for r in page_data(client, f"nutrition/{week['id']}")}
+def method(client, name: str, **arguments):
+    """A Structr method's answer, called as the superuser; None when it is not installed."""
+    r = client.session.post(f"{client.base_url}/structr/rest/{name}", json=arguments, timeout=client.timeout)
+    if r.status_code == 404:
+        return None
+    r.raise_for_status()
+    return r.json()["result"]
+
+
+def check_nutrition(client, week: dict, problems: list[str], shown_rows=None, who: str = "the page") -> int:
+    if shown_rows is None:
+        shown_rows = page_data(client, f"nutrition/{week['id']}")
+    shown = {(r["target"], r["group"]): r for r in shown_rows}
     rows = nutrition_report(client, week["id"])
     rows += week_totals(rows)
     if set(shown) != {(r["target"], r["group"]) for r in rows}:
-        problems.append(f"nutrition {week['name']!r}: the page judges {len(shown)} groups, nutrition_report {len(rows)}")
+        problems.append(f"nutrition {week['name']!r}: {who} judges {len(shown)} groups, nutrition_report {len(rows)}")
     for r in rows:
         got = shown.get((r["target"], r["group"]))
         if got is None:
             continue
         if got["status"] != r["status"] or not close(got.get("total"), r.get("total")):
-            problems.append(f"nutrition {week['name']!r}, {r['target']} {r['group']}: shown {got.get('total')!r} "
+            problems.append(f"nutrition {week['name']!r}, {r['target']} {r['group']}: {who} {got.get('total')!r} "
                             f"{got['status']}, nutrition_report {r.get('total')!r} {r['status']}")
     return len(rows)
 
@@ -167,8 +179,9 @@ def check_pantry(client, reads, problems: list[str]) -> int:
     return counted
 
 
-def check_shopping(client, week: dict, problems: list[str]) -> int:
-    shown = page_data(client, f"shopping/{week['id']}")
+def check_shopping(client, week: dict, problems: list[str], shown=None, who: str = "the page") -> int:
+    if shown is None:
+        shown = page_data(client, f"shopping/{week['id']}")
     try:
         prices = price_table(client, "Home prices")
     except ProfileError:
@@ -178,7 +191,7 @@ def check_shopping(client, week: dict, problems: list[str]) -> int:
     topped = {line.food for line in want.to_buy if line.target > 0}
     got = {row["food"]: row for row in shown["to_buy"] if row["food"] not in topped}
     if set(got) != {line.food for line in want.to_buy} - topped:
-        problems.append(f"shopping {week['name']!r}: the page lists "
+        problems.append(f"shopping {week['name']!r}: {who} lists "
                         f"{sorted(set(got) ^ ({l.food for l in want.to_buy} - topped))} differently")
     for line in want.to_buy:
         row = got.get(line.food)
@@ -186,13 +199,13 @@ def check_shopping(client, week: dict, problems: list[str]) -> int:
             continue
         for key, value in (("buy", line.buy), ("need", line.need), ("have", line.have), ("cost", line.cost)):
             if not close(row[key], value):
-                problems.append(f"shopping {week['name']!r}, {line.food}: {key} shown {row[key]!r}, is {value!r}")
+                problems.append(f"shopping {week['name']!r}, {line.food}: {key} by {who} {row[key]!r}, is {value!r}")
         if utc(row["first"]) != line.first_needed:
-            problems.append(f"shopping {week['name']!r}, {line.food}: first needed {row['first']!r}, is {line.first_needed!r}")
+            problems.append(f"shopping {week['name']!r}, {line.food}: first needed by {who} {row['first']!r}, is {line.first_needed!r}")
     if sorted(r["food"] for r in shown["covered"]) != [line.food for line in want.covered]:
-        problems.append(f"shopping {week['name']!r}: the pantry covers differ")
+        problems.append(f"shopping {week['name']!r}: the pantry covers differ ({who})")
     if shown["unquantified"] != want.unquantified or sorted(shown["not_bought"]) != want.not_bought:
-        problems.append(f"shopping {week['name']!r}: what has no amount, or is not bought, differs")
+        problems.append(f"shopping {week['name']!r}: what has no amount, or is not bought, differs ({who})")
     return len(want.to_buy)
 
 
@@ -207,6 +220,21 @@ def main(argv=None) -> int:
         groups = check_nutrition(client, week, problems)
         bought = check_shopping(client, week, problems)
         print(f"{week['name']}: {entries} entries, {groups} target groups, {bought} foods to buy")
+        report = method(client, "nutritionReport", week=week["id"])
+        listed = method(client, "shoppingList", week=week["id"])
+        if report is None or listed is None:
+            print("  (the methods are not installed here: tools/install_methods.py)")
+            continue
+        for answer in (report, listed):
+            if answer.get("problem"):
+                problems.append(f"{week['name']!r}: a method answered {answer['problem']}")
+        if not report.get("problem"):
+            check_nutrition(client, week, problems, report["rows"], "nutritionReport")
+        if not listed.get("problem"):
+            check_shopping(client, week, problems, {"to_buy": listed["buy"], "covered": listed["covered"],
+                                                    "unquantified": listed["unquantified"], "not_bought": listed["not_bought"]},
+                           "shoppingList")
+        print("  and the same through nutritionReport and shoppingList")
     print(f"recipes: {check_recipes(client, reads, problems)} shown")
     print(f"pantry: {check_pantry(client, reads, problems)} portions on hand")
     for problem in problems:

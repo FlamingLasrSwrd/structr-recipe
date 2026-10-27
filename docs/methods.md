@@ -22,6 +22,9 @@ script. So a method runs the engine code the pages run, not a copy of it.
 | `40_bookings.js` | how every booking writes, and one booking in a transaction of its own |
 | `50_pantry.js` | the pantry's bookings |
 | `60_requests.js` | recipes asked for a week |
+| `70_menu.js` | a week's meals cooked and changed as the week goes |
+| `80_nutrition.js` | a week's nutrition against every target |
+| `90_shopping.js` | a week's shopping list |
 
 - **Calling one:** `POST /structr/rest/<name>` with a JSON body of its arguments (read as
   `$.methodParameters`), or `$.<name>({...})` from a page or another method. The answer is under `result`.
@@ -41,6 +44,13 @@ script. So a method runs the engine code the pages run, not a copy of it.
 | `bookPantry` | `do` (buy, use, count, open, move, discard), `token`, and the booking's fields (food, amount, unit, storage, keeps, portion) | the booking, as the pages record one: `{action, problem, process, created, notes}` |
 | `bookWeek` | `do` (cook, skip, unskip), `token`, `entry`, and for skip `instead` (a recipe from the book, or words) | the same |
 | `bookRequest` | `do` (ask, withdraw), `token`, `recipe` (a RecipeIdentity), `week` (its first day) | the same; a week not planned yet is made as the household's MealPlan, `forHousehold` |
+| `nutritionReport` | `week` (a MealPlan's id) | `{week, rows}`: every target judged at its scope, per person, then each daily target's days added up, as the nutrition page shows them |
+| `shoppingList` | `week`, `prices` (a price level, default "Home prices") | `{week, priced, cooks, leftovers, buy, covered, unquantified, not_bought, unpriced, total}`, as the shopping page lists them; for a household's member, only the household's own stock counts against the need |
+
+A method that takes a `week` answers a member of a household for their household's own week only
+(`callerWeek`): another household's is "no such week", one every signed-in user sees "not your
+household's week". `tools/check_pages.py` compares `nutritionReport`'s and `shoppingList`'s answers
+with Python's for every week, as it does the pages'.
 
 ## Households, kept apart by Structr
 
@@ -98,7 +108,14 @@ Then it checks, removing everything at the end:
   it, A1 undoes it once the recipe instead is skipped, and A1 cooks the dinner from A's own stock, B's
   untouched;
 - a recipe asked for one week by each household makes a week of that name for each;
-- no booking acts on the data every signed-in user sees.
+- no booking acts on the data every signed-in user sees;
+- `nutritionReport` and `shoppingList` for A's week, as A1, are Python's, the list counting A's own
+  stock only (550 g against 500 g needed, with 300 g everyone sees left out); B1 gets "no such week",
+  and A1 is refused the week everyone sees.
+
+It first sweeps what an interrupted earlier run left: whatever its test members own or its test
+households were granted, the weeks it names, the stock everyone sees it bought (its token starts
+`e0e0e0`), its setup method, and the people and households. A run that Structr died in left 47.
 
 **Results on the development instance (2026-10-26):**
 
@@ -119,7 +136,9 @@ Then it checks, removing everything at the end:
 - (2026-10-27) each own-data rule left out in turn: the cook drew on the stock everyone sees, which
   expired first; a member booked a use on it; a meal everyone sees was changed (Structr's own rights
   then refused it, with a 403); and twice a household's request went to the shared week, by name. The
-  last is a real gap the rule closes: finding by name had found the shared week before.
+  last is a real gap the rule closes: finding by name had found the shared week before; and both of
+  the read methods' rules, each left out, caught (own stock: the list counted stock everyone sees; own
+  week: A1 read the week everyone sees).
 
 `tools/check_bookings.py` and `tools/check_pages.py` still found the pages the same as Python after
 the pantry's bookings moved into `pages/common.js`, which both the pantry page and `bookPantry` run.
@@ -138,8 +157,6 @@ All recorded in `structr-cheatsheet.md` §3a:
 
 ## Not done yet
 
-- The rest of the request-time engines (stage 3): net requirements and the shopping list, the nutrition
-  report, menu changes, requests.
 - The planner's JSON contract (stage 4).
 - The real data marked shared or private, and the pages and tools acting as their household (stage 5).
   Until then, the existing data on any instance is visible to every signed-in user, as before.

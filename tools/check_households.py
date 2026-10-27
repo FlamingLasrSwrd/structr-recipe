@@ -25,7 +25,8 @@ booking may not make itself. Then, each member as themselves:
   apart): a portion expiring sooner than A's, which A's cook must not draw on and A cannot book on, a
   meal A cannot change, and a week of that name A's request must not add to.
 
-It removes everything it made. Exits 1 on any failure. Needs STRUCTR_SUPERUSER_PASSWORD and
+It removes everything it made, and first sweeps what an interrupted earlier run left (sweep). Exits 1
+on any failure. Needs STRUCTR_SUPERUSER_PASSWORD and
 STRUCTR_URL, and the methods installed (tools/install_methods.py, and tools/install_pages.py for the
 bookings' lock).
 """
@@ -43,13 +44,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mealplanner import pantry
 from mealplanner.connection import connect
 from mealplanner.inventory import instance_expiration
-from mealplanner.nutrition_scope import raw_inputs
+from mealplanner.nutrition_scope import nutrition_report, raw_inputs, week_totals
+from mealplanner.shopping import shopping_list
 
 PRIVATE = {"visibleToAuthenticatedUsers": False, "visibleToPublicUsers": False}
 SEEN = {"visibleToAuthenticatedUsers": True, "visibleToPublicUsers": False}
 WRITTEN = ("TemporalRegion", "Process", "ContainerObject", "PortionOfSubstance", "Quality", "Measurement", "Allocation",
-           "MealPlan", "MealPlanEntry", "QuantitySpecification", "MealShare")
-GRANTS = ("stockOnHand", "bookPantry", "bookWeek", "bookRequest", "DomainType/_id") + tuple(f"{t}/_id" for t in WRITTEN)
+           "MealPlan", "MealPlanEntry", "QuantitySpecification", "MealShare", "NutritionTarget")
+GRANTS = ("stockOnHand", "bookPantry", "bookWeek", "bookRequest", "nutritionReport", "shoppingList", "DomainType/_id") \
+    + tuple(f"{t}/_id" for t in WRITTEN)
 # Run as the superuser to give household A a week of its own, as committing a planned week will (Path S
 # stage 4): a dinner to cook and a lunch of its leftovers, private to A and granted to its Group
 WEEK_SETUP = """{
@@ -66,9 +69,15 @@ WEEK_SETUP = """{
     references: recipe, hasPlannedServings: 2.0, isAbout: mine("TemporalRegion", {name: p.name + " dinner", hasBeginning: p.dinner})});
   const lunch = mine("MealPlanEntry", {name: p.name + " Lunch -- " + recipe.name, memberOf: week, isSkipped: false,
     consumesLeftoverFrom: dinner, isAbout: mine("TemporalRegion", {name: p.name + " lunch", hasBeginning: p.lunch})});
+  const protein = $.find("DomainType", {name: "Protein"});
+  const range = mine("QuantitySpecification", {name: p.name + " protein range", minValue: 30.0, maxValue: 200.0, unit: "g",
+                                               status: "specified"});
+  week.hasConstraint = [mine("NutritionTarget", {name: p.name + " protein a day", forNutrient: Array.isArray(protein) ? protein[0] : protein,
+                                                 hasTargetRange: range, hasTimeScope: "daily", dayBoundaryRule: "midnight", strictness: "hard"})];
   return {week: week.id, dinner: dinner.id, lunch: lunch.id};
 }"""
 OPERATIONS = ("Purchase", "Use")
+SHARED_TOKEN = "e0e0e0"         # the start of the token of the stock everyone sees that the check buys, so a sweep finds it
 
 
 class Check:
@@ -135,6 +144,36 @@ def at_once(member: Member, method: str, arguments: dict, n: int) -> list:
     return answers
 
 
+def sweep(client) -> int:
+    """What an interrupted run left: whatever its test members own or its test households were granted,
+    the weeks it names, its stock everyone sees, its setup method, and the people and households."""
+    def ours(row: dict) -> bool:
+        name = row.get("name") or ""
+        return ((row.get("owner") or {}).get("name") or "").startswith("TEST -- member") \
+            or any((g.get("name") or "").startswith("TEST -- household") for g in row.get("grantees") or []) \
+            or name.startswith(("CHECK household A week", "CHECK everyone's week", f"Purchase {SHARED_TOKEN}")) \
+            or name == "Week of 2099-12-28"
+    gone = 0
+    for type_name in WRITTEN:
+        for row in client.get_all(type_name)["result"]:
+            if row.get("type") == type_name and ours(row):
+                try:
+                    client.delete(f"/structr/rest/{type_name}/{row['id']}")
+                    gone += 1
+                except Exception:                     # already gone with another
+                    pass
+    for m in client.get("/structr/rest/SchemaMethod")["result"]:
+        if m.get("name") == "testcheckhouseholdweek":
+            client.delete(f"/structr/rest/SchemaMethod/{m['id']}")
+            gone += 1
+    for type_name, prefix in (("Household", "TEST -- household"), ("Person", "TEST -- member")):
+        for row in client.get_all(type_name)["result"]:
+            if (row.get("name") or "").startswith(prefix):
+                client.delete(f"/structr/rest/{type_name}/{row['id']}")
+                gone += 1
+    return gone
+
+
 def setup(check: Check, client) -> dict:
     """The households, their members and the grants they need; the shared operations, if missing."""
     members = {}
@@ -163,6 +202,9 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     client = connect()                       # refuses the owner's instance: this writes and deletes
     check = Check(client)
+    left = sweep(client)
+    if left:
+        print(f"swept {left} node(s) an interrupted earlier run left")
     try:
         m = setup(check, client)
         print("two households: A (A1, A2) and B (B1), each member signed in as themselves")
@@ -238,7 +280,8 @@ def main(argv=None) -> int:
             check.fail(f"A1 using stock every signed-in user sees was not refused: {got}")
         else:
             print("  A1 cannot book on stock every signed-in user sees: not your household's stock")
-        week_check(check, client, m, args.food, args.keeps, bought, shared)
+        own_a = [bought["A"]] + [r["id"] for t, r in check.named(f"Purchase {token['race']} -- {args.food}") if t == "PortionOfSubstance"]
+        week_check(check, client, m, args.food, args.keeps, bought, shared, own_a)
         request_check(check, client, m, shared)
 
         mass = [d for d in client.get("/structr/rest/DomainType", params={"name": "Mass"})["result"] if d.get("type") == "DomainType"][0]
@@ -280,7 +323,7 @@ def everyones(check: Check, client, food: str, keeps: str) -> dict:
     """What every signed-in user sees, as the data made before households kept theirs apart is: a
     portion of the food bought two days ago (so it expires before A's), a meal of a week of no
     household's, and the week a request will name. Written as the superuser, through Python."""
-    token = secrets.token_hex(4)
+    token = SHARED_TOKEN + secrets.token_hex(3)
     stock = pantry.buy(client, food, 300, "g", datetime.now(timezone.utc) - timedelta(days=2), token, keeps=keeps)
     check.remember(stock.created)
     portion = [r for t, r in check.named(f"Purchase {token} -- {food}") if t == "PortionOfSubstance"][0]["id"]
@@ -291,7 +334,7 @@ def everyones(check: Check, client, food: str, keeps: str) -> dict:
     meal = check.make("MealPlanEntry", {"name": f"CHECK everyone's week {token} Dinner -- {plan['name']}", "memberOf": week,
                                         "isSkipped": False, "references": plan["id"], "hasPlannedServings": 2.0, "isAbout": region, **SEEN})
     asked = check.make("MealPlan", {"name": "Week of 2099-12-28", **SEEN})
-    return {"portion": portion, "meal": meal, "week": asked}
+    return {"portion": portion, "meal": meal, "meals_week": week, "week": asked}
 
 
 def private_to(check: Check, client, m: dict, names, side: str) -> int:
@@ -310,7 +353,7 @@ def private_to(check: Check, client, m: dict, names, side: str) -> int:
     return bad
 
 
-def week_check(check: Check, client, m: dict, food: str, keeps: str, bought: dict, shared: dict) -> None:
+def week_check(check: Check, client, m: dict, food: str, keeps: str, bought: dict, shared: dict, own_a: list) -> None:
     """Household A's week through bookWeek: a member of A skips its dinner with another recipe eaten
     instead (its lunch of leftovers going with it), B's member cannot touch it, the skip is undone, and
     A's dinner is cooked from A's own stock only, B's untouched (mealplanner/menu_changes.py, pantry.cook)."""
@@ -329,7 +372,9 @@ def week_check(check: Check, client, m: dict, food: str, keeps: str, bought: dic
     week = client.post("/structr/rest/testcheckhouseholdweek", {"household": a_household, "plan": dish["id"], "name": name,
                        "dinner": begins.strftime("%Y-%m-%dT%H:%M:%S+0000"),
                        "lunch": (begins + timedelta(hours=18)).strftime("%Y-%m-%dT%H:%M:%S+0000")})["result"]
-    check.remember([name, f"{name} dinner", f"{name} lunch", f"{name} Dinner -- {dish['name']}", f"{name} Lunch -- {dish['name']}"])
+    check.remember([name, f"{name} dinner", f"{name} lunch", f"{name} Dinner -- {dish['name']}", f"{name} Lunch -- {dish['name']}",
+                    f"{name} protein range", f"{name} protein a day"])
+    read_check(check, client, m, week["week"], food, own_a, shared["meals_week"])
     instead_name = f"{name} Dinner -- {other['name']}"
 
     got = m["B1"].call("bookWeek", do="skip", entry=week["dinner"], instead=other["name"], token=secrets.token_hex(4))
@@ -384,6 +429,44 @@ def week_check(check: Check, client, m: dict, food: str, keeps: str, bought: dic
         print(f"  A1 cooked A's dinner from A's own stock ({len(drawn)} draw(s)), B's {before_b:g} g untouched")
     if not private_to(check, client, m, (got.get("created") or []) + [instead_name], "A"):
         print("  every node the week's bookings made is private to A")
+
+
+def read_check(check: Check, client, m: dict, week_id: str, food: str, own_a: list, everyones_week: str) -> None:
+    """nutritionReport and shoppingList for household A's week, as A1: Python's nutrition report for the
+    week, and Python's shopping list for it with only A's own stock against the need; B1 gets neither."""
+    got = m["A1"].call("nutritionReport", week=week_id)
+    rows = nutrition_report(client, week_id)
+    rows += week_totals(rows)
+    shown = {(r["target"], r["group"]): r for r in got.get("rows") or []}
+    wrong = [r for r in rows if (r["target"], r["group"]) not in shown or shown[(r["target"], r["group"])]["status"] != r["status"]
+             or abs((shown[(r["target"], r["group"])].get("total") or 0) - (r.get("total") or 0)) > 1e-6]
+    if got.get("problem") or not rows or len(shown) != len(rows) or wrong:
+        check.fail(f"A1's nutritionReport for A's week: {got.get('problem')}; {len(shown)} groups against Python's {len(rows)}, "
+                   f"{len(wrong)} differing")
+    else:
+        print(f"  A1's nutritionReport for A's week: {len(rows)} groups, as Python's nutrition_report")
+    now = datetime.now(timezone.utc)
+    own = 0.0
+    for portion_id in own_a:
+        portion = client.get_all("PortionOfSubstance", portion_id)["result"]
+        grams, days = pantry.on_hand(client, portion, now), instance_expiration(client, portion, now)[1]
+        if grams and grams > 0 and (days is None or days >= 0):
+            own += grams
+    listed = m["A1"].call("shoppingList", week=week_id)
+    want = {line.food: line for line in shopping_list(client, week_id, now, None).to_buy + shopping_list(client, week_id, now, None).covered}
+    lines = {l["food"]: l for l in (listed.get("buy") or []) + (listed.get("covered") or [])}
+    line = lines.get(food)
+    if listed.get("problem") or set(lines) != set(want) or line is None or abs(line["need"] - want[food].need) > 1e-6 \
+            or abs(line["have"] - own) > 1e-6 or abs(line["buy"] - max(0.0, want[food].need - own)) > 1e-6:
+        check.fail(f"A1's shoppingList for A's week: {listed.get('problem')}; foods {sorted(lines)} against Python's {sorted(want)}; "
+                   f"{food}: {line}, Python's need {want[food].need if food in want else None}, A's own stock {own}")
+    else:
+        print(f"  A1's shoppingList for A's week: {food} needs {line['need']:g} g, A's own stock {own:g} g, buy {line['buy']:g} g")
+    for method in ("nutritionReport", "shoppingList"):
+        if m["B1"].call(method, week=week_id).get("problem") != "no such week":
+            check.fail(f"B1's {method} for A's week was not refused as no such week")
+        if not (m["A1"].call(method, week=everyones_week).get("problem") or "").endswith("not your household's week"):
+            check.fail(f"A1's {method} for a week every signed-in user sees was not refused")
 
 
 def request_check(check: Check, client, m: dict, shared: dict) -> None:

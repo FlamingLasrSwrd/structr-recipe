@@ -94,3 +94,20 @@ function weeksWithEntries() {
   return $.find("MealPlan").filter((m) => (m.hasEntry || []).length)
     .sort((a, b) => new Date((b.isAbout && b.isAbout.hasBeginning) || 0) - new Date((a.isAbout && a.isAbout.hasBeginning) || 0));
 }
+
+// The caller's one household, or null (the superuser, or someone in none or several)
+function callerHousehold() {
+  const households = (($.me && $.me.groups) || []).filter((g) => g.type === "Household");
+  return households.length === 1 ? households[0] : null;
+}
+
+// The week a method's caller asks about: a MealPlan they may read, and for a member of a household,
+// their household's own (as for its bookings: a week every signed-in user sees is no household's).
+// {week} or {problem}
+function callerWeek(id) {
+  const found = $.find("MealPlan", {id: String(id || "")});
+  const week = Array.isArray(found) ? found[0] : found;
+  if (!week || week.type !== "MealPlan") return {problem: "no such week"};
+  if (callerHousehold() && week.visibleToAuthenticatedUsers !== false) return {problem: week.name + ": not your household's week"};
+  return {week: week};
+}
