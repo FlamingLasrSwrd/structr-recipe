@@ -98,6 +98,13 @@
   "propertyType": "String",
   "unique": false
  },
+ "@schema | property Household.bookingTurn": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "String",
+  "unique": false
+ },
  "@schema | property Identifier.identifierValue": {
   "format": null,
   "indexed": true,

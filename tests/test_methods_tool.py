@@ -23,9 +23,12 @@ class Methods:
     """SchemaMethods by REST path, as Structr keeps them."""
 
     def __init__(self):
-        self.nodes, self.next = {}, 0
+        self.nodes, self.next, self.calls = {}, 0, []
 
     def post(self, path, payload):
+        if not path.endswith("/SchemaMethod"):
+            self.calls.append((path.rsplit("/", 1)[-1], payload))         # a method called
+            return {"result": None}
         self.next += 1
         self.nodes[f"m{self.next}"] = {"id": f"m{self.next}", **payload}
         return {"result": [f"m{self.next}"]}
@@ -61,20 +64,24 @@ class InstallMethods(unittest.TestCase):
         self.assertEqual(sorted(installed), self.files())
         for name, m in installed.items():
             source = m["source"]
-            self.assertTrue(source.startswith("{\n" + self.tool.MARK + f"methods/{name}.js\n") and source.endswith("\n}"))
+            self.assertTrue(source.startswith("{\n" + self.tool.MARK + f"methods/{name}.js\n" + self.tool.WARM_UP + "\n"))
+            self.assertTrue(source.endswith("\n}"))
             self.assertIn(self.tool.read(self.tool.COMMON), source)
             self.assertNotIn("schemaNode", m)                              # a user-defined function, no type
+        self.assertEqual(sorted(g.calls), sorted((n, {"warmUp": True}) for n in installed))   # each called once, to warm it
 
     def test_a_second_run_changes_nothing_and_a_changed_one_is_replaced(self):
         g = Methods()
         run(self.tool, [], g)
         before = {k: dict(v) for k, v in g.nodes.items()}
+        g.calls.clear()
         run(self.tool, [], g)
-        self.assertEqual(g.nodes, before)
+        self.assertEqual((g.nodes, g.calls), (before, []))                  # unchanged: not called again
         first = next(iter(g.nodes.values()))
         first["source"] = first["source"].replace("return", "return /* edited */", 1)
         run(self.tool, [], g)
         self.assertEqual(g.nodes, before)
+        self.assertEqual(g.calls, [(first["name"], {"warmUp": True})])
 
     def test_it_removes_its_own_whose_file_is_gone_and_never_touches_another(self):
         g = Methods()

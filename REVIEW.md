@@ -44,7 +44,7 @@ requests once the model met real recipes and a real household. In order of how m
   pantry profiles, public prices; the owner's data in its own instance, out of reach of the demos
   (`tools/owner_stack.sh`); memory caps after the 8 GB laptop froze; backups of that instance, checked
   by restoring them (`tools/backup.py`, `docs/backups.md`).
-- **Testing:** 754 offline tests (72 when the second review's fixes landed), two mutation sweeps
+- **Testing:** 765 offline tests (72 when the second review's fixes landed), two mutation sweeps
   (below), and checks of the pages against Python on real Structr.
 
 ## What is being reviewed
@@ -84,7 +84,7 @@ describe a known posture rather than a regression.
 ## Running it
 
 ```bash
-python3 -m unittest discover -s tests -t .            # 754 offline tests, no Structr (29 skip without OR-tools)
+python3 -m unittest discover -s tests -t .            # 765 offline tests, no Structr (29 skip without OR-tools)
 .venv/bin/python -m unittest discover -s tests -t .   # the same with OR-tools (requirements-solver.txt)
 python3 tools/check_names.py                          # undefined names and unused imports (no pyflakes here)
 python3 scripts/23a_schema_drift_test.py              # offline: the schema helpers against a drifted schema
@@ -99,8 +99,8 @@ local run then, and the name check failed unnoticed for eight pushes (own audit 
 run locally now.
 
 **Verified from scratch (2026-10-26).** On fresh containers and volumes `tools/rebuild.sh` ran all 61
-scripts in 567 s, none failing, and printed `SNAPSHOT IDENTICAL`: 219 named entities and 199 schema
-entries (every type, property, relationship and view, and the full source of every validator), the
+scripts in 567 s, none failing, and printed `SNAPSHOT IDENTICAL`, and again after Path S's schema
+script `40a` (all 62 in 657 s): 219 named entities and 200 schema entries (every type, property, relationship and view, and the full source of every validator), the
 same as `tools/expected_state.json`. On that build `tools/check_pages.py` found 0 differences, and
 `tools/check_bookings.py` found every booking the same through the pages as through Python (buy, use,
 count, open, move, discard, a cook, a recipe asked for, a menu changed and undone). On the owner's

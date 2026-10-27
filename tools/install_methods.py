@@ -9,6 +9,10 @@ another method as $.<name>({...}). It runs as whoever calls it, so Structr's acc
 Its source is pages/common.js and then the file, in one block, { ... }, the form Structr runs as
 JavaScript (docs/structr-cheatsheet.md §3a): a method uses the engine code the pages use, not a copy.
 
+Every method begins by answering a call whose arguments are {"warmUp": true} with nothing, and this
+tool makes that call after installing or replacing one: a method called by several people at once
+before its first call has finished answers some of them 404 (docs/structr-cheatsheet.md §3a).
+
 The source's second line names the file it came from. That is how this tool knows its own methods
 (it never touches another, such as the validators) and how tools/snapshot_state.py leaves them out:
 they are code, like the pages, not instance state. Each run replaces each method whole and removes
@@ -28,6 +32,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 METHODS_DIR = os.path.join(ROOT, "methods")
 COMMON = os.path.join(ROOT, "pages", "common.js")
 MARK = "// installed by tools/install_methods.py from "      # tools/snapshot_state.py looks for this
+WARM_UP = "if (($.methodParameters || {}).warmUp === true) return null;"
 NAME = re.compile(r"^[a-z][a-zA-Z0-9]*$")                    # a Structr method name (cheatsheet §3a), no underscores
 
 
@@ -50,7 +55,7 @@ def methods() -> dict[str, str]:
         name = fname[:-3]
         if not NAME.match(name):
             raise MethodError(f"methods/{fname}: a method's name starts with a small letter and has letters and digits only")
-        out[name] = "{\n" + MARK + f"methods/{fname}\n" + common + "\n" + read(os.path.join(METHODS_DIR, fname)) + "\n}"
+        out[name] = "{\n" + MARK + f"methods/{fname}\n" + WARM_UP + "\n" + common + "\n" + read(os.path.join(METHODS_DIR, fname)) + "\n}"
     return out
 
 
@@ -92,6 +97,8 @@ def main(argv=None) -> int:
             print(f"{name}: replaced")
         else:
             print(f"{name}: unchanged")
+            continue
+        client.post(f"/structr/rest/{name}", {"warmUp": True})
     return 0
 
 

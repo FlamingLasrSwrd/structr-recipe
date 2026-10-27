@@ -840,6 +840,35 @@ Confirmed dead ends, each isolated with its own test:
   - ✅ **A method needs no restart** (unlike a schema type, hard rule 8): a
     new one answered at once, and one whose `source` was PATCHed answered
     with the new source on the very next call; a deleted one is a 404.
+  - ⚠️ **A brand-new method, called by several at once before its first
+    call has finished, answers some of them 404** ("Cannot resolve URL
+    path /<name>"), within about 50 ms. Called once first, it answers all.
+    `tools/install_methods.py` therefore calls each new or changed method
+    once with `{"warmUp": true}` (`docs/methods.md`).
+  - ⚠️ **A Cypher write breaks other calls (probed 2026-10-26).** While a
+    method's transaction writes through `$.cypher` (a `SET`, with or
+    without `$.doInNewTransaction`), other methods called at the same moment
+    answer 404 "Cannot resolve URL path", every time; a Cypher read does
+    not. Pages (`/structr/html/...`) were not affected. Lock with an
+    ordinary Structr property write instead: Neo4j holds it until the
+    commit just the same (`Household.bookingTurn`, `docs/methods.md`).
+  - ✅ **A member who is not an admin can run `$.cypher`, and what it
+    reads is not filtered by access control.** Never read data through it
+    in a method that members call.
+  - ✅ **Access control in a method, as a non-admin member** (probed
+    2026-10-26): a method needs a `ResourceAccess` grant named for it
+    (signature = the function's name; 401 without); `$.me` is the caller's
+    `Person`, and `$.me.groups` holds their `Household`; `$.create` makes
+    nodes the caller owns, related to shared nodes they can only read;
+    `$.grant(group, node, "read, write, delete")` shares one with their
+    household; `$.find` and REST then show it to that household's members
+    only (a 404 by id to anyone else); a member's `PUT` to a shared node is
+    a 403.
+  - ⚠️ **An object keeps the rights it was loaded with.** Inside
+    `$.doPrivileged`, writing to a node the method had loaded as the member
+    was refused ("Modification of node ... by Person ... not permitted").
+    Load it again inside the privileged block (`$.find(type, {id: ...})`)
+    and the write goes through.
 
   **Practical upshot (for StructrScript; JavaScript methods, above, have
   no such limit): don't design a StructrScript `SchemaMethod` around

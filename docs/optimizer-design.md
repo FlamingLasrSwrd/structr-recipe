@@ -376,4 +376,15 @@ The climb reached its local optimum in 37 s; CP-SAT's ceiling is 55.3. Three way
 
 Tests: `tests/test_menu_changes.py`; every agreement test of the searches with the brute-force oracle still passes, random problems with committed meals included.
 
+**The problem and the plan as JSON** (2026-10-26, Path S stage 4, `docs/architecture-decision.md` §7a). The
+search already read nothing but a `PlanningProblem`; `planning/contract.py` writes one as plain JSON
+and reads it back exactly (times with their offset, sets as sorted lists, candidates in their order,
+a format version), and writes a plan by slot key in the problem's own terms. `plan_week`'s ending (the
+settled notes, the diagnosis, the keeps-requests week) is now `plan.conclude`, which
+`tools/plan_problem.py` also runs: the planner as a worker that reads a problem file, searches it and
+writes a plan file, with no graph and no credentials. `tools/plan_week.py --export-problem` writes the
+problem it built. **No objective, search or result changed:** the search on a problem read back from
+JSON finds the same picks and score on 80 random problems (`tests/test_planning_contract.py`, where a
+problem with every field off its default checks nothing is left out, and five mutants were caught).
+
 **Not built:** a tighter variety formulation or stock as flows for the solver; hard stock ("only cook from what I have"); a per-day time budget; a penalty for unused near-expiry stock; a soft difficulty term; a persistent "locked" flag on entries beyond what an existing entry already is; the parent link that would carry a leftover's purchase date through a division (J12).

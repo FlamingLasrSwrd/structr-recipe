@@ -3,6 +3,9 @@
     python3 tools/plan_week.py private/week.toml            # propose; writes only the week's MealPlan
     python3 tools/plan_week.py private/week.toml --commit   # write the week proposed last as entries
     python3 tools/plan_week.py private/week.toml --commit --fresh   # search again and write that
+    python3 tools/plan_week.py private/week.toml --export-problem private/week.problem.json
+                                                            # the week's problem, unsearched, in the planner's
+                                                            # JSON contract, for tools/plan_problem.py
 
 A proposal is kept beside the week file (private/week.proposal.json; planning/proposal.py), and
 --commit writes that week, the one the owner reviewed, after reading the graph again and checking
@@ -92,6 +95,7 @@ from mealplanner.planning.extract import RequestError, SlotSpec
 from mealplanner.planning.model import PrepSession
 from mealplanner.planning.nutrients import describe_nutrients
 from mealplanner.planning.plan import plan_week
+from mealplanner.planning.contract import problem_to_json
 from mealplanner.planning.proposal import ProposalError, to_data
 from mealplanner.prices import describe_cost
 from mealplanner.requests import week_start
@@ -328,7 +332,13 @@ def main(argv=None) -> int:
     parser.add_argument("week", help="the week file, e.g. private/week.toml")
     parser.add_argument("--commit", action="store_true", help="write the week proposed last as MealPlanEntries")
     parser.add_argument("--fresh", action="store_true", help="with --commit: search again instead of writing the proposal")
+    parser.add_argument("--export-problem", metavar="FILE",
+                        help="write the week's problem, unsearched, in the planner's JSON contract (it holds the "
+                             "household's data: keep it in private/), and stop; tools/plan_problem.py searches it")
     args = parser.parse_args(argv)
+    if args.export_problem and args.commit:
+        print("problem: --export-problem writes a problem and searches nothing, so it cannot --commit")
+        return 1
     kept = os.path.splitext(args.week)[0] + ".proposal.json"
     client = connect(owner_data_ok=True)     # the owner's weeks are their own data
     client.wait_until_ready()
@@ -358,6 +368,8 @@ def main(argv=None) -> int:
                   f"propose this week first, or use --fresh")
             return 1
         print(f"committing the week proposed at {proposal.get('proposed')} (score then {proposal.get('score', 0):.3f}), kept in {kept}")
+    if args.export_problem:
+        limits = {**limits, "build_only": True}
     try:
         result = plan_week(client, meal_plan_id, slots, datetime.now(timezone.utc), commit=args.commit,
                            leftovers=week.get("leftovers", True), leftover_days=week.get("leftover_days"),
@@ -375,6 +387,12 @@ def main(argv=None) -> int:
         print(f"problem: the kept proposal cannot be committed: {exc}")
         print("nothing was written; propose the week again, or commit with --fresh")
         return 1
+    if args.export_problem:
+        with open(args.export_problem, "w", encoding="utf-8") as fh:
+            json.dump(problem_to_json(result.problem), fh, indent=1)
+        print(f"the week's problem ({len(result.problem.slots)} meals, {len(result.problem.candidates)} recipes) is in "
+              f"{args.export_problem}; nothing was searched or written to the graph")
+        return 0
     print(result.text())
     if result.evaluation is not None:
         print()

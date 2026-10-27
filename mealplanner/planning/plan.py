@@ -79,7 +79,7 @@ def plan_week(
     leftover_days: float | None = None, leftovers: bool = True, portions: tuple = (), eater_portions: dict | None = None,
     shortlist_above: int | None = SHORTLIST_ABOVE, deadline: float | None = None, proposal: dict | None = None,
     requests: tuple = (), preps: tuple = (), cooking_time: float = 0.0, repeat_tolerance: int | None = None,
-    repeat_weight: float = 1.0, **search_options,
+    repeat_weight: float = 1.0, build_only: bool = False, **search_options,
 ) -> PlanResult:
     """Read the MealPlan, search for the best week for the slots in `template`,
     and (only if asked, and only if a plan meets every hard constraint) write it
@@ -102,6 +102,9 @@ def plan_week(
     cooking_time: how much the week's total cooking time counts against it, points an hour (Weights).
     repeat_tolerance, repeat_weight: how many meals of the week one recipe may be before each more costs
     repeat_weight points (a soft preference, the owner's decision 2026-10-26); None: nothing counted.
+
+    build_only: return the problem as built, unsearched (its search and evaluation empty), for the
+    planner's JSON contract (planning/contract.py; tools/plan_week.py --export-problem).
 
     proposal: a week proposed earlier (planning/proposal.py), to be checked and committed
     instead of searching again. The whole book is read, so every recipe it names is there; it
@@ -133,6 +136,8 @@ def plan_week(
             shortlist_above=shortlist_above, shortlist_factor=factor, requests=requests, preps=preps,
             cooking_time=cooking_time, repeat_tolerance=repeat_tolerance, repeat_weight=repeat_weight,
         )
+        if build_only:
+            return PlanResult(problem, SearchResult(None, False, 0, "not searched"), None, None)
         if deadline is not None:
             left = deadline - monotonic() - REPORT_RESERVE_S
             search_options["time_limit_s"] = max(MIN_SEARCH_S, left)
@@ -145,23 +150,27 @@ def plan_week(
         factor *= 2
     for size in widened:
         problem.notes.append(f"a shortlist of {size} recipes held no week meeting every hard target, so it was doubled")
-    problem.notes.extend(settled(problem))
-    if search.best is not None and search.best.feasible:
-        result = PlanResult(problem, search, search.best, None)
-        if commit:
-            result.committed = commit_plan(client, meal_plan_id, problem, search.best, name_prefix=name_prefix)
-        return result
-    diagnosis = diagnose(problem)
-    if diagnosis.feasible and diagnosis.closest is not None:      # its search found what the first did not, in time
-        result = PlanResult(problem, search, diagnosis.closest, None)
-    elif diagnosis.closest is not None and keeps_requests(problem, diagnosis.closest):
-        # keep the requests and say what the week misses; and whether the requests are why
-        alone = solve(replace(problem, requests=(), _cache={}), method, **{**search_options, "time_limit_s": 10.0})
-        result = PlanResult(problem, search, diagnosis.closest, diagnosis, missed=list(diagnosis.closest.violations),
-                            without_requests=alone.best is not None and alone.best.feasible)
-    else:
-        return PlanResult(problem, search, None, diagnosis)
-    if commit:
+    result = conclude(problem, search, method, **search_options)
+    if commit and result.evaluation is not None:
         result.committed = commit_plan(client, meal_plan_id, problem, result.evaluation, name_prefix=name_prefix,
                                        missing_targets_ok=bool(result.missed))
     return result
+
+
+def conclude(problem: PlanningProblem, search: SearchResult, method: str = "auto", **search_options) -> PlanResult:
+    """What a search of `problem` comes to: its plan, if it meets every hard constraint; else a
+    diagnosis, with the closest week when it keeps every request and misses only hard targets
+    (keeps_requests). Shared by plan_week and by the planner run on a problem file, which reads no
+    graph (tools/plan_problem.py; docs/architecture-decision.md §7a, stage 4). Writes nothing."""
+    problem.notes.extend(settled(problem))
+    if search.best is not None and search.best.feasible:
+        return PlanResult(problem, search, search.best, None)
+    diagnosis = diagnose(problem)
+    if diagnosis.feasible and diagnosis.closest is not None:      # its search found what the first did not, in time
+        return PlanResult(problem, search, diagnosis.closest, None)
+    if diagnosis.closest is not None and keeps_requests(problem, diagnosis.closest):
+        # keep the requests and say what the week misses; and whether the requests are why
+        alone = solve(replace(problem, requests=(), _cache={}), method, **{**search_options, "time_limit_s": 10.0})
+        return PlanResult(problem, search, diagnosis.closest, diagnosis, missed=list(diagnosis.closest.violations),
+                          without_requests=alone.best is not None and alone.best.feasible)
+    return PlanResult(problem, search, None, diagnosis)

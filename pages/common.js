@@ -313,6 +313,9 @@ function subtypesOf(type) {
 // A form carries a token made when the page was drawn, and every node a booking writes is found by
 // name before it is created, so sending a form twice writes nothing new (CLAUDE.md hard rule 5).
 // Writes run as the superuser ($.doPrivileged), as the tools' do, and state their visibility (rule 4).
+// A booking made for a household instead (the bookPantry method, as the caller: Path S,
+// docs/architecture-decision.md §7a) writes nodes private to that household: seen by no one else,
+// granted to its Group, so every member reads and changes them. It never makes shared vocabulary.
 //
 // One booking at a time, each committed before the page answers (REVIEW.md round 3 #9; measured on
 // Structr 6.0.0, docs/structr-cheatsheet.md). Two presses at once each found no node of a name and each
@@ -322,8 +325,14 @@ function subtypesOf(type) {
 // comes before any read, because a read repeated within a transaction answers as it did the first time.
 // tools/install_pages.py makes the lock node, outside the model (no Structr type; nothing else reads it):
 // made by the first booking instead, two bookings in that first moment each made one.
+// A method's booking for a household takes that household's turn instead: it first writes
+// Household.bookingTurn, an ordinary Structr write that Neo4j holds the same way, so households never
+// wait on each other. Not the Cypher lock, because a Cypher write made Structr answer 404 to methods
+// called at the same moment (docs/structr-cheatsheet.md §3a); the pages keep it until they too book
+// as their household (docs/architecture-decision.md §7a, stage 5).
 const LOCK = "MATCH (l:MealPlannerBookingLock) WITH l ORDER BY elementId(l) LIMIT 1 SET l.at = timestamp() RETURN count(l) AS n";
 const SEEN = {visibleToAuthenticatedUsers: true, visibleToPublicUsers: false};
+const PRIVATE = {visibleToAuthenticatedUsers: false, visibleToPublicUsers: false};
 const stamp = (d) => d.toISOString().replace(/\.\d{3}Z$/, "+0000");
 const newToken = () => Math.random().toString(16).slice(2, 10);
 
@@ -345,11 +354,15 @@ function ensureNode(booking, type, name, props) {
   const fields = {name: name};
   for (const key of Object.keys(props)) if (props[key] != null) fields[key] = props[key];
   booking.created.push(name);
-  return $.create(type, Object.assign(fields, SEEN));
+  const node = $.create(type, Object.assign(fields, booking.household ? PRIVATE : SEEN));
+  if (booking.household) $.grant(booking.household, node, "read, write, delete");
+  return node;
 }
 
-// pantry._operation: a Process kind in the Pantry Operation hierarchy, made on first use
+// pantry._operation: a Process kind in the Pantry Operation hierarchy, made on first use; a household's
+// booking finds it, since it is shared vocabulary
 function operationKind(booking, kind) {
+  if (booking.household) return typeNamed(kind);
   const hierarchy = $.find("TypeHierarchy", {name: "Pantry Operation"})[0] || ensureNode(booking, "TypeHierarchy", "Pantry Operation", {});
   return ensureNode(booking, "DomainType", kind, {hierarchy: hierarchy, isLookupBearing: false});
 }
@@ -371,20 +384,23 @@ function bookDraw(booking, process, portion, grams, when, label, spec) {
                                            process: process, fulfills: spec || null});
 }
 
-// Run a booking from the page's address (?do=...), as the superuser; a message saying what it did
-function runBooking(actions) {
-  const action = $.request.do;
-  if (!action) return "";
-  if (!actions[action]) return "<p class=\"problem\">Problem: no such booking: " + esc(action) + "</p>";
-  const token = String($.request.token || "");
-  if (!/^[0-9a-f]{4,16}$/.test(token)) return "<p class=\"problem\">Problem: the form had no token; reload the page and try again.</p>";
-  const booking = {process: null, created: [], notes: []};
+// One booking, in a transaction of its own, after the lock: its problem (or null) and what it wrote.
+// `household` is null for the pages' bookings, a Household for the methods'
+function bookOnce(actions, action, request, token, household) {
+  const booking = {process: null, created: [], notes: [], household: household};
   let problem = null;                   // said inside: an error does not cross a transaction as itself
   const work = () => {
     try {
-      const lock = $.cypher(LOCK);
-      if (!lock.length || !lock[0].n) throw new BookingError("the bookings' lock is missing: install the pages again (tools/install_pages.py)");
-      actions[action](booking, $.request, token);
+      if (household) {
+        $.doPrivileged(() => {                // loaded again here: an object keeps the rights it was loaded with
+          const turn = $.find("Household", {id: household.id});
+          (Array.isArray(turn) ? turn[0] : turn).bookingTurn = token + " " + Date.now() + " " + Math.random();
+        });
+      } else {
+        const lock = $.cypher(LOCK);
+        if (!lock.length || !lock[0].n) throw new BookingError("the bookings' lock is missing: install the pages again (tools/install_pages.py)");
+      }
+      actions[action](booking, request, token);
     } catch (e) {
       problem = e instanceof BookingError ? e.message : "the booking failed: " + (e.message || e);
       throw e;                          // so that nothing of it is kept
@@ -395,9 +411,22 @@ function runBooking(actions) {
     booking.created = [];
     booking.notes = [];
   };
-  const run = () => { $.doInNewTransaction(work, failed); };
+  $.doInNewTransaction(work, failed);
+  return {problem: problem, booking: booking};
+}
+
+// Run a booking from the page's address (?do=...), as the superuser; a message saying what it did
+function runBooking(actions) {
+  const action = $.request.do;
+  if (!action) return "";
+  if (!actions[action]) return "<p class=\"problem\">Problem: no such booking: " + esc(action) + "</p>";
+  const token = String($.request.token || "");
+  if (!/^[0-9a-f]{4,16}$/.test(token)) return "<p class=\"problem\">Problem: the form had no token; reload the page and try again.</p>";
+  let done = null;
+  const run = () => { done = bookOnce(actions, action, $.request, token, null); };
   const privileged = typeof $.doPrivileged === "function";
   if (privileged) $.doPrivileged(run); else run();
+  const problem = done.problem, booking = done.booking;
   // what was booked, for tools/check_bookings.py
   const record = "<script type=\"application/json\" id=\"booking-data\">" + JSON.stringify({
     action: action, privileged: privileged, problem: problem, process: booking.process, created: booking.created,
@@ -409,6 +438,121 @@ function runBooking(actions) {
     + "<script>history.replaceState(null, '', location.pathname);</script>";
 }
 
+
+// -- the pantry's bookings (mealplanner/pantry.py): its page's forms, and the bookPantry method ------
+const STORAGE = ["Fridge", "Freezer", "Pantry"];
+const UNITS = ["g", "kg", "oz", "lb", "ml", "l", "cup", "tbsp", "tsp", "fl_oz", "each"];
+
+// pantry._grams
+function bookingGrams(food, amount, unit) {
+  if (!(amount > 0)) throw new BookingError(food.name + ": an amount must be more than 0");
+  const grams = toGrams(food, amount, unit);
+  if (grams == null) throw new BookingError(food.name + ": " + amount + " " + unit + " does not convert to grams (no density or weight per item for it)");
+  return grams;
+}
+
+function portionFrom(request) {
+  const found = $.find("PortionOfSubstance", {id: String(request.portion || "")});
+  const portion = Array.isArray(found) ? found[0] : found;
+  if (!portion || portion.type !== "PortionOfSubstance") throw new BookingError("no such portion");
+  return portion;
+}
+
+function amountFrom(request) {
+  const amount = Number(request.amount);
+  if (request.amount == null || request.amount === "" || isNaN(amount)) throw new BookingError("an amount is a number");
+  return amount;
+}
+
+// pantry.last_perishability
+function lastPerishability(food) {
+  let best = null;
+  for (const p of $.find("PortionOfSubstance")) {
+    if (!p.instanceOf || p.instanceOf.id !== food.id || !p.hasPerishabilityType) continue;
+    const key = p.createdDate ? new Date(p.createdDate).toISOString() : "";
+    if (!best || key > best[0]) best = [key, p.hasPerishabilityType];
+  }
+  return best ? best[1] : null;
+}
+
+// pantry._container
+function containerOf(booking, portion) {
+  if (portion.locatedIn) return portion.locatedIn;
+  const box = ensureNode(booking, "ContainerObject", portion.name + " container", {
+    hasStorageCondition: typeNamed("Fridge"), hasOpenedStatus: typeNamed("Sealed")});
+  portion.locatedIn = box;
+  return box;
+}
+
+const PANTRY_ACTIONS = {
+  // pantry.buy
+  buy: (booking, r, token) => {
+    const storage = String(r.storage || "Fridge");
+    if (STORAGE.indexOf(storage) < 0) throw new BookingError("storage must be one of " + STORAGE.join(", "));
+    const food = typeNamed(String(r.food || "").trim());
+    const amount = amountFrom(r), unit = String(r.unit || "g");
+    bookingGrams(food, amount, unit);
+    const keeps = r.keeps ? typeNamed(String(r.keeps)) : lastPerishability(food);
+    const sealed = typeNamed("Sealed"), where = typeNamed(storage);
+    const process = bookProcess(booking, "Purchase", "Purchase " + token, NOW);
+    const name = "Purchase " + token + " -- " + food.name;
+    const box = ensureNode(booking, "ContainerObject", name + " container", {
+      hasStorageCondition: typeNamed(storage), hasOpenedStatus: typeNamed("Sealed")});
+    const portion = ensureNode(booking, "PortionOfSubstance", name, {
+      instanceOf: food, beginsToExistDuring: process, locatedIn: box, hasPerishabilityType: keeps});
+    const quality = ensureNode(booking, "Quality", name + " mass Quality", {hasKind: typeNamed("Mass"), inheresIn: portion});
+    ensureNode(booking, "Measurement", name + " mass bought", {value: amount, unit: unit, status: "observed",
+                                                              hasTime: stamp(NOW), isAboutQuality: quality});
+    const shelf = resolveDefault(food, "ShelfLife", [where.id, sealed.id]);
+    if (!keeps && !(shelf && shelf.hasValue && shelf.hasValue.unit === "days" && shelf.hasValue.value != null)) {
+      booking.notes.push(food.name + ": no shelf life known for it in the " + storage.toLowerCase()
+                         + ", so no expiry (name a perishability class when buying)");
+    }
+  },
+  // pantry.use
+  use: (booking, r, token) => {
+    const portion = portionFrom(r), food = portion.instanceOf;
+    const grams = bookingGrams(food, amountFrom(r), String(r.unit || "g"));
+    const level = onHand(portion);
+    if (!Array.isArray(level)) throw new BookingError(portion.name + ": " + (level || "never weighed") + ", so there is nothing to take from it (count it first)");
+    if (grams > level[0] + 1e-6) throw new BookingError(portion.name + ": " + number(grams, 0) + " g is more than the " + number(level[0], 0) + " g on hand");
+    bookDraw(booking, bookProcess(booking, "Use", "Use " + token, NOW), portion, grams, NOW, portion.name);
+  },
+  // pantry.discard
+  discard: (booking, r, token) => {
+    const portion = portionFrom(r);
+    const level = onHand(portion);
+    if (!Array.isArray(level) || !(level[0] > 0)) throw new BookingError(portion.name + ": nothing on hand to discard");
+    bookDraw(booking, bookProcess(booking, "Discarding", "Discard " + token, NOW), portion, level[0], NOW, portion.name);
+  },
+  // pantry.stock_take
+  count: (booking, r, token) => {
+    const portion = portionFrom(r), amount = amountFrom(r), unit = String(r.unit || "g");
+    if (amount < 0) throw new BookingError("a stock take is 0 or more");
+    if (amount > 0) bookingGrams(portion.instanceOf, amount, unit);
+    const quality = massQuality(portion) || ensureNode(booking, "Quality", portion.name + " mass Quality", {
+      hasKind: typeNamed("Mass"), inheresIn: portion});
+    ensureNode(booking, "Measurement", portion.name + " stock take " + token, {value: amount, unit: unit, status: "observed",
+                                                                                hasTime: stamp(NOW), isAboutQuality: quality});
+    booking.process = portion.name + " counted";
+  },
+  // pantry.open_portion
+  open: (booking, r) => {
+    const portion = portionFrom(r), box = containerOf(booking, portion);
+    if (!box.hasOpenedStatus || box.hasOpenedStatus.name !== "Opened") {
+      box.hasOpenedStatus = typeNamed("Opened");
+      booking.notes.push(portion.name + ": opened.");
+    }
+  },
+  // pantry.move
+  move: (booking, r) => {
+    const storage = String(r.storage || "");
+    if (STORAGE.indexOf(storage) < 0) throw new BookingError("storage must be one of " + STORAGE.join(", "));
+    const portion = portionFrom(r), box = containerOf(booking, portion);
+    box.hasStorageCondition = typeNamed(storage);
+    booking.notes.push(portion.name + ": kept in the " + storage.toLowerCase() + ".");
+  },
+};
 
 // -- recipes asked for a week (mealplanner/requests.py): the recipe page's "Cook in the week of ..." --
 const WEEK_PREFIX = "Week of ";

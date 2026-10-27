@@ -204,19 +204,23 @@ Each stage ends in a check against what is there now, as the pages were built ag
    runs the pages' engine code, not a copy; the snapshot leaves them out, as it leaves out the pages.
    *Checked:* `stockOnHand` gave the grams on hand and days to expiry of all 17 portions on the
    development instance exactly as Python's `pantry.on_hand` and `instance_expiration` do.
-2. **The gate: two households, each as itself** (`tools/check_households.py`). Accounts for two test
-   households; a purchase booked by each member as themselves (no `$.doPrivileged`), private and granted
-   to their household's Group; each sees its own stock and not the other's, through a method and through
-   REST, and cannot book on the other's; shared vocabulary readable, not writable; bookings still one at a
-   time; the figures as Python's. *If households cannot be kept apart this way, stop, and decide again
-   with P.*
+2. **The gate: two households, each as itself** (built and passed 2026-10-26; `tools/check_households.py`,
+   `docs/methods.md`). Accounts for two test households; purchases booked by each member as themselves
+   (no `$.doPrivileged`), private and granted to their household's Group; each sees its own stock and not
+   the other's, through a method and through REST, and cannot book on the other's; shared vocabulary
+   readable, not writable; bookings for a household one at a time (`Household.bookingTurn`, `scripts/40a`,
+   since a Cypher write broke concurrent method calls); the figures as Python's. *Passed* on the
+   development instance, twice, and three deliberate breaks were each caught.
 3. **The engine library,** split out of `pages/common.js` into files the pages and the methods share, and
    the rest of the request-time engines ported (net requirements and the shopping list, the nutrition
    report, menu changes, requests, every booking), each checked against Python by `check_pages.py` and
    `check_bookings.py`, extended to the methods.
 4. **The planner's JSON contract:** the problem in and the plan out as JSON; the planner run on a problem
    file; an `exportWeek` method building the problem `extract.build_problem` builds (compared, field by
-   field), and a `commitWeek` method writing a plan once it has checked the week still holds.
+   field), and a `commitWeek` method writing a plan once it has checked the week still holds. *The
+   Python half is built (2026-10-26):* `planning/contract.py`, `tools/plan_problem.py` (the worker) and
+   `tools/plan_week.py --export-problem`, the problem every `exportWeek` will be compared against. The
+   two methods come after stage 3, since they need its engines.
 5. **Access control on the real data:** a migration script marking shared and private data
    (`verification-and-sharing.md` §3.4) and granting each household its own; `ResourceAccess` grants; the
    pages without `$.doPrivileged`; the tools acting as a household's member or a curator.

@@ -51,5 +51,10 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
 - Sign in as Elijah and press one booking button: page bookings for a signed-in household member are
   untested (`docs/pages.md`).
 - Copy `~/mealplanner-backups` off this machine now and then (`docs/backups.md`).
-- Install the pages on your instance again, so its bookings run one at a time (2026-10-26):
-  `STRUCTR_URL=http://localhost:8085 python3 tools/install_pages.py`.
+- Bring your instance up to date (2026-10-26), with its stack up: the schema migration for the
+  households' booking turns, a Structr restart, then the pages (their bookings now one at a time) and
+  the methods:
+  `STRUCTR_URL=http://localhost:8085 python3 scripts/40a_booking_lock_schema.py`, restart Structr
+  (`bash tools/owner_stack.sh stop`, which also backs it up, then `bash tools/owner_stack.sh up`), then
+  `STRUCTR_URL=http://localhost:8085 python3 tools/install_pages.py` and
+  `STRUCTR_URL=http://localhost:8085 python3 tools/install_methods.py`.

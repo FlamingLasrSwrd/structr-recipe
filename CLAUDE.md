@@ -42,7 +42,7 @@ review, so what the README and REVIEW.md claim has to be true.
   files live in `private/`, which git ignores: the repository is public, the owner's data is
   not. Never run a demo from `scripts/` against it (`connect()` refuses a marked instance), and
   never `down -v` it: nothing can rebuild it. The exception is a schema-only migration (such as
-  `30a` to `39a`), which declares `owner_data_ok=True` and must be run on the owner's instance as well,
+  `30a` to `40a`), which declares `owner_data_ok=True` and must be run on the owner's instance as well,
   then Structr restarted (hard rule 8).
 - **The development laptop has 8 GB and has frozen three times.** Run one stack at a time (stop
   one before starting another), keep the owner's stack up through a working session and stop it at
@@ -93,7 +93,9 @@ STRUCTR_URL=http://localhost:8085 python3 tools/import_recipe.py private/baselin
 STRUCTR_URL=http://localhost:8085 python3 tools/instantiate_household.py private/household.toml   # the household's people, their targets and baselines
 STRUCTR_URL=http://localhost:8085 python3 tools/import_prices.py      # data/prices.toml; then instantiate_profile.py prices private/prices.toml (docs/prices.md)
 STRUCTR_URL=http://localhost:8085 python3 tools/plan_week.py private/week.toml            # propose a week, report nutrients and cost; --commit writes it
+python3 tools/plan_problem.py private/week.problem.json   # the planner as a worker: a problem file (plan_week.py --export-problem) in, a plan file out; no Structr
 python3 tools/install_pages.py && python3 tools/install_methods.py   # the pages and the Structr methods (methods/): code, safe on any instance
+python3 tools/check_households.py   # dev only: two test households book and read as themselves through the methods, kept apart (docs/methods.md)
 python3 tools/fdc_extract.py        # after adding a food: re-pins data/fdc/ from the datasets in .cache/fdc/ (loads the FNDDS JSON, ~450 MB)
 python3 tools/price_extract.py      # after changing data/prices.toml: re-pins data/prices/ (--fetch asks the BLS API first)
 ```
