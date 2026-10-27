@@ -36,10 +36,13 @@ function typeNamed(name) {
   return found[0];
 }
 
-// pantry._Writer.ensure: find by name, else create; `booking.created` lists what was created
+// pantry._Writer.ensure: find by name, else create; `booking.created` lists what was created. A
+// household's booking finds among its own nodes only (private to it): a node of the same name that
+// every signed-in user sees is no household's, and is neither reused nor changed
 function ensureNode(booking, type, name, props) {
   if (/[,;]/.test(name)) throw new BookingError(name + ": a name cannot hold a comma or a semicolon");
-  const found = $.find(type, {name: name}).filter((n) => n.type === type);
+  const found = $.find(type, {name: name})
+    .filter((n) => n.type === type && (!booking.household || n.visibleToAuthenticatedUsers === false));
   if (found.length > 1) throw new BookingError("two " + type + " nodes are named " + name);
   if (found.length) return found[0];
   const fields = {name: name};
@@ -104,4 +107,18 @@ function bookOnce(actions, action, request, token, household) {
   };
   $.doInNewTransaction(work, failed);
   return {problem: problem, booking: booking};
+}
+
+// A booking a method makes for its caller (bookPantry, bookWeek, bookRequest): for their one household,
+// as they are, so it writes what is private to that household and sees only what they may read.
+// The answer is what the pages record of a booking.
+function bookForCaller(actions, asked) {
+  const action = String(asked.do || ""), token = String(asked.token || "");
+  const households = (($.me && $.me.groups) || []).filter((g) => g.type === "Household");
+  if (households.length !== 1) return {action: action, problem: "a booking is for one household, and you are in " + households.length};
+  if (!actions[action]) return {action: action, problem: "no such booking: " + action};
+  if (!/^[0-9a-f]{4,16}$/.test(token)) return {action: action, problem: "a booking needs a token of 4 to 16 hex digits"};
+  const done = bookOnce(actions, action, asked, token, households[0]);
+  return {action: action, problem: done.problem, process: done.booking.process, created: done.booking.created,
+          notes: done.booking.notes};
 }

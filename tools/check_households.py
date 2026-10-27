@@ -17,7 +17,13 @@ booking may not make itself. Then, each member as themselves:
   other gets a 404, and it is visible to no one else;
   a member cannot change shared vocabulary (a 403, and it stays as it was);
   stockOnHand's grams and days to expiry for each household's portion are Python's, worked out as the
-  superuser with mealplanner/pantry.py and inventory.py.
+  superuser with mealplanner/pantry.py and inventory.py;
+  household A's week (set up as committing a planned week will make it) is skipped with a recipe instead,
+  undone and cooked by A's members, and B's member cannot touch it; A's cook draws on A's own stock only;
+  a recipe asked for the same week by each household makes a week of that name for each;
+  and none of them acts on what every signed-in user sees (the data made before households kept theirs
+  apart): a portion expiring sooner than A's, which A's cook must not draw on and A cannot book on, a
+  meal A cannot change, and a week of that name A's request must not add to.
 
 It removes everything it made. Exits 1 on any failure. Needs STRUCTR_SUPERUSER_PASSWORD and
 STRUCTR_URL, and the methods installed (tools/install_methods.py, and tools/install_pages.py for the
@@ -30,18 +36,38 @@ import secrets
 import sys
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner import pantry
 from mealplanner.connection import connect
 from mealplanner.inventory import instance_expiration
+from mealplanner.nutrition_scope import raw_inputs
 
 PRIVATE = {"visibleToAuthenticatedUsers": False, "visibleToPublicUsers": False}
 SEEN = {"visibleToAuthenticatedUsers": True, "visibleToPublicUsers": False}
-WRITTEN = ("TemporalRegion", "Process", "ContainerObject", "PortionOfSubstance", "Quality", "Measurement", "Allocation")
-GRANTS = ("stockOnHand", "bookPantry", "DomainType/_id") + tuple(f"{t}/_id" for t in WRITTEN)
+WRITTEN = ("TemporalRegion", "Process", "ContainerObject", "PortionOfSubstance", "Quality", "Measurement", "Allocation",
+           "MealPlan", "MealPlanEntry", "QuantitySpecification", "MealShare")
+GRANTS = ("stockOnHand", "bookPantry", "bookWeek", "bookRequest", "DomainType/_id") + tuple(f"{t}/_id" for t in WRITTEN)
+# Run as the superuser to give household A a week of its own, as committing a planned week will (Path S
+# stage 4): a dinner to cook and a lunch of its leftovers, private to A and granted to its Group
+WEEK_SETUP = """{
+  const p = $.methodParameters;
+  const household = $.find("Household", {id: p.household}), plan = $.find("Plan", {id: p.plan});
+  const hh = Array.isArray(household) ? household[0] : household, recipe = Array.isArray(plan) ? plan[0] : plan;
+  const mine = (type, props) => {
+    const node = $.create(type, Object.assign(props, {visibleToAuthenticatedUsers: false, visibleToPublicUsers: false}));
+    $.grant(hh, node, "read, write, delete");
+    return node;
+  };
+  const week = mine("MealPlan", {name: p.name, forHousehold: hh});
+  const dinner = mine("MealPlanEntry", {name: p.name + " Dinner -- " + recipe.name, memberOf: week, isSkipped: false,
+    references: recipe, hasPlannedServings: 2.0, isAbout: mine("TemporalRegion", {name: p.name + " dinner", hasBeginning: p.dinner})});
+  const lunch = mine("MealPlanEntry", {name: p.name + " Lunch -- " + recipe.name, memberOf: week, isSkipped: false,
+    consumesLeftoverFrom: dinner, isAbout: mine("TemporalRegion", {name: p.name + " lunch", hasBeginning: p.lunch})});
+  return {week: week.id, dinner: dinner.id, lunch: lunch.id};
+}"""
 OPERATIONS = ("Purchase", "Use")
 
 
@@ -140,6 +166,9 @@ def main(argv=None) -> int:
     try:
         m = setup(check, client)
         print("two households: A (A1, A2) and B (B1), each member signed in as themselves")
+        before_shared = len(check.made)
+        shared = everyones(check, client, args.food, args.keeps)
+        shared_ids = {i for _, i in check.made[before_shared:]}
         token = {k: secrets.token_hex(4) for k in ("a", "b", "use", "steal", "race")}
         bought = {}
         for who, key, grams in (("A1", "a", 600), ("B1", "b", 450)):
@@ -186,7 +215,7 @@ def main(argv=None) -> int:
             else:
                 print(f"  {who} sees their household's portion and not the other's ({len(seen)} portions, {took:.1f} s)")
 
-        written = [(t, i) for t, i in check.made if t in WRITTEN]
+        written = [(t, i) for t, i in check.made if t in WRITTEN and i not in shared_ids]
         side_of = {token["a"]: "A", token["use"]: "A", token["race"]: "A", token["b"]: "B"}    # each booking's household
         leaks = 0
         for type_name, node_id in written:
@@ -202,6 +231,15 @@ def main(argv=None) -> int:
                 check.fail(f"{type_name} {row.get('name')}: its household's member reads {mine}, the other household's {theirs}")
         if not leaks:
             print(f"  all {len(written)} nodes the bookings made are private: their household reads each, the other gets a 404")
+
+        got = m["A1"].call("bookPantry", do="use", portion=shared["portion"], amount=10, unit="g", token=secrets.token_hex(4))
+        check.remember(got.get("created") or [])
+        if not (got.get("problem") or "").endswith("not your household's stock") or got.get("created"):
+            check.fail(f"A1 using stock every signed-in user sees was not refused: {got}")
+        else:
+            print("  A1 cannot book on stock every signed-in user sees: not your household's stock")
+        week_check(check, client, m, args.food, args.keeps, bought, shared)
+        request_check(check, client, m, shared)
 
         mass = [d for d in client.get("/structr/rest/DomainType", params={"name": "Mass"})["result"] if d.get("type") == "DomainType"][0]
         before = client.get_all("DomainType", mass["id"])["result"].get("isLookupBearing")
@@ -236,6 +274,153 @@ def main(argv=None) -> int:
         print(f"removed the {len(check.made)} node(s) made")
     print("households kept apart" if not check.problems else f"{len(check.problems)} failure(s)")
     return 1 if check.problems else 0
+
+
+def everyones(check: Check, client, food: str, keeps: str) -> dict:
+    """What every signed-in user sees, as the data made before households kept theirs apart is: a
+    portion of the food bought two days ago (so it expires before A's), a meal of a week of no
+    household's, and the week a request will name. Written as the superuser, through Python."""
+    token = secrets.token_hex(4)
+    stock = pantry.buy(client, food, 300, "g", datetime.now(timezone.utc) - timedelta(days=2), token, keeps=keeps)
+    check.remember(stock.created)
+    portion = [r for t, r in check.named(f"Purchase {token} -- {food}") if t == "PortionOfSubstance"][0]["id"]
+    plan = next(p for p in client.get_all("Plan")["result"] if p.get("specializationOf"))
+    week = check.make("MealPlan", {"name": f"CHECK everyone's week {token}", **SEEN})
+    region = check.make("TemporalRegion", {"name": f"CHECK everyone's week {token} region",
+                                           "hasBeginning": (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S+0000"), **SEEN})
+    meal = check.make("MealPlanEntry", {"name": f"CHECK everyone's week {token} Dinner -- {plan['name']}", "memberOf": week,
+                                        "isSkipped": False, "references": plan["id"], "hasPlannedServings": 2.0, "isAbout": region, **SEEN})
+    asked = check.make("MealPlan", {"name": "Week of 2099-12-28", **SEEN})
+    return {"portion": portion, "meal": meal, "week": asked}
+
+
+def private_to(check: Check, client, m: dict, names, side: str) -> int:
+    """Every node of these names private: its household's member reads it, the other household's gets a
+    404, and its flags show it to no one. The number of failures."""
+    fellow, other = ("A2", "B1") if side == "A" else ("B1", "A2")
+    bad = 0
+    for name in names:
+        for type_name, row in check.named(name):
+            full = client.get_all(type_name, row["id"])["result"]
+            mine, theirs = m[fellow].read(type_name, row["id"]), m[other].read(type_name, row["id"])
+            if (full.get("visibleToAuthenticatedUsers"), full.get("visibleToPublicUsers")) != (False, False) or mine != 200 or theirs != 404:
+                bad += 1
+                check.fail(f"{type_name} {name}: its household reads {mine}, the other {theirs}, "
+                           f"visible to all: {full.get('visibleToAuthenticatedUsers')}")
+    return bad
+
+
+def week_check(check: Check, client, m: dict, food: str, keeps: str, bought: dict, shared: dict) -> None:
+    """Household A's week through bookWeek: a member of A skips its dinner with another recipe eaten
+    instead (its lunch of leftovers going with it), B's member cannot touch it, the skip is undone, and
+    A's dinner is cooked from A's own stock only, B's untouched (mealplanner/menu_changes.py, pantry.cook)."""
+    plans = [p for p in client.get_all("Plan")["result"] if p.get("specializationOf") and p.get("hasRecipeYield")
+             and client.get_all("QuantitySpecification", p["hasRecipeYield"]["id"])["result"].get("unit") == "servings"]
+    cooks = [p for p in plans if any(spec["specifies"].get("name") == food for _, spec in raw_inputs(client, p))]
+    if not cooks or len(plans) < 2:
+        check.fail(f"no recipe here takes {food}, or fewer than two recipes: the week is not checked")
+        return
+    dish = cooks[0]
+    other = next(p for p in plans if p["id"] != dish["id"])
+    a_household = [h for h in client.get("/structr/rest/Household", params={"name": "TEST -- household A"})["result"]][0]["id"]
+    setup = check.make("SchemaMethod", {"name": "testcheckhouseholdweek", "source": WEEK_SETUP})
+    begins = datetime.now(timezone.utc) + timedelta(days=1)
+    name = f"CHECK household A week {secrets.token_hex(3)}"     # no " -- ": an entry's name is "<meal> -- <recipe>"
+    week = client.post("/structr/rest/testcheckhouseholdweek", {"household": a_household, "plan": dish["id"], "name": name,
+                       "dinner": begins.strftime("%Y-%m-%dT%H:%M:%S+0000"),
+                       "lunch": (begins + timedelta(hours=18)).strftime("%Y-%m-%dT%H:%M:%S+0000")})["result"]
+    check.remember([name, f"{name} dinner", f"{name} lunch", f"{name} Dinner -- {dish['name']}", f"{name} Lunch -- {dish['name']}"])
+    instead_name = f"{name} Dinner -- {other['name']}"
+
+    got = m["B1"].call("bookWeek", do="skip", entry=week["dinner"], instead=other["name"], token=secrets.token_hex(4))
+    check.remember(got.get("created") or [])
+    if got.get("problem") != "no such meal" or got.get("created"):
+        check.fail(f"B1 skipping A's dinner was not refused as no such meal: {got}")
+    got = m["A1"].call("bookWeek", do="skip", entry=shared["meal"], token=secrets.token_hex(4))
+    check.remember(got.get("created") or [])
+    if not (got.get("problem") or "").endswith("not your household's week") \
+            or client.get_all("MealPlanEntry", shared["meal"])["result"].get("isSkipped"):
+        check.fail(f"A1 skipping a meal every signed-in user sees was not refused: {got}")
+    else:
+        print("  A1 cannot change a meal every signed-in user sees: not your household's week")
+    got = m["A2"].call("bookWeek", do="skip", entry=week["dinner"], instead=other["name"], token=secrets.token_hex(4))
+    check.remember(got.get("created") or [])
+    dinner = client.get_all("MealPlanEntry", week["dinner"])["result"]
+    lunch = client.get_all("MealPlanEntry", week["lunch"])["result"]
+    if got.get("problem") or not dinner.get("isSkipped") or not lunch.get("isSkipped") or instead_name not in (got.get("created") or []):
+        check.fail(f"A2 skipping A's dinner with {other['name']} instead: {got}")
+    else:
+        print(f"  A2 skipped A's dinner with {other['name']} instead: its lunch went with it, and the recipe instead is planned")
+    got = m["A1"].call("bookWeek", do="unskip", entry=week["dinner"], token=secrets.token_hex(4))
+    if not got.get("problem") or "planned at this meal now" not in got["problem"]:
+        check.fail(f"A1 undoing while the recipe instead holds the dinner's time was not refused: {got}")
+    instead = [r for t, r in check.named(instead_name) if t == "MealPlanEntry"]
+    m["A1"].call("bookWeek", do="skip", entry=instead[0]["id"], token=secrets.token_hex(4)) if instead else None
+    got = m["A1"].call("bookWeek", do="unskip", entry=week["dinner"], token=secrets.token_hex(4))
+    dinner = client.get_all("MealPlanEntry", week["dinner"])["result"]
+    lunch = client.get_all("MealPlanEntry", week["lunch"])["result"]
+    if got.get("problem") or dinner.get("isSkipped") or lunch.get("isSkipped"):
+        check.fail(f"A1 undoing the skip: {got}")
+    else:
+        print("  A1 undid it once the recipe instead was skipped: dinner and lunch planned again")
+
+    before_b = pantry.on_hand(client, client.get_all("PortionOfSubstance", bought["B"])["result"], datetime.now(timezone.utc))
+    token = secrets.token_hex(4)
+    got = m["A1"].call("bookWeek", do="cook", entry=week["dinner"], token=token)
+    check.remember(got.get("created") or [])
+    drawn = [client.get_all("Allocation", r["id"])["result"] for t, r in
+             (x for n in (got.get("created") or []) for x in check.named(n)) if t == "Allocation"]
+    about = {(a.get("isAbout") or {}).get("id") for a in drawn}
+    after_b = pantry.on_hand(client, client.get_all("PortionOfSubstance", bought["B"])["result"], datetime.now(timezone.utc))
+    everyone = [i for i in about if client.get_all("PortionOfSubstance", i)["result"].get("visibleToAuthenticatedUsers")]
+    if shared["portion"] in about:
+        check.fail("A1's cook drew on the stock every signed-in user sees, which expires first")
+    if got.get("problem") or not drawn or bought["B"] in about or everyone or abs((before_b or 0) - (after_b or 0)) > 1e-9:
+        check.fail(f"A1 cooking A's dinner: {got.get('problem')}; drew from {len(about)} portion(s), B's among them: "
+                   f"{bought['B'] in about}, stock all can see: {len(everyone)}; B's on hand {before_b} -> {after_b}")
+    elif not client.get_all("MealPlanEntry", week["dinner"])["result"].get("fulfilledBy"):
+        check.fail("A1's cook did not mark A's dinner cooked")
+    else:
+        print(f"  A1 cooked A's dinner from A's own stock ({len(drawn)} draw(s)), B's {before_b:g} g untouched")
+    if not private_to(check, client, m, (got.get("created") or []) + [instead_name], "A"):
+        print("  every node the week's bookings made is private to A")
+
+
+def request_check(check: Check, client, m: dict, shared: dict) -> None:
+    """A recipe asked for a week through bookRequest: A1's makes household A's own week, B1's another of
+    the same name for B, and neither sees the other's (mealplanner/requests.py)."""
+    plans = [p for p in client.get_all("Plan")["result"] if p.get("specializationOf")][:2]
+    start = "2099-12-28"
+    name = f"Week of {start}"
+    asked = {}
+    for who, plan in (("A1", plans[0]), ("B1", plans[1])):
+        got = m[who].call("bookRequest", do="ask", recipe=plan["specializationOf"]["id"], week=start, token=secrets.token_hex(4))
+        check.remember(got.get("created") or [])
+        asked[who[0]] = plan["specializationOf"]["id"]
+        if got.get("problem"):
+            check.fail(f"{who} asking for {plan['name']}: {got['problem']}")
+    weeks = [w for w in client.get("/structr/rest/MealPlan", params={"name": name})["result"]
+             if w.get("type") == "MealPlan" and w["id"] != shared["week"]]
+    if client.get_all("MealPlan", shared["week"])["result"].get("requestsRecipe"):
+        check.fail("a household's request was added to the week every signed-in user sees")
+    for w in weeks:
+        if ("MealPlan", w["id"]) not in check.made:
+            check.made.append(("MealPlan", w["id"]))
+    rows = {client.get_all("MealPlan", w["id"])["result"]["forHousehold"]["name"][-1]: client.get_all("MealPlan", w["id"])["result"]
+            for w in weeks if client.get_all("MealPlan", w["id"])["result"].get("forHousehold")}
+    seen = {side: {r["id"] for r in (rows.get(side) or {}).get("requestsRecipe") or []} for side in ("A", "B")}
+    if len(weeks) != 2 or seen != {"A": {asked["A"]}, "B": {asked["B"]}}:
+        check.fail(f"two households asking for the week of {start}: {len(weeks)} MealPlan(s), requests {seen}")
+    elif m["A2"].read("MealPlan", rows["A"]["id"]) != 200 or m["A2"].read("MealPlan", rows["B"]["id"]) != 404:
+        check.fail("A2 does not read A's asked-for week, or reads B's")
+    else:
+        print(f"  A1 and B1 each asked for a recipe in the week of {start}: two weeks of that name, one each, each "
+              f"seeing only its own")
+    got = m["A2"].call("bookRequest", do="withdraw", recipe=asked["A"], week=start, token=secrets.token_hex(4))
+    if got.get("problem") or (client.get_all("MealPlan", rows["A"]["id"])["result"].get("requestsRecipe") if "A" in rows else None):
+        check.fail(f"A2 taking back A's request: {got}")
+    else:
+        print("  A2 took A's request back")
 
 
 if __name__ == "__main__":

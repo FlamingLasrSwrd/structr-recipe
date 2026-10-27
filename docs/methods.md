@@ -39,6 +39,8 @@ script. So a method runs the engine code the pages run, not a copy of it.
 |---|---|---|
 | `stockOnHand` | none | every portion the caller may see that has been weighed: grams on hand now and days to expiry, as the pantry page and `inventory.py` work them out |
 | `bookPantry` | `do` (buy, use, count, open, move, discard), `token`, and the booking's fields (food, amount, unit, storage, keeps, portion) | the booking, as the pages record one: `{action, problem, process, created, notes}` |
+| `bookWeek` | `do` (cook, skip, unskip), `token`, `entry`, and for skip `instead` (a recipe from the book, or words) | the same |
+| `bookRequest` | `do` (ask, withdraw), `token`, `recipe` (a RecipeIdentity), `week` (its first day) | the same; a week not planned yet is made as the household's MealPlan, `forHousehold` |
 
 ## Households, kept apart by Structr
 
@@ -52,6 +54,17 @@ are also Structr `User`s (data-model K1, K2).
   caller cannot read it.
 - **It never makes shared vocabulary.** A pantry operation's kind ("Purchase", "Use") must already
   exist. The pages, as the superuser, still make one on first use.
+- **It acts on the household's own data only.** Stock, a meal or a week that every signed-in user
+  sees belongs to no household: the data made before households kept theirs apart. So:
+  - a household's booking neither books on such stock ("not your household's stock") nor draws on it
+    when cooking, even when it would expire first;
+  - it does not change such a meal ("not your household's week");
+  - it does not add to such a week. Finding a node by name before making one, it looks only among its
+    own, so a request for a week makes the household's own "Week of ..." beside a shared one of that
+    name.
+
+  Until the real data is marked as each household's (stage 5), a household on an instance with older
+  data starts with nothing of its own.
 - **Shared data stays readable to every member and changeable by none.** A member's attempt to change
   a shared `DomainType` is a 403.
 - **Bookings for one household take turns.** Each first writes `Household.bookingTurn` (`scripts/40a`),
@@ -68,7 +81,10 @@ are also Structr `User`s (data-model K1, K2).
 For a development or throwaway instance. It sets up:
 - two test households: A with members A1 and A2, B with member B1;
 - each member signed in as themselves, with a generated password that is never shown;
-- the grants they need.
+- the grants they need;
+- household A's week, a dinner and a lunch of its leftovers, as committing a planned week will make it;
+- data every signed-in user sees, as older data is: a portion of the food that expires before A's, a
+  meal, and a "Week of ..." week.
 
 Then it checks, removing everything at the end:
 - A1 and B1 each buy, and A1 uses some of A's;
@@ -77,7 +93,12 @@ Then it checks, removing everything at the end:
 - B1 cannot use A's portion, and nothing is written;
 - every node the bookings made is read by its household and is a 404 to the other;
 - a member cannot change shared vocabulary;
-- both households' grams and days to expiry are Python's.
+- both households' grams and days to expiry are Python's;
+- A's week: A2 skips the dinner with another recipe instead (the lunch going with it), B1 cannot touch
+  it, A1 undoes it once the recipe instead is skipped, and A1 cooks the dinner from A's own stock, B's
+  untouched;
+- a recipe asked for one week by each household makes a week of that name for each;
+- no booking acts on the data every signed-in user sees.
 
 **Results on the development instance (2026-10-26):**
 
@@ -94,7 +115,11 @@ Then it checks, removing everything at the end:
 **Broken on purpose, each caught:**
 - the household's nodes written visible to everyone: 47 failures, B1 could book on A's portion;
 - no grant to the household: 17 failures, A2 could not see A1's purchase;
-- no turn taken: four said they booked one purchase.
+- no turn taken: four said they booked one purchase;
+- (2026-10-27) each own-data rule left out in turn: the cook drew on the stock everyone sees, which
+  expired first; a member booked a use on it; a meal everyone sees was changed (Structr's own rights
+  then refused it, with a 403); and twice a household's request went to the shared week, by name. The
+  last is a real gap the rule closes: finding by name had found the shared week before.
 
 `tools/check_bookings.py` and `tools/check_pages.py` still found the pages the same as Python after
 the pantry's bookings moved into `pages/common.js`, which both the pantry page and `bookPantry` run.

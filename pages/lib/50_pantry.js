@@ -11,10 +11,16 @@ function bookingGrams(food, amount, unit) {
   return grams;
 }
 
-function portionFrom(request) {
+// A household's booking acts on its own stock only: what is private to it. Stock every signed-in user
+// sees belongs to no household (the data made before households kept theirs apart), so a household
+// neither draws on it nor books on it (docs/methods.md).
+const ownStock = (booking, portion) => !booking.household || portion.visibleToAuthenticatedUsers === false;
+
+function portionFrom(request, booking) {
   const found = $.find("PortionOfSubstance", {id: String(request.portion || "")});
   const portion = Array.isArray(found) ? found[0] : found;
   if (!portion || portion.type !== "PortionOfSubstance") throw new BookingError("no such portion");
+  if (!ownStock(booking, portion)) throw new BookingError(portion.name + ": not your household's stock");
   return portion;
 }
 
@@ -71,7 +77,7 @@ const PANTRY_ACTIONS = {
   },
   // pantry.use
   use: (booking, r, token) => {
-    const portion = portionFrom(r), food = portion.instanceOf;
+    const portion = portionFrom(r, booking), food = portion.instanceOf;
     const grams = bookingGrams(food, amountFrom(r), String(r.unit || "g"));
     const level = onHand(portion);
     if (!Array.isArray(level)) throw new BookingError(portion.name + ": " + (level || "never weighed") + ", so there is nothing to take from it (count it first)");
@@ -80,14 +86,14 @@ const PANTRY_ACTIONS = {
   },
   // pantry.discard
   discard: (booking, r, token) => {
-    const portion = portionFrom(r);
+    const portion = portionFrom(r, booking);
     const level = onHand(portion);
     if (!Array.isArray(level) || !(level[0] > 0)) throw new BookingError(portion.name + ": nothing on hand to discard");
     bookDraw(booking, bookProcess(booking, "Discarding", "Discard " + token, NOW), portion, level[0], NOW, portion.name);
   },
   // pantry.stock_take
   count: (booking, r, token) => {
-    const portion = portionFrom(r), amount = amountFrom(r), unit = String(r.unit || "g");
+    const portion = portionFrom(r, booking), amount = amountFrom(r), unit = String(r.unit || "g");
     if (amount < 0) throw new BookingError("a stock take is 0 or more");
     if (amount > 0) bookingGrams(portion.instanceOf, amount, unit);
     const quality = massQuality(portion) || ensureNode(booking, "Quality", portion.name + " mass Quality", {
@@ -98,7 +104,7 @@ const PANTRY_ACTIONS = {
   },
   // pantry.open_portion
   open: (booking, r) => {
-    const portion = portionFrom(r), box = containerOf(booking, portion);
+    const portion = portionFrom(r, booking), box = containerOf(booking, portion);
     if (!box.hasOpenedStatus || box.hasOpenedStatus.name !== "Opened") {
       box.hasOpenedStatus = typeNamed("Opened");
       booking.notes.push(portion.name + ": opened.");
@@ -108,7 +114,7 @@ const PANTRY_ACTIONS = {
   move: (booking, r) => {
     const storage = String(r.storage || "");
     if (STORAGE.indexOf(storage) < 0) throw new BookingError("storage must be one of " + STORAGE.join(", "));
-    const portion = portionFrom(r), box = containerOf(booking, portion);
+    const portion = portionFrom(r, booking), box = containerOf(booking, portion);
     box.hasStorageCondition = typeNamed(storage);
     booking.notes.push(portion.name + ": kept in the " + storage.toLowerCase() + ".");
   },

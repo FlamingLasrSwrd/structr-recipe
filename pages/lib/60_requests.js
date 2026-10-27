@@ -24,9 +24,11 @@ function nextWeekStart() {
   return start;
 }
 
-// requests._week: the MealPlan named for the week, or null
-function weekNamed(start) {
-  const found = $.find("MealPlan", {name: WEEK_PREFIX + start}).filter((m) => m.type === "MealPlan");
+// requests._week: the MealPlan named for the week, or null; for a household's booking, its own only
+// (ownStock's rule): a week every signed-in user sees is no household's
+function weekNamed(start, booking) {
+  const found = $.find("MealPlan", {name: WEEK_PREFIX + start})
+    .filter((m) => m.type === "MealPlan" && (!booking || !booking.household || m.visibleToAuthenticatedUsers === false));
   if (found.length > 1) throw new BookingError("two MealPlans are named " + WEEK_PREFIX + start);
   return found.length ? found[0] : null;
 }
@@ -44,7 +46,8 @@ const REQUEST_ACTIONS = {
     const identity = Array.isArray(recipe) ? recipe[0] : recipe;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) throw new BookingError("no week named");
     if (!identity) throw new BookingError("no such recipe");
-    const week = weekNamed(start) || ensureNode(booking, "MealPlan", WEEK_PREFIX + start, {});
+    const week = weekNamed(start, booking) || ensureNode(booking, "MealPlan", WEEK_PREFIX + start,
+                                                booking.household ? {forHousehold: booking.household} : {});
     const current = (week.requestsRecipe || []).slice();
     if (current.some((x) => x.id === identity.id)) { booking.notes.push(identity.name + " was asked for in the week of " + weekWords(start) + " already."); return; }
     week.requestsRecipe = current.concat([identity]);
@@ -53,7 +56,7 @@ const REQUEST_ACTIONS = {
   // requests.withdraw
   withdraw: (booking, r) => {
     const start = String(r.week || ""), recipeId = String(r.recipe || "");
-    const week = /^\d{4}-\d{2}-\d{2}$/.test(start) ? weekNamed(start) : null;
+    const week = /^\d{4}-\d{2}-\d{2}$/.test(start) ? weekNamed(start, booking) : null;
     const current = week ? (week.requestsRecipe || []).slice() : [];
     const found = current.find((x) => x.id === recipeId);
     if (!found) { booking.notes.push("It was not asked for that week."); return; }
