@@ -29,6 +29,16 @@ It removes everything it made, and first sweeps what an interrupted earlier run 
 on any failure. Needs STRUCTR_SUPERUSER_PASSWORD and
 STRUCTR_URL, and the methods installed (tools/install_methods.py, and tools/install_pages.py for the
 bookings' lock).
+
+The nutrition comparison needs the recipe A's week cooks to have its nutrition per serving stored
+(data-model.md J28) for the nutrient of the week's target: the nutritionReport method reads only a
+stored figure and calls the meal indeterminate without one, where Python's nutrition_report works the
+figure out from the ingredients. A fresh build (tools/rebuild.sh) stores none. So where none is stored
+the check stores the figure tools/calculate_recipe_nutrition.py would, named "TEST -- check households
+-- ...", and removes it with the rest; a figure already stored is used as it is. Running
+calculate_recipe_nutrition.py first is not needed, and on a development instance would leave it holding
+figures its golden snapshot (tools/expected_state.json) does not. Storing needs scripts/35a, which a
+build runs.
 """
 
 import argparse
@@ -44,7 +54,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mealplanner import pantry
 from mealplanner.connection import connect
 from mealplanner.inventory import instance_expiration
-from mealplanner.nutrition_scope import nutrition_report, raw_inputs, week_totals
+from mealplanner.nutrition_scope import (
+    SERVING_BASIS, nutrition_report, raw_inputs, serving_nutrient_figure, stored_figure, week_totals,
+)
+from mealplanner.recipe_nutrition import stored_fields
 from mealplanner.shopping import shopping_list
 
 PRIVATE = {"visibleToAuthenticatedUsers": False, "visibleToPublicUsers": False}
@@ -78,6 +91,7 @@ WEEK_SETUP = """{
 }"""
 OPERATIONS = ("Purchase", "Use")
 SHARED_TOKEN = "e0e0e0"         # the start of the token of the stock everyone sees that the check buys, so a sweep finds it
+STORED = "TEST -- check households -- "     # the start of the name of a recipe figure the check stores (store_figures)
 
 
 class Check:
@@ -146,7 +160,8 @@ def at_once(member: Member, method: str, arguments: dict, n: int) -> list:
 
 def sweep(client) -> int:
     """What an interrupted run left: whatever its test members own or its test households were granted,
-    the weeks it names, its stock everyone sees, its setup method, and the people and households."""
+    the weeks it names, its stock everyone sees, the recipe figures it stored, its setup method, and
+    the people and households."""
     def ours(row: dict) -> bool:
         name = row.get("name") or ""
         return ((row.get("owner") or {}).get("name") or "").startswith("TEST -- member") \
@@ -162,6 +177,10 @@ def sweep(client) -> int:
                     gone += 1
                 except Exception:                     # already gone with another
                     pass
+    for row in client.get_all("NutrientProfile", where={"basis": SERVING_BASIS})["result"]:
+        if (row.get("name") or "").startswith(STORED):
+            client.delete(f"/structr/rest/NutrientProfile/{row['id']}")
+            gone += 1
     for m in client.get("/structr/rest/SchemaMethod")["result"]:
         if m.get("name") == "testcheckhouseholdweek":
             client.delete(f"/structr/rest/SchemaMethod/{m['id']}")
@@ -374,6 +393,9 @@ def week_check(check: Check, client, m: dict, food: str, keeps: str, bought: dic
                        "lunch": (begins + timedelta(hours=18)).strftime("%Y-%m-%dT%H:%M:%S+0000")})["result"]
     check.remember([name, f"{name} dinner", f"{name} lunch", f"{name} Dinner -- {dish['name']}", f"{name} Lunch -- {dish['name']}",
                     f"{name} protein range", f"{name} protein a day"])
+    stored = store_figures(check, client, dish, week["week"])
+    if stored:
+        print(f"  stored {', '.join(stored)} per serving of {dish['name']} for the check: none was, and nutritionReport reads only a stored one")
     read_check(check, client, m, week["week"], food, own_a, shared["meals_week"])
     instead_name = f"{name} Dinner -- {other['name']}"
 
@@ -429,6 +451,30 @@ def week_check(check: Check, client, m: dict, food: str, keeps: str, bought: dic
         print(f"  A1 cooked A's dinner from A's own stock ({len(drawn)} draw(s)), B's {before_b:g} g untouched")
     if not private_to(check, client, m, (got.get("created") or []) + [instead_name], "A"):
         print("  every node the week's bookings made is private to A")
+
+
+def store_figures(check: Check, client, plan: dict, week_id: str) -> list[str]:
+    """The recipe's nutrition per serving (J28) for each nutrient the week's targets are about, where none
+    is stored: nutritionReport reads only a stored figure, where Python's nutrition_report works one out
+    from the ingredients, and a fresh build stores none. Stored as tools/calculate_recipe_nutrition.py
+    would store it (recipe_nutrition.stored_fields), but TEST-named and removed with the rest. The names
+    of the nutrients stored for."""
+    plan = client.get_all("Plan", plan["id"])["result"]               # its stored figures as they are now
+    stored = []
+    for ref in client.get_all("MealPlan", week_id)["result"].get("hasConstraint") or []:
+        if ref.get("type") != "NutritionTarget":
+            continue
+        target = client.get_all("NutritionTarget", ref["id"])["result"]
+        nutrient = target["forNutrient"]
+        unit = client.get_all("QuantitySpecification", target["hasTargetRange"]["id"])["result"]["unit"]
+        if stored_figure(client, plan, nutrient["id"], unit) is not None:
+            continue
+        fields = stored_fields(serving_nutrient_figure(client, plan, nutrient["id"], unit, stored=False), unit)
+        check.make("NutrientProfile", {**{k: v for k, v in fields.items() if v is not None},
+                                       "name": f"{STORED}{plan['name']} -- {nutrient['name']} per serving", "basis": SERVING_BASIS,
+                                       "forNutrient": nutrient["id"], "servingOf": plan["id"], **SEEN})
+        stored.append(nutrient["name"])
+    return stored
 
 
 def read_check(check: Check, client, m: dict, week_id: str, food: str, own_a: list, everyones_week: str) -> None:

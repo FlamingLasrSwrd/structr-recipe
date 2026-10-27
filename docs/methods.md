@@ -95,6 +95,10 @@ For a development or throwaway instance. It sets up:
 - each member signed in as themselves, with a generated password that is never shown;
 - the grants they need;
 - household A's week, a dinner and a lunch of its leftovers, as committing a planned week will make it;
+- where the recipe A's week cooks has no nutrition per serving stored for the week's target (a fresh
+  build stores none, J28), that figure, as `calculate_recipe_nutrition.py` would store it but named
+  `TEST -- check households -- ...`: `nutritionReport` reads only a stored figure, where Python works
+  one out from the ingredients, so without it the two would differ;
 - data every signed-in user sees, as older data is: a portion of the food that expires before A's, a
   meal, and a "Week of ..." week.
 
@@ -117,7 +121,8 @@ Then it checks, removing everything at the end:
 
 It first sweeps what an interrupted earlier run left: whatever its test members own or its test
 households were granted, the weeks it names, the stock everyone sees it bought (its token starts
-`e0e0e0`), its setup method, and the people and households. A run that Structr died in left 47.
+`e0e0e0`), the recipe figures it stored, its setup method, and the people and households. A run that
+Structr died in left 47.
 
 **Results on the development instance (2026-10-26):**
 
