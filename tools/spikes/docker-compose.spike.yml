@@ -1,0 +1,10 @@
+# Settings some spikes need at start (tools/spikes/structr_feature_spikes.py), layered over
+# docker-compose.yml for the throwaway spike stack only: tools/spikes/run_spikes.sh.
+services:
+  structr:
+    environment:
+      - STRUCTR_application_changelog_enabled=true
+      - STRUCTR_application_changelog_user__centric_enabled=true
+      - STRUCTR_cronservice_tasks=spkCron
+      - STRUCTR_spkCron_cronExpression=*/5 * * * * *
+      - STRUCTR_jsonrestservlet_unknowninput_validation_mode=reject

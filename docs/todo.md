@@ -11,6 +11,7 @@ Nothing here is started. Each item says where it came from. The owner decides wh
 | **Fill in the missing facts of a recipe's steps** | 2026-10-26: "The missing facts need to be filled in" | **Built 2026-10-26** (data-model.md J35, `docs/recipe-format.md` "A step's facts"): a step's working and waiting minutes, the steps before it (`after`, P-Plan's `isPreceededBy`), a tool's heat (a temperature or a burner level) and the doneness of what it makes (words, and a temperature inside), and cut forms as mechanical methods. Substitutions too (J36, `docs/recipe-format.md` "What may stand in"), and a tool named by what it does, "broil or grill" (J37, "A tool named by what it does"). **Still to do:** a cook recording which substitute it used (`via_substitution`, invariant 18); and the owner's 53 recipes transcribed again for the new facts, facts only, from their sources, which this repository does not hold. A recipe already cooked takes its facts as a new `version` |
 | **Instructions written from the steps** | 2026-10-26 | **Built 2026-10-26**: the recipe page's "How to make it", each step one sentence of our own from its facts (`mealplanner/instructions.py`, `pages/lib/75_instructions.js`, `docs/recipe-format.md`); the two writers are compared word for word by `tools/check_instructions.py` and every recipe page by `tools/check_pages.py`. They read better as the recipes gain their facts (above) |
 | **Releasing it for self-hosting** | 2026-10-24 | `docs/self-hosting.md`: written, not started, at the owner's word |
+| **The Structr features this project does not use** | 2026-10-27: "work on implementing these features in this project" | A guide to Structr for AI use (`docs/structr-reference.md`), the features and the spikes' findings (`docs/structr-features.md`, `tools/spikes/`), and six batches to adopt them (its §5). **Being built** in that order; each batch's owner steps are added below as it lands |
 
 ## Offered, waiting on the owner
 
@@ -49,6 +50,11 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
 | **`check_bookings.py` sweeps what an interrupted run left** | #7 | The development instance holds about 20 time regions and a few nodes from earlier interrupted checks; the check removes only what it made itself |
 
 ## For the owner to do
+
+- Decide the wording of hard rule 2 (`docs/CLAUDE.md`): it says a trait added to a populated type is
+  "only fixable with direct Cypher", but Structr's `createLabels` maintenance command fixes it through
+  REST (spiked 2026-10-27, `docs/structr-features.md` §3). The rule still holds as a rule: adding a
+  trait to a populated type needs that extra step.
 
 - Sign in as Elijah and press one booking button: page bookings for a signed-in household member are
   untested (`docs/pages.md`).

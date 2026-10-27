@@ -554,6 +554,17 @@ label, while a control instance created after the trait existed had it.
 the polymorphic lookup actually keys on, so this null result matches
 what the command is documented to do.
 
+✅ **Later finding (2026-10-27, `tools/spikes/`, 6.0.0): the maintenance
+command `createLabels` is the supported fix, and it goes through REST.**
+`POST /structr/rest/maintenance/createLabels {"type": "<ConcreteType>"}`
+rewrote the old nodes' labels from the type's current hierarchy (they
+gained the trait's label), and the relationship that had been refused
+("No <Trait> with UUID ... found") was then accepted. It was not among
+the commands tried at the time. Prefer it to the Cypher route below;
+restart and verify after, as after any schema change. Hard rule 2 in
+`docs/CLAUDE.md` still says "only fixable with direct Cypher": its
+wording is the owner's to change (`docs/todo.md`).
+
 ✅ **There IS a real fix, but it has to bypass Structr's REST/schema
 layer entirely: add the missing label directly in Neo4j.** Structr's own
 docs describe schema and data as "loosely coupled" — a schema change
@@ -1434,3 +1445,41 @@ made through the UI.
   (visibility defaults, view selection, the json-name inversion) are
   the kind of thing that's cheap to write down once and expensive to
   rediscover from scratch in a different project six months later.
+
+---
+
+## 10. Features spiked on 6.0.0 (✅ 2026-10-27, `tools/spikes/`)
+
+Twenty-two spikes against the 7.x documentation, on throwaway stacks, setup then a restart then
+the check. The full table and what each means for this project are in `docs/structr-features.md`
+§3; `docs/structr-reference.md` is the project-agnostic version. The catches, the part worth
+remembering:
+
+- **Cascading delete (`cascadingDeleteFlag` 1 = source to target) deletes a target that other
+  nodes still point at**, through the same relationship type or another. Check for shared targets
+  before turning it on. A flag set on a populated relationship applies to its old edges after a
+  restart; cascades chain.
+- **`format` on a number:** `[0,100]` and `[0,100[` work, creates and edits alike (422
+  `must_be_in_range`); **`[0,]` is accepted and checks nothing**. A missing value passes.
+  **`format` on a String (a regular expression) refuses a missing value** (`must_match`): it makes
+  the property required.
+- **`defaultVisibleToAuth` on a type** makes flagless nodes visible to signed-in users, **but the
+  stored `visibleToAuthenticatedUsers` stays false**. Hard rule 4 stands.
+- **`$.doAs(user, fn)` returns nothing**: keep `fn`'s result in a variable outside it. `$.me` inside
+  is that user.
+- **Declared method parameters** convert types (`"7"` to 7) and, with `httpVerb: "GET"`, map path
+  segments; **an undeclared argument is dropped silently on 6.0** (7.1 refuses it).
+- **Python inside Structr does not work on 6.0.0:** the GraalPy jars are in the image, but
+  "No language for id python found. Supported languages are: [js]".
+- **The changelog is files under `/var/lib/structr/changelog`, on no volume** of the image: a
+  container recreated without a volume there loses it. Settings by environment:
+  `STRUCTR_application_changelog_enabled=true`, `STRUCTR_application_changelog_user__centric_enabled=true`
+  (an underscore inside a setting's name doubles).
+- **Unknown input keys:** `STRUCTR_jsonrestservlet_unknowninput_validation_mode=reject` turns a key
+  the schema lacks into 422 "Rejecting input with unknown JSON key".
+- **Scheduled tasks by environment:** `STRUCTR_cronservice_tasks=<function>` and
+  `STRUCTR_<function>_cronExpression=<six fields, seconds first>`; the function must exist at start.
+- Also behaving as documented: compound uniqueness, `onSave` with `$.retrieve('modifications')`,
+  `SchemaGrant`, permission propagation (`"Out"`, `"Add"`, `"Keep"`), array POST as one
+  transaction, `cache`, `schedule`, `sync` export of a query, `/structr/health/ready` without
+  credentials, `curl` in the image.

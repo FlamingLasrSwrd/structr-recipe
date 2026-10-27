@@ -14,6 +14,8 @@ A meal-planning tool, single-user until the owner chose (2026-09-28) to move tow
 | `structr-build-sketch.md` | ✅ **Authoritative** | how the model maps onto Structr |
 | `structr-cheatsheet.md` | ✅ **Authoritative** | Structr mechanics. Empirically verified against a real instance — trust its ✅ items over the official docs |
 | `bfo-reference.md` | 📖 Reference | what BFO classes and relations mean, with domains/ranges |
+| `structr-reference.md` | 📖 Reference (2026-10-27), about Structr only, not this project | Structr for an AI assistant: every statement marked verified on 6.0.0, present in 6.0.0, or from the 7.x documentation. Where it and the cheatsheet differ, the cheatsheet wins |
+| `structr-features.md` | 📝 **Findings and a plan, being built** (2026-10-27) | the Structr features this project does not use yet, what the spikes (`tools/spikes/`) found each does on 6.0.0, and the batches that adopt them |
 | `optimizer-design.md` | 📝 **Proposal, built as a first version — unreviewed** | the design of the optimizer and, in its §12, what was actually built and which of its questions were answered by default. Not authoritative: the objective in particular is a proposal, not a fact about what makes a good week |
 | `recipe-format.md` | 📘 Guide | how a recipe is transcribed into a file and loaded |
 | `profiles.md` | 📘 Guide, as built; its last section is exploration | how dietary, kitchen and pantry profiles are defined, resolved and instantiated into the owner's data. Its table of other uses is a set of candidates, not a plan |
