@@ -122,7 +122,8 @@ Then it checks, removing everything at the end:
 It first sweeps what an interrupted earlier run left: whatever its test members own or its test
 households were granted, the weeks it names, the stock everyone sees it bought (its token starts
 `e0e0e0`), the recipe figures it stored, its setup method, and the people and households. A run that
-Structr died in left 47.
+Structr died in left 47. It does not sweep the grants and the shared pantry operations it made where
+missing: a run killed partway leaves them, and later runs keep them (`docs/todo.md`).
 
 **Results on the development instance (2026-10-26):**
 
