@@ -115,6 +115,55 @@ Each step says what is done when it is done.
    tag: the offline tests with and without the solver, `tools/check_names.py`, and a fresh install
    compared with its golden file.
 
+## How the pages would reach a Python service (2026-10-26)
+
+Over HTTP, from the page's server-side JavaScript, with Structr's `$.POST` (or `$.GET`): not with
+`exec()`. `exec()` starts a new process in Structr's own container for each call, to run a shell
+script registered in `structr.conf`; a service is a program of its own, always running, in its own
+container, which Structr calls as it would any web API. What follows is from Structr 6's bundled
+documentation; nothing in this project has called out over HTTP yet.
+
+A booking would read (in `pages/common.js`):
+
+```js
+$.addHeader("Content-Type", "application/json");
+$.addHeader("X-Planner-Key", plannerKey);          // the shared secret, kept out of the page code
+const reply = $.POST("http://planner:8000/bookings/buy",
+  JSON.stringify({person: $.me.id, food: r.food, amount: r.amount, unit: r.unit, token: token}),
+  "application/json", null, null, null, {timeout: 20});
+if (reply.status !== 200) problem = "the planner did not answer: " + reply.status;
+else booking = reply.body;                          // parsed JSON: what it booked, its notes
+```
+
+The service, a small Python web application, checks the secret, checks that the person may make the
+booking, runs `mealplanner.pantry.buy(...)` against Structr's REST API with an account of its own, and
+answers with what it booked; the page draws it as it does now. The Python is then the one copy.
+
+- **Set a timeout.** `$.POST` takes one (`{timeout: seconds}`) and has none by default; `$.GET` takes
+  none at all. Without one, a service that hangs hangs the page.
+- **The call carries no user.** It is made by the Structr server, not as whoever is signed in, so the
+  page says who is asking, and the service must believe only Structr (the next section).
+- **Outgoing calls go anywhere by default.** Structr 6 can restrict them to listed addresses
+  (`application.httphelper.urlwhitelist` in `structr.conf`): the service's, and nothing else.
+- **The service is not published.** In the compose file it is `planner` on the stack's own network, so
+  only Structr reaches `http://planner:8000`.
+- **Call first, then read.** The service's writes commit before it answers; the page reads after the
+  call, since a read repeated within one transaction answers as it did the first time
+  (`docs/structr-cheatsheet.md`).
+- **Speed is not measured.** A call goes page, service, Structr's REST and back: fine for a booking. A
+  page that reads much (nutrition) would likely be slower than its JavaScript is now, unless the
+  service keeps what it read.
+- **One queue for every booking.** The service can take bookings one at a time in its own process; with
+  the terminal tools sent through it too, the gap the pages' lock leaves (`docs/pages.md`) closes.
+
+Two ways in which Structr never calls Python: the browser talks to the service directly (it serves the
+pages or an API, and Structr is only the database; the service then needs its own sign-in and its own
+check against cross-site requests), or the watcher of step 3 (a page writes "plan this week" into the
+graph, the planner container notices, plans and writes the proposal back), which suits a run of
+minutes that should not hold a page open, and is too slow for a button press. `exec()` suits an
+occasional job only: it needs Python, the repository and OR-tools inside Structr's container, and
+starts a Python process for every call.
+
 ## Security of the backend choices (2026-10-26)
 
 The third review's #5 (`REVIEW.md`) asks for one backend in place of the pages' JavaScript copies of
