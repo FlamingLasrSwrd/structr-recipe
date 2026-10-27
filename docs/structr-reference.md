@@ -15,6 +15,12 @@ Every statement carries a marker saying how far it can be trusted:
 | **[D7]** | From the documentation, which describes 7.x (7.0 and 7.1). Not verified; may be absent from or differ in 6.x |
 | **[7.1]** | Introduced or changed in 7.1 (from its release notes) |
 
+**On 7.1.0 (2026-10-27):** the spikes behind the [V6] markers were run again on 7.1.0, and so was a
+whole application built through REST that relies on many other [V6] items (schema setup and
+relationship naming, lifecycle validators, grants to groups, pages built from elements, methods).
+Everything held except what section 13 lists under "7.1.0, verified". Items not exercised that way
+(file uploads, for one) are still 6.0 findings.
+
 Where a [V6] finding contradicts the documentation, the [V6] finding wins for 6.0. Before relying
 on a [D7] or [P6] item for anything that writes data, try it on a disposable instance first: a
 small probe that creates throwaway types, checks one behaviour and deletes them is cheap, and
@@ -963,6 +969,28 @@ keystore (Structr terminates TLS itself; the `letsencrypt` command fills the key
   `_serverLog`; stricter `assert()`; changed sort semantics; undeclared method parameters refused;
   mailboxes no longer fetched automatically; virtual types and the api-builder module removed;
   only admins set `skipSecurityRelationships`.
+
+- **7.1.0, verified** **[V7.1]** (2026-10-27, the same probes as the [V6] items):
+  - A method that declares parameters refuses an undeclared argument with 422 "Unknown parameter(s)
+    ... Enable 'Allow unknown parameters' to accept other parameters". A method that declares none
+    still receives everything.
+  - `application.schema.automigration` is gone (a warning at start): `application.migration.mode`
+    (`dry-run`, `apply`, `off`) replaces it and **defaults to `apply`**, so an instance upgrades its
+    database when it first starts on 7.1, whatever it had before. Use `dry-run` to see what would
+    change, and keep a backup: only a backup goes back.
+  - A fresh Docker install started with `STRUCTR_superuser_password` (and the privacy agreement)
+    needed no setup token, and `X-User`/`X-Password` header requests worked unchanged.
+  - **Permission propagation is not safe to rely on**: on a relationship with
+    `permissionPropagation: "Out"` and `readPropagation: "Add"`, a read grant on the source to one
+    user also let a second signed-in user, who had no grant, read the source and its targets.
+    Plain grants to a user or a group reached only them.
+  - Unchanged: cascading delete (including shared targets), formats (including the open-end and
+    pattern catches, and an edit refused), `onSave` with modifications and on relationship
+    changes, schema grants, `createLabels`, array POST, unknown-input `reject`, the changelog
+    (still in `/var/lib/structr/changelog`), cron by environment, `cache`, `doAs` (its return
+    value not tried again), `schedule`, `sync`, `evaluateScript`, health and histogram, the Event
+    Action Mapping library, and default visibility's stored flag. Python still does not run.
+  - A full application build was identical to its 6.0 build, node for node.
 
 Check the running version on the dashboard ("About Structr") or the server log's "Started
 Structr" line.

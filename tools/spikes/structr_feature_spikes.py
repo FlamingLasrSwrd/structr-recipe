@@ -1,4 +1,5 @@
-"""Spikes: does the Structr this project runs (6.0.0) do what the 7.x documentation describes?
+"""Spikes: does the Structr this project runs (the image docker-compose.yml names) do what the 7.x
+documentation describes? Results: last_results.json for that image, results_6.0.0.json for 6.0.0.
 
 Each spike asks one question that docs/structr-features.md left open, and answers it on a
 THROWAWAY instance: it makes types of its own (named Spk...), users named spike-..., and functions
@@ -336,9 +337,9 @@ def onsave_links_setup(ctx):
     """Does a node's onSave run when only its relationships change: the node at the other end deleted,
     or the link set from the other end? Its onSave refuses a holder without a held node, or one whose
     held node is named "forbidden"."""
-    holder, held = ctx.schema_type("SpkHolder"), ctx.schema_type("SpkHeld")
-    ctx.schema_rel(holder, held, "SPK_HOLDS", "*", "1", "holders", "held")
-    source = 'if(empty(this.held), error("held", "needs_held"), if(equal(this.held.name, "forbidden"), error("held", "forbidden"), null))'
+    holder, held = ctx.schema_type("SpkKeeper"), ctx.schema_type("SpkKept")
+    ctx.schema_rel(holder, held, "SPK_KEEPS", "*", "1", "keepers", "kept")
+    source = 'if(empty(this.kept), error("kept", "needs_held"), if(equal(this.kept.name, "forbidden"), error("kept", "forbidden"), null))'
     if not ctx.ok("GET", f"/structr/rest/SchemaMethod?schemaNode={holder}&name=onSave")["result"]:
         ctx.ok("POST", "/structr/rest/SchemaMethod", {"schemaNode": holder, "name": "onSave", "source": source})
 
@@ -346,15 +347,15 @@ def onsave_links_setup(ctx):
 def onsave_links_verify(ctx):
     def made(type_name, fields):
         return ctx.create(type_name, {"name": f"spike {type_name} {time.time()}", **fields})
-    held = made("SpkHeld", {})
-    holder = made("SpkHolder", {"held": held})
-    deleted = ctx.raw("DELETE", f"/structr/rest/SpkHeld/{held}")
-    held_after = (ctx.node("SpkHolder", holder) or {}).get("held")
-    other = made("SpkHeld", {})
-    holder2 = made("SpkHolder", {"held": other})
-    forbidden = ctx.create("SpkHeld", {"name": "forbidden"})
-    from_other_end = ctx.raw("PATCH", f"/structr/rest/SpkHeld/{forbidden}", {"holders": [holder2]})
-    now_holds = ((ctx.node("SpkHolder", holder2) or {}).get("held") or {}).get("name")
+    held = made("SpkKept", {})
+    holder = made("SpkKeeper", {"kept": held})
+    deleted = ctx.raw("DELETE", f"/structr/rest/SpkKept/{held}")
+    held_after = (ctx.node("SpkKeeper", holder) or {}).get("kept")
+    other = made("SpkKept", {})
+    holder2 = made("SpkKeeper", {"kept": other})
+    forbidden = ctx.create("SpkKept", {"name": "forbidden"})
+    from_other_end = ctx.raw("PATCH", f"/structr/rest/SpkKept/{forbidden}", {"keepers": [holder2]})
+    now_holds = ((ctx.node("SpkKeeper", holder2) or {}).get("kept") or {}).get("name")
     return {"answer": "INFO", "documented": "onSave runs when a node is modified; whether a relationship change counts is not said",
             "found": f"the held node deleted: {deleted[0]} {str(deleted[1])[:120]}, the holder's held after: {held_after}; "
                      f"the link set from the other end to a held node its onSave forbids: {from_other_end[0]} "
@@ -406,11 +407,13 @@ def propagation_setup(ctx):
     for sig in ("SpkFolder", "SpkDoc", "SpkDoc/_id"):
         ctx.resource(sig)
     ctx.function("spkGrant", """{
-  const u = $.find('User', {name: $.args.user})[0];
-  const n = $.find($.args.type, {id: $.args.id})[0];
+  const users = $.find('User', {name: $.args.user});
+  const nodes = $.find($.args.type, {id: $.args.id});
+  const u = users[0], n = nodes[0];
   $.grant(u, n, $.args.perms);
-  return 'granted';
-}""")
+  return {users: users.length, user: u ? u.name : null, nodes: nodes.length,
+          grantees: (n.grantees || []).map((g) => g.name)};
+}""", returnRawResult=True)
 
 
 def propagation_verify(ctx):
@@ -418,12 +421,51 @@ def propagation_verify(ctx):
     doc = ctx.create("SpkDoc", {"name": "spike doc"}, flags=False)
     folder = ctx.create("SpkFolder", {"name": "spike folder", "docs": [doc]}, flags=False)
     before = count(ctx, "SpkDoc", as_user("spike-a"))
-    ctx.call("spkGrant", {"user": "spike-a", "type": "SpkFolder", "id": folder, "perms": "read"})
+    before_b = count(ctx, "SpkDoc", as_user("spike-b"))
+    granted = ctx.call("spkGrant", {"user": "spike-a", "type": "SpkFolder", "id": folder, "perms": "read"})
+    first_b = count(ctx, "SpkDoc", as_user("spike-b"))           # asked before A, in case an answer is shared
     after_a, after_b = count(ctx, "SpkDoc", as_user("spike-a")), count(ctx, "SpkDoc", as_user("spike-b"))
-    return answer(before == 0 and after_a == 1 and after_b == 0,
+    folder_b = count(ctx, "SpkFolder", as_user("spike-b"))
+    return answer(before == 0 and after_a == 1 and after_b == 0 and first_b == 0,
                   "read on a folder propagates to its docs along a relationship set to propagate",
                   f"{note}; the user sees the doc before the folder grant: {before}, after: {after_a}; "
-                  f"a user without the grant: {after_b}")
+                  f"a user without the grant: {before_b} before it, {first_b} after it asked first, {after_b} "
+                  f"after the granted user; the folder itself, to that user: {folder_b}; the grant: {granted}")
+
+
+def grant_direct_setup(ctx):
+    """A grant on a node of a type with no propagating relationship, to a user and to a group of one."""
+    ctx.schema_type("SpkPrivate")
+    for u in USERS:
+        ctx.user(u)
+    if not ctx.one("Group", "spike-solo"):
+        ctx.ok("POST", "/structr/rest/Group", {"name": "spike-solo", "members": [ctx.one("User", "spike-a")],
+                                               "visibleToAuthenticatedUsers": True})
+    ctx.resource("SpkPrivate")
+    ctx.function("spkGrantTo", """{
+  const who = $.find($.args.kind, {name: $.args.who})[0];
+  const n = $.find('SpkPrivate', {id: $.args.id})[0];
+  $.grant(who, n, 'read');
+  return (n.grantees || []).map((g) => g.name);
+}""", returnRawResult=True)
+
+
+def grant_direct_verify(ctx):
+    def seen(user, node_id):              # through the collection, which the resource grant covers
+        status, out = ctx.raw("GET", "/structr/rest/SpkPrivate", user=as_user(user))
+        return status == 200 and any(r.get("id") == node_id for r in out["result"])
+    to_user = ctx.create("SpkPrivate", {"name": "spike private to a"}, flags=False)
+    to_group = ctx.create("SpkPrivate", {"name": "spike private to the group"}, flags=False)
+    before = (seen("spike-a", to_user), seen("spike-b", to_user))
+    g1 = ctx.call("spkGrantTo", {"kind": "User", "who": "spike-a", "id": to_user})[1]
+    g2 = ctx.call("spkGrantTo", {"kind": "Group", "who": "spike-solo", "id": to_group})[1]
+    after = {"to a: a": seen("spike-a", to_user), "to a: b": seen("spike-b", to_user),
+             "to the group: a": seen("spike-a", to_group), "to the group: b": seen("spike-b", to_group)}
+    listed_b = count(ctx, "SpkPrivate", as_user("spike-b"))
+    ok = before == (False, False) and after == {"to a: a": True, "to a: b": False, "to the group: a": True,
+                                                "to the group: b": False} and listed_b == 0
+    return answer(ok, "a grant gives read to its principal (or the group's members) and no one else",
+                  f"before: (a, b) {before}; grantees {g1} and {g2}; after: {after}; b's listing: {listed_b}")
 
 
 def labels_setup(ctx):
@@ -718,6 +760,7 @@ SPIKES = [
     ("onsave", "Does onSave see the modifications and refuse an edit?", onsave_setup, onsave_verify),
     ("onsave_links", "Does onSave run when only a node's relationships change?", onsave_links_setup, onsave_links_verify),
     ("grant", "Does a SchemaGrant share a whole type with a group?", grant_setup, grant_verify),
+    ("grant_direct", "Does a grant to a user or a group reach only them?", grant_direct_setup, grant_direct_verify),
     ("propagation", "Does read access propagate along a relationship?", propagation_setup, propagation_verify),
     ("labels", "Does createLabels fix the labels of nodes older than their trait?", labels_setup, labels_verify),
     ("bulk", "Is an array POST one transaction; does a PATCH array update many?", bulk_setup, bulk_verify),

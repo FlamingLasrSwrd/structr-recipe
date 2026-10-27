@@ -1,6 +1,6 @@
 {
- "structr": "structr/structr:6.0.0",
- "run": "2026-10-27 09:27",
+ "structr": "structr/structr:7.1.0",
+ "run": "2026-10-27 14:44",
  "results": [
   {
    "answer": "OK",
@@ -14,15 +14,15 @@
    "documented": "a flag set on a populated relationship applies to edges made before it; cascades chain",
    "found": "flag now 1; deleting the owner: 200; deleted with it: {'spike part old': True, 'spike sub part': True, 'spike part shared': True, 'spike part also held': True}; the second owner's parts after: []",
    "spike": "cascade_more",
-   "question": "Does a flag set on a populated relationship cascade, through chains and shared targets?",
-   "run": "2026-10-27 09:29"
+   "question": "Does a flag set on a populated relationship cascade, through chains and shared targets?"
   },
   {
    "answer": "OK",
    "documented": "defaultVisibleToAuth makes every instance visible to signed-in users",
    "found": "created without flags: visibleToAuthenticatedUsers=False; a signed-in user sees 1 of 1 (the type without a default: 0 of 1)",
    "spike": "visibility",
-   "question": "Does a type's defaultVisibleToAuth make new nodes visible?"
+   "question": "Does a type's defaultVisibleToAuth make new nodes visible?",
+   "run": "2026-10-27 14:47"
   },
   {
    "answer": "OK",
@@ -36,45 +36,54 @@
    "documented": "a numeric interval and a string pattern in `format` refuse values outside them, on edits too",
    "found": "declaring the formats: {\"open\": \"accepted\", \"halfopen\": \"accepted\"}; statuses: {'closed -1': 422, 'closed 50': 201, 'closed 150': 422, 'open -1': 201, 'open 1e6': 201, 'halfopen 100': 422, 'halfopen 99.9': 201, 'decimal 50': 201, 'decimal -1': 422, 'whole 50': 201, 'whole -1': 422, 'nothing': 201, 'code abc': 422, 'code ABC': 201, 'code missing': 422, 'why closed 150': \"{'code': 422, 'message': 'Unable to commit transaction, validation failed', 'errors': [{'token': 'must_be_in_range', 'type': 'SpkRange', 'property': 'closed', 'detail': '[0,100]'}]}\", 'edit closed 10 to 150': 422, 'after the edit': 10.0, 'edit closed 10 to 20': 200}",
    "spike": "format",
-   "question": "Do numeric intervals and string patterns in `format` validate?",
-   "run": "2026-10-27 10:12"
+   "question": "Do numeric intervals and string patterns in `format` validate?"
   },
   {
    "answer": "OK",
    "documented": "onSave sees $.retrieve('modifications') with before and after, and can refuse an edit",
    "found": "PUT v=-1: 422 ['negative_on_save']; PUT v=999: 422 ['before_1']; PUT v=5: 200; PATCH v=-2: 422 ['negative_on_save']; a create with v=-1 (does onSave run on a create?): 201 []",
    "spike": "onsave",
-   "question": "Does onSave see the modifications and refuse an edit?",
-   "run": "2026-10-27 10:12"
+   "question": "Does onSave see the modifications and refuse an edit?"
   },
   {
    "answer": "INFO",
    "documented": "onSave runs when a node is modified; whether a relationship change counts is not said",
-   "found": "the held node deleted: 422 {'code': 422, 'message': 'Server-side scripting error', 'errors': [{'token': 'needs_held', 'type': 'SpkHolder', 'propert, the holder's held after: {'id': '2af37e085d6c4cd28cc5d8ae1ada31e7', 'type': 'SpkHeld', 'name': 'spike SpkHeld 1793124842.7506232'}; the link set from the other end to a held node its onSave forbids: 422 {'code': 422, 'message': 'Server-side scripting error', 'errors': [{'token': 'forbidden', 'type': 'SpkHolder', 'property, the holder now holds: 'spike SpkHeld 1793124844.031086'",
+   "found": "the held node deleted: 422 {'code': 422, 'message': 'Server-side scripting error', 'errors': [{'token': 'needs_held', 'type': 'SpkKeeper', 'propert, the holder's held after: {'id': 'd9c552a2a68b4b07ae3501df5e45f3f6', 'type': 'SpkKept', 'name': 'spike SpkKept 1793134062.6840172'}; the link set from the other end to a held node its onSave forbids: 422 {'code': 422, 'message': 'Server-side scripting error', 'errors': [{'token': 'forbidden', 'type': 'SpkKeeper', 'property, the holder now holds: 'spike SpkKept 1793134064.3787913'",
    "spike": "onsave_links",
    "question": "Does onSave run when only a node's relationships change?",
-   "run": "2026-10-27 12:14"
+   "run": "2026-10-27 14:47"
   },
   {
    "answer": "OK",
    "documented": "a SchemaGrant gives a group read and write on every instance of a type, without per-node grants",
    "found": "SchemaGrant keys ['allowAccessControl', 'allowDelete', 'allowRead', 'allowWrite', 'createdBy', 'createdDate', 'grantees', 'hidden', 'id', 'lastModifiedBy', 'lastModifiedDate', 'name', 'owner', 'ownerId', 'principal', 'schemaNode', 'staticSchemaNodeName', 'type', 'visibleToAuthenticatedUsers', 'visibleToPublicUsers']; created with ['allowRead', 'allowWrite']; a member sees 1 of 1, a non-member 0; the member's write: 200",
    "spike": "grant",
-   "question": "Does a SchemaGrant share a whole type with a group?"
+   "question": "Does a SchemaGrant share a whole type with a group?",
+   "run": "2026-10-27 14:47"
   },
   {
    "answer": "OK",
+   "documented": "a grant gives read to its principal (or the group's members) and no one else",
+   "found": "before: (a, b) (False, False); grantees ['spike-a'] and ['spike-solo']; after: {'to a: a': True, 'to a: b': False, 'to the group: a': True, 'to the group: b': False}; b's listing: 0",
+   "spike": "grant_direct",
+   "question": "Does a grant to a user or a group reach only them?",
+   "run": "2026-10-27 14:55"
+  },
+  {
+   "answer": "DIFFERENT",
    "documented": "read on a folder propagates to its docs along a relationship set to propagate",
-   "found": "declared with permissionPropagation=Out, readPropagation=Add; the user sees the doc before the folder grant: 0, after: 1; a user without the grant: 0",
+   "found": "declared with permissionPropagation=Out, readPropagation=Add; the user sees the doc before the folder grant: 0, after: 1; a user without the grant: 0 before it, 1 after it asked first, 1 after the granted user; the folder itself, to that user: 1; the grant: (200, {'nodes': 1, 'user': 'spike-a', 'users': 1, 'grantees': ['spike-a']})",
    "spike": "propagation",
-   "question": "Does read access propagate along a relationship?"
+   "question": "Does read access propagate along a relationship?",
+   "run": "2026-10-27 14:50"
   },
   {
    "answer": "OK",
    "documented": "createLabels adds the labels a type gained after its nodes were made",
-   "found": "old node's labels AccessControllable,NodeInterface,GraphObject,PropertyContainer,SpkTyped (new node's AccessControllable,NodeInterface,GraphObject,PropertyContainer,SpkTyped,SpkTrait); relating the old node: 422 {'code': 422, 'message': 'No SpkTrait with UUID 2d4ad0ff41004a30a6dd2c9333074ef7 found.', 'errors': [{'token': 'object_n; a new one: 200; createLabels: 200; old node's labels after AccessControllable,NodeInterface,GraphObject,PropertyContainer,SpkTyped,SpkTrait; relating the old node again: 200",
+   "found": "old node's labels AccessControllable,NodeInterface,GraphObject,PropertyContainer,SpkTyped (new node's AccessControllable,NodeInterface,GraphObject,PropertyContainer,SpkTyped,SpkTrait); relating the old node: 422 {'code': 422, 'message': 'No SpkTrait with UUID cd7f80b1ce184d64b57201fafd002cdf found.', 'errors': [{'token': 'object_n; a new one: 200; createLabels: 200; old node's labels after AccessControllable,NodeInterface,GraphObject,PropertyContainer,SpkTyped,SpkTrait; relating the old node again: 200",
    "spike": "labels",
-   "question": "Does createLabels fix the labels of nodes older than their trait?"
+   "question": "Does createLabels fix the labels of nodes older than their trait?",
+   "run": "2026-10-27 14:47"
   },
   {
    "answer": "OK",
@@ -86,58 +95,56 @@
   {
    "answer": "OK",
    "documented": "with jsonrestservlet.unknowninput.validation.mode=reject an unknown key is refused",
-   "found": "POST with an unknown key: 422 {'code': 422, 'message': 'Rejecting input with unknown JSON key for type SpkBulk: \"notAProperty\" with value \"1\".', 'errors': []}; stored: None",
+   "found": "POST with an unknown key: 422 {'code': 422, 'message': 'Rejecting input with unknown JSON key for type SpkBulk: \"notAProperty\" with value \"1\".'}; stored: None",
    "spike": "unknown",
    "question": "Does validation mode `reject` refuse unknown input keys?"
   },
   {
    "answer": "OK",
    "documented": "with application.changelog.enabled, changelog(node) lists creates and changes with old and new values",
-   "found": "call: 200; verbs ['change', 'create']; note changes [('null', '\"one\"'), ('\"one\"', '\"two\"'), ('\"two\"', '\"three\"')]; users ['superadmin']; on disk: total 20\ndrwxr-xr-x  5 root root 4096 Oct 27 15:25 .\ndrwxr-xr-x  1 root root 4096 Oct 27 15:26 ..\ndrwxr-xr-x 15 root root 4096 Oct 27 15:26 n\ndrwxr-xr-x 18 root root 4096 Oct 27 15:25 r\n/var/lib/structr/changelog",
+   "found": "call: 200; verbs ['change', 'create']; note changes [('null', '\"one\"'), ('\"one\"', '\"two\"'), ('\"two\"', '\"three\"')]; users ['superadmin']; on disk: total 20\ndrwxr-xr-x  5 root root 4096 Oct 27 20:43 .\ndrwxr-xr-x  1 root root 4096 Oct 27 20:43 ..\ndrwxr-xr-x 18 root root 4096 Oct 27 20:44 n\ndrwxr-xr-x 18 root root 4096 Oct 27 20:43 r\n/var/lib/structr/changelog",
    "spike": "changelog",
    "question": "Does the changelog record changes, and where?"
   },
   {
    "answer": "OK",
    "documented": "CronService.tasks with a six-field cronExpression (every 5 s) runs the function",
-   "found": "ticks 4, then 7 sixteen seconds later",
+   "found": "ticks 3, then 7 sixteen seconds later",
    "spike": "cron",
    "question": "Does a scheduled task configured by environment run?"
   },
   {
    "answer": "DIFFERENT",
    "documented": "Polyglot.eval('python', ...) runs Python inside a JavaScript method",
-   "found": "(status, seconds) per call [(422, 0.21), (422, 0.13)]; value {'code': 422, 'message': 'Server-side scripting error', 'errors': []}; the server log: 2026-10-27 15:27:13.757 [qtp1680684273-40] WARN  org.structr.core.script.Scripting - spkPython[static]:spkPython:1:1: Error: No language for id python found. Supported languages are: [js]\n2026-10-27 15:27:13.883 [qtp1680684273-59] WARN  org.structr.core.script.Scripting - spkPython[static]:spkPython:1:1: Error: No language for id python found. Supported languages are: [js]",
+   "found": "(status, seconds) per call [(422, 0.05), (422, 0.03)]; value {'code': 422, 'message': 'Server-side scripting error: promise rejected with Error: No language for id python found. Supported languages are: [js]'}; the server log: ",
    "spike": "polyglot",
    "question": "Can a JavaScript method run Python?"
   },
   {
-   "answer": "OK",
+   "answer": "DIFFERENT",
    "documented": "declared parameters convert values; httpVerb GET takes path segments and refuses POST",
-   "found": "POST {count:'7', extra:'x'}: 200 {'kind': 'number', 'extra': None, 'count': 7}; GET /5: 200 {'kind': 'number', 'extra': None, 'count': 5}; POST to the GET method: 405 {'code': 405, 'message': 'POST not allowed on /spkTypedGet', 'errors': []}",
+   "found": "POST {count:'7', extra:'x'}: 422 {'code': 422, 'message': 'Unknown parameter(s) extra for user-defined function \u201bspkTypedPost\u201b, the method only accepts its defined parameters count. Enable \"Allow unknown parameters\" to accept other parameters.'}; GET /5: 200 {'kind': 'number', 'extra': None, 'count': 5}; POST to the GET method: 405 {'code': 405, 'message': 'POST not allowed on /spkTypedGet'}",
    "spike": "params",
    "question": "Do declared parameters and httpVerb GET work?"
   },
   {
    "answer": "INFO",
    "documented": "parameter types are numbers, dates, strings and booleans",
-   "found": "an object passes whole as: ['Map', 'Object', 'String']; {'Map': 'declared; call 200 {\\'a\\': 1, \\'warm\\': None, \\'kind\\': \\'object\\', \\'text\\': \\'{\"a\":1,\"b\":[1,2]}\\'}', 'Object': 'declared; call 200 {\\'a\\': 1, \\'warm\\': None, \\'kind\\': \\'object\\', \\'text\\': \\'{\"a\":1,\"b\":[1,2]}\\'}', 'String': 'declared; call 200 {\\'a\\': 1, \\'warm\\': None, \\'kind\\': \\'object\\', \\'text\\': \\'{\"a\":1,\"b\":[1,2]}\\'}'}",
+   "found": "an object passes whole as: none; {'Map': 'declared; call 422 {\\'code\\': 422, \\'message\\': \\'Unknown parameter(s) warmUp for user-defined function \u201bspkObjectMap\u201b, the method only accepts its defined parameters booking. Enable \"', 'Object': \"declared; call 422 {'code': 422, 'message': 'Unknown parameter(s) warmUp for user-defined function \u201bspkObjectObject\u201b, the method only accepts its defined parameters booking. Enabl\", 'String': \"declared; call 422 {'code': 422, 'message': 'Unknown parameter(s) warmUp for user-defined function \u201bspkObjectString\u201b, the method only accepts its defined parameters booking. Enabl\"}",
    "spike": "param_object",
-   "question": "Which declared parameter type passes a JSON object whole?",
-   "run": "2026-10-27 10:35"
+   "question": "Which declared parameter type passes a JSON object whole?"
   },
   {
    "answer": "OK",
    "documented": "evaluateScript(node, script) runs a StructrScript expression with `this` the node",
    "found": "200 {'${if(lt(this.v, 0), \"negative\", \"fine\")}': '', '${this.v}': '', 'this.v': '-3', 'if(lt(this.v, 0), \"negative\", \"fine\")': 'negative'}",
    "spike": "evaluate",
-   "question": "Can a script evaluate a validator's expression against a stored node?",
-   "run": "2026-10-27 10:35"
+   "question": "Can a script evaluate a validator's expression against a stored node?"
   },
   {
    "answer": "OK",
    "documented": "cache(key, seconds, fn) computes once and returns the same value",
-   "found": "first 200 '0.7837817386341823', second 200 '0.7837817386341823'",
+   "found": "first 200 '0.8575773694902049', second 200 '0.8575773694902049'",
    "spike": "cache",
    "question": "Does cache() keep a value?"
   },
@@ -165,7 +172,7 @@
   {
    "answer": "OK",
    "documented": "maintenance sync exports the subgraph a Cypher query selects into one ZIP",
-   "found": "200 {'result': [], 'result_count': 0, 'page_count': 0, 'result_count_time': '0.000120164', 'serialization_time': '0.00214248; in the container: -rw-r--r-- 1 root root 372 Oct 27 15:27 /tmp/spike-sync.zip\ndb",
+   "found": "200 {'result': [], 'result_count': 0, 'page_count': 0, 'result_count_time': '0.000339753', 'serialization_time': '0.00465421; in the container: -rw-r--r-- 1 root root 367 Oct 27 20:44 /tmp/spike-sync.zip\ndb",
    "spike": "sync",
    "question": "Does maintenance sync export a query's subgraph?"
   },
@@ -179,7 +186,7 @@
   {
    "answer": "OK",
    "documented": "Event Action Mapping: the frontend library and element settings exist",
-   "found": "/structr/js/frontend/frontend.js 200 (30442 bytes); DOMElement keys ['data-structr-manual-reload-target', 'data-structr-reload-target', 'eventMapping', 'failureActions', 'failureNotificationActions', 'parameterMappings', 'reloadSources', 'reloadTargets', 'reloadingActions', 'successNotificationActions', 'triggeredActions']",
+   "found": "/structr/js/frontend/frontend.js 200 (50460 bytes); DOMElement keys ['data-structr-manual-reload-target', 'data-structr-reload-target', 'eventMapping', 'failureActions', 'failureHideActions', 'failureNotificationActions', 'parameterMappings', 'reloadSources', 'reloadTargets', 'reloadingActions', 'successHideActions', 'successNotificationActions', 'triggeredActions', 'visibilityMappings']",
    "spike": "eam",
    "question": "Is Event Action Mapping there?"
   }
