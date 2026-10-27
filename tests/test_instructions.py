@@ -3,7 +3,7 @@ Every expected sentence below is written out by hand."""
 
 import unittest
 
-from mealplanner.instructions import as_data, instructions, join, number
+from mealplanner.instructions import as_data, either, instructions, join, number
 from mealplanner.recipe_import import Heat, Ingredient, StepDoc, Substitute
 
 
@@ -18,6 +18,7 @@ class Words(unittest.TestCase):
 
     def test_lists(self):
         self.assertEqual([join([]), join(["a"]), join(["a", "b"]), join(["a", "b", "c"])], ["", "a", "a and b", "a, b and c"])
+        self.assertEqual([either(["a"]), either(["a", "b"]), either(["a", "b", "c"])], ["a", "a or b", "a, b or c"])
 
 
 class Sentences(unittest.TestCase):
@@ -53,6 +54,19 @@ class Sentences(unittest.TestCase):
         self.assertEqual(instructions([step(method="Sauteing", equipment=("Skillet", "Spatula"), heat=(Heat("Skillet", level="medium-high"),))]),
                          ["Sauté 100 g flour on the skillet over medium-high heat using the spatula."])
         self.assertEqual(instructions([step(method="Mixing", equipment=("Bowl", "Whisk"))]), ["Mix 100 g flour using the bowl and whisk."])
+
+    def test_a_capability_names_the_tools_that_can_give_it(self):
+        bearers = {"Oven heat": ("Oven", "Toaster oven"), "Puréeing": ("Food processor", "High-speed blender", "Immersion blender")}
+        bake = step(method="Baking", equipment=("Oven heat",), heat=(Heat("Oven heat", temp=350.0, unit="F"),),
+                    capabilities=("Oven heat",))
+        self.assertEqual(instructions([bake], bearers), ["Bake 100 g flour in the oven or toaster oven at 350 °F."])
+        self.assertEqual(instructions([bake]), ["Bake 100 g flour in the tool for oven heat at 350 °F."])
+        blend = step(method="Mixing", equipment=("Bowl", "Puréeing", "Whisk"), capabilities=("Puréeing",))
+        self.assertEqual(instructions([blend], bearers),
+                         ["Mix 100 g flour using the bowl and whisk with the food processor, high-speed blender or immersion blender."])
+        sear = step(method="Searing", equipment=("Broiler heat",), heat=(Heat("Broiler heat", level="high"),),
+                    capabilities=("Broiler heat",))
+        self.assertEqual(instructions([sear], {"Broiler heat": ("Grill",)}), ["Sear 100 g flour on the grill over high heat."])
 
     def test_doneness(self):
         self.assertEqual(instructions([step(method="Baking", until="golden")]), ["Bake 100 g flour until golden."])
@@ -96,7 +110,8 @@ class AsData(unittest.TestCase):
         self.assertEqual(d, {"label": "mix it", "method": "Roasting", "makes": "Dough", "equipment": ["Oven"],
                              "inputs": [{"food": "Flour", "amount": 100.0, "unit": "g", "optional": False, "substitutes": []}],
                              "heat": [{"tool": "Oven", "temp": 425.0, "unit": "F", "level": None}],
-                             "minutes": 5.0, "wait_minutes": 25.0, "after": [], "until": "golden", "inside": [165.0, "F"]})
+                             "minutes": 5.0, "wait_minutes": 25.0, "after": [], "until": "golden", "inside": [165.0, "F"],
+                             "capabilities": []})
 
 
 if __name__ == "__main__":

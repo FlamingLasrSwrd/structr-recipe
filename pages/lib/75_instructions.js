@@ -23,6 +23,12 @@ function joinWords(items) {
   return items.slice(0, -1).join(", ") + " and " + items[items.length - 1];
 }
 
+// instructions.either
+function eitherWords(items) {
+  if (items.length <= 1) return items.join("");
+  return items.slice(0, -1).join(", ") + " or " + items[items.length - 1];
+}
+
 // instructions.ingredient
 function ingredientWords(ing, made) {
   const name = String(ing.food).toLowerCase();
@@ -39,20 +45,29 @@ function ingredientWords(ing, made) {
   return writtenNumber(ing.amount) + unit + " " + name + other + (ing.optional ? " (optional)" : "");
 }
 
-// instructions.sentence: step i (from 1), knowing what the steps before it made
-function stepSentence(i, step, made) {
+// instructions.sentence: step i (from 1), knowing what the steps before it made and which tools can
+// give each capability
+function stepSentence(i, step, made, bearers) {
   const what = joinWords(step.inputs.map((ing) => ingredientWords(ing, made)));
+  const able = {};
+  for (const c of step.capabilities || []) able[c] = true;
+  const the = (tool) => {                                   // "the oven", or the tools that can give a capability
+    if (!able[tool]) return "the " + tool.toLowerCase();
+    const tools = ((bearers || {})[tool] || []).map((t) => String(t).toLowerCase());
+    return "the " + (tools.length ? eitherWords(tools) : "tool for " + tool.toLowerCase());
+  };
   const verb = VERBS[step.method || ""];
   const parts = [verb ? verb + " " + what : step.label.slice(0, 1).toUpperCase() + step.label.slice(1) + ": " + what];
   const heated = {};
   for (const h of step.heat) heated[h.tool] = h;
   for (const tool of step.equipment) {
     const setting = heated[tool];
-    if (setting && setting.temp != null) parts.push("in the " + tool.toLowerCase() + " at " + writtenNumber(setting.temp) + " °" + setting.unit);
-    else if (setting) parts.push("on the " + tool.toLowerCase() + " over " + setting.level + " heat");
+    if (setting && setting.temp != null) parts.push("in " + the(tool) + " at " + writtenNumber(setting.temp) + " °" + setting.unit);
+    else if (setting) parts.push("on " + the(tool) + " over " + setting.level + " heat");
   }
-  const plain = step.equipment.filter((tool) => !heated[tool]).map((tool) => tool.toLowerCase());
+  const plain = step.equipment.filter((tool) => !heated[tool] && !able[tool]).map((tool) => tool.toLowerCase());
   if (plain.length) parts.push("using the " + joinWords(plain));
+  for (const tool of step.equipment) if (!heated[tool] && able[tool]) parts.push("with " + the(tool));
   const done = [];
   if (step.until) done.push(step.until.toLowerCase().indexOf("until ") === 0 ? step.until.slice(6) : step.until);
   if (step.inside) done.push(writtenNumber(step.inside[0]) + " °" + step.inside[1] + " inside");
@@ -68,10 +83,10 @@ function stepSentence(i, step, made) {
 }
 
 // instructions.instructions
-function stepSentences(steps) {
+function stepSentences(steps, bearers) {
   const out = [], made = {};
   steps.forEach((step, k) => {
-    out.push(stepSentence(k + 1, step, made));
+    out.push(stepSentence(k + 1, step, made, bearers));
     made[step.makes] = true;
   });
   return out;
@@ -79,6 +94,8 @@ function stepSentences(steps) {
 
 // recipe_import.export_plan, as instructions.as_data has it: a Plan's steps in order, with their facts
 const TEMP_SAID = {degF: "F", degC: "C"};
+// a Function type in the Capability hierarchy, named instead of a tool (J37)
+const isCapability = (kind) => !!(kind && kind.hierarchy && kind.hierarchy.name === "Capability");
 // recipe_import._step_index, _input_index and the equipment number: after the plan's name, and after
 // the last " input " or " equipment "
 const stepNumber = (step, plan) => Number(String(step.name).slice((plan.name + " step ").length).split(" ")[0]);
@@ -103,8 +120,9 @@ function planSteps(plan) {
     const out = {label: String(step.name).slice((plan.name + " step " + index + " -- ").length),
                  method: step.instanceOf ? step.instanceOf.name : null, makes: null, equipment: [], inputs: [], heat: [],
                  minutes: step.hasWorkingTime ? step.hasWorkingTime.value : null,
-                 wait_minutes: step.hasWaitingTime ? step.hasWaitingTime.value : null, after: null, until: null, inside: null};
-    const tools = [], inputs = [];
+                 wait_minutes: step.hasWaitingTime ? step.hasWaitingTime.value : null, after: null, until: null, inside: null,
+                 capabilities: []};
+    const tools = [], inputs = [], capabilities = [];
     for (const spec of specs) {
       const wanted = requirementsOf(spec);
       const name = spec.specifies ? spec.specifies.name : null;
@@ -115,6 +133,7 @@ function planSteps(plan) {
       } else if (spec.hasParticipationRole === "instrument") {
         const k = lastNumber(spec.name, "equipment");
         tools.push([k, name]);
+        if (isCapability(spec.specifies)) capabilities.push([k, name]);
         if (wanted["Temperature"]) out.heat.push([k, {tool: name, temp: wanted["Temperature"][1], unit: wanted["Temperature"][2], level: null}]);
         else if (wanted["Heat Level"]) out.heat.push([k, {tool: name, temp: null, unit: null, level: wanted["Heat Level"][0]}]);
       } else {
@@ -130,6 +149,7 @@ function planSteps(plan) {
     out.equipment = tools.sort(byFirst).map((t) => t[1]);
     out.heat = out.heat.sort(byFirst).map((h) => h[1]);
     out.inputs = inputs.sort(byFirst).map((x) => x[1]);
+    out.capabilities = capabilities.sort(byFirst).map((c) => c[1]);
     if (ordered) {
       const numbers = (step.isPrecededBy || []).map((s) => numberOf[s.id]).filter((n) => n != null).sort((a, b) => a - b);
       const usual = index > 1 ? [index - 1] : [];
@@ -137,4 +157,24 @@ function planSteps(plan) {
     }
     return out;
   });
+}
+
+// recipe_import.capability_bearers: for each capability a Plan's steps name, the Equipment Types that can
+// give it or one of its subtypes (mayBearFunction, J37), by name
+function capabilityBearers(plan) {
+  const out = {};
+  for (const step of plan.steps || []) {
+    for (const spec of step.hasSpecification || []) {
+      if (spec.hasParticipationRole !== "instrument" || !isCapability(spec.specifies) || out[spec.specifies.name]) continue;
+      const names = {}, seen = {}, todo = [spec.specifies];
+      while (todo.length) {
+        const kind = todo.pop();
+        seen[kind.id] = true;
+        for (const b of kind.functionBorneBy || []) names[b.name] = true;
+        for (const c of kind.children || []) if (!seen[c.id]) todo.push(c);
+      }
+      out[spec.specifies.name] = Object.keys(names).sort();
+    }
+  }
+  return out;
 }

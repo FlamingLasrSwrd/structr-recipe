@@ -45,7 +45,7 @@ script. So a method runs the engine code the pages run, not a copy of it.
 | `bookPantry` | `do` (buy, use, count, open, move, discard), `token`, and the booking's fields (food, amount, unit, storage, keeps, portion) | the booking, as the pages record one: `{action, problem, process, created, notes}` |
 | `bookWeek` | `do` (cook, skip, unskip), `token`, `entry`, and for skip `instead` (a recipe from the book, or words) | the same |
 | `bookRequest` | `do` (ask, withdraw), `token`, `recipe` (a RecipeIdentity), `week` (its first day) | the same; a week not planned yet is made as the household's MealPlan, `forHousehold` |
-| `writeInstructions` | `steps` (plain data, `instructions.as_data`) | the sentences the recipe page writes for them; reads nothing (`tools/check_instructions.py` compares it with Python's) |
+| `writeInstructions` | `steps` (plain data, `instructions.as_data`), `bearers` (for each capability the steps name, the tools that can give it) | the sentences the recipe page writes for them; reads nothing (`tools/check_instructions.py` compares it with Python's) |
 | `nutritionReport` | `week` (a MealPlan's id) | `{week, rows}`: every target judged at its scope, per person, then each daily target's days added up, as the nutrition page shows them |
 | `shoppingList` | `week`, `prices` (a price level, default "Home prices") | `{week, priced, cooks, leftovers, buy, covered, unquantified, not_bought, unpriced, total}`, as the shopping page lists them; for a household's member, only the household's own stock counts against the need |
 

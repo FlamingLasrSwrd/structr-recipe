@@ -16,7 +16,8 @@ What a file becomes (data-model.md Sec 5, the same shapes scripts/15c builds):
       Specification ... input <j> <food>   specifies a Food-Identity Type; quantity if stated
         SubstitutionRule ... or <k> <food> what may stand in, and how much (J36)
       Specification ... output <type>      the Step's product
-      Specification ... equipment <k> <x>  instrument role: a tool the Step needs
+      Specification ... equipment <k> <x>  instrument role: a tool the Step needs, or a capability any
+                                           tool that can give it will meet (J37)
         StateRequirement ... heat          what the tool is set to: Temperature or Heat Level
       Specification ... output <type> doneness / inside   when it is done: Doneness, Temperature inside
       QuantitySpecification ... working time / waiting time   the Step's minutes (J35)
@@ -43,6 +44,7 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass, field, replace
 
+from mealplanner.capability_schema import CAPABILITY_HIERARCHY
 from mealplanner.identifier_schema import WEB_PAGE
 from mealplanner.nutrition_scope import COUNT_UNITS
 from mealplanner.step_facts_schema import DONENESS, HEAT_LEVEL, QUALITY_KIND_HIERARCHY, TEMPERATURE
@@ -57,7 +59,7 @@ MEAL_TYPE_SCHEME = "Meal Type"
 TOP_KEYS = {"name", "version", "source", "servings", "minutes", "ahead_hours", "difficulty", "meal_types", "dish", "steps",
             "baseline"}
 STEP_KEYS = {"name", "method", "makes", "inputs", "equipment", "minutes", "wait_minutes", "after", "until", "inside"}
-TOOL_KEYS = {"tool", "temp", "unit", "heat"}
+TOOL_KEYS = {"tool", "capability", "temp", "unit", "heat"}
 HEAT_LEVELS = ("low", "medium-low", "medium", "medium-high", "high")
 TEMP_UNITS = {"F": "degF", "C": "degC"}          # as a file says it -> as a QuantitySpecification stores it
 UNTIL_MAX = 60                                   # "until golden": a few words of doneness, not instructions
@@ -129,6 +131,7 @@ class StepDoc:
     heat: tuple[Heat, ...] = ()               # what each tool set is set to, in the tools' order
     until: str | None = None                  # doneness in a few words ("golden")
     inside: tuple[float, str] | None = None   # the temperature the food reaches inside, (temp, "F" or "C")
+    capabilities: tuple[str, ...] = ()        # which of `equipment` name what a tool can do, not a tool (J37)
 
 
 @dataclass(frozen=True)
@@ -273,13 +276,17 @@ def parse_recipe(data: dict) -> RecipeDoc:
         if not isinstance(raw_tools, list):
             problems.append(f"{where}: equipment must be a list of names")
             raw_tools = []
-        equipment, heat = [], []
+        equipment, heat, capabilities = [], [], []
         for k, item in enumerate(raw_tools, 1):
             tw = f"{where} equipment {k}"
             if isinstance(item, dict):
                 for key in sorted(set(item) - TOOL_KEYS):
                     problems.append(f"{tw}: unknown key {key!r} (allowed: {', '.join(sorted(TOOL_KEYS))})")
-                tool = item.get("tool")
+                if ("tool" in item) == ("capability" in item):
+                    problems.append(f"{tw}: a tool or a capability, one of them")
+                tool = item.get("tool", item.get("capability"))
+                if "capability" in item:
+                    capabilities.append(tool)
                 setting = _heat(tw, tool, item, problems)
                 if setting is not None:
                     heat.append(setting)
@@ -313,7 +320,7 @@ def parse_recipe(data: dict) -> RecipeDoc:
         as_minutes = lambda value: float(value) if _number(value) and value >= 0 else None
         steps.append(StepDoc(label, method, tuple(inputs), makes, tuple(equipment), as_minutes(minutes_here), as_minutes(wait),
                              tuple(after_names) if after_names is not None else None, tuple(heat),
-                             until.strip() if isinstance(until, str) else None, inside))
+                             until.strip() if isinstance(until, str) else None, inside, tuple(capabilities)))
 
     steps = _order(steps, problems)
     made = [s.makes for s in steps]
@@ -441,7 +448,7 @@ class Resolved:
     products: dict[str, str | None]    # dish and intermediates -> existing DomainType id, or None to create
     food_hierarchy: str
     web_page: str | None               # the "Web page" identifier scheme, if the file has a source
-    equipment: dict[str, str] = field(default_factory=dict)   # -> Equipment Type id
+    equipment: dict[str, str] = field(default_factory=dict)   # -> Equipment Type id, or a capability's (J37)
     qualities: dict[str, str] = field(default_factory=dict)   # Quality Kind name -> id: heat and doneness (J35)
 
 
@@ -486,7 +493,16 @@ def resolve(client, doc: RecipeDoc) -> Resolved:
                 if sub.food not in foods:
                     foods[sub.food] = domain_type(sub.food, food_h, "substitute")
     methods = {s.method: domain_type(s.method, method_h, "method") for s in doc.steps if s.method}
-    equipment = {tool: domain_type(tool, equipment_h, "equipment") for s in doc.steps for tool in s.equipment}
+    equipment = {tool: domain_type(tool, equipment_h, "equipment") for s in doc.steps for tool in s.equipment
+                 if tool not in s.capabilities}
+    wanted_capabilities = sorted({c for s in doc.steps for c in s.capabilities})
+    if wanted_capabilities:
+        capability_h = _one(client, "/structr/rest/TypeHierarchy", CAPABILITY_HIERARCHY)
+        if len(capability_h) != 1:
+            problems.append(f"the {CAPABILITY_HIERARCHY!r} hierarchy must exist once (scripts/05 makes it)")
+        else:
+            for capability in wanted_capabilities:
+                equipment[capability] = domain_type(capability, capability_h[0]["id"], "capability")
     wanted_kinds = set()
     for step in doc.steps:
         for setting in step.heat:
@@ -542,7 +558,7 @@ def export_plan(client, plan_id: str) -> tuple:
     steps = []
     for index, ref in refs:
         step = nodes[index]
-        inputs, makes, tools, heat, until, inside = [], None, [], [], None, None
+        inputs, makes, tools, heat, until, inside, capabilities = [], None, [], [], None, None, []
         specs = [client.get_all("Specification", s["id"])["result"] for s in step.get("hasSpecification", [])]
         for spec in sorted(specs, key=lambda s: s["name"]):
             wanted = _requirements(client, spec)
@@ -556,6 +572,9 @@ def export_plan(client, plan_id: str) -> tuple:
                 k = int(spec["name"].rsplit(" equipment ", 1)[1].split(" ", 1)[0])
                 tool = spec["specifies"]["name"]
                 tools.append((k, tool))
+                kind = client.get_all("DomainType", spec["specifies"]["id"])["result"]
+                if (kind.get("hierarchy") or {}).get("name") == CAPABILITY_HIERARCHY:
+                    capabilities.append((k, tool))
                 if TEMPERATURE in wanted:
                     heat.append((k, Heat(tool, temp=wanted[TEMPERATURE][1], unit=wanted[TEMPERATURE][2])))
                 elif HEAT_LEVEL in wanted:
@@ -576,9 +595,26 @@ def export_plan(client, plan_id: str) -> tuple:
         steps.append(StepDoc(label, method, tuple(ing for _, ing in sorted(inputs, key=lambda p: p[0])), makes,
                              tuple(tool for _, tool in sorted(tools)), _minutes(client, step.get("hasWorkingTime")),
                              _minutes(client, step.get("hasWaitingTime")), after, tuple(h for _, h in sorted(heat)),
-                             until, inside))
+                             until, inside, tuple(c for _, c in sorted(capabilities))))
     return (servings, plan.get("estimatedDurationMinutes"), plan.get("difficultyRating"), tuple(steps),
             plan.get("makeAheadHours"))
+
+
+def capability_bearers(client, steps) -> dict[str, tuple[str, ...]]:
+    """For each capability the steps name, the Equipment Types that can give it or one of its subtypes
+    (`mayBearFunction`, J37), by name: what the instructions say will do. The recipe page reads the
+    same (pages/lib/75_instructions.js, capabilityBearers)."""
+    out = {}
+    for name in sorted({c for s in steps for c in s.capabilities}):
+        found = _one(client, "/structr/rest/DomainType", name)
+        bearers, todo, seen = set(), [found[0]["id"]] if len(found) == 1 else [], set()
+        while todo:
+            node = client.get_all("DomainType", todo.pop())["result"]
+            seen.add(node["id"])
+            bearers |= {b["name"] for b in node.get("functionBorneBy") or []}
+            todo += [c["id"] for c in node.get("children") or [] if c["id"] not in seen]
+        out[name] = tuple(sorted(bearers))
+    return out
 
 
 def _minutes(client, ref: dict | None) -> float | None:

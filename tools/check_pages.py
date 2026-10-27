@@ -34,7 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner.connection import connect
 from mealplanner.instructions import instructions
-from mealplanner.recipe_import import export_plan
+from mealplanner.recipe_import import capability_bearers, export_plan
 from mealplanner.inventory import current_magnitude, instance_expiration, mass_quality
 from mealplanner.prices import price_table
 from mealplanner.profiles import ProfileError
@@ -168,7 +168,7 @@ def check_recipes(client, reads, problems: list[str]) -> int:
         if written is None:                      # pages installed before they wrote instructions (J35)
             print("  (the recipe pages here write no instructions yet: tools/install_pages.py)")
             break
-        want = instructions(read_back)
+        want = instructions(read_back, capability_bearers(reads, read_back))
         if written != want:
             first = next((k for k, (a, b) in enumerate(zip(want, written or [])) if a != b), None)
             problems.append(f"recipe {plan['name']!r}: the page's instructions differ from Python's"

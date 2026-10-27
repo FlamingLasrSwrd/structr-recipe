@@ -24,6 +24,9 @@ Central foods (mealplanner/fdc.py) or a stated source. Loading it
                        (a food Type its members sit under), and 1.0 on "Food" for
                        each method that applies no heat (J30)
   Transformation methods and Equipment Types, with their parents
+  Capabilities         Function types in the Capability hierarchy, with their parents,
+                       and on each Equipment Type the ones its tools can give
+                       (`can`, mayBearFunction; J37), so a recipe may name one
 
 Where a food's figures come from. A food lists its sources in order; each
 nutrient comes from the first source that reports it, so a later source fills
@@ -44,6 +47,8 @@ import os
 import tomllib
 from dataclasses import dataclass
 
+from mealplanner import capability_schema
+from mealplanner.capability_schema import CAPABILITY_HIERARCHY
 from mealplanner.identifier_schema import FDC_ID, SCHEME
 from mealplanner.nutrition_scope import NUTRIENT_UNITS
 from mealplanner.unit_conversion import UNIT_TABLE
@@ -140,6 +145,7 @@ class Label:
 class Named:
     name: str
     parent: str | None = None
+    can: tuple[str, ...] = ()           # an Equipment Type's capabilities (J37)
 
 
 @dataclass(frozen=True)
@@ -161,6 +167,7 @@ class Vocabulary:
     fdc: dict | None = None               # the pinned subsets merged: {"nutrients": ..., "foods": ...}
     retention: Retention | None = None
     shelf_table: dict | None = None       # the pinned FoodKeeper products: data/foodkeeper/foodkeeper.json
+    capabilities: tuple[Named, ...] = ()  # Function types: what a tool can do (J37)
 
     def ids(self) -> set[int]:
         """Every FDC food the file refers to."""
@@ -409,14 +416,28 @@ def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None, sh
         items = []
         for i, raw in enumerate(data.get(key, []), 1):
             if name_ok(f"{key} {i}", raw.get("name")):
-                items.append(Named(raw["name"], raw.get("parent")))
+                can = raw.get("can", [])
+                if key != "equipment" and "can" in raw:
+                    problems.append(f"{key} {raw['name']!r}: only equipment says what it can do")
+                if not isinstance(can, list) or not all(isinstance(c, str) for c in can) or len(set(can)) != len(can):
+                    problems.append(f"{key} {raw['name']!r}: can is a list of capabilities, each once")
+                    can = []
+                items.append(Named(raw["name"], raw.get("parent"), tuple(can)))
         names = {m.name for m in items}
         for m in items:
             if m.parent is not None and m.parent not in names:
                 problems.append(f"{key} {m.name!r}: parent {m.parent!r} is not in the file")
         return tuple(items)
 
-    methods, equipment = named("method"), named("equipment")
+    methods, equipment, capabilities = named("method"), named("equipment"), named("capability")
+    capability_names = {c.name for c in capabilities}
+    for e in equipment:
+        for c in e.can:
+            if c not in capability_names:
+                problems.append(f"equipment {e.name!r}: can {c!r}, which is not a capability in the file")
+    others = {m.name for m in methods} | {e.name for e in equipment} | {f.get("name") for f in data.get("food", [])}
+    for c in sorted(capability_names & others):
+        problems.append(f"capability {c!r} has the same name as a food, method or equipment")
 
     foods = []
     allowed = {"name", "parent", "fdc", "proxy", "sources", "each", "volume", "note", "label", "retention", "foodkeeper"}
@@ -476,7 +497,7 @@ def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None, sh
             if nid not in fdc["nutrients"]:
                 problems.append(f"kept_in_cooking: FDC nutrient {nid} is not in the pinned subsets")
         seen: dict[str, str] = {}
-        taken = set(names) | {m.name for m in methods} | {e.name for e in equipment}
+        taken = set(names) | {m.name for m in methods} | {e.name for e in equipment} | capability_names
         for nid, n in fdc["nutrients"].items():
             if nid in SKIPPED_NUTRIENTS:
                 continue
@@ -488,10 +509,11 @@ def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None, sh
                 problems.append(f"FDC nutrients {seen[name]} and {nid} would both be named {name!r}")
             seen[name] = nid
             if name in taken:
-                problems.append(f"nutrient {name!r} has the same name as a food, method or equipment")
+                problems.append(f"nutrient {name!r} has the same name as a food, method, equipment or capability")
     if problems:
         raise VocabularyError(problems)
-    return Vocabulary(tuple(subsets), tuple(foods), methods, equipment, tuple(kept), fdc, retention, shelf_table)
+    return Vocabulary(tuple(subsets), tuple(foods), methods, equipment, tuple(kept), fdc, retention, shelf_table,
+                      capabilities)
 
 
 def _keeps(raw, where: str, shelf_table: dict | None, problems: list[str]) -> tuple[int, bool] | None:
@@ -661,13 +683,16 @@ def _hierarchy(client, name: str) -> str:
     return rows[0]["id"]
 
 
-def _tree(sync: Sync, items, hierarchy_id: str) -> dict[str, str]:
-    """Methods or equipment, parents first (the file lists parents before children)."""
+def _tree(sync: Sync, items, hierarchy_id: str, capabilities: dict[str, str] | None = None) -> dict[str, str]:
+    """Methods, equipment or capabilities, parents first (the file lists parents before children);
+    with `capabilities`, each item's `can` as its mayBearFunction (J37)."""
     ids: dict[str, str] = {}
     for item in items:
-        ids[item.name] = sync.ensure("DomainType", item.name, {
-            "hierarchy": hierarchy_id, "isLookupBearing": True,
-            "parent": ids.get(item.parent) if item.parent else None})
+        fields = {"hierarchy": hierarchy_id, "isLookupBearing": True,
+                  "parent": ids.get(item.parent) if item.parent else None}
+        if capabilities is not None:
+            fields["mayBearFunction"] = [capabilities[c] for c in item.can] or None
+        ids[item.name] = sync.ensure("DomainType", item.name, fields)
     return ids
 
 
@@ -677,13 +702,17 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> Imported:
     it changed. A nutrient, a method, a piece of equipment or an identifier changes no figure."""
     fdc = vocabulary.fdc
     sync = Sync(client)
-    names = (FOOD_HIERARCHY, METHOD_HIERARCHY, NUTRIENT_HIERARCHY, EQUIPMENT_HIERARCHY)
+    names = (FOOD_HIERARCHY, METHOD_HIERARCHY, NUTRIENT_HIERARCHY, EQUIPMENT_HIERARCHY) \
+        + ((CAPABILITY_HIERARCHY,) if vocabulary.capabilities else ())
     hierarchies = {h: _hierarchy(client, h) for h in names}
+    if any(e.can for e in vocabulary.equipment) and not capability_schema.schema_ready(client):
+        raise VocabularyError(["this instance cannot say what a tool can do yet: run scripts/43a_capability_schema.py"])
 
     problems = []
     for name, hierarchy in ([(f.name, FOOD_HIERARCHY) for f in vocabulary.foods] + [(ROOT_FOOD, FOOD_HIERARCHY)]
                             + [(m.name, METHOD_HIERARCHY) for m in vocabulary.methods]
-                            + [(e.name, EQUIPMENT_HIERARCHY) for e in vocabulary.equipment]):
+                            + [(e.name, EQUIPMENT_HIERARCHY) for e in vocabulary.equipment]
+                            + [(c.name, CAPABILITY_HIERARCHY) for c in vocabulary.capabilities]):
         row = sync.rows("DomainType").get(name)
         if row and (row.get("hierarchy") or {}).get("id") != hierarchies[hierarchy]:
             problems.append(f"{name!r} already exists outside the {hierarchy!r} hierarchy")
@@ -712,7 +741,8 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> Imported:
             "identifierValue": nid, "identifierScheme": nutrient_scheme, "denotesType": nutrient_ids[nid]})
 
     method_ids = _tree(sync, vocabulary.methods, hierarchies[METHOD_HIERARCHY])
-    _tree(sync, vocabulary.equipment, hierarchies[EQUIPMENT_HIERARCHY])
+    capability_ids = _tree(sync, vocabulary.capabilities, hierarchies[CAPABILITY_HIERARCHY]) if vocabulary.capabilities else {}
+    _tree(sync, vocabulary.equipment, hierarchies[EQUIPMENT_HIERARCHY], capability_ids)
 
     food_ids = {ROOT_FOOD: sync.ensure("DomainType", ROOT_FOOD, {"hierarchy": hierarchies[FOOD_HIERARCHY],
                                                                 "isLookupBearing": True, "parent": None}, ITSELF)}

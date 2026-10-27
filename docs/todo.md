@@ -8,7 +8,7 @@ Nothing here is started. Each item says where it came from. The owner decides wh
 | Item | Asked | What it would take |
 |---|---|---|
 | **Imports from similar applications, Grocy first** | 2026-10-26 | Grocy's REST API or export: products as foods (matched to `data/vocabulary.toml`, or a new food to add), quantity units and their conversions as weights per item and densities, locations as storage conditions, stock entries as Purchase bookings (`mealplanner/pantry.py`), with their best-before dates once a printed date can be recorded (below), the shopping list, price history as `PriceObservation`s (J27, not built), and recipes as recipe files under `docs/recipe-copyright.md`. Then Mealie, Tandoor, Paprika and KitchenOwl exports, and schema.org `Recipe` data, the same way |
-| **Fill in the missing facts of a recipe's steps** | 2026-10-26: "The missing facts need to be filled in" | **Built 2026-10-26** (data-model.md J35, `docs/recipe-format.md` "A step's facts"): a step's working and waiting minutes, the steps before it (`after`, P-Plan's `isPreceededBy`), a tool's heat (a temperature or a burner level) and the doneness of what it makes (words, and a temperature inside), and cut forms as mechanical methods. Substitutions too (J36, `docs/recipe-format.md` "What may stand in"). **Still to do:** (5) equipment named by what it does (a Function, "broil or grill", J24 item 3); a cook recording which substitute it used (`via_substitution`, invariant 18); and the owner's 53 recipes transcribed again for the new facts, facts only, from their sources, which this repository does not hold. A recipe already cooked takes its facts as a new `version` |
+| **Fill in the missing facts of a recipe's steps** | 2026-10-26: "The missing facts need to be filled in" | **Built 2026-10-26** (data-model.md J35, `docs/recipe-format.md` "A step's facts"): a step's working and waiting minutes, the steps before it (`after`, P-Plan's `isPreceededBy`), a tool's heat (a temperature or a burner level) and the doneness of what it makes (words, and a temperature inside), and cut forms as mechanical methods. Substitutions too (J36, `docs/recipe-format.md` "What may stand in"), and a tool named by what it does, "broil or grill" (J37, "A tool named by what it does"). **Still to do:** a cook recording which substitute it used (`via_substitution`, invariant 18); and the owner's 53 recipes transcribed again for the new facts, facts only, from their sources, which this repository does not hold. A recipe already cooked takes its facts as a new `version` |
 | **Instructions written from the steps** | 2026-10-26 | **Built 2026-10-26**: the recipe page's "How to make it", each step one sentence of our own from its facts (`mealplanner/instructions.py`, `pages/lib/75_instructions.js`, `docs/recipe-format.md`); the two writers are compared word for word by `tools/check_instructions.py` and every recipe page by `tools/check_pages.py`. They read better as the recipes gain their facts (above) |
 | **Releasing it for self-hosting** | 2026-10-24 | `docs/self-hosting.md`: written, not started, at the owner's word |
 
@@ -26,6 +26,8 @@ Nothing here is started. Each item says where it came from. The owner decides wh
 | A pantry journal, and undoing a booking | 2026-10-23 | `docs/pantry.md` item 6, with prices paid, minimum stock on the page and barcodes |
 | Leftovers of an earlier meal eaten instead | 2026-10-24 | The week page's "ate instead" takes a recipe or words today (data-model.md J34) |
 | A count, or a meal, for a recipe asked for from its page | 2026-10-24 | The week file still says "twice" or "on Wed Dinner" (J33) |
+| A kitchen checked against each recipe | 2026-10-26 | A recipe whose step needs a tool, or a capability, that the household's kitchen has nothing for, left out of the planner's choices or marked in the recipe book: the kitchen's tools (`UtensilSet` members) by type, and what their types `can` give (J37). Today nothing reads a step's tools but its sentence |
+| The first capabilities, reviewed | 2026-10-26 | Oven heat, Broiler heat and Puréeing, and which tools give each, were chosen by Claude from the alternatives the HelloFresh recipes gave (J24 item 3); more as recipes need them (`data/vocabulary.toml`) |
 | A review of the FoodKeeper and retention matches | 2026-10-24 | Each food's product and each class's rows, for the owner to check (J30, J31) |
 
 ## From the third review (2026-10-26), waiting on the owner
@@ -65,3 +67,8 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
   scripts/42a_substitution_schema.py`, restart Structr as above, then `STRUCTR_URL=http://localhost:8085
   python3 tools/install_pages.py` and `STRUCTR_URL=http://localhost:8085 python3 tools/install_methods.py`
   (the recipe page and `writeInstructions` write them).
+- For a tool named by what it does (2026-10-26), with the stack up: `STRUCTR_URL=http://localhost:8085
+  python3 scripts/43a_capability_schema.py`, restart Structr as above, then `STRUCTR_URL=http://localhost:8085
+  python3 tools/import_vocabulary.py` (the capabilities, the toaster oven and the grill, and what each tool
+  can do), then `install_pages.py` and `install_methods.py` as above. Rehearsed on a throwaway built as
+  yours was.

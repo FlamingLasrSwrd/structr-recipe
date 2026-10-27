@@ -215,6 +215,14 @@ def vocabulary_data(**extra):
     return data
 
 
+def with_capabilities(can=("Oven heat",)):
+    """The test vocabulary with Heating's one subtype, Oven heat, and an Oven that `can` give it (J37)."""
+    return vocabulary_data(capability=[{"name": "Capability"}, {"name": "Heating", "parent": "Capability"},
+                                       {"name": "Oven heat", "parent": "Heating"}],
+                           equipment=[{"name": "Cookware"}, {"name": "Wok", "parent": "Cookware"},
+                                      {"name": "Oven", "can": list(can) if isinstance(can, (list, tuple)) else can}])
+
+
 class Parse(unittest.TestCase):
     def vocabulary(self):
         return parse_vocabulary(vocabulary_data(), fdc_subset())
@@ -333,6 +341,30 @@ class Parse(unittest.TestCase):
             data["food"][1] = {**data["food"][1], "name": bad}
             with self.assertRaises(VocabularyError, msg=repr(bad)):
                 parse_vocabulary(data, fdc_subset())
+
+    def test_capabilities_and_what_each_tool_can_do(self):
+        v = parse_vocabulary(with_capabilities(), fdc_subset())
+        self.assertEqual([(c.name, c.parent) for c in v.capabilities],
+                         [("Capability", None), ("Heating", "Capability"), ("Oven heat", "Heating")])
+        self.assertEqual([(e.name, e.can) for e in v.equipment], [("Cookware", ()), ("Wok", ()), ("Oven", ("Oven heat",))])
+        self.assertEqual(self.vocabulary().capabilities, ())
+
+    def test_what_a_tool_can_do_is_checked(self):
+        def problems(data):
+            with self.assertRaises(VocabularyError) as caught:
+                parse_vocabulary(data, fdc_subset())
+            return caught.exception.problems
+        cases = [
+            ("can 'Puréeing', which is not a capability in the file", with_capabilities(can=["Puréeing"])),
+            ("can is a list of capabilities, each once", with_capabilities(can=["Oven heat", "Oven heat"])),
+            ("can is a list of capabilities, each once", with_capabilities(can="Oven heat")),
+            ("only equipment says what it can do", vocabulary_data(method=[{"name": "Dry-Heat Method", "can": []}])),
+            ("capability 'Wok' has the same name as a food, method or equipment",
+             vocabulary_data(capability=[{"name": "Wok"}])),
+            ("parent 'Heat' is not in the file", vocabulary_data(capability=[{"name": "Oven heat", "parent": "Heat"}])),
+        ]
+        for fragment, data in cases:
+            self.assertTrue(any(fragment in p for p in problems(data)), (fragment, problems(data)))
 
     def test_a_nutrient_in_an_unknown_unit_is_refused(self):
         subset = fdc_subset()
@@ -497,6 +529,29 @@ class Load(unittest.TestCase):
         g = instance()
         self.load(g)
         self.assertEqual(self.node(g, "QuantitySpecification", "Retention of Protein in cooking value")["value"], 1.0)
+
+    def test_capabilities_and_what_tools_can_do(self):
+        g = instance()
+        g.add("TypeHierarchy", "Capability", "Capability")
+        g.add("SchemaRelationshipNode", "may bear function", "may bear function", relationshipType="MAY_BEAR_FUNCTION")
+        self.load(g, with_capabilities())
+        oven_heat, oven = self.node(g, "DomainType", "Oven heat"), self.node(g, "DomainType", "Oven")
+        self.assertEqual((oven_heat["hierarchy"]["name"], oven_heat["parent"]["name"]), ("Capability", "Heating"))
+        self.assertEqual([c["name"] for c in oven["mayBearFunction"]], ["Oven heat"])
+        self.assertIsNone(self.node(g, "DomainType", "Wok").get("mayBearFunction"))
+        posts, patches = g.posts, g.patches
+        self.load(g, with_capabilities())
+        self.assertEqual((g.posts, g.patches), (posts, patches))                 # a second load changes nothing
+        self.load(g, with_capabilities(can=[]))
+        self.assertIsNone(self.node(g, "DomainType", "Oven")["mayBearFunction"])  # what it can no longer do is cleared
+
+    def test_what_tools_can_do_needs_the_schema_for_it(self):
+        g = instance()
+        g.add("TypeHierarchy", "Capability", "Capability")
+        with self.assertRaises(VocabularyError) as caught:
+            self.load(g, with_capabilities())
+        self.assertIn("scripts/43a_capability_schema.py", caught.exception.problems[0])
+        self.load(g, with_capabilities(can=[]))                                   # capabilities alone need no schema
 
     def test_a_name_taken_in_another_hierarchy_is_an_error_not_a_move(self):
         g = instance()

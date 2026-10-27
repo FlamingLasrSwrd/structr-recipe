@@ -522,6 +522,12 @@
   "targetJsonName": "hierarchy",
   "targetMultiplicity": "1"
  },
+ "@schema | relationship DomainType -[MAY_BEAR_FUNCTION]-> DomainType": {
+  "sourceJsonName": "functionBorneBy",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "mayBearFunction",
+  "targetMultiplicity": "*"
+ },
  "@schema | relationship DomainType -[MAY_BEAR_ROLE]-> DomainType": {
   "sourceJsonName": "canBeBorneBy",
   "sourceMultiplicity": "*",

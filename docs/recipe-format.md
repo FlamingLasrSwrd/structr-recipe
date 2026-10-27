@@ -59,7 +59,8 @@ inputs = [
   `python3 tools/instantiate_profile.py kitchen --list`. Name the most general tool that will do
   (`Skillet`, not `Nonstick skillet`, unless the recipe needs nonstick): any subtype meets the need.
   Each becomes an instrument-role Specification of its Step: the model's place for a tool a process
-  needs, with no quantity.
+  needs, with no quantity. Where any of several tools will do, name what they do instead (below, "A
+  tool named by what it does").
 - **One dish per recipe.** Every step but the last must make something a later step uses, and
   nothing may be used before it is made.
 - **Names** cannot contain a comma or a semicolon (Structr's exact-match lookup cannot find them).
@@ -192,14 +193,35 @@ inputs = [
   count the ingredient the recipe names; a cook that used the olive oil because the butter ran out
   has no way to say so yet (invariant 18's `via_substitution`, not built).
 
+## A tool named by what it does
+
+Where a recipe does not care which tool ("broil or grill", "an oven or a toaster oven"), a step names a
+capability instead of a tool (`docs/data-model.md` §18 J37):
+
+```toml
+equipment = ["Sheet pan", { capability = "Broiler heat", heat = "high" }]   # set as a tool is: temp and unit, or heat
+```
+
+- **A capability is in the vocabulary**, under `Capability` in `data/vocabulary.toml`: for now `Heating`,
+  and under it `Oven heat` and `Broiler heat`, and `Puréeing`. Each tool's type says what it `can` give
+  (an `Oven` gives oven heat and broiler heat, a `Grill` broiler heat, a `Food processor` purées), and the loader names a capability
+  that is not one, or a tool named as one.
+- **Any tool that can give it will do**, or give one of its subtypes: `Heating` is met by an oven, a
+  toaster oven or a grill. The step's sentence names them: "on the grill or oven over high heat".
+- **Nothing checks a kitchen against a recipe yet**, by tool or by capability: the planner does not read
+  a step's tools.
+
 ## Instructions written from the steps
 
 The recipe page's **How to make it** writes each step as one sentence of our own from its facts, by
 fixed rules (`mealplanner/instructions.py`; `pages/lib/75_instructions.js` writes the same, word for
 word): the method's verb (or, with no method, the step's label), the ingredients with their amounts
 ("the" for what an earlier step made) and what may stand in, scaled by its ratio ("3 tbsp butter (or
-2.25 tbsp olive oil, or 2.25 tbsp canola oil)", the peanut oil left out), the tools with their heat, the doneness, the time, and
-"Meanwhile" for a step that does not follow the one before. The recipe above reads:
+2.25 tbsp olive oil, or 2.25 tbsp canola oil)", the peanut oil left out), the tools with their heat (a
+capability as the tools that can give it, "in the oven or toaster oven at 350 °F", or "with the food
+processor, high-speed blender or immersion blender" where it is set to nothing), the doneness, the time, and "Meanwhile" for a step
+that does not follow the one before. A recipe of four steps, the third the one in "A step's facts"
+above, reads:
 
 1. Rinse the rice: 150 g rice, about 2 minutes.
 2. Simmer the rice (rinsed) on the stove over low heat using the saucepan, about 20 minutes, 2 of them hands-on.
@@ -216,7 +238,8 @@ A `RecipeIdentity` (meal types; an `Identifier` for the source page), a `Plan` n
 transformation method) with one input `Specification` per ingredient, an output `Specification`
 for what it makes, and an instrument `Specification` per piece of equipment. A step's minutes are
 QuantitySpecifications, its order is `isPrecededBy`, and a tool's heat or a product's doneness is a
-`StateRequirement` on its Specification (J35), and each substitute is a `SubstitutionRule` on its
+`StateRequirement` on its Specification (J35). A capability is an instrument Specification that specifies it
+(J37), and each substitute is a `SubstitutionRule` on its
 ingredient's Specification, naming the food, its ratio and whether it is ruled out (J36). The page's prose is not stored: a Step records what goes in, what comes out, how and with what, in order. An actual
 cook is a separate thing, a `Process` that concretizes the Plan with the quantities really used
 (`scripts/15c` shows one); there is no tool to record a cook yet. The dish's

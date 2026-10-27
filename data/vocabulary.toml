@@ -1,4 +1,5 @@
-# The curated vocabulary: foods, cooking methods, equipment and the nutrients kept through cooking.
+# The curated vocabulary: foods, cooking methods, equipment and what it can do, and the nutrients kept
+# through cooking.
 # Loaded by tools/import_vocabulary.py (mealplanner/vocabulary_import.py).
 #
 # Figures come from USDA FoodData Central: U.S. Department of Agriculture, Agricultural Research
@@ -173,10 +174,36 @@ parent = "Dry-Heat Method"
 name = "Pan-frying"
 parent = "Dry-Heat Method"
 
+# -- capabilities, parents before children ----------------------------------------------------
+# What a tool can do (BFO Functions, data-model.md Sec 3 and J37), for a recipe that does not care
+# which tool: { capability = "Broiler heat" } in a step's equipment is met by any tool whose type `can`
+# give it or one of its subtypes, and its sentence names them ("on the grill or oven"). Capability and
+# Heating have been seeded since scripts/05. Chosen by Claude from the alternatives real recipes gave
+# (J24 item 3: "broil or grill", "oven or toaster oven"), to be reviewed.
+
+[[capability]]
+name = "Capability"
+
+[[capability]]
+name = "Heating"
+parent = "Capability"
+
+[[capability]]
+name = "Oven heat"              # dry heat all around, in a closed box
+parent = "Heating"
+
+[[capability]]
+name = "Broiler heat"           # strong heat from one side, close by
+parent = "Heating"
+
+[[capability]]
+name = "Puréeing"               # blades fast enough to make a purée
+parent = "Capability"
+
 # -- equipment, parents before children -------------------------------------------------------
 # Chosen from, not named freely: recipes list their tools from here (docs/recipe-format.md), and the
 # kitchen profiles in data/profiles/kitchen.toml are built from it. A recipe that needs a Skillet is
-# met by any kind of skillet.
+# met by any kind of skillet. `can` lists the capabilities a tool gives (above).
 
 [[equipment]]
 name = "Cookware"
@@ -374,6 +401,17 @@ name = "Appliance"
 [[equipment]]
 name = "Oven"                   # roasting, baking and broiling need one; assumed until HelloFresh's recipes
 parent = "Appliance"
+can = ["Oven heat", "Broiler heat"]
+
+[[equipment]]
+name = "Toaster oven"
+parent = "Appliance"
+can = ["Oven heat"]
+
+[[equipment]]
+name = "Grill"                  # outdoor or countertop; a grill pan is cookware, and gives no broiler heat
+parent = "Appliance"
+can = ["Broiler heat"]
 
 [[equipment]]
 name = "Microwave"
@@ -382,14 +420,17 @@ parent = "Appliance"
 [[equipment]]
 name = "Food processor"
 parent = "Appliance"
+can = ["Puréeing"]
 
 [[equipment]]
 name = "Immersion blender"
 parent = "Appliance"
+can = ["Puréeing"]
 
 [[equipment]]
 name = "High-speed blender"
 parent = "Appliance"
+can = ["Puréeing"]
 
 [[equipment]]
 name = "Rice cooker"

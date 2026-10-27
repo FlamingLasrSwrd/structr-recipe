@@ -81,7 +81,7 @@ class WritableGraph(FakeGraph):
                  "forType", "hasKind", "hasValue", "keyedBy", "hasTargetRange", "instanceOf", "memberOfSet",
                  "inheresIn", "isAboutQuality", "wasDerivedFrom", "forPerson", "members", "hasBaseline", "servingOf",
                  "requestsRecipe", "memberOf", "references", "hasPlannedConsumption", "shareOf", "eatenBy",
-                 "consumesLeftoverFrom"}
+                 "consumesLeftoverFrom", "mayBearFunction"}
     REVERSES = {"forType": "defaultSpecifications", "memberOfSet": "hasMemberPart", "parent": "children",
                 "inheresIn": "bearerOf", "isAboutQuality": "measurements", "wasDerivedFrom": "imputedMeasurements",
                 "forPerson": "nutritionTargets", "servingOf": "servingProfiles", "memberOf": "hasEntry",

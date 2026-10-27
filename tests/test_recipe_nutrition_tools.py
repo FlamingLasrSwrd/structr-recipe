@@ -96,7 +96,7 @@ class ImportVocabularyTool(unittest.TestCase):
     tool = load("import_vocabulary")
 
     def run_with(self, affected, g):
-        vocabulary = SimpleNamespace(foods=[], methods=[], equipment=[], fdc={"nutrients": []})
+        vocabulary = SimpleNamespace(foods=[], methods=[], equipment=[], capabilities=[], fdc={"nutrients": []})
         imported = Imported({"created": 0, "changed": len(affected), "unchanged": 5, "deleted": 0}, set(affected))
         with mock.patch.object(self.tool, "read_vocabulary", return_value=vocabulary), \
                 mock.patch.object(self.tool, "import_vocabulary", return_value=imported), \

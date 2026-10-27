@@ -11,6 +11,8 @@ step as one plain sentence of our own from those facts:
 
 The verb is the method's (VERBS); a step with no method, or one the list does not know, starts with
 its own label of a few words instead. "Meanwhile" marks a step that does not follow the one before it.
+A capability named instead of a tool (J37) reads as the tools that can give it, "with the oven or
+toaster oven", from `bearers` (recipe_import.capability_bearers); "the tool for oven heat" when none can.
 pages/lib/75_instructions.js writes the same sentences, word for word, on the recipe page;
 tools/check_instructions.py and tools/check_pages.py compare the two.
 """
@@ -42,6 +44,13 @@ def join(items: list[str]) -> str:
     return ", ".join(items[:-1]) + " and " + items[-1]
 
 
+def either(items: list[str]) -> str:
+    """"a", "a or b", "a, b or c"."""
+    if len(items) <= 1:
+        return "".join(items)
+    return ", ".join(items[:-1]) + " or " + items[-1]
+
+
 def ingredient(ing, made: set) -> str:
     name = ing.food.lower()
     if ing.food in made:
@@ -59,21 +68,31 @@ def ingredient(ing, made: set) -> str:
     return f"{number(ing.amount)}{unit} {name}" + other + (" (optional)" if ing.optional else "")
 
 
-def sentence(i: int, step, made: set) -> str:
-    """Step i (from 1), knowing what the steps before it made."""
+def sentence(i: int, step, made: set, bearers: dict | None = None) -> str:
+    """Step i (from 1), knowing what the steps before it made and which tools can give each capability."""
     what = join([ingredient(ing, made) for ing in step.inputs])
+
+    able = set(getattr(step, "capabilities", ()))
+
+    def the(tool: str) -> str:                  # "the oven", or for a capability the tools that can give it
+        if tool not in able:
+            return "the " + tool.lower()
+        tools = [t.lower() for t in (bearers or {}).get(tool, ())]
+        return "the " + (either(tools) if tools else "tool for " + tool.lower())
+
     verb = VERBS.get(step.method or "")
     parts = [f"{verb} {what}" if verb else f"{step.label[:1].upper()}{step.label[1:]}: {what}"]
     heated = {h.tool: h for h in step.heat}
     for tool in step.equipment:
         setting = heated.get(tool)
         if setting is not None and setting.temp is not None:
-            parts.append(f"in the {tool.lower()} at {number(setting.temp)} °{setting.unit}")
+            parts.append(f"in {the(tool)} at {number(setting.temp)} °{setting.unit}")
         elif setting is not None:
-            parts.append(f"on the {tool.lower()} over {setting.level} heat")
-    plain = [tool.lower() for tool in step.equipment if tool not in heated]
+            parts.append(f"on {the(tool)} over {setting.level} heat")
+    plain = [tool.lower() for tool in step.equipment if tool not in heated and tool not in able]
     if plain:
         parts.append("using the " + join(plain))
+    parts += ["with " + the(tool) for tool in step.equipment if tool not in heated and tool in able]
     done = []
     if step.until:
         done.append(step.until[6:] if step.until.lower().startswith("until ") else step.until)
@@ -92,12 +111,12 @@ def sentence(i: int, step, made: set) -> str:
     return text + "."
 
 
-def instructions(steps) -> list[str]:
+def instructions(steps, bearers: dict | None = None) -> list[str]:
     """One sentence per step, in order: `steps` as recipe_import.StepDoc, from a file or from
-    export_plan."""
+    export_plan; `bearers`, for each capability they name, the tools that can give it."""
     out, made = [], set()
     for i, step in enumerate(steps, 1):
-        out.append(sentence(i, step, made))
+        out.append(sentence(i, step, made, bearers))
         made.add(step.makes)
     return out
 
@@ -111,4 +130,5 @@ def as_data(steps) -> list[dict]:
              "heat": [{"tool": h.tool, "temp": h.temp, "unit": h.unit, "level": h.level} for h in s.heat],
              "minutes": s.minutes, "wait_minutes": s.wait_minutes,
              "after": list(s.after) if s.after is not None else None, "until": s.until,
-             "inside": list(s.inside) if s.inside is not None else None} for s in steps]
+             "inside": list(s.inside) if s.inside is not None else None, "capabilities": list(s.capabilities)}
+            for s in steps]

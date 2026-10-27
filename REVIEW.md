@@ -44,7 +44,7 @@ requests once the model met real recipes and a real household. In order of how m
   pantry profiles, public prices; the owner's data in its own instance, out of reach of the demos
   (`tools/owner_stack.sh`); memory caps after the 8 GB laptop froze; backups of that instance, checked
   by restoring them (`tools/backup.py`, `docs/backups.md`).
-- **Testing:** 793 offline tests (72 when the second review's fixes landed), two mutation sweeps
+- **Testing:** 803 offline tests (72 when the second review's fixes landed), two mutation sweeps
   (below), and checks of the pages against Python on real Structr.
 
 ## What is being reviewed
@@ -84,7 +84,7 @@ describe a known posture rather than a regression.
 ## Running it
 
 ```bash
-python3 -m unittest discover -s tests -t .            # 793 offline tests, no Structr (29 skip without OR-tools)
+python3 -m unittest discover -s tests -t .            # 803 offline tests, no Structr (29 skip without OR-tools)
 .venv/bin/python -m unittest discover -s tests -t .   # the same with OR-tools (requirements-solver.txt)
 python3 tools/check_names.py                          # undefined names and unused imports (no pyflakes here)
 python3 scripts/23a_schema_drift_test.py              # offline: the schema helpers against a drifted schema
@@ -137,7 +137,7 @@ rest are the commit after it.
 | 8 | The pantry does not keep a history of storage: opening and moving are not dated, thawing does not restart the clock, and an estimated expiry feeds the planner | **Known** (`docs/pantry.md`, model J12). The page now heads the column "Expires (estimate)" and says under the table what the estimate rests on and what it leaves out (`pages/pantry.js`). A dated history reverses a scope decision (freezing and thawing are not modeled transitions): `docs/todo.md` |
 | 9 | A page's write becomes visible about 0.3 s after the page answers; two quick presses can make two nodes of one name; check-then-create is not idempotent at once; confirm only after the write | **Right, and worse than stated; fixed** (`38e8e62`). Reproduced first on the development instance: one purchase form sent four times at once made four Processes of one name and every page said "booked"; two recipes asked for in one week at once made two MealPlans of one name; and the first try showed a commit refused (a unique name taken) after the page had said "booked". Each booking now runs in a transaction of its own that first writes to one lock node, so the next waits for its commit and then finds what it made, and the page answers once its booking is saved; a booking that fails is undone whole and said (`pages/common.js`, `docs/pages.md`; what Structr does is in `docs/structr-cheatsheet.md`). `tools/check_bookings.py` now sends bookings at once and reads without waiting: against the earlier pages it reports all three problems, against these all the same, and a booking by a signed-in user who is not the superuser was booked once, as the superuser. **Open:** a booking from the terminal (Python) is not serialized with one from a page |
 | 10 | Leftovers are not stock; no journal or undo | **Known, open** (`docs/pantry.md`; invariants 23, 24, 27). `docs/todo.md` |
-| 11 | The recipe model serves planning better than cooking: no step times, heat, doneness, alternatives, purchase forms; "to taste" optional; a discarded marinade counted as eaten | **Known, open** (model J20, J24; this guide's open items). The facts a step still lacks are on the owner's list (`docs/todo.md`), facts only (`docs/recipe-copyright.md`) |
+| 11 | The recipe model serves planning better than cooking: no step times, heat, doneness, alternatives, purchase forms; "to taste" optional; a discarded marinade counted as eaten | **Known, open** (model J20, J24; this guide's open items). The facts a step still lacks are on the owner's list (`docs/todo.md`), facts only (`docs/recipe-copyright.md`). **Since then (2026-10-26):** a step's times, order, heat and doneness (J35), what may stand in for an ingredient (J36) and a tool named by what it does (J37) are built; purchase forms, "to taste" and discarded material are still open |
 | 12 | Nutrition and cost need clear uncertainty: estimates and unknowns visible; cost a floor | **Mostly so.** A hard target is never decided on an unknown, placeholder or unmarked figure (J15); the planner's report names each recipe whose figures rest on estimates (J21); a recipe page gives each figure's source; a day with an unknown figure is "indeterminate", never met; a cost is called a floor. **Open:** the nutrition page does not mark a total that rests on estimates (`docs/todo.md`) |
 | 13 | Alternatives: a smaller application model mapped to BFO, PostgreSQL with an append-only ledger, maintained projections, one solver | **Noted.** The review recommends none of them now, and neither do we; BFO is already design discipline, not a runtime dependency (`docs/CLAUDE.md`). The owner's call if the project becomes a product |
 | 14 | Batch the planner's reads into one snapshot and compute in memory; 95 requests and 3.1 s for a small run | **Partly a mix-up.** The 95 requests are the per-slot selector's (round 2 #15). The planner already reads the week once through a `ReadCache` and searches in memory (`planning/extract.py`). It is right that those reads are many requests, not one consistent snapshot, so a write during them could be half seen: `docs/todo.md` |
@@ -270,7 +270,8 @@ Beyond the open rows above:
   whole. Fat gained in frying or lost in draining is not modeled.
 - **Every figure names its source** (J21); foods FDC lacks use the nearest FDC food as a proxy, said so.
 - **Real recipes** (J20, J24): seasoning "to taste" is optional, a discarded marinade is counted as
-  eaten, sizes are Types, alternatives within a step have no form, purchase units are not modeled.
+  eaten, sizes are Types, a step's alternative tools are a capability any of them gives (J37), purchase units
+  are not modeled.
   Recipes keep facts only, never their source's instructions (`docs/recipe-copyright.md`), and a step
   records its method, inputs, output and equipment, and since 2026-10-26 may say its time, order, heat and doneness (J35)
   and what may stand in for an ingredient (J36) (`docs/todo.md`).

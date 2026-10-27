@@ -34,7 +34,8 @@ def main(argv=None) -> int:
             print(f"problem: {problem}")
         return 1
     print(f"{VOCABULARY}: {len(vocabulary.foods)} foods, {len(vocabulary.methods)} methods, "
-          f"{len(vocabulary.equipment)} equipment, {len(vocabulary.fdc['nutrients'])} FDC nutrients")
+          f"{len(vocabulary.equipment)} equipment, {len(vocabulary.capabilities)} capabilities, "
+          f"{len(vocabulary.fdc['nutrients'])} FDC nutrients")
     for food in vocabulary.foods:
         gaps = core_gaps(vocabulary.fdc, food) if food.sources else []
         if gaps:

@@ -4,7 +4,8 @@
     python3 tools/check_instructions.py [--count 400]
 
 Generates steps with every kind of fact (methods the verb list knows and does not, labels, amounts,
-units, optional and "to taste" ingredients, substitutes with a ratio or ruled out, what earlier steps made, tools with a temperature or a heat
+units, optional and "to taste" ingredients, substitutes with a ratio or ruled out, what earlier steps made,
+capabilities named instead of tools, with any number of tools that can give them, tools with a temperature or a heat
 level or none, working and waiting minutes, the steps before, doneness in words and inside), sends them
 to the writeInstructions method, and compares each sentence with mealplanner/instructions.py's. It reads
 nothing of the instance, so it may be run on any. tools/check_pages.py compares each recipe page's
@@ -25,6 +26,8 @@ from mealplanner.recipe_import import HEAT_LEVELS, Heat, Ingredient, StepDoc, Su
 
 FOODS = ["Rice", "Chicken Breast (raw)", "Garlic", "Jalapeño", "Olive Oil", "Salt", "Crème Fraîche", "Black Pepper"]
 TOOLS = ["Oven", "Skillet", "Saucepan", "Wok", "Tongs", "Sheet Pan"]
+CAPABILITIES = ["Oven heat", "Broiler heat", "Puréeing"]
+BEARERS = ["Oven", "Toaster oven", "Grill", "Air fryer", "Food processor", "Évier"]
 UNITS = ["g", "kg", "tbsp", "tsp", "cup", "each", "whole", "oz", "pinch"]
 NUMBERS = [1, 2, 0.5, 0.125, 0.0625, 1 / 3, 2.5, 283.9056, 400, 1.75, 12, 0.333]
 
@@ -49,7 +52,7 @@ def random_steps(rng: random.Random) -> list[StepDoc]:
             else:
                 inputs.append(Ingredient(rng.choice(FOODS), float(rng.choice(NUMBERS)), rng.choice(UNITS), rng.random() < 0.2,
                                          substitutes(rng)))
-        tools = rng.sample(TOOLS, rng.randint(0, 3))
+        tools = rng.sample(TOOLS + CAPABILITIES, rng.randint(0, 3))
         heat = []
         for tool in tools:
             roll = rng.random()
@@ -68,8 +71,14 @@ def random_steps(rng: random.Random) -> list[StepDoc]:
             after=after, heat=tuple(heat),
             until=rng.choice([None, "golden", "until tender", "Until set", "the rice is soft"]),
             inside=rng.choice([None, (165.0, "F"), (74.0, "C"), (62.5, "C")]),
+            capabilities=tuple(t for t in tools if t in CAPABILITIES),
         ))
     return steps
+
+
+def random_bearers(rng: random.Random) -> dict:
+    """For each capability, the tools that can give it: none, one or several, in name order."""
+    return {c: tuple(sorted(rng.sample(BEARERS, rng.choice([0, 1, 2, 3])))) for c in CAPABILITIES}
 
 
 def main(argv=None) -> int:
@@ -81,9 +90,10 @@ def main(argv=None) -> int:
     rng = random.Random(35)
     differences = compared = 0
     for n in range(args.count):
-        steps = random_steps(rng)
-        want = instructions(steps)
-        r = client.session.post(f"{client.base_url}/structr/rest/writeInstructions", json={"steps": as_data(steps)},
+        steps, bearers = random_steps(rng), random_bearers(rng)
+        want = instructions(steps, bearers)
+        r = client.session.post(f"{client.base_url}/structr/rest/writeInstructions",
+                                json={"steps": as_data(steps), "bearers": {c: list(b) for c, b in bearers.items()}},
                                 timeout=client.timeout)
         if r.status_code == 404:
             print("problem: the writeInstructions method is not installed here (tools/install_methods.py)")

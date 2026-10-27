@@ -157,6 +157,9 @@ who rarely cooks: one nonstick skillet, a saucepan, a chef's knife, the oven and
 Test Kitchen's lists for beginners and for a new home, and marked `estimated`: a tier is a
 judgment about typical kitchens, not a measurement.
 
+What a kitchen's tools can do comes with their types (`can` in `data/vocabulary.toml`, data-model.md
+J37): a kitchen with a toaster oven has oven heat. Nothing yet checks a recipe's tools against a kitchen.
+
 ## The pantry profiles (`data/profiles/pantry.toml`)
 
 Five profiles: three tiers, each the one before plus more, and two kinds of cooking beside the

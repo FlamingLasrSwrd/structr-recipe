@@ -57,7 +57,7 @@ if (!plan) {
   }
 
   // instructions of our own, written from the steps' facts (mealplanner/instructions.py; J35)
-  data.instructions = stepSentences(planSteps(plan));
+  data.instructions = stepSentences(planSteps(plan), capabilityBearers(plan));
   html += "<h2>How to make it</h2><ol class=\"instructions\">" + data.instructions.map((line) => "<li>" + esc(line) + "</li>").join("")
     + "</ol><p class=\"note\">Written here from the steps' facts, not the source's words.</p>";
 
