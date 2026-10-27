@@ -27,6 +27,7 @@ A folder in `~/mealplanner-backups` (or `BACKUP_DIR`), named by when it was made
 |---|---|
 | `neo4j.dump` | the graph, by `neo4j-admin database dump` (40 MB on 2026-10-26, from a 614 MB store) |
 | `structr-files.tar.gz`, `structr-repository.tar.gz` | Structr's two data volumes (empty today; kept in case) |
+| `structr-changelog.tar.gz` | Structr's changelog: who created and changed what, and when, with the old and new values (2026-10-27, `docker-compose.yml`). Backups made before have none |
 | `private.tar.gz` | the repository's git-ignored `private/`: recipe files, week files, household, prices |
 | `manifest.json` | when, the two images, the repository's commit, the graph's node and relationship counts, each file's size and sha256, and every check made of it since |
 
@@ -78,4 +79,7 @@ beside yours as `private.restored-<name>/`, not over it: copy from it what you n
   is put on this machine's command line.
 - `down -v` is only ever run on the throwaway project. Never run it on `mealplanner-owner`.
 - A stack left running for days is backed up only when it stops; run `backup.py now` in between.
+- The changelog lives in files, not in the graph, so it is backed up as a volume. A restore puts back
+  the changelog the backup holds; restoring a backup made before the changelog leaves the changelog
+  as it is, which then also lists the writes the restore undid.
 - Avoid starting a backup or a check at about 10:00, when the daily Timeshift snapshot fills the disk.

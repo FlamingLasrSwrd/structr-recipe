@@ -108,7 +108,8 @@ class BackingUp(WithATempRepo):
         self.assertLess(docker.index("compose -p mealplanner-owner stop"), docker.index("database dump neo4j"))
         self.assertIn("owner_stack.sh up", docker.calls[-1] if "owner_stack" in docker.calls[-1] else " ".join(docker.calls))
         m = json.loads((folder / "manifest.json").read_text())
-        self.assertEqual(sorted(m["files"]), ["neo4j.dump", "private.tar.gz", "structr-files.tar.gz", "structr-repository.tar.gz"])
+        self.assertEqual(sorted(m["files"]), ["neo4j.dump", "private.tar.gz", "structr-changelog.tar.gz", "structr-files.tar.gz",
+                                             "structr-repository.tar.gz"])
         self.assertEqual((m["counts"], m["commit"], m["images"]["neo4j"]),
                          ({"nodes": 41455, "relationships": 86653}, "abc123", tool.image("neo4j")))
         self.assertEqual(m["files"]["neo4j.dump"]["sha256"], tool.sha256(folder / "neo4j.dump"))

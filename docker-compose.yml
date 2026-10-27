@@ -41,6 +41,15 @@ services:
     stop_grace_period: 2m
     ports:
       - "${STRUCTR_PORT:-8083}:8082"
+    # Ready once Structr serves requests: 503 while it starts, stops or deploys, and no credentials
+    # needed (docs/structr-features.md, the health spike). `docker compose ps` shows it;
+    # tools/wait_for_structr.sh still makes an authenticated read, which also proves the password.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost:8082/structr/health/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 180s
     environment:
       - AGREE_TO_STRUCTR_PRIVACY_POLICY=yes
       - TINI_KILL_PROCESS_GROUP=1
@@ -54,10 +63,19 @@ services:
       - STRUCTR_neo4j__default_database_connection_password=${NEO4J_PASSWORD}
       - STRUCTR_nodeservice_active=neo4j_default
       - STRUCTR_application_schema_automigration=true
+      # Who created and changed what, with the old and new values (docs/structr-features.md,
+      # batch 1): kept as files in /var/lib/structr/changelog, hence the volume below, which
+      # tools/backup.py backs up with the others. It records from when it was turned on.
+      - STRUCTR_application_changelog_enabled=true
+      - STRUCTR_application_changelog_user__centric_enabled=true
+      # A write with a key the schema does not declare is refused (422), so a misspelt key, or a
+      # tool run ahead of its migration, fails where it happens.
+      - STRUCTR_jsonrestservlet_unknowninput_validation_mode=reject
     volumes:
       - structr-files:/var/lib/structr/files
       - structr-repository:/var/lib/structr/repository
       - structr-logs:/var/lib/structr/logs
+      - structr-changelog:/var/lib/structr/changelog
       # Intentionally empty placeholder (Community edition needs no key); it only
       # exists so this bind mount has a file to attach to instead of Docker
       # creating a directory in its place.
@@ -71,6 +89,7 @@ volumes:
   structr-files:
   structr-repository:
   structr-logs:
+  structr-changelog:
 
 networks:
   structr-network: {}

@@ -71,13 +71,18 @@ def main():
 
     print("\n[3] Verifying: negative rejected, zero and positive accepted...")
     all_ok = True
+    # Measurement.hasTime comes later (mealplanner/recipe_schema.py) and is required from then on, so a
+    # re-run sends it; a first build must not, since the instance refuses a key its schema lacks
+    # (docker-compose.yml, unknown input keys)
+    declared = client.get("/structr/rest/SchemaProperty", params={"schemaNode": mid, "name": "hasTime"})["result"]
+    when = {"hasTime": OBSERVED_AT} if declared else {}
 
     try:
         client.post(
             "/structr/rest/Measurement",
             {
                 "name": "TEST -- invariant 12 negative value (should be rejected)",
-                "value": -3.0, "unit": "g", "status": "observed", "hasTime": OBSERVED_AT,
+                "value": -3.0, "unit": "g", "status": "observed", **when,
                 "visibleToAuthenticatedUsers": True,
             },
         )
@@ -92,13 +97,13 @@ def main():
     # (The negative case above stays a POST -- a rejected create is the test.)
     zero_id = client.upsert(
         "Measurement", "name", "TEST -- invariant 12 zero value (boundary - should be accepted)",
-        {"value": 0.0, "unit": "g", "status": "observed", "hasTime": OBSERVED_AT},
+        {"value": 0.0, "unit": "g", "status": "observed", **when},
     )
     print(f"    [OK] zero value accepted: {zero_id}")
 
     positive_id = client.upsert(
         "Measurement", "name", "TEST -- invariant 12 positive value (should be accepted)",
-        {"value": 12.5, "unit": "g", "status": "observed", "hasTime": OBSERVED_AT},
+        {"value": 12.5, "unit": "g", "status": "observed", **when},
     )
     print(f"    [OK] positive value accepted: {positive_id}")
 

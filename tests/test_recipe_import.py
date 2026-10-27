@@ -1,6 +1,6 @@
 """Recipe files: parsing (every problem reported at once), name resolution, and reading a Plan back.
 
-Writing to Structr is exercised against a real instance by scripts/29b_recipe_import_demo.py."""
+Writing to Structr is exercised against a real instance by scripts/44c_recipe_import_demo.py."""
 
 import tomllib
 import unittest

@@ -13,8 +13,9 @@ only, so a backup always stops the stack for the half minute the dump takes.
 
 A backup is a folder in BACKUP_DIR (default ~/mealplanner-backups) named by when it was made:
     neo4j.dump                    the graph (neo4j-admin database dump)
-    structr-files.tar.gz          Structr's two data volumes
+    structr-files.tar.gz          Structr's data volumes
     structr-repository.tar.gz
+    structr-changelog.tar.gz      who changed what and when (docker-compose.yml); not in backups made before it
     private.tar.gz                the repository's git-ignored private/ (recipes, week files, household, prices)
     manifest.json                 when, the images, the repository's commit, the graph's node and relationship
                                   counts, each file's size and sha256, and every verification since
@@ -45,7 +46,7 @@ OWNER = "mealplanner-owner"
 VERIFY = "mealplanner-verify"            # the throwaway a backup is checked in; never the owner's
 VERIFY_PORT = 8086
 OWNER_PORT = 8085
-VOLUMES = ("structr-files", "structr-repository")
+VOLUMES = ("structr-files", "structr-repository", "structr-changelog")
 NAME = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{6}(-[a-z-]+)?$")
 WAIT_S = 240
 

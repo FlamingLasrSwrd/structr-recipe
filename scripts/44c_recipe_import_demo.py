@@ -1,5 +1,10 @@
 """The recipe loader against real Structr (mealplanner/recipe_import.py).
 
+Numbered 29b until 2026-10-27, when it moved here. It runs today's importer, which writes the
+schema of 36a and 41a (a plan's make-ahead hours, a step's minutes and the steps before it) and
+reads 44a's. At 29b a rebuild ran it before those existed, writing keys the schema did not have yet;
+once an instance refuses unknown keys (docker-compose.yml) it could not run there at all.
+
 A two-step TEST recipe file is loaded, loaded again, edited, frozen by a cook
 and versioned, and at each point read back through the same engines the
 planner uses: nutrition from ingredients (J18, with units, J17) and raw-
@@ -20,7 +25,7 @@ of 0.8 g/mL, and a cup is 236.588 mL):
     sodium   (283.9056 x 0.05 + 400 x 2.5 + 6 x 387.58) / 4        = 834.91882 mg
     sodium after the edit  (283.9056 x 0.05 + 300 x 2.5) / 4       = 191.04882 mg
 
-Run with: python3 scripts/29b_recipe_import_demo.py
+Run with: python3 scripts/44c_recipe_import_demo.py
 """
 
 import os
