@@ -58,8 +58,8 @@ Run with `bash tools/spikes/run_spikes.sh` (a throwaway stack on port 8084 with 
 `tools/spikes/docker-compose.spike.yml`; setup, a restart, then verify). The last run's raw results
 are in `tools/spikes/last_results.json`.
 
-Twenty-two spikes, run on 2026-10-27 against `structr/structr:6.0.0`: 20 behave as documented,
-one does not (Python), one only reports (the endpoints). What each showed, and what it means here:
+Twenty-four spikes, run on 2026-10-27 against `structr/structr:6.0.0`: 21 behave as documented,
+one does not (Python), two only report (the endpoints, an object parameter). What each showed, and what it means here:
 
 | Spike | 6.0.0 showed | For this project |
 |---|---|---|
@@ -78,6 +78,8 @@ one does not (Python), one only reports (the endpoints). What each showed, and w
 | cron | `STRUCTR_cronservice_tasks=<function>` and `STRUCTR_<function>_cronExpression` (six fields) run the function; it must exist when Structr starts | No task yet; a nightly check is a candidate |
 | polyglot | **No.** The image carries the GraalPy jars, but `Polyglot.eval('python', ...)` answers 422 and the log says "No language for id python found. Supported languages are: [js]" | Python cannot run inside Structr 6.0 as shipped: what a request does stays JavaScript (`methods/`) and the planner stays Python outside it, as Path S has it |
 | params | A `SchemaMethodParameter` of type Integer turns `"7"` into 7; `httpVerb: "GET"` takes path segments (`/structr/rest/<name>/5`) and refuses POST (405); **an undeclared argument is dropped silently** (7.1 refuses it) | Batch 5. Every method must declare every argument it reads before 7.1 |
+| param_object | A JSON object passed to a declared parameter of type Map, Object or String arrives whole, as an object; the undeclared `warmUp` beside it is dropped | Batch 5: a booking method can declare one object parameter for its fields, and `warmUp` |
+| evaluate | `$.evaluateScript(node, 'expression')` runs a StructrScript expression with `this` the stored node and returns its value; written as `${...}` it returns nothing | Batch 4's check of the stored data: each validator's expression, its `error(` replaced by a function that only returns, evaluated against every node of its type |
 | cache | `$.cache(key, seconds, fn)` returns the first value again | A candidate for slow page reads; the key must name the household, since a cached value is shared by everyone |
 | doas | `$.doAs(user, fn)` runs `fn` as that user (`$.me`, their rights), **but returns nothing**: the result must be kept in a variable outside `fn` | Tools and checks acting as a household member (stage 5) |
 | schedule | `$.schedule(fn, title)` runs `fn` after the request | Work a page should not wait for |
@@ -157,8 +159,8 @@ vocabulary, profile and household tools write a node's changes in one PATCH (`Sy
 importer's `_write` upserts, then clears the fields given as None in a second request, so a node
 changing shape is briefly neither; the week's commit writes only open slots, so an entry never turns
 from a fresh cook into a leftover in place. Still open: how to check the stored data against each
-validator without writing it out again in Python (the evaluate spike asks whether a script can run
-a validator's expression against a stored node).
+validator without writing it out again in Python. The evaluate spike answers it: a script evaluates
+each validator's expression, `error(` replaced, against every stored node.
 
 **Batch 5, methods:** declared parameters for every argument a method reads, GET for the read-only
 ones, `includeInOpenAPI` with a tag for the planner contract. Needed before 7.1 in any case. Once a
@@ -166,7 +168,8 @@ method declares one parameter, 6.0 drops every argument it does not declare (the
 each method declares all it reads, `warmUp` included (`tools/install_methods.py`). The three booking
 methods take the fields of one action among many (`bookForCaller`): either every key any action
 reads is declared, or they take one declared object, for which a parameter type has to be found
-first (a spike: the documented types are numbers, dates, strings and booleans).
+first. The param_object spike found one: declared as Map (or Object, or String), an object arrives
+whole.
 
 **Batch 6, importers in one transaction:** a recipe written as array POSTs, so an interrupted import
 leaves nothing half-written, and measured against today's 8 to 19 s a recipe.

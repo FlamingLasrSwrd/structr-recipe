@@ -111,6 +111,22 @@
    "question": "Do declared parameters and httpVerb GET work?"
   },
   {
+   "answer": "INFO",
+   "documented": "parameter types are numbers, dates, strings and booleans",
+   "found": "an object passes whole as: ['Map', 'Object', 'String']; {'Map': 'declared; call 200 {\\'a\\': 1, \\'warm\\': None, \\'kind\\': \\'object\\', \\'text\\': \\'{\"a\":1,\"b\":[1,2]}\\'}', 'Object': 'declared; call 200 {\\'a\\': 1, \\'warm\\': None, \\'kind\\': \\'object\\', \\'text\\': \\'{\"a\":1,\"b\":[1,2]}\\'}', 'String': 'declared; call 200 {\\'a\\': 1, \\'warm\\': None, \\'kind\\': \\'object\\', \\'text\\': \\'{\"a\":1,\"b\":[1,2]}\\'}'}",
+   "spike": "param_object",
+   "question": "Which declared parameter type passes a JSON object whole?",
+   "run": "2026-10-27 10:35"
+  },
+  {
+   "answer": "OK",
+   "documented": "evaluateScript(node, script) runs a StructrScript expression with `this` the node",
+   "found": "200 {'${if(lt(this.v, 0), \"negative\", \"fine\")}': '', '${this.v}': '', 'this.v': '-3', 'if(lt(this.v, 0), \"negative\", \"fine\")': 'negative'}",
+   "spike": "evaluate",
+   "question": "Can a script evaluate a validator's expression against a stored node?",
+   "run": "2026-10-27 10:35"
+  },
+  {
    "answer": "OK",
    "documented": "cache(key, seconds, fn) computes once and returns the same value",
    "found": "first 200 '0.7837817386341823', second 200 '0.7837817386341823'",

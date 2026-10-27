@@ -488,8 +488,9 @@ On `SchemaNode`: `isAbstract`, `inheritedTraits`, `defaultVisibleToPublic`/`defa
   (`GET /structr/rest/<name>/5`), and a POST to it answers 405. **On 6.0 an undeclared argument is
   silently dropped** (it is absent from `$.args`); **[7.1]** refuses it with 422 unless "allow
   unknown parameters" is set, and Event Action Mapping drops it with a warning. Types: Integer,
-  Long, Double, Float, Date **[D7]** (Integer **[V6]**). On 6.0, declared parameters were **not**
-  usable as bare variables in a StructrScript body. **[V6]**
+  Long, Double, Float, Date **[D7]** (Integer **[V6]**). A JSON object passed to a parameter
+  declared `Map`, `Object` or `String` arrives whole, as an object **[V6]**. On 6.0, declared
+  parameters were **not** usable as bare variables in a StructrScript body. **[V6]**
 - Arguments arrive as `$.args` (aliases `$.arguments`, `$.methodParameters`) or
   `retrieve("name")`; query-string values as `$.request.<name>`. **[V6]** (`$.methodParameters`,
   `$.request`)
@@ -567,6 +568,10 @@ On `SchemaNode`: `isAbstract`, `inheritedTraits`, `defaultVisibleToPublic`/`defa
 - Change history: `changelog(node, resolve, filters)` and `userChangelog(user, ...)` (section 12.5).
 - Misc: `dateAdd`, `dateFormat`, `parseDate`, `weekDays`, `localize`, `setLocale`, `translate`
   (DeepL or Google key), `timer`, `evaluateScript`, `getenv`, `serverlog`.
+- `$.evaluateScript(node, 'expression')` **[V6]** evaluates a StructrScript expression written bare
+  (not `${...}`, which returns nothing) with `this` the given node, and returns its value: a way to
+  run a stored validator's logic against existing data. Replace a validator's `error(` first:
+  `error()` marks the running transaction failed (6.7).
 
 ---
 

@@ -536,6 +536,58 @@ def params_verify(ctx):
                   f"method: {wrong[0]} {str(wrong[1])[:100]}")
 
 
+OBJECT_TYPES = ("Map", "Object", "String")
+
+
+def param_object_setup(ctx):
+    """What a declared parameter can hold when the argument is a JSON object (a booking's fields)."""
+    for kind in OBJECT_TYPES:
+        name = f"spkObject{kind}"
+        method = ctx.function(name, "{ const b = $.args.booking; return {kind: typeof b, text: JSON.stringify(b), "
+                                    "a: b && b.a !== undefined ? b.a : null, warm: $.args.warmUp === undefined ? null : $.args.warmUp}; }",
+                              returnRawResult=True)
+        if not ctx.ok("GET", f"/structr/rest/SchemaMethodParameter?schemaMethod={method}")["result"]:
+            status, out = ctx.raw("POST", "/structr/rest/SchemaMethodParameter",
+                                  {"schemaMethod": method, "name": "booking", "parameterType": kind, "index": 0})
+            if status >= 400:
+                ctx.ok("PATCH", f"/structr/rest/SchemaMethod/{method}", {"summary": f"declaring {kind}: {status} {str(out)[:120]}"})
+
+
+def param_object_verify(ctx):
+    found = {}
+    for kind in OBJECT_TYPES:
+        name = f"spkObject{kind}"
+        method = ctx.ok("GET", f"/structr/rest/SchemaMethod?name={name}")["result"][0]
+        declared = ctx.node("SchemaMethod", method["id"]).get("summary") or "declared"
+        status, out = ctx.call(name, {"booking": {"a": 1, "b": [1, 2]}, "warmUp": True})
+        found[kind] = f"{declared}; call {status} {str(out)[:160]}"
+    works = [k for k in OBJECT_TYPES if "'a': 1" in found[k]]
+    return {"answer": "INFO", "documented": "parameter types are numbers, dates, strings and booleans",
+            "found": f"an object passes whole as: {works or 'none'}; {found}"}
+
+
+def evaluate_setup(ctx):
+    t = ctx.schema_type("SpkEvaluated")
+    ctx.schema_prop(t, "v", "Integer")
+    ctx.function("spkEvaluate", """{
+  const n = $.find('SpkEvaluated', {name: 'spike evaluated'})[0];
+  const out = {};
+  for (const src of ['this.v', '${this.v}', 'if(lt(this.v, 0), "negative", "fine")', '${if(lt(this.v, 0), "negative", "fine")}']) {
+    try { out[src] = String($.evaluateScript(n, src)); } catch (e) { out[src] = 'error: ' + e; }
+  }
+  return out;
+}""", returnRawResult=True)
+
+
+def evaluate_verify(ctx):
+    if not ctx.one("SpkEvaluated", "spike evaluated"):
+        ctx.create("SpkEvaluated", {"name": "spike evaluated", "v": -3})
+    status, out = ctx.call("spkEvaluate")
+    ok = isinstance(out, dict) and any(v == "negative" for v in out.values())
+    return answer(ok, "evaluateScript(node, script) runs a StructrScript expression with `this` the node",
+                  f"{status} {out}")
+
+
 def cache_setup(ctx):
     ctx.function("spkCache", "{ return $.cache('spk-cache-key', 300, () => String(Math.random())); }")
 
@@ -644,6 +696,8 @@ SPIKES = [
     ("cron", "Does a scheduled task configured by environment run?", cron_setup, cron_verify),
     ("polyglot", "Can a JavaScript method run Python?", polyglot_setup, polyglot_verify),
     ("params", "Do declared parameters and httpVerb GET work?", params_setup, params_verify),
+    ("param_object", "Which declared parameter type passes a JSON object whole?", param_object_setup, param_object_verify),
+    ("evaluate", "Can a script evaluate a validator's expression against a stored node?", evaluate_setup, evaluate_verify),
     ("cache", "Does cache() keep a value?", cache_setup, cache_verify),
     ("doas", "Does doAs() run code as another user?", doas_setup, doas_verify),
     ("schedule", "Does schedule() run code after the request?", schedule_setup, schedule_verify),
