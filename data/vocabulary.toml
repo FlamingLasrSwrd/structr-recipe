@@ -69,7 +69,8 @@ nutrients = [1087, 1089, 1090, 1091, 1092, 1093, 1095, 1106, 1162, 1165, 1166, 1
 # takes Vitamin A (RE)'s, Folate (DFE) takes total folate's.
 stand_ins = { 1106 = 392, 1190 = 417 }
 # Methods that apply no heat: every nutrient above is kept whole (a factor of 1 on "Food").
-no_heat = ["No-Heat Method", "Soaking", "Marinating", "Mixing"]
+no_heat = ["No-Heat Method", "Soaking", "Marinating", "Mixing",
+           "Mechanical Method", "Chopping", "Dicing", "Mincing", "Slicing", "Grating", "Peeling", "Mashing"]
 
 # -- methods, parents before children --------------------------------------------------------
 
@@ -117,6 +118,40 @@ parent = "No-Heat Method"
 [[method]]
 name = "Mixing"
 parent = "No-Heat Method"
+
+# Cutting and other mechanical work (data-model.md Sec 3: the Transformation Method hierarchy's
+# mechanical branch; J35). No heat, so every nutrient is kept whole (no_heat above). A cut that
+# matters downstream names what it makes ("Onion (diced)"); one that does not uses the food as is.
+[[method]]
+name = "Mechanical Method"
+
+[[method]]
+name = "Chopping"
+parent = "Mechanical Method"
+
+[[method]]
+name = "Dicing"
+parent = "Mechanical Method"
+
+[[method]]
+name = "Mincing"
+parent = "Mechanical Method"
+
+[[method]]
+name = "Slicing"
+parent = "Mechanical Method"
+
+[[method]]
+name = "Grating"
+parent = "Mechanical Method"
+
+[[method]]
+name = "Peeling"
+parent = "Mechanical Method"
+
+[[method]]
+name = "Mashing"
+parent = "Mechanical Method"
 
 [[method]]
 name = "Roasting"

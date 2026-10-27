@@ -131,13 +131,65 @@ makes go in a comment at the top of the file. The conventions so far (`docs/data
   with the estimate in the file's comment, unless the vocabulary gives the food a weight per item.
 - Every food must be in `data/vocabulary.toml`, matched to a USDA food (`tools/import_vocabulary.py`).
 
+## A step's facts
+
+Each optional, each a fact (`docs/recipe-copyright.md`), each where the model already keeps such
+things (`docs/data-model.md` §18 J35):
+
+```toml
+[[steps]]
+name = "roast the chicken"
+method = "Roasting"
+makes = "Chicken (roasted)"
+after = []                                # the steps before it, by name; default: the one before it.
+                                          # [] starts it at once, beside the others
+minutes = 5                               # working time: it takes someone's attention
+wait_minutes = 25                         # waiting time: it then needs no one (roasting, simmering, resting)
+until = "golden"                          # doneness in a few words (at most 60 characters)
+inside = { temp = 165, unit = "F" }       # the temperature the food reaches inside (USDA FSIS's minimums)
+equipment = [{ tool = "Oven", temp = 425, unit = "F" }]    # a tool set to a temperature, F or C,
+                                          # or { tool = "Skillet", heat = "medium-high" }: low, medium-low,
+                                          # medium, medium-high or high; or just its name, as before
+inputs = [{ food = "Chicken", amount = 300, unit = "g" }]
+```
+
+- **Order.** A step that uses what another makes must come after it, directly or through the steps
+  between; the loader says so if `after` would put it earlier. Two steps neither of which comes
+  before the other may be done side by side.
+- **Times.** `minutes` and `wait_minutes` are the step's own. The recipe's `minutes` stays its total
+  working time, which the planner scores; nothing adds the steps' up for it.
+- **Cut forms** are methods: `Chopping`, `Dicing`, `Mincing`, `Slicing`, `Grating`, `Peeling` and
+  `Mashing`, under `Mechanical Method` in `data/vocabulary.toml`. They apply no heat, so every nutrient
+  is kept whole. A cut that matters downstream names what it makes (`makes = "Onion (diced)"`).
+- **Heat and doneness** need the Quality Kinds `Temperature`, `Heat Level` and `Doneness`, which
+  `scripts/41a` makes; the loader names a missing one before writing anything.
+- **A recipe already cooked** is history: adding facts to its file is a change, so it loads as a new
+  `version`.
+
+## Instructions written from the steps
+
+The recipe page's **How to make it** writes each step as one sentence of our own from its facts, by
+fixed rules (`mealplanner/instructions.py`; `pages/lib/75_instructions.js` writes the same, word for
+word): the method's verb (or, with no method, the step's label), the ingredients with their amounts
+("the" for what an earlier step made), the tools with their heat, the doneness, the time, and
+"Meanwhile" for a step that does not follow the one before. The recipe above reads:
+
+1. Rinse the rice: 150 g rice, about 2 minutes.
+2. Simmer the rice (rinsed) on the stove over low heat using the saucepan, about 20 minutes, 2 of them hands-on.
+3. Meanwhile, roast 300 g chicken in the oven at 425 °F until golden and 165 °F inside, about 30 minutes, 5 of them hands-on.
+4. Serve: the rice (cooked) and the chicken (roasted).
+
+So a step's label is best a few words of what it does ("rinse the rice"), and facts left out are left
+out of the sentence: nothing is guessed.
+
 ## What it becomes
 
 A `RecipeIdentity` (meal types; an `Identifier` for the source page), a `Plan` named
 `<name> v<version>` (yield in servings, minutes, difficulty, hours made ahead), and for each step a `Step` (its
 transformation method) with one input `Specification` per ingredient, an output `Specification`
-for what it makes, and an instrument `Specification` per piece of equipment. The page's prose is
-not stored: a Step records what goes in, what comes out, how and with what, in order. An actual
+for what it makes, and an instrument `Specification` per piece of equipment. A step's minutes are
+QuantitySpecifications, its order is `isPrecededBy`, and a tool's heat or a product's doneness is a
+`StateRequirement` on its Specification (J35). The page's prose is not stored: a Step records what goes in, what comes out, how and with what, in order. An actual
 cook is a separate thing, a `Process` that concretizes the Plan with the quantities really used
 (`scripts/15c` shows one); there is no tool to record a cook yet. The dish's
 mass is not stored: nutrition per serving is worked out from the ingredients

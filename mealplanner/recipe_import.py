@@ -16,6 +16,10 @@ What a file becomes (data-model.md Sec 5, the same shapes scripts/15c builds):
       Specification ... input <j> <food>   specifies a Food-Identity Type; quantity if stated
       Specification ... output <type>      the Step's product
       Specification ... equipment <k> <x>  instrument role: a tool the Step needs
+        StateRequirement ... heat          what the tool is set to: Temperature or Heat Level
+      Specification ... output <type> doneness / inside   when it is done: Doneness, Temperature inside
+      QuantitySpecification ... working time / waiting time   the Step's minutes (J35)
+      the Steps before it                  isPrecededBy (P-Plan); by default the one before
 
 The dish and every intermediate are Food-Identity Types: an existing one is
 reused (a known cooked food keeps its own profiles, Sec 8 rule 7(a)), a new one
@@ -36,10 +40,11 @@ list it was computed from.
 from __future__ import annotations
 
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from mealplanner.identifier_schema import WEB_PAGE
 from mealplanner.nutrition_scope import COUNT_UNITS
+from mealplanner.step_facts_schema import DONENESS, HEAT_LEVEL, QUALITY_KIND_HIERARCHY, TEMPERATURE
 from mealplanner.unit_conversion import UNIT_TABLE, convert_to_grams
 from structr_client.client import UNSAFE_EXACT_MATCH_CHARS
 
@@ -50,7 +55,11 @@ EQUIPMENT_HIERARCHY = "Equipment Type"
 MEAL_TYPE_SCHEME = "Meal Type"
 TOP_KEYS = {"name", "version", "source", "servings", "minutes", "ahead_hours", "difficulty", "meal_types", "dish", "steps",
             "baseline"}
-STEP_KEYS = {"name", "method", "makes", "inputs", "equipment"}
+STEP_KEYS = {"name", "method", "makes", "inputs", "equipment", "minutes", "wait_minutes", "after", "until", "inside"}
+TOOL_KEYS = {"tool", "temp", "unit", "heat"}
+HEAT_LEVELS = ("low", "medium-low", "medium", "medium-high", "high")
+TEMP_UNITS = {"F": "degF", "C": "degC"}          # as a file says it -> as a QuantitySpecification stores it
+UNTIL_MAX = 60                                   # "until golden": a few words of doneness, not instructions
 # A step's name is a label of a few words, never the source's instructions, which are not stored
 # (docs/recipe-copyright.md): the file has no field for them, and this keeps a name from holding them.
 STEP_NAME_MAX = 80
@@ -86,12 +95,28 @@ class Ingredient:
 
 
 @dataclass(frozen=True)
+class Heat:
+    """What a tool is set to (J35): a temperature (an oven, `unit` "F" or "C") or a level (a burner)."""
+    tool: str
+    temp: float | None = None
+    unit: str | None = None
+    level: str | None = None
+
+
+@dataclass(frozen=True)
 class StepDoc:
     label: str
     method: str | None
     inputs: tuple[Ingredient, ...]
     makes: str
     equipment: tuple[str, ...] = ()   # the tools the step needs: instrument Specifications
+    # The step's facts (J35); every one optional
+    minutes: float | None = None              # working time: the step takes someone's attention
+    wait_minutes: float | None = None         # waiting time: it then needs no one (simmering, baking, resting)
+    after: tuple[int, ...] | None = None      # the steps (numbered from 1) done before it; None: the one before it
+    heat: tuple[Heat, ...] = ()               # what each tool set is set to, in the tools' order
+    until: str | None = None                  # doneness in a few words ("golden")
+    inside: tuple[float, str] | None = None   # the temperature the food reaches inside, (temp, "F" or "C")
 
 
 @dataclass(frozen=True)
@@ -231,16 +256,53 @@ def parse_recipe(data: dict) -> RecipeDoc:
             if not isinstance(optional, bool):
                 problems.append(f"{iw}: optional must be true or false")
             inputs.append(Ingredient(food, None if amount is None else float(amount), unit, optional))
-        equipment = raw.get("equipment", [])
-        if not isinstance(equipment, list):
+        raw_tools = raw.get("equipment", [])
+        if not isinstance(raw_tools, list):
             problems.append(f"{where}: equipment must be a list of names")
-            equipment = []
-        for k, tool in enumerate(equipment, 1):
-            _safe_name(f"{where} equipment {k}", tool, problems)
+            raw_tools = []
+        equipment, heat = [], []
+        for k, item in enumerate(raw_tools, 1):
+            tw = f"{where} equipment {k}"
+            if isinstance(item, dict):
+                for key in sorted(set(item) - TOOL_KEYS):
+                    problems.append(f"{tw}: unknown key {key!r} (allowed: {', '.join(sorted(TOOL_KEYS))})")
+                tool = item.get("tool")
+                setting = _heat(tw, tool, item, problems)
+                if setting is not None:
+                    heat.append(setting)
+            else:
+                tool = item
+            _safe_name(f"{tw}", tool, problems)
+            equipment.append(tool)
         if len(set(equipment)) != len(equipment):
             problems.append(f"{where}: a piece of equipment is listed twice")
-        steps.append(StepDoc(label, method, tuple(inputs), makes, tuple(equipment)))
+        minutes_here, wait = raw.get("minutes"), raw.get("wait_minutes")
+        for key, value in (("minutes", minutes_here), ("wait_minutes", wait)):
+            if value is not None and (not _number(value) or value < 0):
+                problems.append(f"{where}: {key} must be a number from 0, not {value!r}")
+        until = raw.get("until")
+        if until is not None and (not isinstance(until, str) or not until.strip() or len(until) > UNTIL_MAX or "\n" in until):
+            problems.append(f"{where}: until is a few words of doneness (at most {UNTIL_MAX} characters, as \"golden\"), "
+                            f"not {until!r}: the recipe's own instructions are not stored (docs/recipe-copyright.md)")
+        inside = raw.get("inside")
+        if inside is not None:
+            if not isinstance(inside, dict) or set(inside) != {"temp", "unit"} or not _number(inside.get("temp")) \
+                    or inside.get("temp") <= 0 or inside.get("unit") not in TEMP_UNITS:
+                problems.append(f"{where}: inside is a temperature the food reaches, as {{ temp = 165, unit = \"F\" }}, "
+                                f"not {inside!r}")
+                inside = None
+            else:
+                inside = (float(inside["temp"]), inside["unit"])
+        after_names = raw.get("after")
+        if after_names is not None and (not isinstance(after_names, list) or not all(isinstance(a, str) for a in after_names)):
+            problems.append(f"{where}: after must be a list of the names of earlier steps")
+            after_names = None
+        as_minutes = lambda value: float(value) if _number(value) and value >= 0 else None
+        steps.append(StepDoc(label, method, tuple(inputs), makes, tuple(equipment), as_minutes(minutes_here), as_minutes(wait),
+                             tuple(after_names) if after_names is not None else None, tuple(heat),
+                             until.strip() if isinstance(until, str) else None, inside))
 
+    steps = _order(steps, problems)
     made = [s.makes for s in steps]
     if len(set(made)) != len(made):
         problems.append("two steps make the same thing")
@@ -261,6 +323,60 @@ def parse_recipe(data: dict) -> RecipeDoc:
     )
 
 
+def _heat(where: str, tool, item: dict, problems: list[str]) -> Heat | None:
+    """A tool's setting from its table: { tool = "Oven", temp = 425, unit = "F" } or { tool = "Skillet",
+    heat = "medium-high" }; None when it sets none."""
+    temp, unit, level = item.get("temp"), item.get("unit"), item.get("heat")
+    if temp is None and level is None:
+        if unit is not None:
+            problems.append(f"{where}: a unit with no temperature")
+        return None
+    if temp is not None and level is not None:
+        problems.append(f"{where}: a temperature or a heat level, not both")
+        return None
+    if level is not None:
+        if level not in HEAT_LEVELS:
+            problems.append(f"{where}: heat must be one of {', '.join(HEAT_LEVELS)}, not {level!r}")
+            return None
+        return Heat(tool, level=level)
+    if not _number(temp) or temp <= 0 or unit not in TEMP_UNITS:
+        problems.append(f"{where}: a temperature is a number above 0 with a unit of F or C, not {temp!r} {unit!r}")
+        return None
+    return Heat(tool, temp=float(temp), unit=unit)
+
+
+def _order(steps: list[StepDoc], problems: list[str]) -> list[StepDoc]:
+    """Each step's `after`, from the names of earlier steps to their numbers, and None where it is the
+    default (just the step before; nothing, for the first). A step that uses what another makes must
+    come after it, directly or through the steps between."""
+    labels = [s.label for s in steps]
+    out = []
+    for i, step in enumerate(steps, 1):
+        default = (i - 1,) if i > 1 else ()
+        if step.after is None:
+            out.append(step)
+            continue
+        numbers = []
+        for name in step.after:
+            earlier = [j for j, label in enumerate(labels[:i - 1], 1) if label == name]
+            if len(earlier) != 1:
+                problems.append(f"step {i}: after names {name!r}, which is " + (
+                    "no earlier step" if not earlier else f"{len(earlier)} earlier steps: name them apart"))
+                continue
+            numbers.append(earlier[0])
+        numbers = tuple(sorted(set(numbers)))
+        out.append(replace(step, after=None if numbers == default else numbers))
+    before = {}
+    for i, step in enumerate(out, 1):
+        direct = step.after if step.after is not None else ((i - 1,) if i > 1 else ())
+        before[i] = set(direct).union(*(before[j] for j in direct)) if direct else set()
+    for j, later in enumerate(out, 1):
+        for i, step in enumerate(out[:j - 1], 1):
+            if any(ing.food == step.makes for ing in later.inputs) and i not in before[j]:
+                problems.append(f"step {j} uses {step.makes!r}, which step {i} makes, so it must come after it (after)")
+    return out
+
+
 def read_recipe(path) -> RecipeDoc:
     with open(path, "rb") as fh:
         return parse_recipe(tomllib.load(fh))
@@ -277,6 +393,7 @@ class Resolved:
     food_hierarchy: str
     web_page: str | None               # the "Web page" identifier scheme, if the file has a source
     equipment: dict[str, str] = field(default_factory=dict)   # -> Equipment Type id
+    qualities: dict[str, str] = field(default_factory=dict)   # Quality Kind name -> id: heat and doneness (J35)
 
 
 def _one(client, path: str, name: str) -> list[dict]:
@@ -318,6 +435,25 @@ def resolve(client, doc: RecipeDoc) -> Resolved:
                 foods[ing.food] = domain_type(ing.food, food_h, "ingredient")
     methods = {s.method: domain_type(s.method, method_h, "method") for s in doc.steps if s.method}
     equipment = {tool: domain_type(tool, equipment_h, "equipment") for s in doc.steps for tool in s.equipment}
+    wanted_kinds = set()
+    for step in doc.steps:
+        for setting in step.heat:
+            wanted_kinds.add(TEMPERATURE if setting.temp is not None else HEAT_LEVEL)
+        if step.until:
+            wanted_kinds.add(DONENESS)
+        if step.inside:
+            wanted_kinds.add(TEMPERATURE)
+    qualities = {}
+    if wanted_kinds:
+        kind_h = _one(client, "/structr/rest/TypeHierarchy", QUALITY_KIND_HIERARCHY)
+        if len(kind_h) != 1:
+            problems.append(f"the {QUALITY_KIND_HIERARCHY!r} hierarchy must exist once (scripts/05 makes it)")
+        else:
+            for kind in sorted(wanted_kinds):
+                found = domain_type(kind, kind_h[0]["id"], "quality kind", may_be_missing=True)
+                if found is None and not any(kind in p for p in problems):
+                    problems.append(f"quality kind {kind!r} is not in the vocabulary (scripts/41a makes it)")
+                qualities[kind] = found
     meal_types = {}
     for meal in doc.meal_types:
         matches = [c for c in _one(client, "/structr/rest/Concept", meal)
@@ -335,7 +471,7 @@ def resolve(client, doc: RecipeDoc) -> Resolved:
             web_page = concepts[0]["id"]
     if problems:
         raise RecipeResolutionError(problems)
-    return Resolved(foods, methods, meal_types, products, food_h, web_page, equipment)
+    return Resolved(foods, methods, meal_types, products, food_h, web_page, equipment, qualities)
 
 
 # -- reading a Plan back ---------------------------------------------------
@@ -347,17 +483,31 @@ def export_plan(client, plan_id: str) -> tuple:
     servings = None
     if plan.get("hasRecipeYield"):
         servings = client.get_all("QuantitySpecification", plan["hasRecipeYield"]["id"])["result"].get("value")
+    refs = sorted((_step_index(r["name"], plan["name"]), r) for r in plan.get("steps", []))
+    nodes = {index: client.get_all("Step", ref["id"])["result"] for index, ref in refs}
+    number_of = {ref["id"]: index for index, ref in refs}
+    ordered = any(node.get("isPrecededBy") for node in nodes.values())    # one loaded before J35: in sequence
     steps = []
-    for index, ref in sorted((_step_index(r["name"], plan["name"]), r) for r in plan.get("steps", [])):
-        step = client.get_all("Step", ref["id"])["result"]
-        inputs, makes, tools = [], None, []
+    for index, ref in refs:
+        step = nodes[index]
+        inputs, makes, tools, heat, until, inside = [], None, [], [], None, None
         specs = [client.get_all("Specification", s["id"])["result"] for s in step.get("hasSpecification", [])]
         for spec in sorted(specs, key=lambda s: s["name"]):
+            wanted = _requirements(client, spec)
             if spec.get("hasParticipationRole") == "output":
                 makes = spec["specifies"]["name"]
+                until = wanted.get(DONENESS, (None, None, None))[0]
+                if TEMPERATURE in wanted:
+                    inside = (wanted[TEMPERATURE][1], wanted[TEMPERATURE][2])
                 continue
             if spec.get("hasParticipationRole") == "instrument":
-                tools.append((int(spec["name"].rsplit(" equipment ", 1)[1].split(" ", 1)[0]), spec["specifies"]["name"]))
+                k = int(spec["name"].rsplit(" equipment ", 1)[1].split(" ", 1)[0])
+                tool = spec["specifies"]["name"]
+                tools.append((k, tool))
+                if TEMPERATURE in wanted:
+                    heat.append((k, Heat(tool, temp=wanted[TEMPERATURE][1], unit=wanted[TEMPERATURE][2])))
+                elif HEAT_LEVEL in wanted:
+                    heat.append((k, Heat(tool, level=wanted[HEAT_LEVEL][0])))
                 continue
             amount = unit = None
             if spec.get("hasSpecifiedQuantity"):
@@ -367,10 +517,37 @@ def export_plan(client, plan_id: str) -> tuple:
                                                                   bool(spec.get("isOptional")))))
         label = step["name"][len(f"{plan['name']} step {index} -- "):]
         method = (step.get("instanceOf") or {}).get("name")
+        after = None
+        if ordered:
+            numbers = tuple(sorted(number_of[r["id"]] for r in step.get("isPrecededBy") or [] if r["id"] in number_of))
+            after = None if numbers == ((index - 1,) if index > 1 else ()) else numbers
         steps.append(StepDoc(label, method, tuple(ing for _, ing in sorted(inputs, key=lambda p: p[0])), makes,
-                             tuple(tool for _, tool in sorted(tools))))
+                             tuple(tool for _, tool in sorted(tools)), _minutes(client, step.get("hasWorkingTime")),
+                             _minutes(client, step.get("hasWaitingTime")), after, tuple(h for _, h in sorted(heat)),
+                             until, inside))
     return (servings, plan.get("estimatedDurationMinutes"), plan.get("difficultyRating"), tuple(steps),
             plan.get("makeAheadHours"))
+
+
+def _minutes(client, ref: dict | None) -> float | None:
+    return client.get_all("QuantitySpecification", ref["id"])["result"].get("value") if ref else None
+
+
+def _requirements(client, spec: dict) -> dict:
+    """A Specification's StateRequirements by the Quality Kind each targets: (words, value, unit as a
+    file says it)."""
+    out = {}
+    back = {stored: said for said, stored in TEMP_UNITS.items()}
+    for ref in spec.get("hasStateRequirement") or []:
+        req = client.get_all("StateRequirement", ref["id"])["result"]
+        kind = (req.get("targetsProperty") or {}).get("name")
+        value = unit = None
+        if req.get("expectedValueQty"):
+            qty = client.get_all("QuantitySpecification", req["expectedValueQty"]["id"])["result"]
+            value, unit = qty.get("value"), back.get(qty.get("unit"), qty.get("unit"))
+        if kind:
+            out[kind] = (req.get("expectedValueLiteral"), value, unit)
+    return out
 
 
 def _step_index(step_name: str, plan_name: str) -> int:
@@ -447,10 +624,17 @@ def import_recipe(client, doc: RecipeDoc, *, check_only: bool = False) -> Import
         "estimatedDurationMinutes": doc.minutes, "difficultyRating": doc.difficulty, "makeAheadHours": doc.ahead_hours})
 
     type_of = {**names.foods, **names.products}
-    keep_steps, keep_specs = set(), set()
+    keep_steps, keep_specs, step_ids = set(), set(), []
     for i, step in enumerate(doc.steps, 1):
-        fields = {"plan": plan_id, "instanceOf": names.methods.get(step.method) if step.method else None}
-        step_id = _write(client, "Step", step_name(doc, i, step), fields)
+        name = step_name(doc, i, step)
+        fields = {"plan": plan_id, "instanceOf": names.methods.get(step.method) if step.method else None,
+                  "hasWorkingTime": _minutes_quantity(client, f"{name} working time", step.minutes),
+                  "hasWaitingTime": _minutes_quantity(client, f"{name} waiting time", step.wait_minutes)}
+        step_id = _write(client, "Step", name, fields)
+        for kind, value in (("working", step.minutes), ("waiting", step.wait_minutes)):
+            if value is None:
+                _delete_unused(client, f"{name} {kind} time", f"{kind}TimeOfSteps")
+        step_ids.append(step_id)
         keep_steps.add(step_id)
         for j, ing in enumerate(step.inputs, 1):
             spec_name = input_name(doc, i, j, ing)
@@ -464,12 +648,27 @@ def import_recipe(client, doc: RecipeDoc, *, check_only: bool = False) -> Import
             keep_specs.add(spec_id)
             if qty_id is None:
                 _delete_orphan_quantity(client, f"{spec_name} quantity")
-        keep_specs.add(client.upsert("Specification", "name", output_name(doc, i, step), {
-            "step": step_id, "hasParticipationRole": "output", "specifies": type_of[step.makes], "isOptional": False}))
+        out_name = output_name(doc, i, step)
+        out_id = client.upsert("Specification", "name", out_name, {
+            "step": step_id, "hasParticipationRole": "output", "specifies": type_of[step.makes], "isOptional": False})
+        keep_specs.add(out_id)
+        _requirement(client, out_id, f"{out_name} doneness", names.qualities.get(DONENESS) if step.until else None,
+                     literal=step.until)
+        _requirement(client, out_id, f"{out_name} inside", names.qualities.get(TEMPERATURE) if step.inside else None,
+                     value=step.inside[0] if step.inside else None, unit=step.inside[1] if step.inside else None)
         for k, tool in enumerate(step.equipment, 1):     # instrument role: never a quantity (invariant 6)
-            keep_specs.add(client.upsert("Specification", "name", f"{doc.plan_name} step {i} equipment {k} {tool}", {
+            tool_name = f"{doc.plan_name} step {i} equipment {k} {tool}"
+            tool_id = client.upsert("Specification", "name", tool_name, {
                 "step": step_id, "hasParticipationRole": "instrument", "specifies": names.equipment[tool],
-                "isOptional": False}))
+                "isOptional": False})
+            keep_specs.add(tool_id)
+            setting = next((h for h in step.heat if h.tool == tool), None)
+            kind = None if setting is None else names.qualities.get(TEMPERATURE if setting.temp is not None else HEAT_LEVEL)
+            _requirement(client, tool_id, f"{tool_name} heat", kind, literal=setting.level if setting else None,
+                         value=setting.temp if setting else None, unit=setting.unit if setting else None)
+    for i, step in enumerate(doc.steps, 1):              # the steps before each: isPrecededBy (P-Plan), written whole
+        first = step.after if step.after is not None else ((i - 1,) if i > 1 else ())
+        client.patch(f"/structr/rest/Step/{step_ids[i - 1]}", {"isPrecededBy": [step_ids[j - 1] for j in first]})
 
     removed = _remove_stale(client, plan_id, keep_steps, keep_specs)
     report = ImportReport(recipe_id, plan_id, plan_unchanged=before == doc.plan_part() and not removed,
@@ -506,6 +705,41 @@ def _write(client, type_name: str, name: str, fields: dict) -> str:
     return node_id
 
 
+def _minutes_quantity(client, name: str, minutes: float | None) -> str | None:
+    """A step's working or waiting time as a QuantitySpecification in minutes; None when it states none."""
+    if minutes is None:
+        return None
+    return client.upsert("QuantitySpecification", "name", name, {"value": minutes, "unit": "minutes", "status": "specified"})
+
+
+def _requirement(client, spec_id: str, name: str, kind_id: str | None, *, literal: str | None = None,
+                 value: float | None = None, unit: str | None = None) -> None:
+    """One StateRequirement of a Specification, by name (J35): targeting `kind_id` with words or a
+    temperature, or removed, with its value, when kind_id is None."""
+    value_name = f"{name} value"
+    if kind_id is None:
+        for row in _one(client, "/structr/rest/StateRequirement", name):
+            client.delete(f"/structr/rest/StateRequirement/{row['id']}")
+        _delete_unused(client, value_name, "expectedValueOfStateReqs")
+        return
+    qty = None
+    if value is not None:
+        qty = client.upsert("QuantitySpecification", "name", value_name, {"value": value, "unit": TEMP_UNITS[unit],
+                                                                          "status": "specified"})
+    _write(client, "StateRequirement", name, {"specification": spec_id, "targetsProperty": kind_id,
+                                              "expectedValueQty": qty, "expectedValueLiteral": literal})
+    if qty is None:
+        _delete_unused(client, value_name, "expectedValueOfStateReqs")
+
+
+def _delete_unused(client, name: str, used_by: str) -> None:
+    """A QuantitySpecification of this name that nothing holds by `used_by` any more."""
+    for qty in _one(client, "/structr/rest/QuantitySpecification", name):
+        node = client.get_all("QuantitySpecification", qty["id"])["result"]
+        if not node.get(used_by):
+            client.delete(f"/structr/rest/QuantitySpecification/{qty['id']}")
+
+
 def _delete_orphan_quantity(client, name: str) -> None:
     """A quantity left behind when an ingredient lost its amount ("to taste")."""
     for qty in _one(client, "/structr/rest/QuantitySpecification", name):
@@ -528,9 +762,17 @@ def _remove_stale(client, plan_id: str, keep_steps: set[str], keep_specs: set[st
             spec = client.get_all("Specification", spec_ref["id"])["result"]
             if spec.get("hasSpecifiedQuantity"):
                 client.delete(f"/structr/rest/QuantitySpecification/{spec['hasSpecifiedQuantity']['id']}")
+            for req_ref in spec.get("hasStateRequirement") or []:
+                req = client.get_all("StateRequirement", req_ref["id"])["result"]
+                if req.get("expectedValueQty"):
+                    client.delete(f"/structr/rest/QuantitySpecification/{req['expectedValueQty']['id']}")
+                client.delete(f"/structr/rest/StateRequirement/{req_ref['id']}")
             client.delete(f"/structr/rest/Specification/{spec_ref['id']}")
             removed.append(spec["name"])
         if step_ref["id"] not in keep_steps:
+            for key in ("hasWorkingTime", "hasWaitingTime"):
+                if step.get(key):
+                    client.delete(f"/structr/rest/QuantitySpecification/{step[key]['id']}")
             client.delete(f"/structr/rest/Step/{step_ref['id']}")
             removed.append(step["name"])
     return removed

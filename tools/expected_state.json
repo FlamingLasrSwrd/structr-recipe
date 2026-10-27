@@ -851,11 +851,29 @@
   "targetJsonName": "hasSpecification",
   "targetMultiplicity": "*"
  },
+ "@schema | relationship Step -[HAS_WAITING_TIME]-> QuantitySpecification": {
+  "sourceJsonName": "waitingTimeOfSteps",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasWaitingTime",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Step -[HAS_WORKING_TIME]-> QuantitySpecification": {
+  "sourceJsonName": "workingTimeOfSteps",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "hasWorkingTime",
+  "targetMultiplicity": "1"
+ },
  "@schema | relationship Step -[INSTANCE_OF]-> DomainType": {
   "sourceJsonName": "stepInstances",
   "sourceMultiplicity": "*",
   "targetJsonName": "instanceOf",
   "targetMultiplicity": "1"
+ },
+ "@schema | relationship Step -[IS_PRECEDED_BY]-> Step": {
+  "sourceJsonName": "precedes",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "isPrecededBy",
+  "targetMultiplicity": "*"
  },
  "@schema | relationship StockPolicy -[APPLIES_TO]-> DomainType": {
   "sourceJsonName": "stockPoliciesApplying",
@@ -1683,6 +1701,10 @@
   "hierarchy": "<TypeHierarchy:Default Kind>",
   "name": "Density"
  },
+ "DomainType | Doneness": {
+  "hierarchy": "<TypeHierarchy:Quality Kind>",
+  "name": "Doneness"
+ },
  "DomainType | Dry Goods": {
   "hierarchy": "<TypeHierarchy:Perishability Class>",
   "isLookupBearing": true,
@@ -1741,6 +1763,10 @@
   "hierarchy": "<TypeHierarchy:Storage Condition>",
   "isLookupBearing": true,
   "name": "Fridge"
+ },
+ "DomainType | Heat Level": {
+  "hierarchy": "<TypeHierarchy:Quality Kind>",
+  "name": "Heat Level"
  },
  "DomainType | Heating": {
   "hierarchy": "<TypeHierarchy:Capability>",
@@ -1920,6 +1946,10 @@
   "stepInstances": [
    "<Step:TEST -- Stir-fry the beef and broccoli>"
   ]
+ },
+ "DomainType | Temperature": {
+  "hierarchy": "<TypeHierarchy:Quality Kind>",
+  "name": "Temperature"
  },
  "DomainType | Tray": {
   "containerInstances": [
@@ -3262,9 +3292,12 @@
  "TypeHierarchy | Quality Kind": {
   "domainTypes": [
    "<DomainType:Cleanliness>",
+   "<DomainType:Doneness>",
+   "<DomainType:Heat Level>",
    "<DomainType:Mass>",
    "<DomainType:OpenedStatus>",
-   "<DomainType:ShelfLife>"
+   "<DomainType:ShelfLife>",
+   "<DomainType:Temperature>"
   ],
   "name": "Quality Kind",
   "singleParent": true

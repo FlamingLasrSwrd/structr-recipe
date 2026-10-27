@@ -11,7 +11,9 @@ superuser (Structr honours the X-User headers for pages) and compares the data b
   nutrition   nutrition_scope.nutrition_report: each target's total and status, per meal, day or week;
               week_totals: each daily target's days added up, and its status
   recipes     nutrition_scope.stored_figure for each recipe and nutrient shown
-  recipe      one recipe's ingredients and stored figures, for the first recipe in the book
+  recipe      one recipe's ingredients and stored figures, for the first recipe in the book; and every
+              recipe's instructions, written from its steps' facts, against mealplanner/instructions.py
+              for the same Plan as recipe_import.export_plan reads it (J35)
   pantry      inventory.current_magnitude and instance_expiration for every portion on hand
   shopping    shopping.shopping_list: each food to buy, what is needed and on hand, the cost at
               "Home prices" where it exists, and what the pantry covers; a food a StockPolicy
@@ -31,6 +33,8 @@ from datetime import datetime, timedelta, timezone
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner.connection import connect
+from mealplanner.instructions import instructions
+from mealplanner.recipe_import import export_plan
 from mealplanner.inventory import current_magnitude, instance_expiration, mass_quality
 from mealplanner.prices import price_table
 from mealplanner.profiles import ProfileError
@@ -150,6 +154,29 @@ def check_recipes(client, reads, problems: list[str]) -> int:
                   if (p.get("servingOf") or {}).get("id") == plan["id"] and p.get("basis") == "per_serving"]
         if len(detail.get("figures", [])) != len(stored):
             problems.append(f"recipe {plan['name']!r}: shows {len(detail.get('figures', []))} figures, {len(stored)} are stored")
+    unread = []
+    for row in shown:                            # every recipe's instructions, from its steps' facts
+        plan = plans.get(row["recipe"])
+        if plan is None:
+            continue
+        try:
+            read_back = export_plan(reads, plan["id"])[3]
+        except (ValueError, IndexError, KeyError, TypeError):   # not named as the loader names a recipe's parts
+            unread.append(plan["name"])
+            continue
+        written = page_data(client, f"recipe/{plan['id']}").get("instructions")
+        if written is None:                      # pages installed before they wrote instructions (J35)
+            print("  (the recipe pages here write no instructions yet: tools/install_pages.py)")
+            break
+        want = instructions(read_back)
+        if written != want:
+            first = next((k for k, (a, b) in enumerate(zip(want, written or [])) if a != b), None)
+            problems.append(f"recipe {plan['name']!r}: the page's instructions differ from Python's"
+                            + (f" at step {first + 1}: {written[first]!r}, not {want[first]!r}" if first is not None else
+                               f": {len(written or [])} sentences, not {len(want)}"))
+    if unread:
+        print(f"  ({len(unread)} recipe(s) not made by tools/import_recipe.py, whose instructions are not compared: "
+              + ", ".join(unread[:3]) + (", ..." if len(unread) > 3 else "") + ")")
     return len(shown)
 
 

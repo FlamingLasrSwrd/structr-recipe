@@ -1,5 +1,6 @@
 // /structr/html/recipe/<Plan id>: one recipe version, as tools/import_recipe.py loaded it: its facts, its
-// ingredients and amounts step by step (instructions are not stored), and every stored figure per serving.
+// ingredients and amounts step by step (a source's instructions are not stored), instructions of our own
+// written from the steps' facts (pages/lib/75_instructions.js), and every stored figure per serving.
 
 function stepIndex(step) {
   const m = / step (\d+)( -- |$)/.exec(String(step.name || ""));
@@ -54,6 +55,11 @@ if (!plan) {
     html += "</ul>" + (tools.length ? "<p class=\"note\">With: " + esc(tools.join(", ")) + "</p>" : "")
       + (makes.length ? "<p class=\"note\">Makes: " + esc(makes.join(", ")) + "</p>" : "");
   }
+
+  // instructions of our own, written from the steps' facts (mealplanner/instructions.py; J35)
+  data.instructions = stepSentences(planSteps(plan));
+  html += "<h2>How to make it</h2><ol class=\"instructions\">" + data.instructions.map((line) => "<li>" + esc(line) + "</li>").join("")
+    + "</ol><p class=\"note\">Written here from the steps' facts, not the source's words.</p>";
 
   const stored = (plan.servingProfiles || []).filter((p) => p.basis === "per_serving" && p.forNutrient)
     .sort((a, b) => String(a.forNutrient.name).localeCompare(String(b.forNutrient.name)));

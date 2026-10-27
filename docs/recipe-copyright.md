@@ -49,13 +49,14 @@ advice**. Before a hosted service shares recipes between people, have someone qu
 | ingredients, amounts and units | the headnote, description, story or history |
 | servings, minutes, hours made ahead, difficulty | tips, serving suggestions, pairings, variations |
 | meal types | photographs, videos, illustrations |
-| the order of operations as the model records it: each step's method, what goes in, what comes out, with what equipment (a label of a few words names the step) | reviews and comments (a rating's numbers are facts) |
+| the order of operations as the model records it: each step's method, what goes in, what comes out, with what equipment (a label of a few words names the step); since 2026-10-27 also its working and waiting minutes, the steps before it, a tool's heat and the doneness of what it makes, in a few words or a temperature (J35) | reviews and comments (a rating's numbers are facts) |
 | the source's address, in `source` | a site's or a book's collection as a collection |
 | nutrition worked out here, or figures the source publishes | |
 
 This is what the model already does: a recipe file has no field for instructions or descriptions,
 an unknown field is refused (`recipe_import.TOP_KEYS`), and since 2026-10-26 a step's name is at most
-80 characters (`recipe_import.STEP_NAME_MAX`), so it stays a label.
+80 characters (`recipe_import.STEP_NAME_MAX`), so it stays a label. A step's doneness is at most 60
+(`recipe_import.UNTIL_MAX`): "golden", "until the rice is tender", not the source's sentence.
 
 ## Rules for importing
 
@@ -74,8 +75,10 @@ an unknown field is refused (`recipe_import.TOP_KEYS`), and since 2026-10-26 a s
    text, `description`, `image` and `review` are not kept.
 6. **Comments in a recipe file record the transcription's choices** (a can's size, a size in grams, an
    ingredient taken as optional). They quote at most a few words: a title, an ingredient's label.
-7. **Instructions of our own, if they are ever stored, are written fresh**: short and functional, from
-   the steps' facts, never a line-by-line paraphrase of the source's text.
+7. **Instructions of our own are written fresh**: short and functional, from the steps' facts, never a
+   line-by-line paraphrase of the source's text. Since 2026-10-27 the recipe page writes them, each step
+   one sentence from its facts by fixed rules (`mealplanner/instructions.py`), and nothing of them is
+   stored: they follow the facts.
 8. **Recipes exported from another application** (Grocy, Mealie, Paprika and the like) may carry text
    and photos copied from elsewhere. The importer keeps the left column and the source's address, and
    drops the rest.
