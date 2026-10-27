@@ -53,18 +53,11 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
 
 ## For the owner to do
 
-- **Upgrade your instance to Structr 7.1.0** (2026-10-27, `docs/structr-features.md` §4), before the
-  steps below, with no other stack running. `bash tools/owner_stack.sh up` now refuses to start it on
-  the new image and prints these steps:
-  1. `python3 tools/backup.py now`: a backup of it as it is, on 6.0.
-  2. If you want to see what the upgrade would change first: `STRUCTR_MIGRATION_MODE=dry-run UPGRADE=1 bash
-     tools/owner_stack.sh up`, then `docker logs mealplanner-owner-structr-1 2>&1 | grep MigrationService`.
-     In a dry run Structr changes nothing and does not start, so the command ends in a time-out. On a
-     copy of your 2026-10-26 backup it found one change: a label on 58 schema nodes.
-  3. `UPGRADE=1 bash tools/owner_stack.sh up`. Rehearsed on that copy: nothing lost, and every page as
-     Python works it out.
-  Then the steps below run on 7.1.0; each was checked there. To go back, restore the backup of step 1
-  with `docker-compose.yml`'s Structr image set to `structr/structr:6.0.0` (`docs/backups.md`).
+- ~~Upgrade your instance to Structr 7.1.0~~ **Done 2026-10-27**: backed up first (`2026-10-27_152625`),
+  dry-run (one change: a label on 58 schema nodes), then upgraded; the graph kept its 42,386 nodes and
+  88,680 relationships and `check_pages` found no difference. To go back, restore that backup with
+  `docker-compose.yml`'s Structr image set to `structr/structr:6.0.0` (`docs/backups.md`). The steps
+  below run on 7.1.0; each was checked there.
 - If you use the cloud environment: paste `cloud/setup.sh` again into its "Setup script" field at
   claude.ai/code. It now pulls Structr 7.1.0 ahead of time (2026-10-27).
 
