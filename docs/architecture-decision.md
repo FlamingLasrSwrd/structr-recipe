@@ -1,7 +1,8 @@
 # Architecture for a self-hosted and a hosted offering: a proposal
 
-**Status: a proposal for the owner to decide** (2026-10-26; revised the same day, after the owner
-challenged its claims and proposed the split in §1, all recorded in §9). Nothing here is started. The owner wants to offer
+**Status: decided, Path S** (the owner, 2026-10-26: "Build the Structr split option"), after the proposal
+was revised the same day on the owner's challenges and the split they proposed (§9). Being built, in
+the stages of §7a; the AGPL question (§8) is still open, and matters for the hosted offering only. The owner wants to offer
 both a self-hosted and a centrally hosted service for many households, and chose Structr because the
 model fits a graph. This document weighs the platform again against both offerings, using the design
 documents, the code as it is, probes on the development instance, and the sources listed at the end.
@@ -194,13 +195,43 @@ Each stage keeps the product working and ends in a check of the kind this projec
 Stages 1 and 2 are worth doing even if the hosted service never comes: they remove the JavaScript
 copies (round 3 #5) and the REST slowness, and they make self-hosting smaller.
 
+## 7a. Path S, in stages (chosen 2026-10-26)
+
+Each stage ends in a check against what is there now, as the pages were built against the Python.
+
+1. **Methods as code** (built 2026-10-26). `methods/<name>.js` files, installed by `tools/install_methods.py`
+   as Structr user-defined functions whose source is `pages/common.js` and then the file, so a method
+   runs the pages' engine code, not a copy; the snapshot leaves them out, as it leaves out the pages.
+   *Checked:* `stockOnHand` gave the grams on hand and days to expiry of all 17 portions on the
+   development instance exactly as Python's `pantry.on_hand` and `instance_expiration` do.
+2. **The gate: two households, each as itself** (`tools/check_households.py`). Accounts for two test
+   households; a purchase booked by each member as themselves (no `$.doPrivileged`), private and granted
+   to their household's Group; each sees its own stock and not the other's, through a method and through
+   REST, and cannot book on the other's; shared vocabulary readable, not writable; bookings still one at a
+   time; the figures as Python's. *If households cannot be kept apart this way, stop, and decide again
+   with P.*
+3. **The engine library,** split out of `pages/common.js` into files the pages and the methods share, and
+   the rest of the request-time engines ported (net requirements and the shopping list, the nutrition
+   report, menu changes, requests, every booking), each checked against Python by `check_pages.py` and
+   `check_bookings.py`, extended to the methods.
+4. **The planner's JSON contract:** the problem in and the plan out as JSON; the planner run on a problem
+   file; an `exportWeek` method building the problem `extract.build_problem` builds (compared, field by
+   field), and a `commitWeek` method writing a plan once it has checked the week still holds.
+5. **Access control on the real data:** a migration script marking shared and private data
+   (`verification-and-sharing.md` §3.4) and granting each household its own; `ResourceAccess` grants; the
+   pages without `$.doPrivileged`; the tools acting as a household's member or a curator.
+6. **The Python request-time engines retire:** the tools call methods; those engines' offline tests
+   become live checks, and the Python goes once nothing calls it.
+7. **The offerings:** self-hosted (one compose file, a household on first run) and hosted (sign-up,
+   curation, and the AGPL answer).
+
 ## 8. Decisions for the owner
 
-1. **Now, needed by both:** the planner's JSON contract (§1), which changes nothing the owner sees.
-2. **The AGPL question**, put to someone qualified: may a hosted service run Structr with this project's pages and methods, and on what terms (or at what price commercially)?
-3. **The gates, as spikes:** S's two households with propagated grants plus one engine and one booking as methods (§5); P's interface over Bolt (§7 stage 1). Either can run before anything else changes.
-4. **Then the path:** S if the licence is acceptable and its gate passes; otherwise P.
-5. **When the hosted service is near:** under P, Enterprise or the alternatives in §6; under S, Enterprise underneath for online backups and failover, if needed.
+Decided: **Path S** (2026-10-26). Still the owner's:
+
+1. **The AGPL question**, put to someone qualified: may a hosted service run Structr with this project's pages and methods, and on what terms (or at what price commercially)? It does not hold up building; it decides whether the hosted offering runs on Structr's open licence.
+2. **If §7a's gate fails** (households cannot be kept apart as themselves): P instead, or S with the isolation in the methods.
+3. **When the hosted service is near:** Neo4j Enterprise underneath for online backups and failover, if needed (§6 applies to S's Neo4j as much as P's).
 
 ## 9. Corrections (2026-10-26)
 

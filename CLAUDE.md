@@ -93,6 +93,7 @@ STRUCTR_URL=http://localhost:8085 python3 tools/import_recipe.py private/baselin
 STRUCTR_URL=http://localhost:8085 python3 tools/instantiate_household.py private/household.toml   # the household's people, their targets and baselines
 STRUCTR_URL=http://localhost:8085 python3 tools/import_prices.py      # data/prices.toml; then instantiate_profile.py prices private/prices.toml (docs/prices.md)
 STRUCTR_URL=http://localhost:8085 python3 tools/plan_week.py private/week.toml            # propose a week, report nutrients and cost; --commit writes it
+python3 tools/install_pages.py && python3 tools/install_methods.py   # the pages and the Structr methods (methods/): code, safe on any instance
 python3 tools/fdc_extract.py        # after adding a food: re-pins data/fdc/ from the datasets in .cache/fdc/ (loads the FNDDS JSON, ~450 MB)
 python3 tools/price_extract.py      # after changing data/prices.toml: re-pins data/prices/ (--fetch asks the BLS API first)
 ```

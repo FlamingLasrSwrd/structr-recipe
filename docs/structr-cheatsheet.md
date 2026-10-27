@@ -837,6 +837,9 @@ Confirmed dead ends, each isolated with its own test:
     function, no `schemaNode`) with a JSON body; the result is under
     `result`. A method working out stock on hand for 17 portions took
     0.7 to 0.9 s warm (2.25 s the first time) and agreed with the Python.
+  - ✅ **A method needs no restart** (unlike a schema type, hard rule 8): a
+    new one answered at once, and one whose `source` was PATCHed answered
+    with the new source on the very next call; a deleted one is a 404.
 
   **Practical upshot (for StructrScript; JavaScript methods, above, have
   no such limit): don't design a StructrScript `SchemaMethod` around

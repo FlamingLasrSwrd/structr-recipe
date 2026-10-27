@@ -54,6 +54,13 @@ def normalize(value):
 
 
 BUILTIN_VIEWS = {"public", "ui", "all", "custom", "export"}
+INSTALLED_METHOD = "// installed by tools/install_methods.py from "    # install_methods.MARK
+
+
+def installed_method(method: dict) -> bool:
+    """A method tools/install_methods.py installed from methods/: its source's second line says so."""
+    lines = (method.get("source") or "").split("\n", 2)
+    return len(lines) > 1 and lines[1].startswith(INSTALLED_METHOD)
 
 
 def snapshot_schema(client) -> dict:
@@ -69,6 +76,8 @@ def snapshot_schema(client) -> dict:
         key = f"@schema | relationship {nodes.get(r.get('sourceId'), '?')} -[{r['relationshipType']}]-> {nodes.get(r.get('targetId'), '?')}"
         out[key] = {k: r.get(k) for k in ("sourceMultiplicity", "targetMultiplicity", "sourceJsonName", "targetJsonName")}
     for m in client.get("/structr/rest/SchemaMethod")["result"]:
+        if installed_method(m):
+            continue                       # code from methods/, like the pages: not instance state
         owner = nodes.get((m.get("schemaNode") or {}).get("id"), "(global)")
         out[f"@schema | method {owner}.{m['name']}"] = {"source": m.get("source"), "returnRawResult": bool(m.get("returnRawResult")), "isStatic": bool(m.get("isStatic"))}
     for v in client.get_all("SchemaView")["result"]:
