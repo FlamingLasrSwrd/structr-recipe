@@ -4,6 +4,10 @@
 work on it now"). Nothing here is built. It records what releasing this project for other people to
 run at home would take, in the order it would be done, and the decisions that are the owner's.
 
+`docs/architecture-decision.md` (a proposal, 2026-10-26) weighs the platform for this and for a hosted
+service, and would change several steps below: one Python application in place of Structr's pages, and
+Neo4j without Structr.
+
 ## Where it stands
 
 - **What runs:** three pieces on one machine. Neo4j holds the graph; Structr (6.0.0, the stock

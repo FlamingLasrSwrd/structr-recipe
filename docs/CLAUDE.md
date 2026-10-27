@@ -24,6 +24,7 @@ A meal-planning tool, single-user until the owner chose (2026-09-28) to move tow
 | `todo.md` | 📋 List, kept for the owner | future work: asked for, offered and waiting, and the owner's own to-dos |
 | `pantry.md` | 📘 Guide, as built (2026-10-23) | the pantry's bookings (buy, use, count, open, freeze, discard, cook) and what does not fit the model yet |
 | `self-hosting.md` | 📝 **Plan, not started** (2026-10-24) | what releasing the project for others to run at home would take, step by step, and the owner's decisions it needs |
+| `architecture-decision.md` | 📝 **Proposal, for the owner to decide** (2026-10-26) | the platform for a self-hosted and a hosted offering: what Structr does and costs, the options weighed, and a staged path (one Python application; Neo4j directly, without Structr). If accepted, it changes the build sketch, the hard rules and `self-hosting.md` |
 | `verification-and-sharing.md` | 📝 **Proposal, being built** | how checks by people (stock takes, purchases, confirmed or corrected figures) and several users with shared and private data fit the model. The owner accepted its Person (§3.3) and household (§3.5) designs on 2026-09-28; `data-model.md` §19 records what the model now says, and the proposal says what is still to build |
 | `design-review-document.md` | 🗄️ **Historical — do not follow** | records round-1 review findings, all since fixed |
 | `design-review-document-round2.md` | 🗄️ **Historical — do not follow** | same, round 2. Its §11 "not yet acted on" items **have** since been acted on |
