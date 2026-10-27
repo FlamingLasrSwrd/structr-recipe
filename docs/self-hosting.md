@@ -5,8 +5,8 @@ work on it now"). Nothing here is built. It records what releasing this project 
 run at home would take, in the order it would be done, and the decisions that are the owner's.
 
 `docs/architecture-decision.md` (a proposal, 2026-10-26) weighs the platform for this and for a hosted
-service, and would change several steps below: one Python application in place of Structr's pages, and
-Neo4j without Structr.
+service, and would change several steps below: either one Python application with Neo4j and no Structr, or
+Structr used fully, its JavaScript methods and access control in place of the Python over REST.
 
 ## Where it stands
 

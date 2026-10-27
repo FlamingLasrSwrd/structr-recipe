@@ -826,9 +826,21 @@ Confirmed dead ends, each isolated with its own test:
     `codeType` is set to. If `SchemaMethod` supports a real JavaScript
     execution mode in 6.0.0 Community, the trigger for it was not found
     by varying this field.
+  - ✅ **Correction (probed 2026-10-26, 6.0.0): the trigger is a bare
+    `{ ... }` block as the whole `source`** (Structr's own documentation,
+    "Lifecycle Methods", shows it), not `${{ }}` and not `codeType`. Such a
+    method runs as JavaScript with `$` as in pages: `$.methodParameters`
+    holds the call's arguments, `$.find`, arrow functions and `const` work,
+    and a user-defined function calls another (or itself) as
+    `$.name({...})` with arguments, so recursion between methods works.
+    Called over REST as `POST /structr/rest/<name>` (a user-defined
+    function, no `schemaNode`) with a JSON body; the result is under
+    `result`. A method working out stock on hand for 17 portions took
+    0.7 to 0.9 s warm (2.25 s the first time) and agreed with the Python.
 
-  **Practical upshot: don't design a `SchemaMethod` around recursive
-  self-calls with arguments.** What *does* work, confirmed as the
+  **Practical upshot (for StructrScript; JavaScript methods, above, have
+  no such limit): don't design a StructrScript `SchemaMethod` around
+  recursive self-calls with arguments.** What *does* work, confirmed as the
   practical workaround for a bounded-depth upward walk (e.g. resolving
   a default up a type hierarchy): **unroll the walk as nested `if()`
   expressions over a chained property path** (`this`, `this.parent`,
