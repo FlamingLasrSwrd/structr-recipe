@@ -1,7 +1,7 @@
 # Architecture for a self-hosted and a hosted offering: a proposal
 
 **Status: a proposal for the owner to decide** (2026-10-26; revised the same day, after the owner
-challenged two of its claims, both corrected in §9). Nothing here is started. The owner wants to offer
+challenged its claims and proposed the split in §1, all recorded in §9). Nothing here is started. The owner wants to offer
 both a self-hosted and a centrally hosted service for many households, and chose Structr because the
 model fits a graph. This document weighs the platform again against both offerings, using the design
 documents, the code as it is, probes on the development instance, and the sources listed at the end.
@@ -14,23 +14,32 @@ differ on **where the domain logic lives**:
 - **Path P: Python, with Neo4j directly.** One Python application owns every calculation, booking and
   permission, serves the pages and runs the planner; it talks to Neo4j through Neo4j's own driver
   (Bolt), and Structr leaves the stack.
-- **Path S: Structr, used fully.** The domain logic moves into Structr's JavaScript methods, next to the
-  data; the pages call them; Structr's own accounts and access control keep households apart. Python
-  remains for the planner (OR-tools) and the importers.
+- **Path S: a split by kind of work** (the owner's framing, 2026-10-26: the easy things in Structr, the
+  difficult ones in Python). Everything a request does runs in Structr's JavaScript methods, next to the
+  data, under its own accounts and access control: stock and expiry, nutrition totals, the shopping list,
+  bookings, building the planner's problem and committing its plan. Python does the search (CP-SAT and
+  the dependency-free searches) and the batch work over files (the FDC, retention, FoodKeeper and price
+  extracts, and the importers). §5a says where the line falls, measured.
 
 Today's arrangement (logic in Python, reaching the data over REST, with a second copy in the pages'
 JavaScript, and Structr's access control unused) is neither, and serves neither offering well.
 
-**The recommendation: Path P,** because the planner must be Python, and the domain engines feed it:
-- **The planner depends on them.** It reads stock, nutrition, defaults and exclusions through the engines in `mealplanner/`, and OR-tools has no JavaScript form. Under S the planner would need those figures from Structr in one export call, and every engine it uses would exist in JavaScript first. Under P they stay one copy, in the planner's own language.
-- **The tests stay offline.** 748 tests and two mutation sweeps test the Python in seconds. Code inside Structr can only be tested against a running instance (a rebuild takes about nine and a half minutes).
-- **Self-hosting is smaller and steadier.** P drops a 2 GB Java service, and with it most of the hard rules (§3).
-- **The hosted service's licence is simpler.** P runs no AGPL component.
+**The recommendation: no longer one path outright.** The first version favoured P because the planner
+"depends on the engines". Measured, it does not: the search imports only the problem model, 63 lines of
+scoring and two date helpers, and touches the graph nowhere; only `extract.py` (building the problem)
+and `commit.py` (writing the plan) do, and under S both move into Structr. With that argument gone, the
+two paths are close, and each wins on a different offering:
 
-**S is the better choice if the hosted service's isolation and accounts matter more than these.**
-Structr already has the accounts, sign-up, password reset, account lockout and per-household access
-control that P must build, and in S the platform, not the application, enforces the boundary between
-households (§5). That is a real advantage, and the main thing P gives up.
+- **S, for the hosted service.** Structr already has the accounts, sign-up, password reset, account lockout and per-household access control that P must build, and under S the platform, not the application, enforces the boundary between households. The request-time logic runs next to the data (§3: 0.7 s where Python over REST took 12.6 s).
+- **P, for the self-hosted install and for how this project is tested.** It is about 2 GB against S's 3.5 GB and more, six hard rules retire, and the AGPL question does not arise. Every engine keeps its offline tests: about 170 tests cover the code S would move into JavaScript, which could then be tested only against a running instance.
+
+**So: do what both need first, then decide on two answers** (§8):
+1. **The planner as a service with a JSON contract:** a problem in, a plan out. The plan already goes out as JSON (`planning/proposal.py`); the problem coming in needs the same. Under P the Python builds it, under S a Structr method does, and either way the search and its 256 tests stay as they are.
+2. **The AGPL answer** for running Structr as a hosted service, from someone qualified (`docs/self-hosting.md`).
+3. **The two gates** (§5, §7 stage 1), each a spike: S's two households with propagated grants and one engine and one booking as methods; P's interface over Bolt.
+
+Then take S if the licence is acceptable, or a commercial licence affordable, and its gate passes;
+otherwise P.
 
 ## 2. What the two offerings ask of the platform
 
@@ -80,7 +89,7 @@ this; they differ on who enforces the boundary.
 
 ## 4. The options
 
-| | Today | **P. Python, Neo4j directly** | **S. Structr, used fully** | C. PostgreSQL, relational | D. PostgreSQL with Apache AGE | E. Memgraph | F. An RDF store |
+| | Today | **P. Python, Neo4j directly** | **S. The split: Structr for requests, Python for search and batch** | C. PostgreSQL, relational | D. PostgreSQL with Apache AGE | E. Memgraph | F. An RDF store |
 |---|---|---|---|---|---|---|---|
 | Model fit | as now | as now: labels for traits, any node as a target, Cypher for hierarchies | as now | the 54 types become tables, "any entity" a shared entity table, hierarchies recursive queries: workable, against the model's grain | **one label per node** (an early design decision; work on several exists on a branch, in no release I could confirm), so traits become a property and polymorphic matches filters | as P: Cypher, several labels, Neo4j's protocol | BFO's native form; SPARQL, SHACL validation |
 | The owner's data | stays | **stays** | **stays** | migrated | migrated | migrated | migrated |
@@ -100,11 +109,11 @@ this; they differ on who enforces the boundary.
 
 ## 5. P and S side by side
 
-| | P. Python, Neo4j directly | S. Structr, used fully |
+| | P. Python, Neo4j directly | S. The split |
 |---|---|---|
-| **Domain logic** | stays in Python (11,500 lines with the planner), one copy | moves into Structr JavaScript: the pages hold a partial port today (1,440 lines); the rest, and the importers' checks, to write |
-| **Tests** | the offline suite and fake graph stay; live checks as now | the logic's tests run against a live instance; the offline suite shrinks to the planner's search |
-| **The planner** | reads the graph directly, through the same engines | reads one problem a Structr method exports, so every engine it uses exists in JavaScript first |
+| **Domain logic** | stays in Python (11,500 lines with the planner), one copy | the request-time engines (3,950 lines with the planner's graph side) move into Structr JavaScript, from the pages' partial port (1,440 lines); the search and the batch work stay Python (§5a) |
+| **Tests** | the offline suite and fake graph stay; live checks as now | about 430 tests stay offline (the search, the batch work); about 215 become live ones |
+| **The planner** | reads the graph directly, through the same engines | unchanged in its search; reads one problem a Structr method exports, run as the person who asked (§5a) |
 | **Speed** | one Cypher query per need (unmeasured) | measured: a method next to the data, 0.7 s where Python over REST took 12.6 s |
 | **Isolation between households** | the application's: every read and write through one data-access layer that requires a household, and tests that try to cross it. Platform-enforced only by moving to PostgreSQL later | **Structr's**: a household's data granted to its Group, propagated along its relationships, checked by the platform on every read, whatever the code asks |
 | **Accounts** | to build: sign-in, sessions, sign-up, reset, lockout (standard libraries) | built in, to configure |
@@ -117,6 +126,27 @@ this; they differ on who enforces the boundary.
 **If S were chosen,** its first stage would be the same kind of gate as P's: port one engine
 (stock on hand, already shown above) and one booking to methods, configure a household's grants
 with propagation, and check against Python and across two households that each sees only its own.
+
+## 5a. Where S's line falls
+
+Measured on the code as it is (2026-10-26):
+
+| Side | Code | Its offline tests | Under S |
+|---|---|---|---|
+| **The search** (model, evaluate, search, CP-SAT, diagnose, shortlist, report, proposal, nutrients; scoring) | 2,700 lines | 256 | stays Python, unchanged; reads a problem, returns a plan |
+| **The batch work** (vocabulary, recipe, profile and price imports; the FDC, retention, FoodKeeper and price extracts; recipe nutrition, J28) | in the importers and `tools/` | 172 | stays Python, writing through Structr's REST as a curator (shared data) or a household's user (its own recipes) |
+| **Request-time engines** (inventory, nutrition scope, reservation, pantry, menu changes, requests, shopping, prices, household, candidates; defaults, type tree, unit conversion) and **the planner's graph side** (extract, commit) | 3,950 lines | about 170 and 45 | ported to Structr JavaScript methods, from the pages' partial port (1,440 lines); their tests become live ones, the Python versions the oracle until each port agrees, then removed |
+
+**Where it does not split cleanly:** the importers and the request-time methods both need unit
+conversion, default resolution and type-tree walks, about 280 lines. Either the importers call
+Structr's methods for them, or the small Python copies stay, with a parity check against the
+JavaScript, as `check_pages.py` does for the pages today. Recipe nutrition (J28) can stay a batch
+step in Python, since the pages and the planner read only what it stored.
+
+**How the planner is called under S:** the worker calls the export method as the person who asked
+(a Structr token), so Structr's access control applies to it too, and it needs no account of its own
+that can see every household. It calls the commit method the same way, which checks the week still
+holds before writing, as `--commit` does now.
 
 ## 6. What P leaves open for the hosted service
 
@@ -166,15 +196,18 @@ copies (round 3 #5) and the REST slowness, and they make self-hosting smaller.
 
 ## 8. Decisions for the owner
 
-1. **Where the domain logic lives:** Python (P) or Structr's JavaScript (S). The rest follows from it.
-2. **The first stage, as a spike:** P's Bolt interface, or S's one-engine, two-household gate (§5). Either can run before anything else changes, and either result can send the decision the other way.
-3. **When the hosted service is near:** under P, Enterprise or the alternatives in §6; under S, the AGPL question.
+1. **Now, needed by both:** the planner's JSON contract (§1), which changes nothing the owner sees.
+2. **The AGPL question**, put to someone qualified: may a hosted service run Structr with this project's pages and methods, and on what terms (or at what price commercially)?
+3. **The gates, as spikes:** S's two households with propagated grants plus one engine and one booking as methods (§5); P's interface over Bolt (§7 stage 1). Either can run before anything else changes.
+4. **Then the path:** S if the licence is acceptable and its gate passes; otherwise P.
+5. **When the hosted service is near:** under P, Enterprise or the alternatives in §6; under S, Enterprise underneath for online backups and failover, if needed.
 
 ## 9. Corrections (2026-10-26)
 
-The first version of this document said two things the owner challenged, and both were wrong as stated:
+The first version of this document said things the owner challenged, and they were wrong as stated:
 
 - **"The calculations planned as Structr methods ended up in Python because Structr's script language could not handle multi-step traversals."** True of StructrScript only. Structr also runs methods written in JavaScript, which the project never found. Probed: recursion between calls with an argument, and a stock-on-hand method agreeing with Python on every portion, faster (§3). The build sketch's §5 note and the cheatsheet's §3a are corrected to match.
+- **"The planner depends on the engines", given as the main reason for P.** True only of the planner's two graph-facing modules; the search depends on none of them (§1, §5a), which leaves the paths close.
 - **"Structr's per-household permissions go unused" was put as a cost of Structr.** It is the implementation's: tools connect as the superuser and pages write through `$.doPrivileged` because security was out of scope by the owner's choice. Structr's access control (§3) is a strength for the hosted service, and §1 and §5 now weigh it as one.
 
 ## Sources (checked 2026-10-26)
