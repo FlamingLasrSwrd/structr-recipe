@@ -45,10 +45,12 @@ Design notes:
   field.
 """
 
+from mealplanner.domain_invariants import NON_NEGATIVE_FORMAT
+
 PROPERTIES: dict[str, list[dict]] = {
     "QuantitySpecification": [
-        {"name": "minValue", "propertyType": "Double"},
-        {"name": "maxValue", "propertyType": "Double"},
+        {"name": "minValue", "propertyType": "Double", "format": NON_NEGATIVE_FORMAT},     # invariant 12
+        {"name": "maxValue", "propertyType": "Double", "format": NON_NEGATIVE_FORMAT},
     ],
     "MealPlanEntry": [
         {"name": "isSkipped", "propertyType": "Boolean"},

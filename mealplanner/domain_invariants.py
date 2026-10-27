@@ -220,6 +220,16 @@ QUANTITY_SPECIFICATION_ONCREATE = (
     'null)))))))'
 )
 
+# Invariant 12 again, as Structr's own check (docs/structr-features.md, batch 3): a numeric format
+# interval refuses a value outside it on every write, a create or an edit (the format spike), where the
+# onCreate validators above see creates only. An open end ("[0,]") is accepted but checks nothing, so the
+# upper bound is one far above any quantity here. Declared with the properties
+# (mealplanner/metamodel_types.py, meal_planning_schema.py, scripts/04); scripts/45a sets it on an
+# instance built before.
+NON_NEGATIVE_FORMAT = "[0,1000000000]"
+NON_NEGATIVE_PROPERTIES = (("QuantitySpecification", "value"), ("QuantitySpecification", "minValue"),
+                           ("QuantitySpecification", "maxValue"), ("Measurement", "value"))
+
 MEAL_PLAN_ENTRY_ONCREATE = (
     'if(not(empty(this.consumesLeftoverFrom)), '
     'if(or(not(empty(this.references)), not(empty(this.hasPlannedServings))), '

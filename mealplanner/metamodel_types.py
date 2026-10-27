@@ -21,6 +21,8 @@ properly (does a DefaultSpec go through InstantiationPattern, or point
 at its Type directly?) before this pattern is used for real vocabulary.
 """
 
+from mealplanner.domain_invariants import NON_NEGATIVE_FORMAT
+
 PROPERTIES: dict[str, list[dict]] = {
     "DomainType": [
         {"name": "name", "propertyType": "String", "unique": True, "indexed": True, "notNull": True},
@@ -34,7 +36,7 @@ PROPERTIES: dict[str, list[dict]] = {
         {"name": "name", "propertyType": "String", "unique": True, "indexed": True, "notNull": True},
     ],
     "QuantitySpecification": [
-        {"name": "value", "propertyType": "Double"},
+        {"name": "value", "propertyType": "Double", "format": NON_NEGATIVE_FORMAT},      # invariant 12
         {"name": "unit", "propertyType": "String"},
         {"name": "status", "propertyType": "Enum", "format": "specified,default"},
     ],

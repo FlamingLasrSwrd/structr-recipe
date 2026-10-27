@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from structr_client import StructrError
 from mealplanner.connection import connect
+from mealplanner.domain_invariants import NON_NEGATIVE_FORMAT
 
 
 # and(not(empty(this.value)), ...) guards against categorical
@@ -47,7 +48,7 @@ def main():
     mid = measurement["id"]
 
     print("[1] Ensuring Measurement.value/unit/status properties...")
-    client.ensure_property(mid, "value", "Double")
+    client.ensure_property(mid, "value", "Double", format=NON_NEGATIVE_FORMAT)     # invariant 12 on edits too (45a)
     client.ensure_property(mid, "unit", "String")
     client.ensure_property(mid, "status", "Enum", format="observed,imputed,derived,estimated")
 

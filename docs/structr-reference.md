@@ -328,6 +328,9 @@ POST /structr/rest/SchemaRelationshipNode {"sourceId": "<Project id>", "targetId
     it makes the property effectively required. Do not put one on an optional property.
   - A format replaces a hand-written validator for simple ranges and patterns, and it applies to
     every write, create and update alike.
+  - **An `error()` in a lifecycle method ends the request before property validation** **[V6]**: a
+    create that both an `onCreate` validator and a `format` refuse answers 422 "Server-side scripting
+    error" with the validator's token alone. Check for either token when both may apply.
 - A default value is stored when a node is created without the property; nodes that existed before
   the default was added show it on read but are not found by a search for it until the value is
   stored (`rebuildIndex` stores it for indexed properties). **[D7]**

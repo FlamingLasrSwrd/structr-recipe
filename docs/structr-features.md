@@ -135,15 +135,30 @@ offline graph deletes as Structr does, along the rows that carry the flag, and d
 node's relationships everywhere. `scripts/44b` checks it all on real Structr, and the snapshot
 records each flag that is set.
 
-**Batch 3, invariant 12 as `format`.** `[0,1000000000]` on the quantity-bearing values
-(QuantitySpecification `value`, `minValue`, `maxValue`; Measurement `value`): the `onCreate`
-validators stay, the format adds edits. An open end checks nothing, hence the large bound.
+**Batch 3, invariant 12 as `format` (migration 45a). Built 2026-10-27.** `[0,1000000000]`
+(`domain_invariants.NON_NEGATIVE_FORMAT`) on the quantity-bearing values: QuantitySpecification
+`value`, `minValue` and `maxValue`, and Measurement `value`. The `onCreate` validators stay; the
+format adds edits, which the spike showed it refuses, keeping the old value. An open end checks
+nothing, hence the large bound (the largest value a build stores is 1,000). A fresh build declares
+it from the start (03a, 04, 10a, so every declaration carries it, or the schema helpers' drift
+check would refuse a re-run); 45a sets it on an instance built before, after reading every stored
+value and stopping if one is outside. `scripts/45b` edits each property out of range on real
+Structr. Found on the way: an `onCreate` validator's error ends a request before Structr checks the
+format, so a negative create is refused with the validator's token alone, and only a value past
+the bound with the format's. On a throwaway made to look built before (no format, then a value
+edited to -4, which the validators let through), 45a refused while that value was stored and set
+all four once it was gone.
 
 **Batch 4, `onSave` twins of the validators,** after a read-only check that the existing data
-breaks none of them. The catch found reading the importers: `_write` upserts, then clears the
-fields given as None in a second request, so a quantity going from a range to a value has both for
-a moment, and a twin of QuantitySpecification's check would refuse the first request. The writers
-change first (one PATCH that sets and clears), then the twins.
+breaks none of them: an edit of a node that already breaks its invariant would be refused, whatever
+the edit. Read so far: an `onSave` runs on PUT and PATCH but not on a create (the onsave spike), and
+a page's or method's writes are one transaction, checked at its end. The REST writers: the
+vocabulary, profile and household tools write a node's changes in one PATCH (`Sync.ensure`); the
+importer's `_write` upserts, then clears the fields given as None in a second request, so a node
+changing shape is briefly neither; the week's commit writes only open slots, so an entry never turns
+from a fresh cook into a leftover in place. Still open: how to check the stored data against each
+validator without writing it out again in Python (the evaluate spike asks whether a script can run
+a validator's expression against a stored node).
 
 **Batch 5, methods:** declared parameters for every argument a method reads, GET for the read-only
 ones, `includeInOpenAPI` with a tag for the planner contract. Needed before 7.1 in any case. Once a

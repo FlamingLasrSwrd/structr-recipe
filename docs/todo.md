@@ -85,4 +85,6 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
   `STRUCTR_URL=http://localhost:8085 python3 scripts/44a_cascading_delete_schema.py` (it reads first, and
   changes nothing if any quantity is held twice), and restart Structr as above. If Structr's admin
   interface ever refuses an edit with "Rejecting input with unknown JSON key", the setting is
-  `STRUCTR_jsonrestservlet_unknowninput_validation_mode` in `docker-compose.yml`.
+  `STRUCTR_jsonrestservlet_unknowninput_validation_mode` in `docker-compose.yml`. Then (batch 3)
+  `STRUCTR_URL=http://localhost:8085 python3 scripts/45a_non_negative_format.py`, which reads every
+  stored quantity first and changes nothing if one is negative, and restart Structr again.

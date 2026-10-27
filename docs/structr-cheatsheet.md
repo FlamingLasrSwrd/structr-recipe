@@ -1462,7 +1462,8 @@ remembering:
 - **`format` on a number:** `[0,100]` and `[0,100[` work, creates and edits alike (422
   `must_be_in_range`); **`[0,]` is accepted and checks nothing**. A missing value passes.
   **`format` on a String (a regular expression) refuses a missing value** (`must_match`): it makes
-  the property required.
+  the property required. **An `onCreate` `error()` ends the request before the format is checked**:
+  a create both refuse answers with the validator's token alone (found by `scripts/45b`).
 - **`defaultVisibleToAuth` on a type** makes flagless nodes visible to signed-in users, **but the
   stored `visibleToAuthenticatedUsers` stays false**. Hard rule 4 stands.
 - **`$.doAs(user, fn)` returns nothing**: keep `fn`'s result in a variable outside it. `$.me` inside

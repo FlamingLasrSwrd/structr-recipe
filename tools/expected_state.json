@@ -202,7 +202,7 @@
   "unique": false
  },
  "@schema | property Measurement.value": {
-  "format": null,
+  "format": "[0,1000000000]",
   "indexed": false,
   "notNull": false,
   "propertyType": "Double",
@@ -300,14 +300,14 @@
   "unique": false
  },
  "@schema | property QuantitySpecification.maxValue": {
-  "format": null,
+  "format": "[0,1000000000]",
   "indexed": false,
   "notNull": false,
   "propertyType": "Double",
   "unique": false
  },
  "@schema | property QuantitySpecification.minValue": {
-  "format": null,
+  "format": "[0,1000000000]",
   "indexed": false,
   "notNull": false,
   "propertyType": "Double",
@@ -328,7 +328,7 @@
   "unique": false
  },
  "@schema | property QuantitySpecification.value": {
-  "format": null,
+  "format": "[0,1000000000]",
   "indexed": false,
   "notNull": false,
   "propertyType": "Double",
