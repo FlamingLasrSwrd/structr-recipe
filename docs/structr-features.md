@@ -183,7 +183,8 @@ It showed one thing: with the twins in, a validator's error comes before the for
 too, so `scripts/45b` now accepts either token for an edit. On that instance, with all four batches in force, the pages and
 methods were installed and `check_bookings.py`, `check_pages.py` and `check_instructions.py` found no
 difference; `check_households.py` did too once the recipes' nutrition per serving was stored
-(`calculate_recipe_nutrition.py`), which its nutrition comparison needs on any fresh build.
+(`calculate_recipe_nutrition.py`), which its nutrition comparison needed on any fresh build. It now
+stores the one figure it needs itself, TEST-named, and removes it (2026-10-27).
 
 **Batch 5, methods:** declared parameters for every argument a method reads, GET for the read-only
 ones, `includeInOpenAPI` with a tag for the planner contract. Needed before 7.1 in any case. Once a
