@@ -162,6 +162,11 @@ def dump(project: str, folder: Path) -> None:
 
 
 def archive_volume(project: str, volume: str, folder: Path) -> None:
+    """The volume as a .tar.gz in the folder; nothing if the stack has never made it, since `docker run -v`
+    would make it: an empty volume Compose did not create warns at every start (structr-changelog,
+    2026-10-27, which the first backup after it was added to docker-compose.yml made)."""
+    if run(["docker", "volume", "inspect", f"{project}_{volume}"], check=False).returncode != 0:
+        return
     folder.chmod(0o777)
     try:
         run(["docker", "run", "--rm", "--entrypoint", "sh", "-v", f"{project}_{volume}:/v:ro", "-v", f"{folder}:/out",

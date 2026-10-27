@@ -84,7 +84,10 @@ beside yours as `private.restored-<name>/`, not over it: copy from it what you n
   default). So a backup made before the upgrade, restored now, comes back upgraded; to have it on 6.0
   again, set the image line back to `structr/structr:6.0.0` first. Each manifest records the images it
   was made with.
-- The changelog lives in files, not in the graph, so it is backed up as a volume. A restore puts back
+- The changelog lives in files, not in the graph, so it is backed up as a volume. A volume the stack has never
+  made (the changelog's, before its first start with it) is left out rather than made: the first
+  backup after the changelog was added made the owner's as a plain volume, so Compose warns at each
+  start that it "was not created by Docker Compose". The warning is harmless; the volume is used. A restore puts back
   the changelog the backup holds; restoring a backup made before the changelog leaves the changelog
   as it is, which then also lists the writes the restore undid.
 - Avoid starting a backup or a check at about 10:00, when the daily Timeshift snapshot fills the disk.

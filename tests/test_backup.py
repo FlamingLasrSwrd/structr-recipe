@@ -23,9 +23,10 @@ COMPOSE = Path(__file__).resolve().parent.parent / "docker-compose.yml"
 class FakeDocker:
     """Answers the commands backup.py runs, keeps them in order, and writes the files they would."""
 
-    def __init__(self, running=(), counts=(41455, 86653), restored=None, pages_rc=0, fail_on=None):
+    def __init__(self, running=(), counts=(41455, 86653), restored=None, pages_rc=0, fail_on=None, no_volumes=()):
         self.running, self.counts, self.restored = set(running), counts, restored or counts
         self.pages_rc, self.fail_on, self.calls = pages_rc, fail_on, []
+        self.no_volumes = set(no_volumes)              # volumes the stack has never made
 
     def __call__(self, args, *, env=None, check=True):
         line = " ".join(args)
@@ -46,6 +47,8 @@ class FakeDocker:
                 self.running = {n for n in self.running if not n.startswith(f"{project}-")}
             elif verb in ("start",) or (verb == "up" and "--no-start" not in args):
                 self.running |= {f"{project}-neo4j-1"} | ({f"{project}-structr-1"} if "neo4j" not in args[5:] else set())
+        elif args[:3] == ["docker", "volume", "inspect"]:
+            rc = 1 if args[3] in self.no_volumes else 0
         elif args[:2] == ["docker", "run"]:
             mount = next((a for a in args if a.endswith(":/backups") or a.endswith(":/out")), None)
             if "dump" in args and mount:
@@ -100,6 +103,14 @@ OWNER_UP = ("mealplanner-owner-neo4j-1", "mealplanner-owner-structr-1")
 
 
 class BackingUp(WithATempRepo):
+    def test_a_volume_the_stack_never_made_is_left_out_and_not_made(self):
+        docker = self.docker(running=OWNER_UP, no_volumes={f"{tool.OWNER}_structr-changelog"})
+        folder = tool.now()
+        m = json.loads((folder / "manifest.json").read_text())
+        self.assertNotIn("structr-changelog.tar.gz", m["files"])
+        self.assertIn("structr-files.tar.gz", m["files"])
+        self.assertFalse([c for c in docker.calls if c.startswith("docker run") and "structr-changelog" in c])
+
     def test_counted_then_stopped_then_dumped_and_started_again(self):
         docker = self.docker(running=OWNER_UP)
         folder = tool.now()
