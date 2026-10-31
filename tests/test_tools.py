@@ -224,6 +224,84 @@ class PrePushHook(unittest.TestCase):
         self.assertEqual(self.ran.read_text().split().count("tests/test_stand_in.py"), 1)
 
 
+FAKE_DOCKER = """#!/usr/bin/env bash
+# stands in for docker: the daemon answers once $FAKE_STATE/daemon exists; an image is here once
+# $FAKE_STATE/have-<image> exists; a pull succeeds from its FAKE_PULL_OK_AT-th try on
+state="$FAKE_STATE"
+echo "$*" >> "$state/calls"
+case "$1" in
+  info) [ -f "$state/daemon" ] ;;
+  compose) case "$2" in config) printf 'neo4j:test\\nstructr:test\\n' ;; up) exit 0 ;; esac ;;
+  image) [ -f "$state/have-$3" ] ;;
+  pull) n=$(( $(cat "$state/pulls-$3" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$state/pulls-$3"
+        if [ "$n" -ge "${FAKE_PULL_OK_AT:-1}" ]; then touch "$state/have-$3"; else exit 1; fi ;;
+esac
+"""
+
+
+class BootstrapStartsTheStack(unittest.TestCase):
+    """cloud/bootstrap.sh past --env-only, against stand-ins for docker, service and dockerd."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.repo = pathlib.Path(self.tmp.name)
+        for name in ("cloud/bootstrap.sh", "tools/wait_for_structr.sh"):
+            (self.repo / name).parent.mkdir(exist_ok=True)
+            (self.repo / name).write_text((ROOT / name).read_text())
+        self.bin = self.repo / "bin"
+        self.state = self.repo / "state"
+        self.bin.mkdir()
+        self.state.mkdir()
+        for name, body in (("docker", FAKE_DOCKER), ("service", "#!/usr/bin/env bash\nexit 1\n"),
+                           ("dockerd", '#!/usr/bin/env bash\ntouch "$FAKE_STATE/daemon"\n')):
+            (self.bin / name).write_text(body)
+            (self.bin / name).chmod(0o755)
+        self.fake = FakeStructr()
+        self.addCleanup(self.fake.close)
+
+    def run_bootstrap(self, **extra):
+        env = {**os.environ, "PATH": f"{self.bin}:{os.environ['PATH']}", "FAKE_STATE": str(self.state),
+               "STRUCTR_URL": self.fake.url, "TMPDIR": str(self.repo), "DOCKER_START_WAIT_S": "0",
+               "PULL_RETRY_BASE_S": "0", "NEO4J_PASSWORD": "a", "STRUCTR_SUPERUSER_PASSWORD": "b",
+               "STRUCTR_TOOLS_PASSWORD": "c", **extra}
+        return subprocess.run(["bash", str(self.repo / "cloud/bootstrap.sh")], cwd=self.repo, env=env,
+                              capture_output=True, text=True)
+
+    def calls(self):
+        return (self.state / "calls").read_text().splitlines()
+
+    def test_when_the_service_fails_it_starts_the_daemon_itself(self):
+        result = self.run_bootstrap()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((self.state / "daemon").exists())
+        self.assertIn("starting dockerd directly", result.stderr)
+        self.assertIn("compose up -d", self.calls())
+
+    def test_a_running_daemon_is_left_alone(self):
+        (self.state / "daemon").touch()
+        result = self.run_bootstrap()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("starting dockerd", result.stderr)
+
+    def test_a_refused_pull_is_tried_again_and_a_present_image_not_asked_for(self):
+        (self.state / "daemon").touch()
+        (self.state / "have-neo4j:test").touch()
+        result = self.run_bootstrap(FAKE_PULL_OK_AT="3")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        pulls = [c for c in self.calls() if c.startswith("pull")]
+        self.assertEqual(pulls, ["pull -q structr:test"] * 3)            # two refusals, then it came
+        self.assertEqual(self.calls()[-1], "compose up -d")             # started only once it had both
+
+    def test_an_image_that_never_comes_stops_it_before_starting_anything(self):
+        (self.state / "daemon").touch()
+        result = self.run_bootstrap(FAKE_PULL_OK_AT="99")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("could not pull neo4j:test", result.stderr)
+        self.assertEqual(len([c for c in self.calls() if c.startswith("pull")]), 5)
+        self.assertNotIn("compose up -d", self.calls())
+
+
 class FakeStructr:
     """Answers 200 on the schema endpoint when the right credentials arrive, and remembers who asked."""
 

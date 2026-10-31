@@ -56,7 +56,10 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
   `docker-compose.yml`'s Structr image set to `structr/structr:6.0.0` (`docs/backups.md`). The steps
   below run on 7.1.0; each was checked there.
 - If you use the cloud environment: paste `cloud/setup.sh` again into its "Setup script" field at
-  claude.ai/code. It now pulls Structr 7.1.0 ahead of time (2026-10-27).
+  claude.ai/code. It now pulls Structr 7.1.0 ahead of time (2026-10-27), and since 2026-10-31 it starts
+  Docker itself when `service docker start` fails (it did in that session) and tries a refused pull
+  again, so the images are there when a session starts. `cloud/bootstrap.sh` does the same in a
+  session, which needs no pasting.
 
 - Decide the wording of hard rule 2 (`docs/CLAUDE.md`): it says a trait added to a populated type is
   "only fixable with direct Cypher", but Structr's `createLabels` maintenance command fixes it through

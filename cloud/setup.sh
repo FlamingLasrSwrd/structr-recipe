@@ -25,11 +25,21 @@ python3 -m pip install -q --break-system-packages requests || true
 python3 -m venv /opt/solver-venv 2>/dev/null || python3 -m venv --without-pip /opt/solver-venv || true
 python3 -m pip --python /opt/solver-venv/bin/python install -q "ortools==9.15.6755" "requests>=2.31" || true
 
-# Docker images (the daemon may need starting in a fresh VM).
+# Docker images (the daemon may need starting in a fresh VM). `service docker start` failed in a cloud
+# session ("ulimit: error setting limit"), so the daemon is started directly when it did not come up,
+# and a pull Docker Hub refuses with 429 is tried again, within this script's few minutes (2026-10-31).
 if command -v docker >/dev/null 2>&1; then
   docker info >/dev/null 2>&1 || { service docker start >/dev/null 2>&1 || true; sleep 5; }
-  docker pull neo4j:2025.12.1 || true
-  docker pull structr/structr:7.1.0 || true
+  if ! docker info >/dev/null 2>&1 && command -v dockerd >/dev/null 2>&1; then
+    nohup dockerd >/tmp/dockerd.log 2>&1 &
+    for _ in $(seq 1 30); do docker info >/dev/null 2>&1 && break; sleep 1; done
+  fi
+  for image in neo4j:2025.12.1 structr/structr:7.1.0; do
+    for try in 1 2 3; do
+      docker pull -q "$image" >/dev/null 2>&1 && break
+      [ "$try" -lt 3 ] && sleep 20
+    done
+  done
 fi
 
 exit 0

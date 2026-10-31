@@ -14,7 +14,7 @@ in a cloud session yet**: the last section lists exactly what the first session 
 |---|---|
 | `CLAUDE.md` | your working agreements and commands, since a cloud session has none of your local memory |
 | `cloud/setup.sh` | the environment's setup script: `requests`, OR-tools in its own venv, the two Docker images |
-| `cloud/bootstrap.sh` | brings the stack up: makes `.env`, `docker compose up -d`, waits until Structr answers |
+| `cloud/bootstrap.sh` | brings the stack up: makes `.env`, starts Docker if it is not running, pulls missing images (trying again when Docker Hub refuses), `docker compose up -d`, waits until Structr answers |
 | `tools/rebuild.sh` | builds an instance from nothing (every script) and checks the snapshot |
 | `tools/wait_for_structr.sh` | the readiness check both use |
 

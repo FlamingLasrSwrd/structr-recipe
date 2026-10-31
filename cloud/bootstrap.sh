@@ -58,9 +58,36 @@ command -v docker >/dev/null 2>&1 || { echo "docker is not installed" >&2; exit 
 if ! docker info >/dev/null 2>&1; then
   echo "the Docker daemon is not answering; trying to start it" >&2
   (service docker start >/dev/null 2>&1 || true)
-  sleep 5
+  sleep "${DOCKER_START_WAIT_S:-5}"
+  # In a Claude cloud session the init script fails ("ulimit: error setting limit"), and so does a
+  # session restored after its container restarted; the daemon itself starts fine (2026-10-31).
+  if ! docker info >/dev/null 2>&1 && command -v dockerd >/dev/null 2>&1; then
+    log="${TMPDIR:-/tmp}/dockerd.log"
+    echo "service docker start did not start it; starting dockerd directly (its log: $log)" >&2
+    nohup dockerd >"$log" 2>&1 &
+    for _ in $(seq 1 30); do docker info >/dev/null 2>&1 && break; sleep 1; done
+  fi
   docker info >/dev/null 2>&1 || { echo "Docker daemon still not answering" >&2; exit 1; }
 fi
+
+# Pull what is missing, retrying: Docker Hub answers "429 Too Many Requests" to an anonymous pull now
+# and then (three times in one session, 2026-10-31), and compose gives up at the first. An image
+# already here is not asked for again.
+pull() {
+  local image="$1" try wait="${PULL_RETRY_BASE_S:-15}"
+  for try in 1 2 3 4 5; do
+    if docker pull -q "$image" >/dev/null 2>&1; then return 0; fi
+    if [ "$try" -lt 5 ]; then
+      echo "pulling $image failed (try $try of 5); trying again in ${wait} s" >&2
+      sleep "$wait"; wait=$((wait * 2))
+    fi
+  done
+  echo "could not pull $image" >&2
+  return 1
+}
+for image in $(docker compose config --images); do
+  docker image inspect "$image" >/dev/null 2>&1 || pull "$image" || exit 1
+done
 
 echo "starting the stack (first start pulls images and boots Structr: a minute or two)"
 docker compose up -d
