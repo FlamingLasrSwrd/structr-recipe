@@ -45,7 +45,6 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
 | **A cook's leftovers as stock** | #10 | A cook books a leftover portion with its amount, origin, storage and expiry, which later meals and the next week's planner draw on (invariants 23, 24 and 27; `docs/pantry.md`). With "a pantry journal, and undoing a booking" above, as compensating bookings rather than edits |
 | **Waste and cost in the objective** | #2 | A penalty for stock left to expire unused, and a cost term, each defined and tested on its own before the documents say the planner minimizes waste or spending. Objective changes: the owner's call (`docs/optimizer-design.md` §4.5) |
 | **Weeks to judge the objective by** | #2 | Representative weeks, including ones where nutrition pulls against time, waste, repeats, cost or stock, with the owner's verdict on each plan, kept as fixtures the planner is checked against |
-| **`check_bookings.py` sweeps what an interrupted run left** | #7 | The development instance holds about 20 time regions and a few nodes from earlier interrupted checks; the check removes only what it made itself |
 
 ## For the owner to do
 

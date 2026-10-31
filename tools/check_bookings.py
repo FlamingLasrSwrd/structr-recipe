@@ -3,7 +3,8 @@
     python3 tools/check_bookings.py [--food "Chicken Breast (raw)"] [--keep]
 
 For a development or throwaway instance only: it writes, then removes what it wrote (connect()
-refuses the owner's instance; --keep leaves it for a look). Each booking (buy, use, count, open,
+refuses the owner's instance; --keep leaves it for a look). Every token it books with begins with
+MARK, so each run first removes whatever an earlier one left, interrupted or kept. Each booking (buy, use, count, open,
 freeze, discard, and a planned meal cooked) is made once through the page, as the superuser
 (Structr honours the X-User headers for pages), and once through Python, on two portions of the
 same food, and it compares:
@@ -56,6 +57,42 @@ FIELDS = {     # what a booking writes on each type
     "MealPlanEntry": ("fulfilledBy", "isSkipped", "eatenInstead", "references", "hasPlannedServings", "isAbout", "memberOf"),
     "TypeHierarchy": (), "DomainType": ("hierarchy", "isLookupBearing"),
 }
+SWEPT = (*FIELDS, "MealPlan", "QuantitySpecification", "MealShare")      # every type the check and its bookings name
+MARK = "c4ecb00c"      # begins every token the check books with; a page's own token is 8 random hex digits
+
+
+def new_token() -> str:
+    """A booking token (pages/common.js takes 4 to 16 hex digits): MARK and 8 random ones."""
+    return MARK + secrets.token_hex(4)
+
+
+def sweep(client) -> int:
+    """Remove what an earlier run left, interrupted or with --keep: every node whose name holds MARK, which
+    each booking's names and the check's own weeks carry, and then the bookings' kinds (pantry.py makes
+    them on first use, and a run removes those it made) if no Process is left of any of them. How many
+    were removed."""
+    found = {}                                # id -> its own type: a supertype's query answers its subtypes too
+    for type_name in SWEPT:
+        for row in client.get(f"/structr/rest/{type_name}", params={"name": MARK, "_inexact": 1})["result"]:
+            if MARK in (row.get("name") or ""):
+                found[row["id"]] = row.get("type") or type_name
+    removed = _remove(client, found)
+    kinds = {row["id"]: "DomainType" for name in (pantry.PURCHASE, pantry.USE, pantry.DISCARDING)
+             for row in client.get("/structr/rest/DomainType", params={"name": name})["result"] if row.get("type") == "DomainType"}
+    if kinds and not any((p.get("hasKind") or {}).get("id") in kinds for p in client.get_all("Process")["result"]):
+        kinds.update({row["id"]: "TypeHierarchy" for row in client.get("/structr/rest/TypeHierarchy",
+                                                                       params={"name": pantry.OPERATIONS})["result"]})
+        removed += _remove(client, kinds)
+    return removed
+
+
+def _remove(client, nodes: dict) -> int:
+    for node_id, type_name in nodes.items():
+        try:
+            client.delete(f"/structr/rest/{type_name}/{node_id}")
+        except Exception:                     # already gone with another
+            pass
+    return len(nodes)
 SEEN = ("visibleToAuthenticatedUsers", "visibleToPublicUsers")
 TIMES = ("hasBeginning", "hasTime")
 
@@ -159,9 +196,12 @@ def main(argv=None) -> int:
     parser.add_argument("--keep", action="store_true", help="leave what was written")
     args = parser.parse_args(argv)
     client = connect()                       # refuses the owner's instance: this writes and deletes
+    left = sweep(client)
+    if left:
+        print(f"removed {left} node(s) an earlier run left")
     check = Check(client)
     before = {name for name in ("Pantry Operation", "Purchase", "Use", "Discarding") if check.nodes(name)}
-    t = {k: secrets.token_hex(4) for k in ("buy", "use", "count", "discard", "cook", "pybuy", "pyuse", "pycount",
+    t = {k: new_token() for k in ("buy", "use", "count", "discard", "cook", "pybuy", "pyuse", "pycount",
                                             "pydiscard", "pycook", "week", "stock", "menu", "pymenu")}
     now = datetime.now(timezone.utc)
     try:
@@ -202,7 +242,7 @@ def main(argv=None) -> int:
         for action, page_args, py_call in (("open", {}, lambda: pantry.open_portion(client, y_portion)),
                                            ("move", {"storage": "Freezer"}, lambda: pantry.move(client, y_portion, "Freezer"))):
             print(action)
-            got = check.page("pantry", do=action, portion=p_portion, token=secrets.token_hex(4), **page_args)
+            got = check.page("pantry", do=action, portion=p_portion, token=new_token(), **page_args)
             if got["problem"]:
                 check.fail(f"{action} through the page: {got['problem']}")
                 continue
@@ -340,7 +380,7 @@ def menu_check(check: Check, client, t: dict) -> None:
         weeks[side] = (week, dinner, lunch)
 
     def page(action, entry, **extra):
-        got = check.page(f"week/{weeks['menu'][0]}", do=action, entry=entry, token=secrets.token_hex(4), **extra)
+        got = check.page(f"week/{weeks['menu'][0]}", do=action, entry=entry, token=new_token(), **extra)
         check.remember(got["created"])
         return got
 
@@ -411,7 +451,7 @@ def race_check(check: Check, client, food: str, keeps: str) -> None:
     """Bookings sent at the same moment (pages/common.js runBooking). Before the bookings' lock, four
     presses of one purchase made four Processes of one name, and two people asking for recipes could
     each make the week's MealPlan, or the one write over the other's list."""
-    token = secrets.token_hex(4)
+    token = new_token()
     form = dict(do="buy", food=food, amount="600", unit="g", storage="Fridge", keeps=keeps, token=token)
     answers = at_once(client, "pantry", [form] * 4)
     told = [json.loads(DATA.search(a).group(1)) for a in answers]
@@ -440,7 +480,7 @@ def race_check(check: Check, client, food: str, keeps: str) -> None:
     recipes = [p["specializationOf"]["id"] for p in plans]
     try:
         told = [json.loads(DATA.search(a).group(1)) for a in at_once(client, f"recipe/{plans[0]['id']}", [
-            dict(do="ask", recipe=r, week=start.isoformat(), token=secrets.token_hex(4)) for r in recipes])]
+            dict(do="ask", recipe=r, week=start.isoformat(), token=new_token()) for r in recipes])]
         weeks = [r for r in client.get("/structr/rest/MealPlan", params={"name": name})["result"] if r.get("type") == "MealPlan"]
         asked = sorted(r["id"] for r in requests.requested(client, start)) if len(weeks) == 1 else None
         if len(weeks) != 1 or asked != sorted(recipes) or any(got["problem"] for got in told):
@@ -494,20 +534,20 @@ def request_check(check: Check, client) -> None:
         print(f"  {plan['name']} is asked for that week already; left alone")
         return
     try:
-        got = check.page(f"recipe/{plan['id']}", do="ask", recipe=recipe, week=offered["week"], token=secrets.token_hex(4))
+        got = check.page(f"recipe/{plan['id']}", do="ask", recipe=recipe, week=offered["week"], token=new_token())
         if got["problem"] or settled(start, before + [recipe]) != before + [recipe]:
             check.fail(f"asking through the page: {got}")
         week = requests._week(client, start)
         if week and (week.get("visibleToAuthenticatedUsers"), week.get("visibleToPublicUsers")) != (True, False):
             check.fail(f"{week['name']}: visibility not stated")
-        again = check.page(f"recipe/{plan['id']}", do="ask", recipe=recipe, week=offered["week"], token=secrets.token_hex(4))
+        again = check.page(f"recipe/{plan['id']}", do="ask", recipe=recipe, week=offered["week"], token=new_token())
         if again["created"] or settled(start, before + [recipe]) != before + [recipe]:
             check.fail(f"asking twice wrote again: {again}")
         if not requests.withdraw(client, recipe, start) or settled(start, before) != before:
             check.fail("requests.withdraw did not take back what the page asked for")
         if not requests.ask(client, recipe, start) or not shown()["asked"]:
             check.fail("the page does not see what requests.ask wrote")
-        check.page(f"recipe/{plan['id']}", do="withdraw", recipe=recipe, week=offered["week"], token=secrets.token_hex(4))
+        check.page(f"recipe/{plan['id']}", do="withdraw", recipe=recipe, week=offered["week"], token=new_token())
         if settled(start, before) != before:
             check.fail("withdrawing through the page left the request")
     finally:
