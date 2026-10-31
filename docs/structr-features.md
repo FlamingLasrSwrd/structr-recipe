@@ -2,7 +2,7 @@
 
 **Status: findings and a plan (2026-10-27); batches 1 to 4 built, 5 and 6 waiting on the owner.** A read of all of Structr's documentation
 (structr.org/docs, 84 pages, written for 7.x) and of the 7.1.0 release notes, checked against the
-6.0.0 this project runs: read-only probes of the development instance's schema metadata, endpoints
+6.0.0 this project ran (7.1.0 since 2026-10-27, section 4): read-only probes of the development instance's schema metadata, endpoints
 and image, then spike tests on throwaway stacks (`tools/spikes/`). `docs/structr-reference.md` is
 the same knowledge without this project in it, for any Structr work; `docs/structr-cheatsheet.md`
 remains the authority on what this project has verified.
@@ -79,7 +79,7 @@ relationship changes). What each showed, and what it means here:
 | changelog | With `STRUCTR_application_changelog_enabled` and `..._user__centric_enabled`, `$.changelog(id, false)` lists `create` and `change` entries with `prev`, `val`, `userName` and time; kept as files in `/var/lib/structr/changelog`, **which is on no volume** | Batch 1, with a volume and a place in the backups |
 | cron | `STRUCTR_cronservice_tasks=<function>` and `STRUCTR_<function>_cronExpression` (six fields) run the function; it must exist when Structr starts | No task yet; a nightly check is a candidate |
 | polyglot | **No.** The image carries the GraalPy jars, but `Polyglot.eval('python', ...)` answers 422 and the log says "No language for id python found. Supported languages are: [js]" | Python cannot run inside Structr 6.0 as shipped: what a request does stays JavaScript (`methods/`) and the planner stays Python outside it, as Path S has it |
-| params | A `SchemaMethodParameter` of type Integer turns `"7"` into 7; `httpVerb: "GET"` takes path segments (`/structr/rest/<name>/5`) and refuses POST (405); **an undeclared argument is dropped silently** (7.1 refuses it) | Batch 5. Every method must declare every argument it reads before 7.1 |
+| params | A `SchemaMethodParameter` of type Integer turns `"7"` into 7; `httpVerb: "GET"` takes path segments (`/structr/rest/<name>/5`) and refuses POST (405); **an undeclared argument is dropped silently** (7.1 refuses it) | Batch 5. A method that declares one parameter must declare every argument it reads, `warmUp` included (7.1.0 refuses the rest); one that declares none still receives everything on 7.1.0 (section 4) |
 | param_object | A JSON object passed to a declared parameter of type Map, Object or String arrives whole, as an object; the undeclared `warmUp` beside it is dropped | Batch 5: a booking method can declare one object parameter for its fields, and `warmUp` |
 | evaluate | `$.evaluateScript(node, 'expression')` runs a StructrScript expression with `this` the stored node and returns its value; written as `${...}` it returns nothing | Batch 4's check of the stored data: each validator's expression, its `error(` replaced by a function that only returns, evaluated against every node of its type |
 | cache | `$.cache(key, seconds, fn)` returns the first value again | A candidate for slow page reads; the key must name the household, since a cached value is shared by everyone |
@@ -216,7 +216,8 @@ difference; `check_households.py` did too once the recipes' nutrition per servin
 (`calculate_recipe_nutrition.py`), which its nutrition comparison needs on any fresh build.
 
 **Batch 5, methods:** declared parameters for every argument a method reads, GET for the read-only
-ones, `includeInOpenAPI` with a tag for the planner contract. Needed before 7.1 in any case. Once a
+ones, `includeInOpenAPI` with a tag for the planner contract. Not needed for 7.1 after all: a
+method declaring no parameters still receives every argument there (section 4). Once a
 method declares one parameter, 6.0 drops every argument it does not declare (the params spike), so
 each method declares all it reads, `warmUp` included (`tools/install_methods.py`). The three booking
 methods take the fields of one action among many (`bookForCaller`): either every key any action
@@ -225,8 +226,10 @@ first. The param_object spike found one: declared as Map (or Object, or String),
 whole. **Not built: waiting on the owner**, because it changes how every caller calls the methods
 (`docs/methods.md`): a booking would move from flat keys to one object, or declare every key any
 action reads, and a read method moved to GET is called with path segments instead of a POST body.
-Nothing on 6.0 needs it: 6.0 passes undeclared arguments to a method that declares none, and only
-7.1 refuses them. It belongs with a move to 7.1.
+Nothing needs it today: on 6.0 and 7.1 alike, a method that declares no parameters receives every
+argument; only one that declares some refuses (7.1) or drops (6.0) the rest. The owner decided
+(2026-10-31) that it waits for the architecture decision (`docs/architecture-decision.md`), which
+settles who calls these methods.
 
 **Batch 6, importers in one transaction:** a recipe written as array POSTs, so an interrupted import
 leaves nothing half-written, and measured against today's 8 to 19 s a recipe. **Not built: waiting on

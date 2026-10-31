@@ -102,9 +102,11 @@ through REST - 6 Scripting and methods - 7 Transactions and concurrency - 8 REST
   **`superadmin`** by default (`superuser.username`), not `admin`. **[V6]**
 - The superuser is not stored in the database. It works with `X-User`/`X-Password` headers and the
   configuration interface (`/structr/config`), but **cannot log in to pages** through the login
-  endpoint (401 "login with superuser not supported"). **[V6]**
+  endpoint (401 "login with superuser not supported"). **[V6]** **[V7.1]**
 - An initial admin user (`initialuser.name`, default `admin`/`admin`) is created when Structr
-  first connects to an empty database (`initialuser.create`). Change its password. **[D7]**
+  first connects to an empty database (`initialuser.create`). **[D7]** **[V7.1]**: a fresh 7.1.0
+  database had `admin` with the password `admin` and `isAdmin: true`, and it logged in with
+  headers. Delete it, or change its password, before anything else reaches the instance.
 - **[7.1]** Without a second factor, three failed superuser logins within 15 minutes (counted
   across the configuration interface, headers and Basic auth together) block the superuser
   everywhere for 15 minutes, even with the right password (`configservlet.login.maxattempts`,
@@ -128,8 +130,16 @@ header is present); a JWT in `Authorization: Bearer ...`; a session id in `X-Str
 - `X-User`/`X-Password` on every request is the simplest way for scripts: no session, nothing to
   expire. Every such request is a login attempt and counts towards the account lockout
   (`security.passwordpolicy.maxfailedattempts`, default 4), so a client must stop on a 401 rather
-  than retry. Use HTTPS beyond localhost. **[V6]** (mechanism) / **[D7]** (lockout detail)
-- Prefer a dedicated service user holding only what it needs over an admin account.
+  than retry. Use HTTPS beyond localhost. **[V6]** (mechanism) / **[D7]** (lockout detail) /
+  **[V7.1]** (more than four wrong passwords in a row refuse even the right one until
+  `passwordAttempts` is set back to 0; a right one before that resets the count)
+- **[V7.1]** For a user stored in the database it is slow: each request checks the password against
+  its Argon2id hash (`security.passwordhash.memory` 64 MB, `.iterations` 3 by default), about 0.4 s
+  a request where the superuser's took 15 ms. A script making many requests should log in once and
+  send the session's id in `X-StructrSessionToken` (3.3), which brought it back to 11-15 ms.
+- Prefer a dedicated service user holding only what it needs over an admin account; a script that
+  changes the schema needs an admin, and with `skipSecurityRelationships` it owns nothing it makes
+  (4.3).
 
 ### 3.3 Sessions for browsers
 
@@ -140,10 +150,17 @@ header is present); a JWT in `Authorization: Bearer ...`; a session id in `X-Str
 - Anonymous users need a `ResourceAccess` grant with signature `_login` allowing POST for
   non-authenticated users, **and that grant node must itself be `visibleToPublicUsers`**, or every
   login is a 401 regardless of flags. `_logout` likewise for authenticated users. **[V6]**
-- `POST /structr/rest/logout` ends the session.
+- An admin can log in without the `_login` grant by sending its `X-User`/`X-Password` headers on the
+  login request as well as the JSON body. **[V7.1]**
+- `POST /structr/rest/logout` ends the session, **but only when the session arrives as the
+  `JSESSIONID` cookie**: with `X-StructrSessionToken` alone it answered 200 and the session stayed
+  open. **[V7.1]** Each session is also stored as a `SessionDataNode`, which the logout leaves
+  behind; an admin can delete its own (`GET /structr/rest/SessionDataNode?sessionId=<the cookie's
+  value before its dot>`, then delete it) while the session still works. **[V7.1]**
 - Cookie flags **[D7]**: `httpservice.cookies.secure` (default true: on a plain-HTTP installation
   sessions will not stick unless it is turned off), `httpservice.cookies.samesite` (default Lax),
-  `httpservice.cookies.httponly` (default true from 7.1).
+  `httpservice.cookies.httponly` (default true from 7.1). **[V7.1]** the login's cookie over plain
+  HTTP came marked `Secure; HttpOnly; SameSite=Lax`, so a client must send it back itself.
 - `Page.enableBasicAuth` did not gate access on 6.0.0. **[V6]**
 
 ### 3.4 Tokens, external identities, second factors
@@ -709,6 +726,8 @@ switched off by default (404 on 6.0.0), and `_serverLog` is 404 on 6.0.0.
   without it the page renders only `<!DOCTYPE html>`.
 - Post each element to its tag's own type (`/structr/rest/Form`, `/Input`, `/A`): tag-specific
   attributes (`_html_action`, `_html_name`, ...) are silently dropped on the generic `DOMElement`.
+- An element is a node: posted without visibility flags it is owner-only, and renders for no one
+  else. Set the flags on every element. **[V7.1]**
 - A `Content` holding JavaScript for a `<script>` needs `contentType: "text/javascript"`;
   plain text turns newlines into `<br>`.
 - **Deleting a `Page` leaves its elements** (as `DOMNode`s); delete them first
@@ -1008,6 +1027,9 @@ keystore (Structr terminates TLS itself; the `letsencrypt` command fills the key
     within 48 minutes of the session timeout. An admin may delete them through REST.
   - `/structr/health/ready` answers through the published port without credentials.
   - A fresh database gets the initial user `admin` / `admin` with `isAdmin: true`, and it logs in.
+  - The superuser still cannot log in to pages ("Login with superuser not supported"), even with its
+    headers on the login request; an admin can (3.3).
+  - A page element posted without visibility flags is owner-only, like any node.
 
 Check the running version on the dashboard ("About Structr") or the server log's "Started
 Structr" line.
@@ -1031,7 +1053,7 @@ Structr" line.
 - **After changing a populated type's traits:** `createLabels` for that type, restart, verify.
 - **Sharing within a group:** private nodes (no visibility flags), granted to the group on create;
   or a schema grant when every node of a type is shared the same way; or permission propagation
-  from a shared parent.
+  from a shared parent (not on 7.1.0, where it let in a user without a grant: section 13).
 - **Server-side logic callable from pages and from outside:** JavaScript user-defined functions in
   files, installed by a tool that sets `source`, warms each up once, and leaves others alone.
 - **A lock for read-modify-write:** write a property on a shared node first, then read, then write.

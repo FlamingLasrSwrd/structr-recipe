@@ -64,9 +64,13 @@ services:
 - ✅ Default UI: `http://localhost:<host-port>/structr/` (note trailing
   slash for the admin UI itself; REST/HTML app routes below don't need
   it).
-- 📖 First boot can take 10–30s before the REST API responds — poll
-  `GET /structr/rest/SchemaNode` with your credentials until it returns
-  200 rather than assuming it's up right after `docker compose up`.
+- ✅ First boot can take 10–30s before the REST API responds (40 s seen on 7.1.0).
+  Poll `GET /structr/health/ready`, which needs no credentials and answers 503
+  until Structr serves requests (verified 2026-10-31 on 7.1.0, from the host
+  through the published port), rather than assuming it's up right after
+  `docker compose up`. Polling an authenticated endpoint instead makes every
+  poll a login attempt, and on 7.1 three wrong superuser passwords lock it out
+  (§2).
 - 📖 A missing/invalid `license.key` file is fine — Structr runs in
   Community edition automatically; you don't need a real license to do
   anything described in this document.
@@ -88,7 +92,8 @@ services:
 
 ✅ Structr checks credentials in this order (confirmed via docs, matches
 observed behavior): **session cookie → JWT in `Authorization` header →
-`X-User`/`X-Password` headers → anonymous**.
+session id in `X-StructrSessionToken` → `X-User`/`X-Password` headers →
+anonymous** (the session token header verified on 7.1.0, 2026-10-31, below).
 
 For scripts (not a browser session), `X-User`/`X-Password` on every
 request is simplest:
@@ -96,10 +101,14 @@ request is simplest:
 ```python
 session = requests.Session()
 session.headers.update({
-    "X-User": "admin", "X-Password": "admin",
+    "X-User": "<user>", "X-Password": "<password>",
     "Content-Type": "application/json",
 })
 ```
+
+That is cheap only for the superuser: on 7.1 a user stored in the database pays
+about 0.4 s a request for it, and should log in once instead (below). And never
+leave `admin`/`admin` working: a fresh 7.1 database has that account (below).
 
 ✅ For a real browser session (needed for `visibleToAuthenticatedUsers`
 HTML pages to render for a human visitor), the mechanism that actually
@@ -183,9 +192,10 @@ fresh 7.1.0 development stack; `tools/create_tools_user.py` is the result):
   session store queries them by `lastAccessed` for Jetty's expiry sweep. An admin can list
   them (`GET /structr/rest/SessionDataNode?sessionId=<id>`, the id being the cookie's value
   before its dot) and delete its own while the session still works; it did not come back
-  at the logout after. `StructrClient.logout` does that, so a tool run leaves none (a rebuild from empty then left 0). The
-  snapshot does not see them (not a schema type). A sign-in to the pages goes through the
-  same login, so it presumably leaves one too (not checked).
+  at the logout after. `StructrClient.logout` does that, so a tool run leaves none (a
+  rebuild from empty then left 0). The snapshot does not see them (not a schema type). A
+  sign-in to the pages goes through the same login, so it presumably leaves one too (not
+  checked).
 - `GET /structr/health/ready` answers 200 from the host through the published port, with
   no credentials, so a readiness wait need not be a login attempt.
 - ⚠️ **A fresh 7.1.0 database gets an `admin` user with the password `admin` and
@@ -770,7 +780,10 @@ Community** — ✅ independently confirmed empirically in this project:
 every attempt to relate a custom type to Structr's built-in `Image`/
 `File` types failed with `"Invalid schema setup: missing
 StartNode(s)/EndNode(s) property"`, across multiple relationship-shape
-variants, both directions, and a full container restart. If you need
+variants, both directions, and a full container restart. A relationship
+to the built-in `User` later worked when declared with `targetType: "User"`
+instead of a `targetId` (§2, "Users, groups and grants"); whether
+`targetType: "File"` cures this case too was not tried. If you need
 to reference an uploaded file from a custom type, don't fight this —
 store the file node's `id` as a plain `String` property instead of a
 real relationship (see §5).
@@ -884,11 +897,12 @@ Confirmed dead ends, each isolated with its own test:
     `{"kindId": ...}`: empty) and as a literal positional argument in a
     nested call (`this.parent.resolveDefault("LITERAL_TEST")` with the
     callee's source being bare `kindId`: also empty, even though the
-    caller unambiguously passed a real value). Whatever
-    `SchemaMethodParameter` is for (plausibly OpenAPI documentation
-    metadata only, given the accompanying `description`/`exampleValue`
-    fields), it isn't functional argument binding for a StructrScript
-    method body in this version.
+    caller unambiguously passed a real value). It isn't functional
+    argument binding for a StructrScript method body in this version.
+    It is not documentation only, though: for a JavaScript method a
+    declared parameter converts its argument's type and filters out
+    undeclared ones (6.0.0 drops them, 7.1.0 refuses them; §10, the
+    params spike, 2026-10-27).
   - `codeType` accepts arbitrary string values with no validation
     (`"js"`, `"text/javascript"`, `"application/javascript"` all `200`
     on write) but does **not** change the execution engine — JS
@@ -1183,11 +1197,12 @@ POST a `Page` — every element is created one at a time, explicitly
 linked by `parent` + `pageId`:
 
 ```python
-POST /structr/rest/Page            {"name": "my-page"}              # -> page_id
-POST /structr/rest/Html            {"pageId": page_id, "parent": page_id}   # -> html_id
-POST /structr/rest/Body            {"pageId": page_id, "parent": html_id}   # -> body_id
-POST /structr/rest/H1              {"pageId": page_id, "parent": body_id}   # -> h1_id
+POST /structr/rest/Page            {"name": "my-page"}                                  # -> page_id
+POST /structr/rest/Html            {"pageId": page_id, "parent": page_id, "tag": "html"}   # -> html_id
+POST /structr/rest/Body            {"pageId": page_id, "parent": html_id, "tag": "body"}   # -> body_id
+POST /structr/rest/H1              {"pageId": page_id, "parent": body_id, "tag": "h1"}     # -> h1_id
 POST /structr/rest/Content         {"pageId": page_id, "parent": h1_id, "content": "Hello"}
+# every one also needs its visibility flags (below)
 ```
 
 Rendered at `/structr/html/<page name>`, **not** the bare root path
@@ -1197,14 +1212,15 @@ Rendered at `/structr/html/<page name>`, **not** the bare root path
   throwaway instance). POSTing `Html`/`Body` as above, with `parent` and `pageId` but no
   `tag`, linked them correctly (`children` read back) and rendered **only**
   `<!DOCTYPE html>`: no error, no elements. With `"tag": "html"`, `"tag": "body"` (and so
-  on for every element) the page renders. The example above predates this.
+  on for every element) the page renders, as in the example above.
 - ✅ **Deleting a `Page` leaves its elements behind** (6.0.0, verified 2026-10-22): after
   `DELETE /structr/rest/Page/<id>`, its Html, Body, Div and Content nodes were still listed
   under `/structr/rest/DOMNode`. Delete them first: `GET /structr/rest/DOMNode?pageId=<id>`
   lists them.
-- ✅ **The superuser cannot sign in to pages** (6.0.0): `POST /structr/rest/login` as
-  `superadmin` answers 401 "login with superuser not supported", even with the `_login`
-  grant below in place. A page *does* render for `X-User`/`X-Password` headers of the
+- ✅ **The superuser cannot sign in to pages** (6.0.0, and 7.1.0 on 2026-10-31):
+  `POST /structr/rest/login` as `superadmin` answers 401 "login with superuser not
+  supported", even with the `_login` grant below in place, and on 7.1.0 even with the
+  superuser's own headers on the request. A page *does* render for `X-User`/`X-Password` headers of the
   superuser, which is enough for a script to check one, not for a browser.
 - ✅ **JavaScript in a page** (`${{ ... }}` in a Content node, GraalJS, 6.0.0): nested braces
   and template literals inside the block are fine; `$.print(...)` writes raw HTML in a
@@ -1227,9 +1243,12 @@ Rendered at `/structr/html/<page name>`, **not** the bare root path
   text content type converts newlines to literal `<br>` tags — silently
   breaks JS syntax, with no error at write time; only visible as
   garbled output and a browser console error at render time.
-- Every element defaults to `visibleToAuthenticatedUsers=True` unless
-  you pass `visibleToPublicUsers=True` — same trap as §2, one level up.
-  An invisible element just renders as nothing.
+- ✅ **An element is a node like any other: posted without visibility
+  flags it is owner-only** (a `Div` read back `visibleToAuthenticatedUsers`
+  and `visibleToPublicUsers` both false, 7.1.0, 2026-10-31) — same trap as
+  §2, one level up. Set the flags on every element (`tools/install_pages.py`
+  does); an invisible element just renders as nothing. (An earlier version of
+  this line said elements default to visible to signed-in users; they do not.)
 
 ### Detail pages: URI object resolution
 
@@ -1559,6 +1578,6 @@ remembering:
   or a group still reach only them (the grant_direct spike), so do not use propagation on 7.1.0
   without checking it again. Python still does not run.
 - Also behaving as documented: compound uniqueness, `onSave` with `$.retrieve('modifications')`,
-  `SchemaGrant`, permission propagation (`"Out"`, `"Add"`, `"Keep"`), array POST as one
+  `SchemaGrant`, permission propagation (`"Out"`, `"Add"`, `"Keep"`; on 6.0.0 only, see 7.1.0 above), array POST as one
   transaction, `cache`, `schedule`, `sync` export of a query, `/structr/health/ready` without
   credentials, `curl` in the image.
