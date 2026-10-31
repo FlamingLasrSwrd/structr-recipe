@@ -784,7 +784,9 @@ documented way to control exactly what a given client sees.
 
 Written while building a `resolveDefault`-style method (walk a
 self-referential `SUBCLASS_OF` chain upward, nearest-match wins) on the
-`meal-planner` project. None of this is covered by official docs in
+`meal-planner` project. That method was retired on 2026-10-31
+(`scripts/47a`; defaults are resolved in Python, `mealplanner/defaults.py`);
+the findings below are about Structr and stand. None of this is covered by official docs in
 enough detail to skip empirical verification — every ✅ below was
 confirmed live against a 6.0.0 Community instance with no pre-existing
 built-in `SchemaMethod`s to learn the shape from (`GET

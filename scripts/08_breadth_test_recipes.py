@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner.connection import connect
+from mealplanner.defaults import resolve_default as resolve
 from mealplanner.typetree import dt
 from mealplanner.breadth_test import (
     P, PASTA_YIELD, PASTA_INPUT_MASS_G, PASTA_EXPECTED_OUTPUT_G, PASTA_ACTUAL_OUTPUT_G,
@@ -45,16 +46,12 @@ def build_default_spec(client, spec: dict, name: str) -> str:
     return client.upsert("DefaultSpecification", "name", name, fields)
 
 
-def resolve_default(client, type_domain_id: str, kind_name: str):
-    """Call resolveDefault and return the resolved QuantitySpecification's
-    FULL record (call_method's raw result only carries id/type/name for
-    the nested reference -- same gotcha as script 06d hit)."""
-    result = client.call_method(
-        "DomainType", type_domain_id, "resolveDefault", {"kindId": dt(client, kind_name)}
-    )
-    if not isinstance(result, dict) or "id" not in result:
-        return result
-    return client.get_all("QuantitySpecification", result["id"])["result"]
+def resolve_default(client, type_domain_id: str, kind_name: str, spec: dict):
+    """The QuantitySpecification of the `kind_name` default that applies to the
+    Type in the context of `spec`'s keys (mealplanner/defaults.py), or None."""
+    keys = {dt(client, f"{P}{k}") for k in spec.get("keyed_by", [])}
+    resolved = resolve(client, type_domain_id, dt(client, kind_name), keys)
+    return resolved.quantity if resolved else None
 
 
 def build_pasta_recipe(client):
@@ -77,9 +74,9 @@ def build_pasta_recipe(client):
 
     print("\n[2] Yield DefaultSpecification (2.00 -- absorption, > 1)...")
     ds_id = build_default_spec(client, PASTA_YIELD, f"{P}Boiling yield factor for Pasta (dry)")
-    resolved = resolve_default(client, pasta_dry, "Yield")
+    resolved = resolve_default(client, pasta_dry, "Yield", PASTA_YIELD)
     ok = isinstance(resolved, dict) and resolved.get("value") == 2.00
-    print(f"    [{'OK' if ok else 'FAIL'}] resolveDefault(Yield) on Pasta (dry) -> {resolved}")
+    print(f"    [{'OK' if ok else 'FAIL'}] resolve_default(Yield) on Pasta (dry), boiled -> {resolved}")
     assert ok
 
     print("\n[3] Plan side: RecipeIdentity -> Plan -> Step -> 2 Specifications...")
@@ -170,11 +167,11 @@ def build_onion_recipe(client):
     print("\n[2] MassPerUnit (180g) and Yield (0.90) DefaultSpecifications...")
     mpu_ds = build_default_spec(client, ONION_MASS_PER_UNIT, f"{P}Yellow Onion mass-per-unit default")
     yield_ds = build_default_spec(client, ONION_YIELD, f"{P}Peeling and Dicing yield factor for Yellow Onion")
-    mpu_resolved = resolve_default(client, yellow_onion, "MassPerUnit")
-    yield_resolved = resolve_default(client, yellow_onion, "Yield")
+    mpu_resolved = resolve_default(client, yellow_onion, "MassPerUnit", ONION_MASS_PER_UNIT) or {}
+    yield_resolved = resolve_default(client, yellow_onion, "Yield", ONION_YIELD) or {}
     ok = mpu_resolved.get("value") == 180.0 and yield_resolved.get("value") == 0.90
-    print(f"    [{'OK' if ok else 'FAIL'}] resolveDefault(MassPerUnit)={mpu_resolved.get('value')}g, "
-          f"resolveDefault(Yield)={yield_resolved.get('value')}")
+    print(f"    [{'OK' if ok else 'FAIL'}] resolve_default(MassPerUnit)={mpu_resolved.get('value')}g, "
+          f"resolve_default(Yield)={yield_resolved.get('value')}")
     assert ok
     expected_output_g = mpu_resolved["value"] * yield_resolved["value"]
     print(f"    computed expected output = {mpu_resolved['value']} x {yield_resolved['value']} = {expected_output_g}g")
@@ -195,7 +192,7 @@ def build_onion_recipe(client):
     print(f"    recipe={recipe_id} plan={plan_id} step={step_id} s1={s1_id} s3={s3_id}")
 
     print("\n[4] Inventory: DiscreteWholeItem onion, NEVER WEIGHED -- mass Quality gets "
-          "an IMPUTED Measurement from resolveDefault(MassPerUnit)...")
+          "an IMPUTED Measurement from the MassPerUnit default...")
     onion_instance = client.upsert("DiscreteWholeItem", "name", f"{P}Onion instance #1", {
         "instanceOf": yellow_onion, "hasPerishabilityType": produce_id,
     })

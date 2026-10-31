@@ -5,9 +5,10 @@ subsumption upward; reaching the root with nothing yields "undefined, never a
 guess"; and "each DefaultSpecification resolves independently by its
 (hasKind, keyedBy) signature".
 
-The StructrScript `resolveDefault` SchemaMethod (scripts/03c) only filters by
-hasKind. Given a Type with Yield defaults keyed by Braising AND by Grilling,
-it returns whichever it happens to find first, and callers then had to check
+The StructrScript `resolveDefault` SchemaMethod (scripts/03c built it until
+2026-10-31; scripts/47a retired it) filtered only by hasKind. Given a Type with
+Yield defaults keyed by Braising AND by Grilling, it returned whichever it
+happened to find first, and callers then had to check
 the key afterwards -- which cannot recover the right one if the wrong one came
 back (found by external review; the material-accounting code had a comment
 saying as much). Two code paths (shelf life and density/mass-per-unit)

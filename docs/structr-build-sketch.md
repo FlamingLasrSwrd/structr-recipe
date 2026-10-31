@@ -159,7 +159,7 @@ Structr `SchemaMethod`s on traits, which per docs run for every inheriting subty
 
 | Method | On | Does |
 |---|---|---|
-| `resolveDefault(kind)` | `DomainType` | walk `SUBCLASS_OF*` upward, nearest wins, return the `QuantitySpecification` or nothing |
+| `resolveDefault(kind)` | `DomainType` | walk `SUBCLASS_OF*` upward, nearest wins, return the `QuantitySpecification` or nothing. **Retired 2026-10-31** (`scripts/47a`): resolved in Python by kind and keys (below) |
 | `currentMagnitude()` | `Quality` | latest `observed`/`imputed` Measurement minus input Allocations since (§4.1.1 of the model) |
 | `physicalOnHand()` / `eligibleOnHand()` | `DomainType` | rollup down `SUBCLASS_OF*`, with the eligibility filter |
 | `unaccounted()` | `Process` | actual output minus (input × yield factor) |
@@ -172,7 +172,7 @@ Heterogeneous walks (all Allocations about one bearer across every Process kind;
 
 **Correction (2026-10-26): the ceiling was StructrScript's, not Structr's.** A `SchemaMethod` whose source is a bare `{ ... }` block runs as JavaScript (Structr's own documentation, and probed on the development instance): recursion between method calls with an argument works, and a method working out every portion's grams on hand, correlating each Measurement's time with each later Allocation's Process, agreed with Python's `pantry.on_hand` on all 17 portions, in 0.7 to 0.9 s where Python over REST took 12.6 s. The JavaScript form was never found while this was built (the cheatsheet's §3a tried `${{ }}` and `codeType`), so moving these algorithms client-side was a choice made for a reason that did not hold; whether they belong in Structr or in Python is weighed in `docs/architecture-decision.md`.
 
-**`resolveDefault` doesn't actually implement its own documented signature** (and this is now resolved in the code that matters). §8 above says a `DefaultSpecification` "resolves independently by its (`hasKind`, `keyedBy`) signature" — but the StructrScript `SchemaMethod` only filters candidates by `hasKind` and never checks `keyedBy`, so a Type carrying `Yield` defaults for two transformations returned whichever the `filter()` found first, and a caller re-checking the key afterwards could not recover the right one. It is also the unrolled depth-6 workaround described above, not an unbounded walk. **Resolution:** every code path now resolves defaults in Python through `mealplanner/defaults.py` (`resolve_default(type, kind, keys)`: nearest Type with an applicable default wins; applicable means all its keys are among the requested keys; the most keys wins, so exact beats partial beats unkeyed; equal specificity is an error), used for yields, shelf lives, densities and mass-per-unit. The `SchemaMethod` remains for the early spike scripts and is kind-only by design; nothing in `mealplanner/` calls it. This follows the same reasoning as the rest of this addendum: multi-hop logic that StructrScript can't express belongs in Python.
+**`resolveDefault` doesn't actually implement its own documented signature** (and this is now resolved in the code that matters). §8 above says a `DefaultSpecification` "resolves independently by its (`hasKind`, `keyedBy`) signature" — but the StructrScript `SchemaMethod` only filters candidates by `hasKind` and never checks `keyedBy`, so a Type carrying `Yield` defaults for two transformations returned whichever the `filter()` found first, and a caller re-checking the key afterwards could not recover the right one. It is also the unrolled depth-6 workaround described above, not an unbounded walk. **Resolution:** every code path now resolves defaults in Python through `mealplanner/defaults.py` (`resolve_default(type, kind, keys)`: nearest Type with an applicable default wins; applicable means all its keys are among the requested keys; the most keys wins, so exact beats partial beats unkeyed; equal specificity is an error), used for yields, shelf lives, densities and mass-per-unit. The `SchemaMethod` stayed for the early spike scripts, kind-only, until 2026-10-31, when it was retired (REVIEW.md round 3, #6): `scripts/03c` now checks the step-3 walk through `mealplanner/defaults.py`, as 05, 08 and 14a check theirs, and `scripts/47a` deletes the method from an instance built before. This follows the same reasoning as the rest of this addendum: multi-hop logic that StructrScript can't express belongs in Python.
 
 ---
 
@@ -217,7 +217,7 @@ refuses to set the flags over a node held twice. Every other relationship delete
 
 1. **Structural traits only**, top-down, no properties — verify a 4-level chain reads back with correct `inheritedTraits` on every link (don't trust `name` showing up as proof).
 2. **One polymorphic target** — `Allocation -[ABOUT]-> Entity`, satisfied by a `PortionOfSubstance` and an `EquipmentObject`. This is the load-bearing assumption; if it fails, the whole structural layer needs rethinking.
-3. **Metamodel types** + a three-level `DomainType` chain, and `resolveDefault` walking it.
+3. **Metamodel types** + a three-level `DomainType` chain, and `resolveDefault` walking it (built as a StructrScript method then; resolved in Python since, `scripts/03c`).
 4. **One lifecycle-method invariant** end to end, to confirm the SHACL substitute is real.
 5. Only then: instance data, and the first real recipe.
 

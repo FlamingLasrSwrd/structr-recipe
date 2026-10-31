@@ -13,6 +13,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner.connection import connect
+from mealplanner.defaults import resolve_default
 from mealplanner.seed_vocabulary import HIERARCHIES, DOMAIN_TYPES, YIELD_DEFAULT
 
 
@@ -79,15 +80,15 @@ def main():
     print(f"    [{'OK' if ok else 'FAIL'}] DefaultSpecification forType/hasKind/targetType/keyedBy all correct")
     all_ok &= ok
 
-    print("\n[5] End-to-end: calling resolveDefault(Yield) on Chicken Breast (raw)...")
-    result = client.call_method(
-        "DomainType",
+    print("\n[5] End-to-end: resolving the Yield default of Chicken Breast (raw) when braised...")
+    resolved = resolve_default(
+        client,
         domain_type_ids["Chicken Breast (raw)"],
-        "resolveDefault",
-        {"kindId": domain_type_ids["Yield"]},
+        domain_type_ids["Yield"],
+        {domain_type_ids[k] for k in YIELD_DEFAULT["keyed_by"]},
     )
-    ok = isinstance(result, dict) and result.get("id") == qty_id
-    print(f"    [{'OK' if ok else 'FAIL'}] resolveDefault -> {result}")
+    ok = resolved is not None and resolved.quantity.get("id") == qty_id
+    print(f"    [{'OK' if ok else 'FAIL'}] resolve_default -> {resolved.default_name if resolved else None}")
     all_ok &= ok
 
     if not all_ok:

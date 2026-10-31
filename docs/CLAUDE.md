@@ -77,7 +77,7 @@ Steps 1–4 are effectively a spike. Do not proceed past a failure.
 
 1. **Structural traits only**, top-down, no properties. Verify a 4-level chain reads back with correct `inheritedTraits` on **every** link — read the literal value, don't infer from `name` appearing (it appears regardless).
 2. **One polymorphic target**: `Allocation -[ABOUT]-> Entity`, satisfied by both a `PortionOfSubstance` and an `EquipmentObject`. This is the load-bearing assumption of the whole structural layer.
-3. **Metamodel types** and a three-level `DomainType` chain, with `resolveDefault` walking it.
+3. **Metamodel types** and a three-level `DomainType` chain, with `resolveDefault` walking it (a StructrScript method then, retired 2026-10-31; `mealplanner/defaults.py` resolves defaults now).
 4. **One lifecycle-method invariant** end to end, confirming the SHACL substitute is real.
 5. Seed vocabulary — Food Identity roots, Transformation Methods, Perishability classes, Nutrient types. Real curation work, not a formality.
 6. First real recipe, first real inventory, first real cook.

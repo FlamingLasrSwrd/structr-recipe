@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner.connection import connect
+from mealplanner.defaults import resolve_default
 from mealplanner.typetree import dt
 
 PLACEHOLDER_NOTE = "[PLACEHOLDER -- not sourced from USDA/FDC yet]"
@@ -57,11 +58,11 @@ def main():
     )
     print(f"    portion={portion_id} quality={mass_quality} measurement={mass_measurement}")
 
-    print("\n[3] Verification: resolveDefault(ShelfLife) on Fresh Meat...")
-    resolved = client.call_method("DomainType", dt(client, "Fresh Meat"), "resolveDefault", {"kindId": dt(client, "ShelfLife")})
-    resolved_full = client.get_all("QuantitySpecification", resolved["id"])["result"] if isinstance(resolved, dict) else None
+    print("\n[3] Verification: the ShelfLife default of Fresh Meat in the fridge...")
+    resolved = resolve_default(client, dt(client, "Fresh Meat"), dt(client, "ShelfLife"), {dt(client, "Fridge")})
+    resolved_full = resolved.quantity if resolved else None
     ok = resolved_full and resolved_full.get("value") == 5.0
-    print(f"    [{'OK' if ok else 'FAIL'}] resolveDefault(ShelfLife) -> {resolved_full}")
+    print(f"    [{'OK' if ok else 'FAIL'}] resolve_default(ShelfLife, Fridge) -> {resolved_full}")
 
     if not ok:
         print("\nFAILED.")

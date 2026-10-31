@@ -44,7 +44,6 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
 | **A cook's leftovers as stock** | #10 | A cook books a leftover portion with its amount, origin, storage and expiry, which later meals and the next week's planner draw on (invariants 23, 24 and 27; `docs/pantry.md`). With "a pantry journal, and undoing a booking" above, as compensating bookings rather than edits |
 | **Waste and cost in the objective** | #2 | A penalty for stock left to expire unused, and a cost term, each defined and tested on its own before the documents say the planner minimizes waste or spending. Objective changes: the owner's call (`docs/optimizer-design.md` §4.5) |
 | **Weeks to judge the objective by** | #2 | Representative weeks, including ones where nutrition pulls against time, waste, repeats, cost or stock, with the owner's verdict on each plan, kept as fixtures the planner is checked against |
-| **Retire the StructrScript `resolveDefault`** | #6 | A schema-only script removing the method (nothing calls it; `mealplanner/defaults.py` resolves by kind and keys), run on the owner's instance too, and the build sketch and cheatsheet brought along |
 | **Checks that run themselves** | #15 | GitHub runs nothing (the owner's choice, 2026-10-24). A git pre-push hook in the repository, enabled with `git config core.hooksPath`, would run both interpreters' suites, `check_names.py` and `23a` before every push, so nothing rests on remembering |
 | **The planner reads one consistent snapshot** | #14 | `extract.build_problem` reads through a `ReadCache` and searches in memory, but its reads are many requests, so a write during them could be half seen. One server-side read, or a check that nothing changed between the first read and the last |
 | **The nutrition page marks totals that rest on estimates** | #12 | The planner's report names the recipes whose figures rest on estimates (J21) and a recipe page gives each figure's source; the week's nutrition page shows met, under, over or indeterminate without saying which totals rest on estimates. `nutrition_report` would say it too, so the page and the Python still agree |
@@ -77,6 +76,10 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
      is locked: more than four wrong passwords in a row lock it until this tool clears them.
   3. The development stack gets the account from its next `tools/rebuild.sh`, or the same command
      with port 8083.
+- **Retire `resolveDefault` on your instance** (built 2026-10-31, at your word; after the account
+  above): `STRUCTR_URL=http://localhost:8085 python3 scripts/47a_retire_resolve_default.py`, then
+  restart Structr (`tools/owner_stack.sh stop`, then `up`). It deletes the StructrScript method
+  `DomainType.resolveDefault`, which nothing calls, and changes no data. Run again, it finds nothing.
 - Decide what to do with Structr's initial `admin` account. A fresh 7.1.0 database is given a user
   `admin` with the password `admin` and full admin rights, and it logs in (found 2026-10-31 on a
   fresh development stack; `docs/structr-cheatsheet.md` §2). Whether your instance, first built on

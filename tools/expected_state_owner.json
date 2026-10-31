@@ -14,11 +14,6 @@
   "returnRawResult": false,
   "source": "if(equal(this.hasKind.name, \"Yield\"), if(lte(this.hasValue.value, 0), error(\"hasValue\", \"yield_factor_must_be_positive\"), null), if(equal(this.hasKind.name, \"RetentionFactor\"), if(or(lte(this.hasValue.value, 0), gt(this.hasValue.value, 1)), error(\"hasValue\", \"retention_factor_must_be_in_0_to_1\"), null), null))"
  },
- "@schema | method DomainType.resolveDefault": {
-  "isStatic": false,
-  "returnRawResult": true,
-  "source": "if(gt(size(filter(this.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))), 0), first(filter(this.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))).hasValue, if(empty(this.parent), null, if(gt(size(filter(this.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))), 0), first(filter(this.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))).hasValue, if(empty(this.parent.parent), null, if(gt(size(filter(this.parent.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))), 0), first(filter(this.parent.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))).hasValue, if(empty(this.parent.parent.parent), null, if(gt(size(filter(this.parent.parent.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))), 0), first(filter(this.parent.parent.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))).hasValue, if(empty(this.parent.parent.parent.parent), null, if(gt(size(filter(this.parent.parent.parent.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))), 0), first(filter(this.parent.parent.parent.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))).hasValue, if(empty(this.parent.parent.parent.parent.parent), null, if(gt(size(filter(this.parent.parent.parent.parent.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))), 0), first(filter(this.parent.parent.parent.parent.parent.defaultSpecifications, equal(data.hasKind.id, retrieve(\"kindId\")))).hasValue, if(empty(this.parent.parent.parent.parent.parent.parent), null, null))))))))))))"
- },
  "@schema | method MealPlanEntry.onCreate": {
   "isStatic": false,
   "returnRawResult": false,
