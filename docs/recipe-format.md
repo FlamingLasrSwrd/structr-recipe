@@ -208,8 +208,15 @@ equipment = ["Sheet pan", { capability = "Broiler heat", heat = "high" }]   # se
   that is not one, or a tool named as one.
 - **Any tool that can give it will do**, or give one of its subtypes: `Heating` is met by an oven, a
   toaster oven or a grill. The step's sentence names them: "on the grill or oven over high heat".
-- **Nothing checks a kitchen against a recipe yet**, by tool or by capability: the planner does not read
-  a step's tools.
+- **The importer checks the kitchen** (since 2026-10-31, the owner's decision: at import, not when a week
+  is planned). Every kitchen on the instance (a `UtensilSet`, `tools/instantiate_profile.py kitchen`) is
+  compared with the steps' tools: a tool is met by one of that type or a narrower one, a capability by a
+  tool whose type, or a type above it, gives it or a narrower one (`mealplanner/kitchen_check.py`). What
+  a kitchen lacks is listed, and the importer asks "Import it anyway? [y/N]" before loading such a
+  recipe; run with no one to answer (not in a terminal), it skips that recipe, says so, and exits 1.
+  `--check` lists what is missing and asks nothing, and so does a recipe already loaded unchanged, so
+  running `--check` over the files checks them against a changed kitchen. The planner does not read a
+  step's tools.
 
 ## Instructions written from the steps
 

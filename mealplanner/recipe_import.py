@@ -545,6 +545,12 @@ def resolve(client, doc: RecipeDoc) -> Resolved:
 
 # -- reading a Plan back ---------------------------------------------------
 
+def loaded_unchanged(client, doc: RecipeDoc) -> bool:
+    """Whether `doc`'s Plan is already loaded exactly as the file says, so importing it changes nothing."""
+    existing = _one(client, "/structr/rest/Plan", doc.plan_name)
+    return bool(existing) and export_plan(client, existing[0]["id"]) == doc.plan_part()
+
+
 def export_plan(client, plan_id: str) -> tuple:
     """A stored Plan in the shape of RecipeDoc.plan_part(), so a file and the
     graph can be compared: equal means the file is already loaded."""

@@ -28,7 +28,6 @@ Nothing here is started. Each item says where it came from. The owner decides wh
 | A pantry journal, and undoing a booking | 2026-10-23 | `docs/pantry.md` item 6, with prices paid, minimum stock on the page and barcodes |
 | Leftovers of an earlier meal eaten instead | 2026-10-24 | The week page's "ate instead" takes a recipe or words today (data-model.md J34) |
 | A count, or a meal, for a recipe asked for from its page | 2026-10-24 | The week file still says "twice" or "on Wed Dinner" (J33) |
-| A kitchen checked against each recipe | 2026-10-26 | A recipe whose step needs a tool, or a capability, that the household's kitchen has nothing for, left out of the planner's choices or marked in the recipe book: the kitchen's tools (`UtensilSet` members) by type, and what their types `can` give (J37). Today nothing reads a step's tools but its sentence |
 | The first capabilities, reviewed | 2026-10-26 | Oven heat, Broiler heat and Puréeing, and which tools give each, were chosen by Claude from the alternatives the HelloFresh recipes gave (J24 item 3); more as recipes need them (`data/vocabulary.toml`) |
 | A review of the FoodKeeper and retention matches | 2026-10-24 | Each food's product and each class's rows, for the owner to check (J30, J31) |
 
