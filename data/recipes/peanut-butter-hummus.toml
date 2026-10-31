@@ -3,9 +3,9 @@
 # - "2-3 Tbsp garlic" as 2.5 Tbsp; "cayenne (or paprika for less spice)": cayenne;
 # - the 4 pitas by the vocabulary's large (6 1/2-inch) whole-wheat pita; any food processor or blender
 #   will do; minutes: the page's prep (20) and cook (10) times added.
-# - the book gives 235 kcal a serving (an independent check of the transcription).
 name = "Peanut Butter Hummus with Pita Chips"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-7531.pdf"
+source_kcal = 235                # the energy a serving the book prints
 servings = 8
 minutes = 30
 meal_types = ["Snack"]

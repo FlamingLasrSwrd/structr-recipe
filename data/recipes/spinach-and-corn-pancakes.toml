@@ -4,9 +4,9 @@
 # - "vegetable oil" as Canola oil; the cooking spray has no amount: optional;
 # - "a large nonstick sauté pan or griddle" as a Skillet (the most general tool that will do);
 # - minutes: the page's prep (10) and cook (25) times added.
-# - the book gives 227 kcal a serving (an independent check of the transcription).
 name = "Spinach and Corn Pancakes"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-7531.pdf"
+source_kcal = 227                # the energy a serving the book prints
 servings = 4
 minutes = 35
 meal_types = ["Breakfast", "Lunch"]

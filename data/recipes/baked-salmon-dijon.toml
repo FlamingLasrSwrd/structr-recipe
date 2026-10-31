@@ -1,9 +1,9 @@
 # NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Dinners (NIH 10-2921), page 52. US government
 # work; facts only (docs/recipe-copyright.md). Transcription choices:
 # - the cooking spray has no amount: optional; minutes: the page's prep (10) and cook (20) times added.
-# - the book gives 196 kcal a serving (an independent check of the transcription).
 name = "Baked Salmon Dijon"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-2921.pdf"
+source_kcal = 196                # the energy a serving the book prints
 servings = 6
 minutes = 30
 meal_types = ["Dinner"]

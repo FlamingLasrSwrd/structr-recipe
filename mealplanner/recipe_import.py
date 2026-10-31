@@ -57,8 +57,8 @@ FOOD_HIERARCHY = "Food Identity"
 METHOD_HIERARCHY = "Transformation Method"
 EQUIPMENT_HIERARCHY = "Equipment Type"
 MEAL_TYPE_SCHEME = "Meal Type"
-TOP_KEYS = {"name", "version", "source", "servings", "minutes", "ahead_hours", "difficulty", "meal_types", "dish", "steps",
-            "baseline"}
+TOP_KEYS = {"name", "version", "source", "source_kcal", "servings", "minutes", "ahead_hours", "difficulty", "meal_types",
+            "dish", "steps", "baseline"}
 STEP_KEYS = {"name", "method", "makes", "inputs", "equipment", "minutes", "wait_minutes", "after", "until", "inside"}
 TOOL_KEYS = {"tool", "capability", "temp", "unit", "heat"}
 HEAT_LEVELS = ("low", "medium-low", "medium", "medium-high", "high")
@@ -146,6 +146,7 @@ class RecipeDoc:
     minutes: float | None = None
     difficulty: str | None = None
     ahead_hours: float | None = None    # waiting no one attends, before the meal (J29)
+    source_kcal: float | None = None    # the energy a serving the source prints: checked, never stored
 
     @property
     def dish(self) -> str:
@@ -191,6 +192,9 @@ def parse_recipe(data: dict) -> RecipeDoc:
     source = data.get("source")
     if source is not None and not (isinstance(source, str) and source.startswith(("http://", "https://"))):
         problems.append(f"source must be a web address, not {source!r}")
+    source_kcal = data.get("source_kcal")
+    if source_kcal is not None and (not _number(source_kcal) or source_kcal <= 0):
+        problems.append(f"source_kcal must be a number above 0, the kcal a serving the source prints, not {source_kcal!r}")
     servings = data.get("servings")
     if not _number(servings) or servings <= 0:
         problems.append(f"servings must be a number above 0, not {servings!r}")
@@ -345,6 +349,7 @@ def parse_recipe(data: dict) -> RecipeDoc:
         name=name, servings=float(servings), steps=tuple(steps), meal_types=tuple(meal_types), version=version,
         source=source, minutes=None if minutes is None else float(minutes), difficulty=difficulty,
         ahead_hours=None if ahead_hours is None else float(ahead_hours),
+        source_kcal=None if source_kcal is None else float(source_kcal),
     )
 
 

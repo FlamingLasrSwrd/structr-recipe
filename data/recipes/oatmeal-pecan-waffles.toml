@@ -5,9 +5,9 @@
 #   batter, so the two eggs are counted once, with the milk;
 # - "quick-cooking oats" as Rolled oats (the same oats, cut finer); "vegetable oil" as Canola oil;
 # - minutes: the page's prep (10) and cook (30) times added.
-# - the book gives 340 kcal a serving (an independent check of the transcription).
 name = "Oatmeal Pecan Waffles"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-7531.pdf"
+source_kcal = 340                # the energy a serving the book prints
 servings = 4
 minutes = 40
 meal_types = ["Breakfast"]

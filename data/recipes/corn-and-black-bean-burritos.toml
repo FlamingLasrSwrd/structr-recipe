@@ -4,9 +4,9 @@
 # - "salsa or taco sauce": salsa; "9-inch whole-wheat tortillas" by FDC's whole-wheat tortilla (its
 #   size is not stated); "reduced-fat shredded cheddar" by FDC's reduced-fat cheddar;
 # - minutes: the page's prep (20) and cook (5) times added.
-# - the book gives 189 kcal a serving (an independent check of the transcription).
 name = "Corn and Black Bean Burritos"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-2921.pdf"
+source_kcal = 189                # the energy a serving the book prints
 servings = 12
 minutes = 25
 meal_types = ["Lunch", "Dinner"]

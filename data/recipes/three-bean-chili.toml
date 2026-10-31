@@ -4,9 +4,9 @@
 # - "2 cans (14 1/2 oz each) no-salt-added diced tomatoes with basil, garlic, and oregano" as 29 oz of
 #   Diced tomatoes (canned), the herbs not counted;
 # - "an 8-quart soup or pasta pot" as a Stockpot; minutes: the page's prep (10) and cook (20) added.
-# - the book gives 443 kcal a serving (an independent check of the transcription).
 name = "Three-Bean Chili with Chunky Tomatoes"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-2921.pdf"
+source_kcal = 443                # the energy a serving the book prints
 servings = 4
 minutes = 30
 meal_types = ["Dinner", "Lunch"]

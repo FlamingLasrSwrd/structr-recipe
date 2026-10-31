@@ -4,9 +4,9 @@
 # - the cooking spray has no amount: optional, in both steps;
 # - minutes: the page's prep (15) and cook (15) times added;
 # - its title without the commas, which a name cannot hold.
-# - the book gives 254 kcal a serving (an independent check of the transcription).
 name = "Red White and Green Grilled Cheese"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-7531.pdf"
+source_kcal = 254                # the energy a serving the book prints
 servings = 4
 minutes = 30
 meal_types = ["Lunch"]

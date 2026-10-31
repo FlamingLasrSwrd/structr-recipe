@@ -5,9 +5,9 @@
 #   equal parts, 3/4 tsp each to make the tablespoon;
 # - "chili sauce (optional)" as Sriracha; "a large sauté pan" as a Skillet;
 # - minutes: the page's prep (15) and cook (30) times added.
-# - the book gives 333 kcal a serving (an independent check of the transcription).
 name = "Moroccan Chicken Stew with Couscous"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-2921.pdf"
+source_kcal = 333                # the energy a serving the book prints
 servings = 4
 minutes = 45
 meal_types = ["Dinner"]

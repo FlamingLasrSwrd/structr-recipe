@@ -104,6 +104,9 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
   loading one your kitchen cannot make. Worth reviewing in `data/vocabulary.toml` (the block headed
   "added 2026-10-31"): the FDC record each new food is matched to, and the new foods with no FoodKeeper
   shelf life.
+  With the recipes loaded, `STRUCTR_URL=http://localhost:8085 python3 tools/check_source_energy.py`
+  compares each one's energy with its book's (docs/recipe-format.md); run it again after any later
+  vocabulary change, and add `source_kcal` to your own recipe files where their source prints one.
 - Sign in as Elijah and press one booking button: page bookings for a signed-in household member are
   untested (`docs/pages.md`).
 - Copy `~/mealplanner-backups` off this machine now and then (`docs/backups.md`).

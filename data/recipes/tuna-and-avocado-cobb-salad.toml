@@ -3,9 +3,9 @@
 # - the corn is roasted in the oven or a toaster oven at 400 F for 7-10 minutes, as the page says;
 # - "1 Tbsp water" as half a fl oz of tap water; "1 can (6 oz)" of white albacore by FDC's can;
 # - minutes: the page's prep time (20; no other cooking), the corn's 10 minutes not added.
-# - the book gives 224 kcal a serving (an independent check of the transcription).
 name = "Tuna and Avocado Cobb Salad"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-7531.pdf"
+source_kcal = 224                # the energy a serving the book prints
 servings = 4
 minutes = 20
 meal_types = ["Lunch"]

@@ -4,9 +4,9 @@
 # - "1 bag (12 oz) frozen vegetable stir-fry" as 12 oz; thawing is not a step of its own;
 # - the optional dry sherry (1 Tbsp) as half a fl oz; "a large wok or sauté pan" as a Skillet;
 # - minutes: the page's prep (10) and cook (20) times added.
-# - the book gives 261 kcal a serving (an independent check of the transcription).
 name = "Stir-Fried Orange Beef"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-2921.pdf"
+source_kcal = 261                # the energy a serving the book prints
 servings = 4
 minutes = 30
 meal_types = ["Dinner"]

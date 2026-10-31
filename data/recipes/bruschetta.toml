@@ -4,9 +4,9 @@
 #   is used: FDC gives no weight for a whole-grain baguette;
 # - "6 Kalamata olives (or any black olive)" as 6 large canned black olives; jarred roasted peppers;
 # - the toasting names no tool on the page, so none here; minutes: prep (15) and cook (5) added.
-# - the book gives 119 kcal a serving (an independent check of the transcription).
 name = "Bruschetta"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-7531.pdf"
+source_kcal = 119                # the energy a serving the book prints
 servings = 4
 minutes = 20
 meal_types = ["Snack"]

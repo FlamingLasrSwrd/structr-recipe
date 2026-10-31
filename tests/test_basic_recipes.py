@@ -57,6 +57,10 @@ class BasicRecipes(unittest.TestCase):
     def test_each_names_its_public_domain_source(self):
         self.assertEqual([d.name for d in self.docs if not (d.source or "").startswith(SOURCES)], [])
 
+    def test_each_gives_its_sources_energy_to_check_against(self):
+        """tools/check_source_energy.py compares these with what the instance works out."""
+        self.assertEqual([d.name for d in self.docs if d.source_kcal is None], [])
+
     def test_the_mix_is_the_one_chosen(self):
         """5 breakfasts, 5 lunches, 8 dinners and 2 snacks, counting each recipe by its first meal type;
         at least a third with no meat or fish, by the ingredients' own names."""

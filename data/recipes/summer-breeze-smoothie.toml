@@ -3,9 +3,9 @@
 # - 4 ice cubes as 4 fl oz of tap water, an estimate (a standard cube is about 1 fl oz);
 # - "6 medium strawberries" by FDC's medium strawberry; any blender or food processor will do;
 # - the page gives no times.
-# - the book gives 121 kcal a serving (an independent check of the transcription).
 name = "Summer Breeze Smoothie"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/WEHL-RecipeBook_508.pdf"
+source_kcal = 121                # the energy a serving the book prints
 servings = 3
 meal_types = ["Breakfast", "Snack"]
 

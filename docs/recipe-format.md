@@ -18,6 +18,7 @@ python3 tools/import_recipe.py private/recipes/*.toml           # load
 ```toml
 name = "Garlic Butter Noodles"            # the RecipeIdentity, and by default the dish
 source = "https://example.org/noodles"    # optional: the page it was transcribed from
+# source_kcal = 420                       # optional: the energy a serving the source prints; see "Checking a recipe's energy"
 servings = 4                              # what the recipe yields, in servings
 minutes = 25                              # optional: total time, the time spent working
 # ahead_hours = 8                         # optional: hours it must be started before the meal, for waiting
@@ -82,12 +83,29 @@ stir-fry; and a few that need less common tools (a waffle iron, a blender or foo
 so the importer's kitchen check has something to ask about. `tests/test_basic_recipes.py` checks that
 each still loads and names only what the vocabulary holds, and that the mix stays as chosen.
 
-Each file's header gives the energy per serving its book prints, an independent check of the
-transcription and of the vocabulary's matches. Loaded on the development instance (2026-10-31), every
-recipe's energy is known and the median recipe is 17% from its book, 8 of the 20 within 15%; the
-furthest are the pork chops (+106%: FDC's only chop is 170 g of lean and fat, the book's are half-inch
-lean ones), the salmon (+39%) and the tofu stir-fry (+30%). The books' own figures are estimates from
-other data, so a difference is a question about the match, not a verdict on it.
+Each file's `source_kcal` is the energy per serving its book prints (next section). Loaded on the
+development instance (2026-10-31), every recipe's energy is known and the median recipe is 17% from its
+book, 8 of the 20 within 15%; the furthest are the pork chops (+106%: FDC's only chop is 170 g of lean
+and fat, the book's are half-inch lean ones), the salmon (+39%) and the tofu stir-fry (+30%).
+
+## Checking a recipe's energy
+
+`source_kcal` is the energy a serving that the recipe's source prints, in kcal, where it prints one.
+It is never stored: `tools/check_source_energy.py` compares it with what the instance works out from
+the recipe's ingredients now, the one check that rests neither on the transcription nor on the
+vocabulary's matches to FDC. Run it again whenever the vocabulary changes. It is read-only, so it runs
+on the owner's instance too, and on any recipe files given:
+
+```bash
+python3 tools/check_source_energy.py                              # data/recipes/*.toml
+python3 tools/check_source_energy.py private/recipes/*.toml --over 30
+```
+
+It lists each recipe's figure beside its source's and how far apart they are, then the median and
+how many are within 15% and within 30% (the owner's tolerance, J21). It exits 1 when a recipe is not
+loaded or its energy is unknown, and with `--over` when one is further than that from its source. A
+source's figure is an estimate from other data too, so a difference is a question about a match or a
+transcription, not a verdict on it.
 
 They are loaded only when asked for, never by the build, and not into the owner's instance unless the
 owner does it (some may be near recipes already there). Not on a stack the demos are run on either:

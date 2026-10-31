@@ -2,9 +2,9 @@
 # work; facts only (docs/recipe-copyright.md). Transcription choices:
 # - the instant brown rice, not the quinoa the page suggests; the cooking waters as tap water;
 # - "a fine wire colander" as a Fine-mesh sieve; minutes: the page's prep (5) and cook (35) added.
-# - the book gives 456 kcal a serving (an independent check of the transcription).
 name = "Lentils with Brown Rice and Kale"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-2921.pdf"
+source_kcal = 456                # the energy a serving the book prints
 servings = 4
 minutes = 40
 meal_types = ["Dinner"]

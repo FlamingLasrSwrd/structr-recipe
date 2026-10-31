@@ -3,9 +3,9 @@
 # - "1 Granny Smith apple" as an Apple; "2 Tbsp shallots, minced" as 20 g (FDC's 10 g per tbsp, chopped);
 # - "grill pan or oven broiler ... on high" as a tool that gives broiler heat;
 # - the four 3-oz steaks as 12 oz; minutes: the page's prep (15) and cook (30) times added.
-# - the book gives 285 kcal a serving (an independent check of the transcription).
 name = "Broiled Sirloin with Spicy Mustard and Apple Chutney"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-2921.pdf"
+source_kcal = 285                # the energy a serving the book prints
 servings = 4
 minutes = 45
 meal_types = ["Dinner"]

@@ -4,9 +4,9 @@
 #   substitute is not a food in the vocabulary;
 # - the cooking spray has no amount on the page: optional;
 # - minutes: the page's prep (15) and cook (20) times added.
-# - the book gives 332 kcal a serving (an independent check of the transcription).
 name = "Baked French Toast Fritters with Apples and Bananas"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-7531.pdf"
+source_kcal = 332                # the energy a serving the book prints
 servings = 4
 minutes = 35
 meal_types = ["Breakfast"]

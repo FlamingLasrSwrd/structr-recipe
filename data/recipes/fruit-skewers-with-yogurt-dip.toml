@@ -3,9 +3,9 @@
 # - the dip is made first here, so the last step can use it; any blender or food processor will do;
 # - "fresh pineapple, diced (or canned chunks)": fresh; "tangerine or Clementine": a tangerine;
 # - minutes: the page's prep time (15; no cooking).
-# - the book gives 71 kcal a serving (an independent check of the transcription).
 name = "Fruit Skewers with Yogurt Dip"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-7531.pdf"
+source_kcal = 71                # the energy a serving the book prints
 servings = 4
 minutes = 15
 meal_types = ["Breakfast", "Snack"]

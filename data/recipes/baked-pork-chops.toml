@@ -7,9 +7,9 @@
 #   model cannot yet say an output is thrown away (docs/recipe-format.md);
 # - "oregano" as dried; "13 x 9-inch baking pan" as a Baking dish; the cooking spray: optional;
 # - the page gives no times; it gives 160 F inside.
-# - the book gives 216 kcal a serving (an independent check of the transcription).
 name = "Baked Pork Chops"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/WEHL-RecipeBook_508.pdf"
+source_kcal = 216                # the energy a serving the book prints
 servings = 6
 meal_types = ["Dinner"]
 

@@ -63,6 +63,14 @@ class Parse(unittest.TestCase):
         for bad in (0, -1, "overnight", True):
             self.assertTrue(any("ahead_hours" in p for p in self.problems(good(ahead_hours=bad))), bad)
 
+    def test_the_sources_energy_is_read_and_is_no_part_of_the_plan(self):
+        """source_kcal is checked against the instance (tools/check_source_energy.py), never stored: a file
+        that gains one is the same Plan version, not a changed one."""
+        self.assertEqual((parse_recipe(good()).source_kcal, parse_recipe(good(source_kcal=216)).source_kcal), (None, 216.0))
+        self.assertEqual(parse_recipe(good(source_kcal=216)).plan_part(), parse_recipe(good()).plan_part())
+        for bad in (0, -5, "216 kcal", True):
+            self.assertTrue(any("source_kcal" in p for p in self.problems(good(source_kcal=bad))), bad)
+
     def problems(self, data):
         with self.assertRaises(RecipeFormatError) as caught:
             parse_recipe(data)

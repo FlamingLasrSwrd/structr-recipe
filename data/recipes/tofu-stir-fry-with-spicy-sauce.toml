@@ -7,9 +7,9 @@
 # - "half a head of napa cabbage (6-8 C)" as 7 cups of Bok choy and napa cabbage;
 # - the canola oil's three teaspoons split as the page splits them; "a large wok or nonstick pan" as a
 #   Skillet; minutes: the page's prep (40) and cook (10) times added.
-# - the book gives 232 kcal a serving (an independent check of the transcription).
 name = "Tofu Stir-Fry with Spicy Sauce"
 source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-2921.pdf"
+source_kcal = 232                # the energy a serving the book prints
 servings = 4
 minutes = 50
 meal_types = ["Dinner"]
