@@ -1004,6 +1004,8 @@ keystore (Structr terminates TLS itself; the `letsencrypt` command fills the key
     (`POST /structr/rest/login`; an admin sending its headers needs no `_login` grant) and then
     11-15 ms a request with `X-StructrSessionToken`. Logout ends the session only when it carries
     the `JSESSIONID` cookie; with the token header alone it answers 200 and ends nothing.
+  - Each session is stored as a `SessionDataNode`, which a logout leaves behind; none were swept
+    within 48 minutes of the session timeout. An admin may delete them through REST.
   - `/structr/health/ready` answers through the published port without credentials.
   - A fresh database gets the initial user `admin` / `admin` with `isAdmin: true`, and it logs in.
 

@@ -96,6 +96,7 @@ class DuplicateMatchError(RuntimeError):
 
 LOGIN = "/structr/rest/login"
 LOGOUT = "/structr/rest/logout"
+SESSION_NODES = "/structr/rest/SessionDataNode"
 
 
 class StructrClient:
@@ -152,10 +153,19 @@ class StructrClient:
     def logout(self) -> None:
         """Close the session, if one is open, so it does not linger on the user's node until it times out.
         It goes as the session cookie: a logout carrying only the token header answered 200 on 7.1.0 and
-        left the session open. Structr marks the cookie Secure, so over http requests would not send it."""
+        left the session open. Structr marks the cookie Secure, so over http requests would not send it.
+
+        First, while the session still works, it deletes the session's stored copy, the SessionDataNode
+        Jetty keeps in the graph: on 7.1.0 a logout left it there, one per run, and none had gone 48
+        minutes after the session timeout. Only an admin may; for anyone else the refusal is ignored."""
         if self._token is None:
             return
         try:
+            stored = self.session.request("GET", self._url(SESSION_NODES), timeout=self.timeout,
+                                          params={"sessionId": self._token.split(".")[0]})
+            if stored.status_code == 200:
+                for row in stored.json().get("result", []):
+                    self.session.request("DELETE", self._url(f"{SESSION_NODES}/{row['id']}"), timeout=self.timeout)
             self.session.request("POST", self._url(LOGOUT), json={}, timeout=self.timeout,
                                  headers={"Cookie": f"JSESSIONID={self._token}"})
         except requests.exceptions.RequestException:

@@ -157,6 +157,8 @@ class SessionServer:
     def __init__(self, password="right", login_status=200):
         self.headers, self.sent, self.password, self.login_status = {}, [], password, login_status
         self.live, self.issued = set(), 0
+        self.stored = {}                                   # SessionDataNode id -> sessionId, as Jetty keeps them
+        self.admin = True
 
     def end_sessions(self):
         self.live.clear()
@@ -171,14 +173,26 @@ class SessionServer:
             if merged.get("X-Password") != self.password or (json or {}).get("password") != self.password:
                 return FakeResponse(401, {"code": 401})
             self.issued += 1
-            token = f"t{self.issued}"
+            token = f"t{self.issued}.node0"                 # Structr's cookie: the session id, a dot, the worker
             self.live.add(token)
+            self.stored[f"s{self.issued}"] = token.split(".")[0]
             return FakeResponse(200, {"result": {"name": "u"}}, cookies={"JSESSIONID": token})
         if path == "/structr/rest/logout":
             # as on 7.1.0: only the session cookie ends a session; the token header alone is answered 200 and ignored
             cookie = merged.get("Cookie", "")
             self.live.discard(cookie.split("JSESSIONID=", 1)[1] if "JSESSIONID=" in cookie else None)
             return FakeResponse(200, {})
+        if path.startswith("/structr/rest/SessionDataNode"):
+            if merged.get("X-StructrSessionToken") not in self.live:
+                return FakeResponse(401, {"code": 401})
+            if not self.admin:
+                return FakeResponse(403, {"code": 403})
+            if method == "DELETE":
+                del self.stored[path.rsplit("/", 1)[1]]
+                return FakeResponse(200, {})
+            params = kw.get("params") or {}                # as Structr: no filter lists them all
+            return FakeResponse(200, {"result": [{"id": i} for i, s in self.stored.items()
+                                                 if "sessionId" not in params or s == params["sessionId"]]})
         if path == "/structr/rest/Refused":
             return FakeResponse(401, {"code": 401})        # refused whoever asks
         if merged.get("X-StructrSessionToken") in self.live or merged.get("X-Password") == self.password:
@@ -204,7 +218,7 @@ class SessionLogin(unittest.TestCase):
         _, _, login_headers, login_body = server.sent[0]
         self.assertEqual((login_headers["X-User"], login_body), ("u", {"name": "u", "password": "right"}))
         for _, _, headers, _ in server.sent[1:]:
-            self.assertEqual(headers.get("X-StructrSessionToken"), "t1")
+            self.assertEqual(headers.get("X-StructrSessionToken"), "t1.node0")
             self.assertNotIn("X-Password", headers)
         self.assertEqual(server.issued, 1)
 
@@ -216,7 +230,7 @@ class SessionLogin(unittest.TestCase):
         self.assertEqual(c.get("/structr/rest/Thing"), {"result": []})
         self.assertEqual([p for _, p, _, _ in server.sent],
                          ["/structr/rest/login", "/structr/rest/Thing", "/structr/rest/Thing", "/structr/rest/login", "/structr/rest/Thing"])
-        self.assertEqual(server.sent[-1][2]["X-StructrSessionToken"], "t2")
+        self.assertEqual(server.sent[-1][2]["X-StructrSessionToken"], "t2.node0")
 
     def test_a_wrong_password_fails_at_the_login_and_nothing_else_is_sent(self):
         server = SessionServer()
@@ -269,6 +283,27 @@ class SessionLogin(unittest.TestCase):
         self.assertEqual(server.sent[-1][1], "/structr/rest/logout")
         self.assertEqual(server.live, set())
         self.assertNotIn("X-StructrSessionToken", server.headers)
+
+    def test_logout_first_deletes_the_sessions_stored_node_and_only_that(self):
+        server = SessionServer()
+        other = session_client(server)
+        other.get("/structr/rest/Thing")                   # another run's session, still open
+        c = session_client(server)
+        c.get("/structr/rest/Thing")
+        c.logout()
+        self.assertEqual(sorted(server.stored.values()), ["t1"])         # its own (t2) went, the other stays
+        paths = [(m, p) for m, p, _, _ in server.sent[-3:]]
+        self.assertEqual(paths, [("GET", "/structr/rest/SessionDataNode"), ("DELETE", "/structr/rest/SessionDataNode/s2"),
+                                 ("POST", "/structr/rest/logout")])        # while the session still works, then logout
+
+    def test_a_user_who_may_not_delete_it_still_logs_out(self):
+        server = SessionServer()
+        server.admin = False
+        c = session_client(server)
+        c.get("/structr/rest/Thing")
+        c.logout()
+        self.assertEqual(server.live, set())
+        self.assertEqual(len(server.stored), 1)
 
     def test_without_it_every_request_carries_the_password_and_nobody_logs_in(self):
         server = SessionServer()

@@ -178,10 +178,14 @@ fresh 7.1.0 development stack; `tools/create_tools_user.py` is the result):
   still accepted); with `Cookie: JSESSIONID=<id>` it removed the session. A request made
   with the session after a `docker restart` of Structr still succeeded.
 - **Each session is also a node**: a `SessionDataNode` (Jetty's stored session), one per
-  login, still there after the logout (a full rebuild left 77; header requests leave
-  none). Structr's session store looks them up by `lastAccessed` for Jetty's expiry sweep,
-  so they should go once idle past `application.session.timeout` (1800 s). Not yet
-  watched happening. The snapshot does not see them (not a schema type).
+  login, still there after the logout (a full rebuild left 76 to 77; header requests leave
+  none). None had gone 48 minutes after the oldest session's last use, although Structr's
+  session store queries them by `lastAccessed` for Jetty's expiry sweep. An admin can list
+  them (`GET /structr/rest/SessionDataNode?sessionId=<id>`, the id being the cookie's value
+  before its dot) and delete its own while the session still works; it did not come back
+  at the logout after. `StructrClient.logout` does that, so a tool run leaves none (a rebuild from empty then left 0). The
+  snapshot does not see them (not a schema type). A sign-in to the pages goes through the
+  same login, so it presumably leaves one too (not checked).
 - `GET /structr/health/ready` answers 200 from the host through the published port, with
   no credentials, so a readiness wait need not be a login attempt.
 - ⚠️ **A fresh 7.1.0 database gets an `admin` user with the password `admin` and
