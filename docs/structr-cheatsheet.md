@@ -1099,6 +1099,20 @@ returns `400 "Unknown search key pageSize"`; the working form is
 function call with positional arguments, not a query-string key, so
 this particular gotcha is REST-API-specific.)
 
+🛑 **A nested object in a write, with `autocreationFlag` on the relationship,
+takes over any existing node whose unique value it repeats** (✅ 2026-10-31
+on 7.1.0, the `nested` spike in `tools/spikes/`): no 422, no duplicate,
+a 201, and the existing node is moved from its old parent (where the
+relationship has a to-one end) and has its other properties overwritten
+from the nested object. A stub `{"code": "c1"}` under a new parent took
+the child c1 away from its own parent; a nested grandchild repeating g1's
+code renamed g1 and moved it. Otherwise nested creation works as hoped:
+two levels deep in one POST, one transaction (a grandchild missing a
+`notNull` value refused the whole POST, nothing made), about four times
+faster than a POST each. **Refer to an existing node by `{"id": ...}`
+only.** Without the flag a nested object must match an existing node by
+every property given, else 422.
+
 ✅ **`lastModifiedDate` records a node's own properties changing, not
 its relationships** (verified 2026-10-31 on 7.1.0, the development
 instance, `TEST -- ` nodes): a PATCH that changes a property moves the

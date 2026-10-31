@@ -1,6 +1,6 @@
 {
  "structr": "structr/structr:7.1.0",
- "run": "2026-10-27 14:44",
+ "run": "2026-10-31 06:38",
  "results": [
   {
    "answer": "OK",
@@ -21,8 +21,7 @@
    "documented": "defaultVisibleToAuth makes every instance visible to signed-in users",
    "found": "created without flags: visibleToAuthenticatedUsers=False; a signed-in user sees 1 of 1 (the type without a default: 0 of 1)",
    "spike": "visibility",
-   "question": "Does a type's defaultVisibleToAuth make new nodes visible?",
-   "run": "2026-10-27 14:47"
+   "question": "Does a type's defaultVisibleToAuth make new nodes visible?"
   },
   {
    "answer": "OK",
@@ -48,42 +47,37 @@
   {
    "answer": "INFO",
    "documented": "onSave runs when a node is modified; whether a relationship change counts is not said",
-   "found": "the held node deleted: 422 {'code': 422, 'message': 'Server-side scripting error', 'errors': [{'token': 'needs_held', 'type': 'SpkKeeper', 'propert, the holder's held after: {'id': 'd9c552a2a68b4b07ae3501df5e45f3f6', 'type': 'SpkKept', 'name': 'spike SpkKept 1793134062.6840172'}; the link set from the other end to a held node its onSave forbids: 422 {'code': 422, 'message': 'Server-side scripting error', 'errors': [{'token': 'forbidden', 'type': 'SpkKeeper', 'property, the holder now holds: 'spike SpkKept 1793134064.3787913'",
+   "found": "the held node deleted: 422 {'code': 422, 'message': 'Server-side scripting error', 'errors': [{'token': 'needs_held', 'type': 'SpkKeeper', 'propert, the holder's held after: {'id': '1965eed5cbef41ada6baeb76fdd9bad4', 'type': 'SpkKept', 'name': 'spike SpkKept 1793428652.4536393'}; the link set from the other end to a held node its onSave forbids: 422 {'code': 422, 'message': 'Server-side scripting error', 'errors': [{'token': 'forbidden', 'type': 'SpkKeeper', 'property, the holder now holds: 'spike SpkKept 1793428652.9544694'",
    "spike": "onsave_links",
-   "question": "Does onSave run when only a node's relationships change?",
-   "run": "2026-10-27 14:47"
+   "question": "Does onSave run when only a node's relationships change?"
   },
   {
    "answer": "OK",
    "documented": "a SchemaGrant gives a group read and write on every instance of a type, without per-node grants",
    "found": "SchemaGrant keys ['allowAccessControl', 'allowDelete', 'allowRead', 'allowWrite', 'createdBy', 'createdDate', 'grantees', 'hidden', 'id', 'lastModifiedBy', 'lastModifiedDate', 'name', 'owner', 'ownerId', 'principal', 'schemaNode', 'staticSchemaNodeName', 'type', 'visibleToAuthenticatedUsers', 'visibleToPublicUsers']; created with ['allowRead', 'allowWrite']; a member sees 1 of 1, a non-member 0; the member's write: 200",
    "spike": "grant",
-   "question": "Does a SchemaGrant share a whole type with a group?",
-   "run": "2026-10-27 14:47"
+   "question": "Does a SchemaGrant share a whole type with a group?"
   },
   {
    "answer": "OK",
    "documented": "a grant gives read to its principal (or the group's members) and no one else",
    "found": "before: (a, b) (False, False); grantees ['spike-a'] and ['spike-solo']; after: {'to a: a': True, 'to a: b': False, 'to the group: a': True, 'to the group: b': False}; b's listing: 0",
    "spike": "grant_direct",
-   "question": "Does a grant to a user or a group reach only them?",
-   "run": "2026-10-27 14:55"
+   "question": "Does a grant to a user or a group reach only them?"
   },
   {
    "answer": "DIFFERENT",
    "documented": "read on a folder propagates to its docs along a relationship set to propagate",
    "found": "declared with permissionPropagation=Out, readPropagation=Add; the user sees the doc before the folder grant: 0, after: 1; a user without the grant: 0 before it, 1 after it asked first, 1 after the granted user; the folder itself, to that user: 1; the grant: (200, {'nodes': 1, 'user': 'spike-a', 'users': 1, 'grantees': ['spike-a']})",
    "spike": "propagation",
-   "question": "Does read access propagate along a relationship?",
-   "run": "2026-10-27 14:50"
+   "question": "Does read access propagate along a relationship?"
   },
   {
    "answer": "OK",
    "documented": "createLabels adds the labels a type gained after its nodes were made",
-   "found": "old node's labels AccessControllable,NodeInterface,GraphObject,PropertyContainer,SpkTyped (new node's AccessControllable,NodeInterface,GraphObject,PropertyContainer,SpkTyped,SpkTrait); relating the old node: 422 {'code': 422, 'message': 'No SpkTrait with UUID cd7f80b1ce184d64b57201fafd002cdf found.', 'errors': [{'token': 'object_n; a new one: 200; createLabels: 200; old node's labels after AccessControllable,NodeInterface,GraphObject,PropertyContainer,SpkTyped,SpkTrait; relating the old node again: 200",
+   "found": "old node's labels NodeInterface,AccessControllable,GraphObject,PropertyContainer,SpkTyped (new node's NodeInterface,AccessControllable,GraphObject,PropertyContainer,SpkTyped,SpkTrait); relating the old node: 422 {'code': 422, 'message': 'No SpkTrait with UUID 71af363a31fb4e4dade3cd127bec04e7 found.', 'errors': [{'token': 'object_n; a new one: 200; createLabels: 200; old node's labels after NodeInterface,AccessControllable,GraphObject,PropertyContainer,SpkTyped,SpkTrait; relating the old node again: 200",
    "spike": "labels",
-   "question": "Does createLabels fix the labels of nodes older than their trait?",
-   "run": "2026-10-27 14:47"
+   "question": "Does createLabels fix the labels of nodes older than their trait?"
   },
   {
    "answer": "OK",
@@ -91,6 +85,13 @@
    "found": "array with a duplicate: 422, nodes left after it: []; a good array: 201 (2 ids); PATCH array: 200, note read back 'bulk patched'",
    "spike": "bulk",
    "question": "Is an array POST one transaction; does a PATCH array update many?"
+  },
+  {
+   "answer": "OK",
+   "documented": "with autocreationFlag a nested object creates its node, at any depth and in one transaction; one whose unique value matches a node is that node; without the flag nested objects only find nodes",
+   "found": "two levels in one POST: 201, children ['n c1', 'n c2'], c1's grands ['n g1']; a grandchild missing a notNull value: 422, nodes made [0, 0, 0]; a nested object repeating c1's code: 201, and the existing c1 now named 'n c1 renamed' with parent 'n p3' (p1's children now ['n c2']); nested without the flag: 422; 41 nodes in one nested POST 1.04 s, one POST each 4.35 s",
+   "spike": "nested",
+   "question": "Does a nested object create its node (autocreationFlag), in one transaction; what does one matching an existing node do?"
   },
   {
    "answer": "OK",
@@ -102,35 +103,35 @@
   {
    "answer": "OK",
    "documented": "with application.changelog.enabled, changelog(node) lists creates and changes with old and new values",
-   "found": "call: 200; verbs ['change', 'create']; note changes [('null', '\"one\"'), ('\"one\"', '\"two\"'), ('\"two\"', '\"three\"')]; users ['superadmin']; on disk: total 20\ndrwxr-xr-x  5 root root 4096 Oct 27 20:43 .\ndrwxr-xr-x  1 root root 4096 Oct 27 20:43 ..\ndrwxr-xr-x 18 root root 4096 Oct 27 20:44 n\ndrwxr-xr-x 18 root root 4096 Oct 27 20:43 r\n/var/lib/structr/changelog",
+   "found": "call: 200; verbs ['change', 'create']; note changes [('null', '\"one\"'), ('\"one\"', '\"two\"'), ('\"two\"', '\"three\"')]; users ['superadmin']; on disk: total 20\ndrwxr-xr-x  5 root root 4096 Oct 31 06:36 .\ndrwxr-xr-x  1 root root 4096 Oct 31 06:37 ..\ndrwxr-xr-x 18 root root 4096 Oct 31 06:37 n\ndrwxr-xr-x 18 root root 4096 Oct 31 06:36 r\n/var/lib/structr/changelog",
    "spike": "changelog",
    "question": "Does the changelog record changes, and where?"
   },
   {
    "answer": "OK",
    "documented": "CronService.tasks with a six-field cronExpression (every 5 s) runs the function",
-   "found": "ticks 3, then 7 sixteen seconds later",
+   "found": "ticks 9, then 12 sixteen seconds later",
    "spike": "cron",
    "question": "Does a scheduled task configured by environment run?"
   },
   {
    "answer": "DIFFERENT",
    "documented": "Polyglot.eval('python', ...) runs Python inside a JavaScript method",
-   "found": "(status, seconds) per call [(422, 0.05), (422, 0.03)]; value {'code': 422, 'message': 'Server-side scripting error: promise rejected with Error: No language for id python found. Supported languages are: [js]'}; the server log: ",
+   "found": "(status, seconds) per call [(422, 0.08), (422, 0.05)]; value {'code': 422, 'message': 'Server-side scripting error: promise rejected with Error: No language for id python found. Supported languages are: [js]'}; the server log: ",
    "spike": "polyglot",
    "question": "Can a JavaScript method run Python?"
   },
   {
    "answer": "DIFFERENT",
    "documented": "declared parameters convert values; httpVerb GET takes path segments and refuses POST",
-   "found": "POST {count:'7', extra:'x'}: 422 {'code': 422, 'message': 'Unknown parameter(s) extra for user-defined function \u201bspkTypedPost\u201b, the method only accepts its defined parameters count. Enable \"Allow unknown parameters\" to accept other parameters.'}; GET /5: 200 {'kind': 'number', 'extra': None, 'count': 5}; POST to the GET method: 405 {'code': 405, 'message': 'POST not allowed on /spkTypedGet'}",
+   "found": "POST {count:'7', extra:'x'}: 422 {'code': 422, 'message': 'Unknown parameter(s) extra for user-defined function ‛spkTypedPost‛, the method only accepts its defined parameters count. Enable \"Allow unknown parameters\" to accept other parameters.'}; GET /5: 200 {'kind': 'number', 'extra': None, 'count': 5}; POST to the GET method: 405 {'code': 405, 'message': 'POST not allowed on /spkTypedGet'}",
    "spike": "params",
    "question": "Do declared parameters and httpVerb GET work?"
   },
   {
    "answer": "INFO",
    "documented": "parameter types are numbers, dates, strings and booleans",
-   "found": "an object passes whole as: none; {'Map': 'declared; call 422 {\\'code\\': 422, \\'message\\': \\'Unknown parameter(s) warmUp for user-defined function \u201bspkObjectMap\u201b, the method only accepts its defined parameters booking. Enable \"', 'Object': \"declared; call 422 {'code': 422, 'message': 'Unknown parameter(s) warmUp for user-defined function \u201bspkObjectObject\u201b, the method only accepts its defined parameters booking. Enabl\", 'String': \"declared; call 422 {'code': 422, 'message': 'Unknown parameter(s) warmUp for user-defined function \u201bspkObjectString\u201b, the method only accepts its defined parameters booking. Enabl\"}",
+   "found": "an object passes whole as: none; {'Map': 'declared; call 422 {\\'code\\': 422, \\'message\\': \\'Unknown parameter(s) warmUp for user-defined function ‛spkObjectMap‛, the method only accepts its defined parameters booking. Enable \"', 'Object': \"declared; call 422 {'code': 422, 'message': 'Unknown parameter(s) warmUp for user-defined function ‛spkObjectObject‛, the method only accepts its defined parameters booking. Enabl\", 'String': \"declared; call 422 {'code': 422, 'message': 'Unknown parameter(s) warmUp for user-defined function ‛spkObjectString‛, the method only accepts its defined parameters booking. Enabl\"}",
    "spike": "param_object",
    "question": "Which declared parameter type passes a JSON object whole?"
   },
@@ -144,7 +145,7 @@
   {
    "answer": "OK",
    "documented": "cache(key, seconds, fn) computes once and returns the same value",
-   "found": "first 200 '0.8575773694902049', second 200 '0.8575773694902049'",
+   "found": "first 200 '0.13941259050339405', second 200 '0.13941259050339405'",
    "spike": "cache",
    "question": "Does cache() keep a value?"
   },
@@ -172,7 +173,7 @@
   {
    "answer": "OK",
    "documented": "maintenance sync exports the subgraph a Cypher query selects into one ZIP",
-   "found": "200 {'result': [], 'result_count': 0, 'page_count': 0, 'result_count_time': '0.000339753', 'serialization_time': '0.00465421; in the container: -rw-r--r-- 1 root root 367 Oct 27 20:44 /tmp/spike-sync.zip\ndb",
+   "found": "200 {'result': [], 'result_count': 0, 'page_count': 0, 'result_count_time': '0.000293007', 'serialization_time': '0.00509815; in the container: -rw-r--r-- 1 root root 370 Oct 31 06:38 /tmp/spike-sync.zip\ndb",
    "spike": "sync",
    "question": "Does maintenance sync export a query's subgraph?"
   },

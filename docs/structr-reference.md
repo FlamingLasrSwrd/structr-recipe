@@ -381,6 +381,7 @@ On `SchemaRelationshipNode` **[P6]** (fields exist; behaviour **[D7]**) unless m
   `disableCascadingDelete()` affect it per request. **[D7]**
 - `autocreationFlag`: whether a nested JSON object in a write creates the related node when it
   does not exist (matched on a unique property). Makes Structr accept documents (section 8.4).
+  **[V7.1]**: and when one does exist, the nested object is that node, moved and overwritten.
 - The permission propagation fields of section 4.5, and `changelogDisabled`, `includeInOpenAPI`.
 
 ### 5.5 Type options
@@ -693,6 +694,14 @@ POST   /structr/rest/<Type>/<id>/<method>     call an instance method
   (`{"name": "Task 1"}`); with `autocreationFlag` set on the relationship, a stub that matches
   nothing is created. Assigning a to-many property replaces the set. **[V6]** (ids) / **[D7]**
   (stubs, autocreation)
+- **[V7.1]** (the `nested` spike, 2026-10-31): with `autocreationFlag`, one POST creates nested objects
+  two levels deep in one transaction (one invalid object among them: 422, none created), about four
+  times faster than a POST each. **A nested object whose unique value matches an existing node is
+  that node, not an error**: the node is taken from its old parent where the relationship has a
+  to-one end, and the nested object's other properties overwrite its own, answered 201. Name an
+  existing node by `{"id": ...}`; give a unique value only for a node you mean to create. Without the
+  flag, a nested object must match an existing node by every property given (422 "no matching ...
+  found for the given property set").
 - **An array in one POST creates all its objects in one transaction**: all or none, and far fewer
   round trips than one request per object. **[V6]**: one invalid object in the array (a duplicate
   of a unique value) answers 422 and creates none of the others. PATCH on the collection with an

@@ -519,6 +519,58 @@ def bulk_verify(ctx):
                   f"({len(ids or [])} ids); PATCH array: {patched[0]}, note read back {note!r}")
 
 
+def nested_setup(ctx):
+    parent, child, grand, plain = (ctx.schema_type(n) for n in ("SpkNParent", "SpkNChild", "SpkNGrand", "SpkNPlain"))
+    for t in (child, grand):
+        ctx.schema_prop(t, "code", "String", unique=True, indexed=True)
+    ctx.schema_prop(grand, "label", "String", notNull=True)
+    ctx.schema_rel(parent, child, "SPK_N_CHILD", "1", "*", "parent", "children", autocreationFlag=1)
+    ctx.schema_rel(child, grand, "SPK_N_GRAND", "1", "*", "child", "grands", autocreationFlag=1)
+    ctx.schema_rel(parent, plain, "SPK_N_PLAIN", "1", "*", "parent", "plains", autocreationFlag=0)
+
+
+def nested_verify(ctx):
+    flags = {"visibleToAuthenticatedUsers": True}
+    sizes = lambda: tuple(len(ctx.ok("GET", f"/structr/rest/{t}")["result"]) for t in ("SpkNParent", "SpkNChild", "SpkNGrand"))
+    by_code = lambda t, code: ctx.ok("GET", f"/structr/rest/{t}?code={code}")["result"]
+    names = lambda rows: sorted(r["name"] for r in rows or [])
+    made = ctx.raw("POST", "/structr/rest/SpkNParent", {"name": "n p1", **flags, "children": [
+        {"name": "n c1", "code": "c1", **flags, "grands": [{"name": "n g1", "code": "g1", "label": "x", **flags}]},
+        {"name": "n c2", "code": "c2", **flags}]})
+    p1 = ctx.one("SpkNParent", "n p1")
+    c1 = (by_code("SpkNChild", "c1") or [{}])[0].get("id")
+    two = (names((ctx.node("SpkNParent", p1) or {}).get("children")), names((ctx.node("SpkNChild", c1) or {}).get("grands")))
+    before = sizes()                       # a grandchild missing its notNull label, two levels down
+    bad = ctx.raw("POST", "/structr/rest/SpkNParent", {"name": "n p2", **flags, "children": [
+        {"name": "n c3", "code": "c3", **flags, "grands": [{"name": "n g2", "code": "g2", "label": "y", **flags},
+                                                          {"name": "n g3", "code": "g3", **flags}]}]})
+    left = [a - b for a, b in zip(sizes(), before)]
+    taken = ctx.raw("POST", "/structr/rest/SpkNParent", {"name": "n p3", **flags, "children": [{"code": "c1", "name": "n c1 renamed"}]})
+    c1_now = ctx.node("SpkNChild", c1) or {}
+    plain = ctx.raw("POST", "/structr/rest/SpkNParent", {"name": "n p4", **flags, "plains": [{"name": "n plain", **flags}]})
+    start = time.monotonic()
+    ctx.c.post("/structr/rest/SpkNParent", {"name": "n timed", **flags, "children": [
+        {"name": f"n tc{i}", "code": f"tc{i}", **flags,
+         "grands": [{"name": f"n tg{i}-{j}", "code": f"tg{i}-{j}", "label": "t", **flags} for j in range(3)]} for i in range(10)]})
+    nested_s, start = time.monotonic() - start, time.monotonic()
+    pid = ctx.c.post("/structr/rest/SpkNParent", {"name": "n timed one by one", **flags})["result"][0]
+    for i in range(10):
+        cid = ctx.c.post("/structr/rest/SpkNChild", {"name": f"n sc{i}", "code": f"sc{i}", "parent": pid, **flags})["result"][0]
+        for j in range(3):
+            ctx.c.post("/structr/rest/SpkNGrand", {"name": f"n sg{i}-{j}", "code": f"sg{i}-{j}", "label": "t", "child": cid, **flags})
+    each_s = time.monotonic() - start
+    moved = c1_now.get("name") == "n c1 renamed" and (c1_now.get("parent") or {}).get("name") == "n p3"
+    return answer(made[0] == 201 and two == (["n c1", "n c2"], ["n g1"]) and bad[0] == 422 and left == [0, 0, 0]
+                  and plain[0] == 422 and moved,
+                  "with autocreationFlag a nested object creates its node, at any depth and in one transaction; one "
+                  "whose unique value matches a node is that node; without the flag nested objects only find nodes",
+                  f"two levels in one POST: {made[0]}, children {two[0]}, c1's grands {two[1]}; a grandchild missing a "
+                  f"notNull value: {bad[0]}, nodes made {left}; a nested object repeating c1's code: {taken[0]}, and the "
+                  f"existing c1 now named {c1_now.get('name')!r} with parent {(c1_now.get('parent') or {}).get('name')!r} "
+                  f"(p1's children now {names((ctx.node('SpkNParent', p1) or {}).get('children'))}); nested without the "
+                  f"flag: {plain[0]}; 41 nodes in one nested POST {nested_s:.2f} s, one POST each {each_s:.2f} s")
+
+
 def unknown_verify(ctx):
     status, out = ctx.raw("POST", "/structr/rest/SpkBulk", {"name": "u1", "notAProperty": 1,
                                                           "visibleToAuthenticatedUsers": True})
@@ -764,6 +816,8 @@ SPIKES = [
     ("propagation", "Does read access propagate along a relationship?", propagation_setup, propagation_verify),
     ("labels", "Does createLabels fix the labels of nodes older than their trait?", labels_setup, labels_verify),
     ("bulk", "Is an array POST one transaction; does a PATCH array update many?", bulk_setup, bulk_verify),
+    ("nested", "Does a nested object create its node (autocreationFlag), in one transaction; what does one matching "
+               "an existing node do?", nested_setup, nested_verify),
     ("unknown", "Does validation mode `reject` refuse unknown input keys?", nothing, unknown_verify),
     ("changelog", "Does the changelog record changes, and where?", changelog_setup, changelog_verify),
     ("cron", "Does a scheduled task configured by environment run?", cron_setup, cron_verify),

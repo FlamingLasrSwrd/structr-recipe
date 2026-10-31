@@ -56,7 +56,8 @@ endpoint or command exists, behaviour not tested), **no** (spiked, does not work
 
 Run with `bash tools/spikes/run_spikes.sh` (a throwaway stack on port 8084 with the settings in
 `tools/spikes/docker-compose.spike.yml`; setup, a restart, then verify). The last run's raw results
-are in `tools/spikes/last_results.json`.
+are in `tools/spikes/last_results.json`. The whole suite ran again on 7.1.0 on 2026-10-31 with one
+spike more (nested, Batch 6): every other spike answered as on 2026-10-27.
 
 Twenty-five spikes, run on 2026-10-27 against `structr/structr:6.0.0`: 21 behave as documented,
 one does not (Python), three only report (the endpoints, an object parameter, `onSave` on
@@ -75,6 +76,7 @@ relationship changes). What each showed, and what it means here:
 | propagation | `permissionPropagation: "Out"` with `readPropagation: "Add"` (the others `"Keep"`): a read grant on a folder lets a user read its documents, which carry no grant | Stage 5: a household's MealPlan opening its entries |
 | labels | A node made before its type gained a trait lacks the trait's label and is refused as the target of a relationship to the trait; `POST /structr/rest/maintenance/createLabels {"type": ...}` adds it, and the same relationship is then accepted | Hard rule 2's "only fixable with direct Cypher" is out of date: `createLabels` is the supported fix. The rule's wording is the owner's to change (`docs/todo.md`) |
 | bulk | An array POST is one transaction (one duplicate in it: 422, nothing created); a PATCH array on a collection updates many | Batch 6 |
+| nested (7.1.0, 2026-10-31) | With `autocreationFlag` on a relationship, one POST creates nested objects two levels deep, in one transaction (a grandchild missing a `notNull` value: 422, nothing created); 41 nodes in 1.0 s against 4.4 s one POST each. **A nested object whose unique value matches an existing node is that node**: it is taken from its old parent (a to-one end) and its other properties are overwritten from the nested object, silently (201). Without the flag a nested object must match an existing node by every property given (422 otherwise) | Batch 6: an importer built on it must name every existing node by id, never by a unique value |
 | unknown | `STRUCTR_jsonrestservlet_unknowninput_validation_mode=reject` refuses a key the schema does not declare (422 "Rejecting input with unknown JSON key ...") and creates nothing | Batch 1: a misspelt key in a tool, or a tool run ahead of its migration, fails where it happens |
 | changelog | With `STRUCTR_application_changelog_enabled` and `..._user__centric_enabled`, `$.changelog(id, false)` lists `create` and `change` entries with `prev`, `val`, `userName` and time; kept as files in `/var/lib/structr/changelog`, **which is on no volume** | Batch 1, with a volume and a place in the backups |
 | cron | `STRUCTR_cronservice_tasks=<function>` and `STRUCTR_<function>_cronExpression` (six fields) run the function; it must exist when Structr starts | No task yet; a nightly check is a candidate |
@@ -231,14 +233,38 @@ argument; only one that declares some refuses (7.1) or drops (6.0) the rest. The
 (2026-10-31) that it waits for the architecture decision (`docs/architecture-decision.md`), which
 settles who calls these methods.
 
-**Batch 6, importers in one transaction:** a recipe written as array POSTs, so an interrupted import
-leaves nothing half-written, and measured against today's 8 to 19 s a recipe. **Not built: waiting on
-the owner.** The importer upserts every node by name and links each to nodes made a moment before;
-an array POST is one transaction (the bulk spike) but a new node in it cannot name another new node
-by id. So it needs either Structr's nested objects with autocreation (`autocreationFlag`, not yet
-spiked) or a redesign that reads everything first and writes the new nodes in two arrays, then the
-links. Batch 2 already made a recipe's deletions one transaction each. It is worth measuring where
-an import's time goes before choosing.
+**Batch 6, importers in one transaction:** an interrupted import should leave nothing half-written.
+Measured and spiked on 2026-10-31, at the owner's word (measure where an import's time goes and
+spike nested creation, a report only). **Not built: the owner's to decide.** The importer upserts
+every node by name and links each to nodes made a moment before; an array POST is one transaction
+(the bulk spike) but a new node in it cannot name another new node by id, which nested objects can.
+Batch 2 already made a recipe's deletions one transaction each.
+
+Where the time goes, importing the 20 basic recipes (`data/recipes/`) into the development stack
+holding the whole vocabulary: 787 s, 99% of it waiting on Structr, in 15,435 requests. Resolving and
+writing took 375 s (10,867 requests), storing the nutrition per serving 407 s (4,568). Writes are at
+most 88 s of it (11%): 372 Specification and 278 QuantitySpecification POSTs and 119 Step PATCHes are
+the largest, 43 s together. Reads are the rest: one node at a time, 6,566 reads of DomainTypes,
+NutrientProfiles and DefaultSpecifications (243 s) while resolving, 4,387 DefaultSpecifications
+(132 s) while storing nutrition, and the nutrition step's prefetch of whole listings, NutrientProfile
+in 58 pages (131 s) and QuantitySpecification in 15 (110 s, 7.3 s a page; the same listing read at
+1.2 s a page in a vocabulary import an hour later, so a page's cost varies). A re-import of the
+vocabulary with two foods changed took 355 s in 5,007 requests, nearly all reads.
+
+What nested creation does on 7.1.0 (`nested` in `tools/spikes/`, section 3): one POST makes a parent,
+its children and theirs, all or nothing, about four times faster than a POST each. But a nested
+object that repeats a unique value is not refused: it becomes the existing node, which is moved from
+wherever it was and has its properties overwritten. A scratch run of the spike's first version on the
+development stack (cleaned up, then restarted) is how this was found: a stub `{"code": "c1"}` took
+the child c1 from its parent, and a nested grandchild repeating g1's code renamed g1 and moved it.
+
+So nested creation would make a recipe's writes one transaction, the reason for the batch, and its
+writes about four times faster, but an import is mostly reads: at best it saves about a tenth of
+the time. Two things would save more, each worth measuring first: reading the nodes the resolve
+step asks for one at a time in bulk, as the planner does (`ReadCache.prefetch`), and a narrower view
+for the nutrition step's listings, as `scripts/37a` gave the planner. And an importer built on
+nested creation must name every existing node by id, never by a unique value, or it takes that node
+from wherever it is.
 
 **Waiting on the owner, or on stage 5:** schema grants, propagation and compound uniqueness (stage
 5's sharing and names); the wording of hard rule 2 now that `createLabels` works; a changelog-based
