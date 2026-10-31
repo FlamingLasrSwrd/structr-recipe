@@ -119,6 +119,9 @@ def check_nutrition(client, week: dict, problems: list[str], shown_rows=None, wh
         if got["status"] != r["status"] or not close(got.get("total"), r.get("total")):
             problems.append(f"nutrition {week['name']!r}, {r['target']} {r['group']}: {who} {got.get('total')!r} "
                             f"{got['status']}, nutrition_report {r.get('total')!r} {r['status']}")
+        elif sorted(got.get("estimated") or []) != sorted(r.get("estimated") or []):
+            problems.append(f"nutrition {week['name']!r}, {r['target']} {r['group']}: {who} marks estimates "
+                            f"{sorted(got.get('estimated') or [])}, nutrition_report {sorted(r.get('estimated') or [])}")
     return len(rows)
 
 

@@ -7,8 +7,12 @@ const WORDS = {ok: "met", below_min: "under", above_max: "over", indeterminate: 
 const rangeWords = (r) => (r.min != null && r.max != null ? number(r.min, 0) + "–" + number(r.max, 0)
   : r.min != null ? "at least " + number(r.min, 0) : r.max != null ? "at most " + number(r.max, 0) : "any") + " " + r.unit;
 const rangeText = (r) => esc(rangeWords(r));
-const cell = (r) => "<td class=\"" + r.status + "\" title=\"" + esc(WORDS[r.status] + (r.unknown && r.unknown.length ? ": no figure for " + r.unknown.join(", ") : "")) + "\">"
-  + (r.status === "unsupported" ? "–" : number(r.total, r.total >= 100 ? 0 : 1)) + "</td>";
+// a total that rests on an estimate somewhere (J21) is marked ≈ and says which meals (REVIEW.md round 3, #12)
+const ESTIMATE = "≈";
+const estimates = (r) => (r.estimated && r.estimated.length ? "; rests on estimates: " + r.estimated.join(", ") : "");
+const mark = (r) => (r.estimated && r.estimated.length ? ESTIMATE : "");
+const cell = (r) => "<td class=\"" + r.status + "\" title=\"" + esc(WORDS[r.status] + (r.unknown && r.unknown.length ? ": no figure for " + r.unknown.join(", ") : "") + estimates(r)) + "\">"
+  + (r.status === "unsupported" ? "–" : mark(r) + number(r.total, r.total >= 100 ? 0 : 1)) + "</td>";
 
 // the week's total of a daily target: its range over the days judged, and how many days were each
 function weekCell(t) {
@@ -16,8 +20,8 @@ function weekCell(t) {
   const days = ["ok", "below_min", "above_max", "indeterminate"].filter((s) => t.day_statuses[s])
     .map((s) => t.day_statuses[s] + " " + WORDS[s]).join(", ");
   const why = WORDS[t.status] + " for the week: " + range + " over " + t.days + (t.days === 1 ? " day" : " days") + "; days: " + days
-    + (t.unknown.length ? "; no figure for " + t.unknown.join(", ") : "");
-  return "<td class=\"" + t.status + " total\" title=\"" + esc(why) + "\">" + number(t.total, t.total >= 100 ? 0 : 1)
+    + (t.unknown.length ? "; no figure for " + t.unknown.join(", ") : "") + estimates(t);
+  return "<td class=\"" + t.status + " total\" title=\"" + esc(why) + "\">" + mark(t) + number(t.total, t.total >= 100 ? 0 : 1)
     + " <small>" + esc(WORDS[t.status]) + "</small></td>";
 }
 
@@ -46,7 +50,7 @@ if (!week) {
   html += "<h2>" + esc(week.name) + "</h2>" + weekPicker("nutrition", week)
     + "<p class=\"note\">Each day: the baseline and the person's share of every meal, from stored figures per serving. "
     + "<span class=\"ok\">met</span> <span class=\"below_min\">under</span> <span class=\"above_max\">over</span> "
-    + "<span class=\"indeterminate\">unknown</span>; hover a cell for why. "
+    + "<span class=\"indeterminate\">unknown</span>; " + ESTIMATE + " rests on an estimate somewhere; hover a cell for why. "
     + "Week: a daily target's days added up, against its range times the days with meals.</p>";
   const people = Array.from(new Set(rows.map((r) => r.person))).sort((a, b) => String(a).localeCompare(String(b)));
   for (const person of people) {

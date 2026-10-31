@@ -498,19 +498,27 @@ def entry_nutrient_intake(client, entry: dict, nutrient_id: str, unit: str = "g"
                           person_id: str | None = None) -> tuple[float | None, bool]:
     """(the nutrient eaten at this entry, in `unit`, or None if unknown,
     whether the default servings was assumed): by everyone, or by one person."""
+    intake, assumed, _ = entry_nutrient_figure(client, entry, nutrient_id, unit, person_id)
+    return intake, assumed
+
+
+def entry_nutrient_figure(client, entry: dict, nutrient_id: str, unit: str = "g",
+                          person_id: str | None = None) -> tuple[float | None, bool, bool]:
+    """entry_nutrient_intake, and whether the recipe's figure rests on an estimate somewhere
+    (ServingFigure.estimated, J21): what the nutrition page marks (REVIEW.md round 3, #12)."""
     if person_id is not None:
         servings, assumed = entry_person_servings(client, entry, person_id)
         if servings == 0:
-            return 0.0, False                     # this person does not eat it
+            return 0.0, False, False              # this person does not eat it
     else:
         servings, assumed = entry_servings_eaten(client, entry)
     plan = _source_plan(client, entry)
     if plan is None:
-        return None, False
-    per_serving = serving_nutrient_amount(client, plan, nutrient_id, unit)
-    if per_serving is None:
-        return None, False
-    return per_serving * servings, assumed
+        return None, False, False
+    figure = serving_nutrient_figure(client, plan, nutrient_id, unit)
+    if figure.amount is None:
+        return None, False, False
+    return figure.amount * servings, assumed, figure.estimated
 
 
 def entry_start(client, entry: dict) -> datetime | None:
@@ -574,14 +582,22 @@ def baseline_day_intake(client, meal_plan: dict, nutrient_id: str, unit: str = "
     """What the baseline adds to each day, in `unit`: one serving of every baseline
     Plan, a serving of one being a day of it. Also the names of any baseline Plan
     with no figure for the nutrient, which leave the day's total unknown."""
-    total, unknown = 0.0, []
+    total, unknown, _ = baseline_day_figures(client, meal_plan, nutrient_id, unit)
+    return total, unknown
+
+
+def baseline_day_figures(client, meal_plan: dict, nutrient_id: str, unit: str = "g") -> tuple[float, list[str], list[str]]:
+    """baseline_day_intake, and the baseline Plans whose figure rests on an estimate."""
+    total, unknown, estimated = 0.0, [], []
     for plan in baseline_plans(client, meal_plan):
-        amount = serving_nutrient_figure(client, plan, nutrient_id, unit).amount
-        if amount is None:
+        figure = serving_nutrient_figure(client, plan, nutrient_id, unit)
+        if figure.amount is None:
             unknown.append(plan["name"])
         else:
-            total += amount
-    return total, unknown
+            total += figure.amount
+            if figure.estimated:
+                estimated.append(plan["name"])
+    return total, unknown, estimated
 
 
 def scope_total(
@@ -659,7 +675,9 @@ def nutrition_report(client, meal_plan_id: str) -> list[dict]:
     Days with no entries aren't reported (nothing planned to judge).
     Status: ok / below_min / above_max / indeterminate (some entry has no
     nutrient data, so the total is a lower bound and a shortfall can't be
-    concluded). Totals cover the planned meals and the baseline (a day's worth
+    concluded). Each row also names, under "estimated", the meals and baseline recipes
+    whose figure rests on an estimate somewhere (J21), which the nutrition page marks
+    (REVIEW.md round 3, #12). Totals cover the planned meals and the baseline (a day's worth
     for each day judged, none for a single meal). A skipped meal with something
     eaten in its place that the book does not hold (eatenInstead) is in its
     groups as an entry with no figure, for the people who ate it. A person's target
@@ -705,28 +723,32 @@ def nutrition_report(client, meal_plan_id: str) -> list[dict]:
 
         person_id = (target.get("forPerson") or {}).get("id")
         holder = client.get_all("Person", person_id)["result"] if person_id else meal_plan    # whose baseline
-        per_day, baseline_unknown = (baseline_day_intake(client, holder, nutrient["id"], rng["unit"])
-                                     if holder.get("hasBaseline") and scope != "per_meal" else (0.0, []))
+        per_day, baseline_unknown, baseline_estimated = (baseline_day_figures(client, holder, nutrient["id"], rng["unit"])
+                                                         if holder.get("hasBaseline") and scope != "per_meal" else (0.0, [], []))
         zone = day_zone(target.get("dayBoundaryRule")) or timezone.utc
         for key in sorted(groups):
             days = 1 if scope == "daily" else len({calendar_day(s, zone) for s in (entry_start(client, e) for e in groups[key]) if s})
             total = per_day * days if scope != "per_meal" else 0.0
             unknown = [f"{name} (baseline)" for name in baseline_unknown]
+            estimated = [f"{name} (baseline)" for name in baseline_estimated]
             assumed = []
             for entry in groups[key]:
                 if entry["id"] in instead:
                     if person_id is None or entry_person_servings(client, entry, person_id)[0] > 0:
                         unknown.append(f"{entry['name']} ({entry['eatenInstead']} instead)")
                     continue
-                intake, was_assumed = entry_nutrient_intake(client, entry, nutrient["id"], rng["unit"], person_id)
+                intake, was_assumed, was_estimated = entry_nutrient_figure(client, entry, nutrient["id"], rng["unit"],
+                                                                           person_id)
                 if intake is None:
                     unknown.append(entry["name"])
                     continue
                 total += intake
                 if was_assumed:
                     assumed.append(entry["name"])
+                if was_estimated and intake > 0:
+                    estimated.append(entry["name"])
             rows.append({**base, "group": key, "total": total, "entries": len(groups[key]),
-                         "unknown": unknown, "assumed_default_servings": assumed,
+                         "unknown": unknown, "assumed_default_servings": assumed, "estimated": estimated,
                          "status": _status(total, bool(unknown), min_val, max_val)})
     return rows
 
@@ -748,11 +770,12 @@ def week_totals(rows: list[dict]) -> list[dict]:
         week_max = None if first["max"] is None else first["max"] * n
         total = sum(r["total"] for r in days)
         unknown = list(dict.fromkeys(u for r in days for u in r["unknown"]))
+        estimated = list(dict.fromkeys(e for r in days for e in r["estimated"]))
         counted: dict[str, int] = {}
         for r in days:
             counted[r["status"]] = counted.get(r["status"], 0) + 1
         out.append({key: first[key] for key in ("target", "nutrient", "scope", "strictness", "min", "max", "unit")}
                    | {"group": "week", "days": n, "week_min": week_min, "week_max": week_max, "total": total,
-                      "unknown": unknown, "day_statuses": counted,
+                      "unknown": unknown, "estimated": estimated, "day_statuses": counted,
                       "status": _status(total, bool(unknown), week_min, week_max)})
     return out

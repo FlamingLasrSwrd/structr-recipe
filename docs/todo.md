@@ -45,7 +45,6 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
 | **Waste and cost in the objective** | #2 | A penalty for stock left to expire unused, and a cost term, each defined and tested on its own before the documents say the planner minimizes waste or spending. Objective changes: the owner's call (`docs/optimizer-design.md` §4.5) |
 | **Weeks to judge the objective by** | #2 | Representative weeks, including ones where nutrition pulls against time, waste, repeats, cost or stock, with the owner's verdict on each plan, kept as fixtures the planner is checked against |
 | **The planner reads one consistent snapshot** | #14 | `extract.build_problem` reads through a `ReadCache` and searches in memory, but its reads are many requests, so a write during them could be half seen. One server-side read, or a check that nothing changed between the first read and the last |
-| **The nutrition page marks totals that rest on estimates** | #12 | The planner's report names the recipes whose figures rest on estimates (J21) and a recipe page gives each figure's source; the week's nutrition page shows met, under, over or indeterminate without saying which totals rest on estimates. `nutrition_report` would say it too, so the page and the Python still agree |
 | **`check_bookings.py` sweeps what an interrupted run left** | #7 | The development instance holds about 20 time regions and a few nodes from earlier interrupted checks; the check removes only what it made itself |
 
 ## For the owner to do

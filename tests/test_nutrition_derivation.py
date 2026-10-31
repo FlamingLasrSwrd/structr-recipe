@@ -365,6 +365,47 @@ class Report(unittest.TestCase):
         utc = scope_total(g, g.get_all("MealPlan", "week")["result"], "Energy", "daily", when, "kcal")
         self.assertEqual((round(local.total, 6), round(local.baseline, 6), round(utc.total, 6)), (999.0, 333.0, 666.0))
 
+class ReportMarksEstimates(unittest.TestCase):
+    """REVIEW.md round 3, #12: each row names the meals (and baseline recipes) whose figure rests on an
+    estimate (J21), as the nutrition page marks them. The stew is an estimate without retention factors
+    (FromIngredients above) and a sourced figure with a factor of 1 on its nutrients."""
+
+    def week(self, days=((28, 12), (28, 18)), baseline=False, sourced=False):
+        from mealplanner.nutrition_scope import week_totals
+        g = kitchen()
+        if sourced:
+            conserved(g, "Energy")
+        g.add("QuantitySpecification", "range", minValue=1800.0, maxValue=2500.0, unit="kcal")
+        g.add("NutritionTarget", "energy", "energy", forNutrient=Ref("Energy"), hasTargetRange=Ref("range"),
+              hasTimeScope="daily", dayBoundaryRule="midnight", strictness="soft")
+        g.add("MealPlan", "week", "week", hasEntry=[], hasConstraint=[Ref("energy")],
+              **({"hasBaseline": [Ref("stew")]} if baseline else {}))
+        for i, (day, hour) in enumerate(days):
+            g.add("TemporalRegion", f"r{i}", hasBeginning=at(day, hour))
+            g.add("MealPlanEntry", f"e{i}", f"e{i}", isAbout=Ref(f"r{i}"), isSkipped=False, references=Ref("stew"),
+                  memberOf=Ref("week"))
+            g.nodes["week"]["hasEntry"].append(Ref(f"e{i}"))
+        rows = nutrition_report(g, "week")
+        return rows, week_totals(rows)
+
+    def test_the_meals_resting_on_an_estimate_are_named(self):
+        (row,), _ = self.week()
+        self.assertEqual(row["estimated"], ["e0", "e1"])
+
+    def test_sourced_figures_name_none(self):
+        (row,), _ = self.week(sourced=True)
+        self.assertEqual(row["estimated"], [])
+
+    def test_a_baseline_resting_on_an_estimate_is_named_as_the_baseline(self):
+        (row,), _ = self.week(days=((28, 12),), baseline=True)
+        self.assertEqual(row["estimated"], ["stew (baseline)", "e0"])
+
+    def test_the_week_names_every_days_estimates_once(self):
+        rows, (week,) = self.week(days=((28, 12), (29, 12)), baseline=True)
+        self.assertEqual([r["estimated"] for r in rows], [["stew (baseline)", "e0"], ["stew (baseline)", "e1"]])
+        self.assertEqual(week["estimated"], ["stew (baseline)", "e0", "e1"])
+
+
 class DayBoundaries(unittest.TestCase):
     """A day ends at midnight in the target's zone: an 18:30 dinner in Edmonton is 00:30 UTC the next day."""
 

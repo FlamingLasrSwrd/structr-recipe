@@ -9,30 +9,39 @@ function status(total, unknown, min, max) {
   return "ok";
 }
 
-// nutrition_scope.baseline_day_intake: [per day, the baseline recipes with no figure]
+// nutrition_scope.baseline_day_figures: [per day, the baseline recipes with no figure, those resting on an estimate]
 function baselineDay(holder, nutrientId, unit) {
   let total = 0;
-  const unknown = [];
+  const unknown = [], estimated = [];
   for (const plan of holder.hasBaseline || []) {
     const figure = servingFigure(plan, nutrientId, unit);
     if (!figure || figure.amount == null) unknown.push(plan.name);
-    else total += figure.amount;
+    else {
+      total += figure.amount;
+      if (figure.estimated) estimated.push(plan.name);
+    }
   }
-  return [total, unknown];
+  return [total, unknown, estimated];
 }
 
-// nutrition_scope.entry_nutrient_intake: by everyone, or by one person; null when unknown
-function intake(entry, nutrientId, unit, person) {
+// nutrition_scope.entry_nutrient_figure: {amount, estimated}, by everyone or by one person; amount null when unknown
+function intakeFigure(entry, nutrientId, unit, person) {
   let servings;
   if (person) {
     servings = personServings(entry, person)[0];
-    if (servings === 0) return 0;
+    if (servings === 0) return {amount: 0, estimated: false};
   } else {
     servings = servingsEaten(entry)[0];
   }
   const plan = planOf(entry);
   const figure = plan ? servingFigure(plan, nutrientId, unit) : null;
-  return figure && figure.amount != null ? figure.amount * servings : null;
+  return figure && figure.amount != null ? {amount: figure.amount * servings, estimated: figure.estimated}
+    : {amount: null, estimated: false};
+}
+
+// nutrition_scope.entry_nutrient_intake: by everyone, or by one person; null when unknown
+function intake(entry, nutrientId, unit, person) {
+  return intakeFigure(entry, nutrientId, unit, person).amount;
 }
 
 // nutrition_scope.nutrition_report: one row per (target, group); a group is a meal, a day or the week
@@ -65,23 +74,27 @@ function report(week) {
       (groups[key] = groups[key] || []).push(entry);
     }
     const holder = target.forPerson || week;                                         // whose baseline
-    const [perDay, baselineUnknown] = (holder.hasBaseline || []).length && scope !== "per_meal"
-      ? baselineDay(holder, nutrient.id, range.unit) : [0, []];
+    const [perDay, baselineUnknown, baselineEstimated] = (holder.hasBaseline || []).length && scope !== "per_meal"
+      ? baselineDay(holder, nutrient.id, range.unit) : [0, [], []];
     for (const key of Object.keys(groups).sort()) {
       const days = scope === "daily" ? 1
         : new Set(groups[key].map(startOf).filter(Boolean).map((s) => dayKey(s, zone || "UTC"))).size;
       let total = scope !== "per_meal" ? perDay * days : 0;
       const unknown = baselineUnknown.map((name) => name + " (baseline)");
+      const estimated = baselineEstimated.map((name) => name + " (baseline)");
       for (const entry of groups[key]) {
         if (entry.isSkipped) {
           if (!target.forPerson || personServings(entry, target.forPerson)[0] > 0) unknown.push(entry.name + " (" + entry.eatenInstead + " instead)");
           continue;
         }
-        const amount = intake(entry, nutrient.id, range.unit, target.forPerson);
-        if (amount == null) unknown.push(entry.name);
-        else total += amount;
+        const figure = intakeFigure(entry, nutrient.id, range.unit, target.forPerson);
+        if (figure.amount == null) unknown.push(entry.name);
+        else {
+          total += figure.amount;
+          if (figure.estimated && figure.amount > 0) estimated.push(entry.name);
+        }
       }
-      rows.push(Object.assign({}, base, {group: key, total: total, unknown: unknown,
+      rows.push(Object.assign({}, base, {group: key, total: total, unknown: unknown, estimated: estimated,
                                          status: status(total, unknown.length > 0, range.minValue, range.maxValue)}));
     }
   }
@@ -97,9 +110,11 @@ function weekTotals(rows) {
     const weekMin = first.min == null ? null : first.min * n, weekMax = first.max == null ? null : first.max * n;
     const total = days.reduce((s, r) => s + r.total, 0);
     const unknown = Array.from(new Set([].concat.apply([], days.map((r) => r.unknown))));
+    const estimated = Array.from(new Set([].concat.apply([], days.map((r) => r.estimated))));
     const counted = {};
     for (const r of days) counted[r.status] = (counted[r.status] || 0) + 1;
     return Object.assign({}, first, {group: "week", days: n, week_min: weekMin, week_max: weekMax, total: total, unknown: unknown,
+                                     estimated: estimated,
                                      day_statuses: counted, status: status(total, unknown.length > 0, weekMin, weekMax)});
   });
 }
