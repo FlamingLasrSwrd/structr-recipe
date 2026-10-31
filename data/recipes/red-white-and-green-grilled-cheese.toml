@@ -1,0 +1,40 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Family Meals (NIH 10-7531), page 33. US government
+# work; facts only (docs/recipe-copyright.md). Transcription choices:
+# - "1 small onion, minced (about 1/2 cup)": the half cup; frozen spinach, not the fresh alternative;
+# - the cooking spray has no amount: optional, in both steps;
+# - minutes: the page's prep (15) and cook (15) times added;
+# - its title without the commas, which a name cannot hold.
+# - the book gives 254 kcal a serving (an independent check of the transcription).
+name = "Red White and Green Grilled Cheese"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-7531.pdf"
+servings = 4
+minutes = 30
+meal_types = ["Lunch"]
+
+[[steps]]
+name = "soften the garlic and onion and heat the spinach"
+method = "Sauteing"
+makes = "Spinach filling"
+equipment = [{ tool = "Skillet", heat = "medium" }]
+until = "soft but not browned"
+inputs = [
+  { food = "Garlic", amount = 1, unit = "tsp" },
+  { food = "Yellow Onion", amount = 0.5, unit = "cup" },
+  { food = "Frozen chopped spinach", amount = 2, unit = "cup" },
+  { food = "Black pepper", amount = 0.25, unit = "tsp" },
+  { food = "Cooking spray", optional = true },
+]
+
+[[steps]]
+name = "assemble and bake the sandwiches"
+method = "Baking"
+equipment = [{ tool = "Oven", temp = 400, unit = "F" }, "Sheet pan"]
+wait_minutes = 15
+until = "browned on both sides"
+inputs = [
+  { food = "Spinach filling" },
+  { food = "Whole wheat bread", amount = 8, unit = "each" },
+  { food = "Tomato", amount = 1, unit = "each" },
+  { food = "Mozzarella (low-moisture part-skim)", amount = 1, unit = "cup" },
+  { food = "Cooking spray", optional = true },
+]

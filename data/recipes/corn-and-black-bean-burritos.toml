@@ -1,0 +1,51 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Dinners (NIH 10-2921), page 87. US government
+# work; facts only (docs/recipe-copyright.md). Transcription choices:
+# - the vegetables simmer in "just enough water to cover", then drain: the water is not counted;
+# - "salsa or taco sauce": salsa; "9-inch whole-wheat tortillas" by FDC's whole-wheat tortilla (its
+#   size is not stated); "reduced-fat shredded cheddar" by FDC's reduced-fat cheddar;
+# - minutes: the page's prep (20) and cook (5) times added.
+# - the book gives 189 kcal a serving (an independent check of the transcription).
+name = "Corn and Black Bean Burritos"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-2921.pdf"
+servings = 12
+minutes = 25
+meal_types = ["Lunch", "Dinner"]
+
+[[steps]]
+name = "simmer the corn with the celery and scallions"
+method = "Simmering"
+makes = "Corn and celery (cooked)"
+equipment = [{ tool = "Saucepan", heat = "medium" }]
+wait_minutes = 5
+until = "soft"
+inputs = [
+  { food = "Scallions", amount = 0.25, unit = "cup" },
+  { food = "Celery", amount = 0.25, unit = "cup" },
+  { food = "Frozen corn kernels", amount = 1.25, unit = "cup" },
+]
+
+[[steps]]
+name = "mix the filling"
+method = "Mixing"
+makes = "Burrito filling"
+equipment = ["Mixing bowl"]
+inputs = [
+  { food = "Corn and celery (cooked)" },
+  { food = "Avocado", amount = 0.5, unit = "each" },
+  { food = "Cilantro", amount = 2, unit = "tbsp" },
+  { food = "Black beans (canned drained)", amount = 1, unit = "each" },
+  { food = "Reduced-fat cheddar", amount = 0.25, unit = "cup" },
+  { food = "Salsa", amount = 0.25, unit = "cup" },
+]
+
+[[steps]]
+name = "warm and fill the tortillas and heat them"
+method = "Baking"
+equipment = [{ tool = "Skillet", heat = "medium" }, { tool = "Oven", temp = 350, unit = "F" }]
+minutes = 10
+wait_minutes = 5
+until = "the cheese is melted"
+inputs = [
+  { food = "Burrito filling" },
+  { food = "Whole wheat tortilla", amount = 12, unit = "each" },
+]

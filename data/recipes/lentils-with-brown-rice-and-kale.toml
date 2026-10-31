@@ -1,0 +1,65 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Dinners (NIH 10-2921), pages 88-89. US government
+# work; facts only (docs/recipe-copyright.md). Transcription choices:
+# - the instant brown rice, not the quinoa the page suggests; the cooking waters as tap water;
+# - "a fine wire colander" as a Fine-mesh sieve; minutes: the page's prep (5) and cook (35) added.
+# - the book gives 456 kcal a serving (an independent check of the transcription).
+name = "Lentils with Brown Rice and Kale"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-2921.pdf"
+servings = 4
+minutes = 40
+meal_types = ["Dinner"]
+
+[[steps]]
+name = "rinse the lentils"
+makes = "Lentils (rinsed)"
+equipment = ["Fine-mesh sieve"]
+inputs = [{ food = "Brown lentils (dry)", amount = 1, unit = "cup" }]
+
+[[steps]]
+name = "simmer the lentils and steam the kale on top"
+method = "Simmering"
+makes = "Lentils and kale"
+equipment = ["Saucepan"]
+wait_minutes = 30
+until = "tender but not mushy"
+inputs = [
+  { food = "Lentils (rinsed)" },
+  { food = "Tap water", amount = 2.5, unit = "cup" },
+  { food = "Table salt", amount = 0.25, unit = "tsp" },
+  { food = "Black pepper", amount = 0.125, unit = "tsp" },
+  { food = "Kale", amount = 4, unit = "cup" },
+]
+
+[[steps]]
+name = "cook the rice"
+method = "Boiling"
+makes = "Brown rice (cooked)"
+after = []
+equipment = ["Saucepan"]
+wait_minutes = 10
+inputs = [
+  { food = "Tap water", amount = 2, unit = "cup" },
+  { food = "Instant brown rice (dry)", amount = 1, unit = "cup" },
+  { food = "Table salt", amount = 0.25, unit = "tsp" },
+  { food = "Dried basil", amount = 0.5, unit = "tsp" },
+]
+
+[[steps]]
+name = "caramelize the onions"
+method = "Sauteing"
+makes = "Onions (caramelized)"
+after = []
+equipment = [{ tool = "Skillet", heat = "medium" }]
+minutes = 15
+until = "dark brown but not burnt"
+inputs = [
+  { food = "Olive oil", amount = 2, unit = "tbsp" },
+  { food = "Yellow Onion", amount = 2, unit = "cup" },
+  { food = "Table salt", amount = 0.25, unit = "tsp" },
+  { food = "Black pepper", amount = 0.125, unit = "tsp" },
+]
+
+[[steps]]
+name = "mix and serve with the rice"
+after = ["simmer the lentils and steam the kale on top", "cook the rice", "caramelize the onions"]
+inputs = [{ food = "Lentils and kale" }, { food = "Onions (caramelized)" }, { food = "Brown rice (cooked)" }]

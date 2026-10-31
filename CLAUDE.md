@@ -88,6 +88,7 @@ python3 tools/snapshot_state.py | diff - tools/expected_state.json   # instance 
 bash tools/owner_stack.sh up       # the owner's instance (8085); stop the development stack first
 STRUCTR_URL=http://localhost:8085 python3 tools/import_vocabulary.py   # data/vocabulary.toml; --check validates only
 STRUCTR_URL=http://localhost:8085 python3 tools/import_recipe.py private/recipes/*.toml
+python3 tools/import_recipe.py data/recipes/*.toml   # the 20 public-domain recipes shipped with the repository (docs/recipe-format.md)
 STRUCTR_URL=http://localhost:8085 python3 tools/calculate_recipe_nutrition.py   # store each recipe's nutrition per serving (J28); --check lists what differs
 STRUCTR_URL=http://localhost:8085 python3 tools/import_profiles.py     # data/profiles/*.toml; --check validates only
 STRUCTR_URL=http://localhost:8085 python3 tools/instantiate_profile.py kitchen --list   # or pantry --list; then nutrition|kitchen|pantry private/<file>.toml (docs/profiles.md)

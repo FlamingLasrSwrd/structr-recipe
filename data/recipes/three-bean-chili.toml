@@ -1,0 +1,41 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Dinners (NIH 10-2921), page 92. US government work;
+# facts only (docs/recipe-copyright.md). Transcription choices:
+# - each "1 can (15 1/2 oz) low-sodium beans, drained and rinsed" as one can of that bean, drained;
+# - "2 cans (14 1/2 oz each) no-salt-added diced tomatoes with basil, garlic, and oregano" as 29 oz of
+#   Diced tomatoes (canned), the herbs not counted;
+# - "an 8-quart soup or pasta pot" as a Stockpot; minutes: the page's prep (10) and cook (20) added.
+# - the book gives 443 kcal a serving (an independent check of the transcription).
+name = "Three-Bean Chili with Chunky Tomatoes"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-2921.pdf"
+servings = 4
+minutes = 30
+meal_types = ["Dinner", "Lunch"]
+
+[[steps]]
+name = "soften the onion with the celery and pepper"
+method = "Sauteing"
+makes = "Chili vegetables"
+equipment = [{ tool = "Stockpot", heat = "medium" }]
+minutes = 10
+until = "soft"
+inputs = [
+  { food = "Canola oil", amount = 2, unit = "tbsp" },
+  { food = "Yellow Onion", amount = 1, unit = "cup" },
+  { food = "Celery", amount = 0.5, unit = "cup" },
+  { food = "Green bell pepper", amount = 1, unit = "cup" },
+]
+
+[[steps]]
+name = "simmer the chili"
+method = "Simmering"
+equipment = ["Stockpot"]
+wait_minutes = 20
+inputs = [
+  { food = "Chili vegetables" },
+  { food = "Black beans (canned drained)", amount = 1, unit = "each" },
+  { food = "Kidney beans (canned drained)", amount = 1, unit = "each" },
+  { food = "Pinto beans (canned drained)", amount = 1, unit = "each" },
+  { food = "Diced tomatoes (canned)", amount = 29, unit = "oz" },
+  { food = "Ground cumin", amount = 1, unit = "tbsp" },
+  { food = "Chili powder", amount = 1, unit = "tbsp" },
+]

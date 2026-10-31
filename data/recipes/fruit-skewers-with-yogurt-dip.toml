@@ -1,0 +1,34 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Family Meals (NIH 10-7531), page 73. US government
+# work; facts only (docs/recipe-copyright.md). Transcription choices:
+# - the dip is made first here, so the last step can use it; any blender or food processor will do;
+# - "fresh pineapple, diced (or canned chunks)": fresh; "tangerine or Clementine": a tangerine;
+# - minutes: the page's prep time (15; no cooking).
+# - the book gives 71 kcal a serving (an independent check of the transcription).
+name = "Fruit Skewers with Yogurt Dip"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-7531.pdf"
+servings = 4
+minutes = 15
+meal_types = ["Breakfast", "Snack"]
+
+[[steps]]
+name = "purée the dip"
+method = "Mixing"
+makes = "Strawberry yogurt dip"
+equipment = [{ capability = "Puréeing" }]
+inputs = [
+  { food = "Strawberries", amount = 1, unit = "cup" },
+  { food = "Nonfat plain yogurt", amount = 0.25, unit = "cup" },
+  { food = "Vanilla extract", amount = 0.125, unit = "tsp" },
+  { food = "Honey", amount = 1, unit = "tbsp" },
+]
+
+[[steps]]
+name = "thread the skewers"
+equipment = ["Skewers"]
+inputs = [
+  { food = "Strawberries", amount = 1, unit = "cup" },
+  { food = "Pineapple", amount = 1, unit = "cup" },
+  { food = "Blackberries", amount = 0.5, unit = "cup" },
+  { food = "Tangerine", amount = 1, unit = "each" },
+  { food = "Strawberry yogurt dip" },
+]

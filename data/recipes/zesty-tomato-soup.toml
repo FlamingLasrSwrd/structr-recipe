@@ -1,0 +1,34 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Family Meals (NIH 10-7531), page 49. US government
+# work; facts only (docs/recipe-copyright.md). Transcription choices:
+# - "1 can (14 1/2 oz) no-salt-added diced tomatoes" as 14.5 oz of Diced tomatoes (canned);
+# - jarred roasted red peppers, not fresh; the optional croutons (another recipe) left out;
+# - any blender or food processor will do; minutes: the page's prep (10) and cook (15) times added.
+# - the book gives 94 kcal a serving (an independent check of the transcription).
+name = "Zesty Tomato Soup"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-7531.pdf"
+servings = 4
+minutes = 25
+meal_types = ["Lunch"]
+
+[[steps]]
+name = "purée the tomatoes and peppers"
+method = "Mixing"
+makes = "Tomato pepper purée"
+equipment = [{ capability = "Puréeing" }]
+inputs = [
+  { food = "Diced tomatoes (canned)", amount = 14.5, unit = "oz" },
+  { food = "Roasted red peppers (jarred)", amount = 1, unit = "cup" },
+]
+
+[[steps]]
+name = "simmer the soup"
+method = "Simmering"
+equipment = [{ tool = "Saucepan", heat = "medium" }]
+wait_minutes = 10
+inputs = [
+  { food = "Tomato pepper purée" },
+  { food = "Evaporated milk (fat-free)", amount = 1, unit = "cup" },
+  { food = "Garlic powder", amount = 1, unit = "tsp" },
+  { food = "Black pepper", amount = 0.25, unit = "tsp" },
+  { food = "Basil", amount = 2, unit = "tbsp" },
+]

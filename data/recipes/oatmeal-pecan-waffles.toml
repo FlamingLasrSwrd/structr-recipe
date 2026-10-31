@@ -1,0 +1,65 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Family Meals (NIH 10-7531), page 39. US government
+# work; facts only (docs/recipe-copyright.md). Transcription choices:
+# - the waffles, not the pancakes the page also allows;
+# - the eggs are separated, yolks into the milk and whites whipped and folded in; both go into the
+#   batter, so the two eggs are counted once, with the milk;
+# - "quick-cooking oats" as Rolled oats (the same oats, cut finer); "vegetable oil" as Canola oil;
+# - minutes: the page's prep (10) and cook (30) times added.
+# - the book gives 340 kcal a serving (an independent check of the transcription).
+name = "Oatmeal Pecan Waffles"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-7531.pdf"
+servings = 4
+minutes = 40
+meal_types = ["Breakfast"]
+
+[[steps]]
+name = "mix the dry ingredients"
+method = "Mixing"
+makes = "Waffle dry mix"
+equipment = ["Mixing bowl"]
+inputs = [
+  { food = "Whole wheat flour", amount = 1, unit = "cup" },
+  { food = "Rolled oats", amount = 0.5, unit = "cup" },
+  { food = "Baking powder", amount = 2, unit = "tsp" },
+  { food = "Granulated sugar", amount = 1, unit = "tsp" },
+  { food = "Pecans", amount = 0.25, unit = "cup" },
+]
+
+[[steps]]
+name = "mix the yolks with the milk and oil"
+method = "Mixing"
+makes = "Waffle wet mix"
+after = []
+equipment = ["Mixing bowl"]
+inputs = [
+  { food = "Egg", amount = 2, unit = "each" },
+  { food = "Fat-free milk", amount = 1.5, unit = "cup" },
+  { food = "Canola oil", amount = 1, unit = "tbsp" },
+]
+
+[[steps]]
+name = "stir together and fold in the whipped whites"
+method = "Mixing"
+makes = "Waffle batter"
+after = ["mix the dry ingredients", "mix the yolks with the milk and oil"]
+equipment = ["Whisk"]
+inputs = [{ food = "Waffle dry mix" }, { food = "Waffle wet mix" }]
+
+[[steps]]
+name = "cook in the waffle iron"
+method = "Baking"
+makes = "Waffles (cooked)"
+equipment = ["Waffle iron"]
+wait_minutes = 30
+until = "crisp and well browned"
+inputs = [{ food = "Waffle batter" }]
+
+[[steps]]
+name = "top with the fruit"
+inputs = [
+  { food = "Waffles (cooked)" },
+  { food = "Strawberries", amount = 2, unit = "cup" },
+  { food = "Blackberries", amount = 1, unit = "cup" },
+  { food = "Blueberries", amount = 1, unit = "cup" },
+  { food = "Powdered sugar", amount = 1, unit = "tsp" },
+]

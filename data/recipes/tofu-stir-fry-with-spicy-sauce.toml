@@ -1,0 +1,67 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Dinners (NIH 10-2921), pages 96-97. US government
+# work; facts only (docs/recipe-copyright.md). Transcription choices:
+# - "low-sodium chicken broth or vegetable broth": vegetable broth (the page's vegetarian chapter),
+#   chicken broth as its stand-in; the 14 1/2-oz can as 1.75 cups, half a cup to the marinade;
+# - "ground ginger or pumpkin pie spice": ground ginger; the optional sesame oil kept, as optional;
+# - the marinade is drained into the cornstarch mixture: counted once, with the tofu;
+# - "half a head of napa cabbage (6-8 C)" as 7 cups of Bok choy and napa cabbage;
+# - the canola oil's three teaspoons split as the page splits them; "a large wok or nonstick pan" as a
+#   Skillet; minutes: the page's prep (40) and cook (10) times added.
+# - the book gives 232 kcal a serving (an independent check of the transcription).
+name = "Tofu Stir-Fry with Spicy Sauce"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-2921.pdf"
+servings = 4
+minutes = 50
+meal_types = ["Dinner"]
+
+[[steps]]
+name = "press and marinate the tofu"
+method = "Marinating"
+makes = "Tofu (marinated)"
+minutes = 10
+wait_minutes = 20
+inputs = [
+  { food = "Firm tofu", amount = 16, unit = "oz" },
+  { food = "Cayenne pepper", amount = 0.25, unit = "tsp" },
+  { food = "Ground ginger", amount = 0.5, unit = "tsp" },
+  { food = "Teriyaki sauce (reduced sodium)", amount = 3, unit = "tbsp" },
+  { food = "Sesame oil", amount = 1, unit = "tsp", optional = true },
+  { food = "Vegetable broth", amount = 0.5, unit = "cup", substitutes = [{ food = "Chicken broth" }] },
+]
+
+[[steps]]
+name = "mix the cornstarch and broth"
+method = "Mixing"
+makes = "Cornstarch slurry"
+after = []
+inputs = [
+  { food = "Vegetable broth", amount = 1.25, unit = "cup", substitutes = [{ food = "Chicken broth" }] },
+  { food = "Cornstarch", amount = 1, unit = "tbsp" },
+]
+
+[[steps]]
+name = "brown the tofu"
+method = "Pan-frying"
+makes = "Tofu (browned)"
+after = ["press and marinate the tofu"]
+equipment = [{ tool = "Skillet", heat = "high" }]
+minutes = 4
+inputs = [{ food = "Tofu (marinated)" }, { food = "Canola oil", amount = 2, unit = "tsp" }]
+
+[[steps]]
+name = "stir-fry the vegetables and toss with the tofu and sauce"
+method = "Stir-Frying"
+after = ["brown the tofu", "mix the cornstarch and broth"]
+equipment = [{ tool = "Skillet", heat = "high" }]
+minutes = 5
+inputs = [
+  { food = "Canola oil", amount = 1, unit = "tsp" },
+  { food = "Bok choy and napa cabbage", amount = 7, unit = "cup" },
+  { food = "Scallions", amount = 1, unit = "cup" },
+  { food = "Garlic", amount = 1, unit = "tbsp" },
+  { food = "Carrot", amount = 1, unit = "cup" },
+  { food = "Red bell pepper", amount = 1, unit = "cup" },
+  { food = "Water chestnuts (canned)", amount = 8, unit = "oz" },
+  { food = "Tofu (browned)" },
+  { food = "Cornstarch slurry" },
+]

@@ -1,0 +1,46 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Family Meals (NIH 10-7531), page 66. US government
+# work; facts only (docs/recipe-copyright.md). Transcription choices:
+# - "2-3 Tbsp garlic" as 2.5 Tbsp; "cayenne (or paprika for less spice)": cayenne;
+# - the 4 pitas by the vocabulary's large (6 1/2-inch) whole-wheat pita; any food processor or blender
+#   will do; minutes: the page's prep (20) and cook (10) times added.
+# - the book gives 235 kcal a serving (an independent check of the transcription).
+name = "Peanut Butter Hummus with Pita Chips"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-7531.pdf"
+servings = 8
+minutes = 30
+meal_types = ["Snack"]
+
+[[steps]]
+name = "purée the hummus"
+method = "Mixing"
+makes = "Peanut butter hummus"
+equipment = [{ capability = "Puréeing" }]
+inputs = [
+  { food = "Chickpeas (canned drained)", amount = 2, unit = "cup" },
+  { food = "Chicken broth", amount = 0.25, unit = "cup" },
+  { food = "Lemon juice", amount = 0.25, unit = "cup" },
+  { food = "Garlic", amount = 2.5, unit = "tbsp" },
+  { food = "Peanut butter (creamy)", amount = 0.25, unit = "cup" },
+  { food = "Cayenne pepper", amount = 0.25, unit = "tsp" },
+  { food = "Olive oil", amount = 1, unit = "tbsp" },
+]
+
+[[steps]]
+name = "bake the pita chips"
+method = "Baking"
+makes = "Pita chips"
+after = []
+equipment = [{ tool = "Oven", temp = 400, unit = "F" }, "Sheet pan"]
+wait_minutes = 10
+until = "crispy"
+inputs = [
+  { food = "Whole wheat pita", amount = 4, unit = "each" },
+  { food = "Olive oil", amount = 1, unit = "tbsp" },
+  { food = "Garlic", amount = 1, unit = "tsp" },
+  { food = "Black pepper", amount = 0.25, unit = "tsp" },
+]
+
+[[steps]]
+name = "serve the hummus with the chips"
+after = ["purée the hummus", "bake the pita chips"]
+inputs = [{ food = "Peanut butter hummus" }, { food = "Pita chips" }]

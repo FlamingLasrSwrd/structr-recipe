@@ -1,0 +1,48 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Family Meals (NIH 10-7531), page 36. US government
+# work; facts only (docs/recipe-copyright.md). Transcription choices:
+# - the page's batter takes 3 Tbsp egg substitute "or 1 egg white": the egg white is used, as egg
+#   substitute is not a food in the vocabulary;
+# - the cooking spray has no amount on the page: optional;
+# - minutes: the page's prep (15) and cook (20) times added.
+# - the book gives 332 kcal a serving (an independent check of the transcription).
+name = "Baked French Toast Fritters with Apples and Bananas"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-7531.pdf"
+servings = 4
+minutes = 35
+meal_types = ["Breakfast"]
+
+[[steps]]
+name = "make the sandwiches"
+makes = "Fritter sandwiches"
+inputs = [
+  { food = "Whole wheat bread", amount = 8, unit = "each" },
+  { food = "Peanut butter (creamy)", amount = 0.25, unit = "cup" },
+  { food = "Apple", amount = 1, unit = "each" },
+  { food = "Banana", amount = 2, unit = "each" },
+]
+
+[[steps]]
+name = "mix the batter"
+method = "Mixing"
+makes = "Fritter batter"
+after = []
+equipment = ["Mixing bowl"]
+inputs = [
+  { food = "Egg white", amount = 1, unit = "each" },
+  { food = "Ground cinnamon", amount = 0.25, unit = "tsp" },
+  { food = "Brown sugar", amount = 1, unit = "tbsp" },
+  { food = "Evaporated milk (fat-free)", amount = 0.25, unit = "cup" },
+]
+
+[[steps]]
+name = "dip and bake"
+method = "Baking"
+after = ["make the sandwiches", "mix the batter"]
+equipment = [{ tool = "Oven", temp = 400, unit = "F" }, "Sheet pan"]
+wait_minutes = 20
+until = "browned on both sides"
+inputs = [
+  { food = "Fritter sandwiches" },
+  { food = "Fritter batter" },
+  { food = "Cooking spray", optional = true },
+]

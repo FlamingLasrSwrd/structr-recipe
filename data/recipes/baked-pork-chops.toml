@@ -1,0 +1,56 @@
+# NIH NHLBI, Heart-Healthy Home Cooking African American Style (NIH 21-HL-3792), page 21. US government
+# work; facts only (docs/recipe-copyright.md). Transcription choices:
+# - "6 lean center-cut pork chops, 1/2-inch thick" by FDC's boneless center-loin chop, whose one portion is
+#   a 170 g chop of lean and fat: the book gives no weight, and its half-inch lean chops are smaller, so
+#   this overstates the energy (about twice the book's figure, 2026-10-31);
+# - the egg white and milk the chops stand in are counted as eaten, though some is left behind: the
+#   model cannot yet say an output is thrown away (docs/recipe-format.md);
+# - "oregano" as dried; "13 x 9-inch baking pan" as a Baking dish; the cooking spray: optional;
+# - the page gives no times; it gives 160 F inside.
+# - the book gives 216 kcal a serving (an independent check of the transcription).
+name = "Baked Pork Chops"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/WEHL-RecipeBook_508.pdf"
+servings = 6
+meal_types = ["Dinner"]
+
+[[steps]]
+name = "soak the chops in the milk and egg white"
+method = "Soaking"
+makes = "Pork chops (soaked)"
+wait_minutes = 5
+inputs = [
+  { food = "Boneless pork chops (raw)", amount = 6, unit = "each" },
+  { food = "Egg white", amount = 1, unit = "each" },
+  { food = "Evaporated milk (fat-free)", amount = 1, unit = "cup" },
+]
+
+[[steps]]
+name = "mix the seasoned crumbs"
+method = "Mixing"
+makes = "Seasoned crumbs"
+after = []
+inputs = [
+  { food = "Cornflake crumbs", amount = 0.75, unit = "cup" },
+  { food = "Bread crumbs (plain)", amount = 0.25, unit = "cup" },
+  { food = "Paprika", amount = 4, unit = "tsp" },
+  { food = "Dried oregano", amount = 2, unit = "tsp" },
+  { food = "Chili powder", amount = 0.75, unit = "tsp" },
+  { food = "Garlic powder", amount = 0.5, unit = "tsp" },
+  { food = "Black pepper", amount = 0.5, unit = "tsp" },
+  { food = "Cayenne pepper", amount = 0.125, unit = "tsp" },
+  { food = "Mustard powder", amount = 0.125, unit = "tsp" },
+  { food = "Table salt", amount = 0.5, unit = "tsp" },
+]
+
+[[steps]]
+name = "coat and bake the chops"
+method = "Baking"
+after = ["soak the chops in the milk and egg white", "mix the seasoned crumbs"]
+equipment = [{ tool = "Oven", temp = 375, unit = "F" }, "Baking dish"]
+wait_minutes = 35
+inside = { temp = 160, unit = "F" }
+inputs = [
+  { food = "Pork chops (soaked)" },
+  { food = "Seasoned crumbs" },
+  { food = "Cooking spray", optional = true },
+]

@@ -1,0 +1,76 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Dinners (NIH 10-2921), pages 18-19. US government
+# work; facts only (docs/recipe-copyright.md). Transcription choices:
+# - "1 lb skinless chicken legs, split" as 1 lb of Chicken drumsticks (raw);
+# - "1 Tbsp Moroccan spice blend" as the page's own mix of coriander, cumin, ginger and cinnamon in
+#   equal parts, 3/4 tsp each to make the tablespoon;
+# - "chili sauce (optional)" as Sriracha; "a large sauté pan" as a Skillet;
+# - minutes: the page's prep (15) and cook (30) times added.
+# - the book gives 333 kcal a serving (an independent check of the transcription).
+name = "Moroccan Chicken Stew with Couscous"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-2921.pdf"
+servings = 4
+minutes = 45
+meal_types = ["Dinner"]
+
+[[steps]]
+name = "brown the chicken"
+method = "Searing"
+makes = "Chicken legs (browned)"
+equipment = ["Skillet"]
+minutes = 6
+inputs = [
+  { food = "Olive oil", amount = 1, unit = "tbsp" },
+  { food = "Chicken drumsticks (raw)", amount = 1, unit = "lb" },
+]
+
+[[steps]]
+name = "toast the spices and soften the vegetables"
+method = "Sauteing"
+makes = "Spiced carrots and onion"
+equipment = ["Skillet"]
+minutes = 4
+until = "the onion is clear"
+inputs = [
+  { food = "Ground coriander", amount = 0.75, unit = "tsp" },
+  { food = "Ground cumin", amount = 0.75, unit = "tsp" },
+  { food = "Ground ginger", amount = 0.75, unit = "tsp" },
+  { food = "Ground cinnamon", amount = 0.75, unit = "tsp" },
+  { food = "Carrot", amount = 1, unit = "cup" },
+  { food = "Yellow Onion", amount = 1, unit = "cup" },
+]
+
+[[steps]]
+name = "simmer the stew"
+method = "Simmering"
+makes = "Moroccan chicken stew"
+after = ["brown the chicken", "toast the spices and soften the vegetables"]
+equipment = [{ tool = "Skillet", heat = "high" }]
+wait_minutes = 15
+inside = { temp = 165, unit = "F" }
+inputs = [
+  { food = "Spiced carrots and onion" },
+  { food = "Chicken legs (browned)" },
+  { food = "Lemon juice", amount = 0.25, unit = "cup" },
+  { food = "Chicken broth", amount = 2, unit = "cup" },
+  { food = "Black olives (canned)", amount = 0.5, unit = "cup" },
+  { food = "Table salt", amount = 0.25, unit = "tsp" },
+  { food = "Sriracha", amount = 1, unit = "tbsp", optional = true },
+]
+
+[[steps]]
+name = "steep the couscous"
+method = "Soaking"
+makes = "Couscous (cooked)"
+after = []
+equipment = ["Saucepan"]
+wait_minutes = 10
+inputs = [
+  { food = "Chicken broth", amount = 1, unit = "cup" },
+  { food = "Couscous (dry)", amount = 1, unit = "cup" },
+  { food = "Mint", amount = 1, unit = "tbsp" },
+]
+
+[[steps]]
+name = "serve the stew over the couscous"
+after = ["simmer the stew", "steep the couscous"]
+inputs = [{ food = "Moroccan chicken stew" }, { food = "Couscous (cooked)" }]

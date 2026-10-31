@@ -1,0 +1,47 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Family Meals (NIH 10-7531), page 37. US government
+# work; facts only (docs/recipe-copyright.md). Transcription choices:
+# - the corn is roasted in the oven or a toaster oven at 400 F for 7-10 minutes, as the page says;
+# - "1 Tbsp water" as half a fl oz of tap water; "1 can (6 oz)" of white albacore by FDC's can;
+# - minutes: the page's prep time (20; no other cooking), the corn's 10 minutes not added.
+# - the book gives 224 kcal a serving (an independent check of the transcription).
+name = "Tuna and Avocado Cobb Salad"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-7531.pdf"
+servings = 4
+minutes = 20
+meal_types = ["Lunch"]
+
+[[steps]]
+name = "roast the corn"
+method = "Roasting"
+makes = "Corn (roasted)"
+equipment = [{ capability = "Oven heat", temp = 400, unit = "F" }, "Sheet pan"]
+wait_minutes = 10
+inputs = [{ food = "Frozen corn kernels", amount = 1, unit = "cup" }]
+
+[[steps]]
+name = "mix the dressing"
+method = "Mixing"
+makes = "Honey lime dressing"
+after = []
+inputs = [
+  { food = "Lemon juice", amount = 2, unit = "tbsp" },
+  { food = "Lime juice", amount = 1, unit = "tbsp" },
+  { food = "Honey", amount = 1, unit = "tbsp" },
+  { food = "Parsley", amount = 1, unit = "tbsp" },
+  { food = "Tap water", amount = 0.5, unit = "fl_oz" },
+  { food = "Olive oil", amount = 1, unit = "tbsp" },
+]
+
+[[steps]]
+name = "arrange the salads"
+after = ["roast the corn", "mix the dressing"]
+inputs = [
+  { food = "Red leaf lettuce", amount = 4, unit = "cup" },
+  { food = "Corn (roasted)" },
+  { food = "Carrot", amount = 1, unit = "cup" },
+  { food = "Tomato", amount = 1, unit = "each" },
+  { food = "Avocado", amount = 0.5, unit = "each" },
+  { food = "Frozen green peas", amount = 1, unit = "cup" },
+  { food = "Canned tuna (in water)", amount = 1, unit = "each" },
+  { food = "Honey lime dressing" },
+]

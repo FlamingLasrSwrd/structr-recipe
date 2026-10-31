@@ -1,0 +1,61 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Dinners (NIH 10-2921), page 7. US government work;
+# facts only (docs/recipe-copyright.md). Transcription choices:
+# - flank steak as Bavette steak (raw), whose FDC food is flank steak; "peanut or vegetable oil": peanut;
+# - "1 bag (12 oz) frozen vegetable stir-fry" as 12 oz; thawing is not a step of its own;
+# - the optional dry sherry (1 Tbsp) as half a fl oz; "a large wok or sauté pan" as a Skillet;
+# - minutes: the page's prep (10) and cook (20) times added.
+# - the book gives 261 kcal a serving (an independent check of the transcription).
+name = "Stir-Fried Orange Beef"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-2921.pdf"
+servings = 4
+minutes = 30
+meal_types = ["Dinner"]
+
+[[steps]]
+name = "stir-fry the onion with the garlic and ginger"
+method = "Stir-Frying"
+makes = "Aromatics (stir-fried)"
+equipment = ["Skillet"]
+minutes = 1
+until = "tender but not brown"
+inputs = [
+  { food = "Peanut oil", amount = 1, unit = "tbsp" },
+  { food = "Yellow Onion", amount = 1, unit = "tbsp" },
+  { food = "Garlic", amount = 1, unit = "tbsp" },
+  { food = "Ginger", amount = 1, unit = "tbsp" },
+]
+
+[[steps]]
+name = "coat the beef"
+method = "Mixing"
+makes = "Beef strips (coated)"
+after = []
+inputs = [
+  { food = "Egg white", amount = 1, unit = "each" },
+  { food = "Cornstarch", amount = 2, unit = "tbsp" },
+  { food = "Bavette steak (raw)", amount = 12, unit = "oz" },
+]
+
+[[steps]]
+name = "stir-fry the beef"
+method = "Stir-Frying"
+makes = "Beef strips (browned)"
+after = ["stir-fry the onion with the garlic and ginger", "coat the beef"]
+equipment = ["Skillet"]
+minutes = 8
+until = "lightly browned"
+inputs = [{ food = "Aromatics (stir-fried)" }, { food = "Beef strips (coated)" }]
+
+[[steps]]
+name = "simmer with the sauce and vegetables"
+method = "Simmering"
+equipment = [{ tool = "Skillet", heat = "high" }]
+wait_minutes = 4
+inputs = [
+  { food = "Beef strips (browned)" },
+  { food = "Hoisin sauce", amount = 3, unit = "tbsp" },
+  { food = "Soy sauce (low sodium)", amount = 1, unit = "tbsp" },
+  { food = "Orange juice (fresh)", amount = 0.5, unit = "cup" },
+  { food = "Dry sherry", amount = 0.5, unit = "fl_oz", optional = true },
+  { food = "Frozen stir-fry vegetables", amount = 12, unit = "oz" },
+]

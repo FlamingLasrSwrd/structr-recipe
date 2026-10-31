@@ -1,0 +1,62 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Dinners (NIH 10-2921), page 11. US government
+# work; facts only (docs/recipe-copyright.md). Transcription choices:
+# - "1 Granny Smith apple" as an Apple; "2 Tbsp shallots, minced" as 20 g (FDC's 10 g per tbsp, chopped);
+# - "grill pan or oven broiler ... on high" as a tool that gives broiler heat;
+# - the four 3-oz steaks as 12 oz; minutes: the page's prep (15) and cook (30) times added.
+# - the book gives 285 kcal a serving (an independent check of the transcription).
+name = "Broiled Sirloin with Spicy Mustard and Apple Chutney"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-2921.pdf"
+servings = 4
+minutes = 45
+meal_types = ["Dinner"]
+
+[[steps]]
+name = "simmer the chutney"
+method = "Simmering"
+makes = "Apple chutney"
+equipment = [{ tool = "Saucepan", heat = "high" }]
+wait_minutes = 20
+until = "the apples are soft"
+inputs = [
+  { food = "Apple", amount = 1, unit = "each" },
+  { food = "Shallot", amount = 20, unit = "g" },
+  { food = "Garlic", amount = 1, unit = "tbsp" },
+  { food = "Diced tomatoes (canned)", amount = 0.5, unit = "cup" },
+  { food = "Golden raisins", amount = 2, unit = "oz" },
+  { food = "Apple cider vinegar", amount = 0.25, unit = "cup" },
+  { food = "Maple syrup", amount = 2, unit = "tbsp" },
+]
+
+[[steps]]
+name = "broil the steaks"
+method = "Broiling"
+makes = "Sirloin (broiled)"
+after = []
+equipment = [{ capability = "Broiler heat", heat = "high" }]
+minutes = 8
+wait_minutes = 5
+inside = { temp = 145, unit = "F" }
+inputs = [
+  { food = "Beef top sirloin (raw)", amount = 12, unit = "oz" },
+  { food = "Table salt", amount = 0.25, unit = "tsp" },
+  { food = "Black pepper", amount = 0.25, unit = "tsp" },
+  { food = "Olive oil", amount = 1, unit = "tbsp" },
+]
+
+[[steps]]
+name = "simmer the mustard dressing"
+method = "Simmering"
+makes = "Mustard dressing"
+after = []
+equipment = [{ tool = "Saucepan", heat = "medium-high" }]
+wait_minutes = 3
+inputs = [
+  { food = "Beef broth (low sodium)", amount = 2, unit = "cup" },
+  { food = "Dijon mustard", amount = 2, unit = "tbsp" },
+  { food = "Cornstarch", amount = 2, unit = "tbsp" },
+]
+
+[[steps]]
+name = "serve the steaks with chutney and dressing"
+after = ["simmer the chutney", "broil the steaks", "simmer the mustard dressing"]
+inputs = [{ food = "Sirloin (broiled)" }, { food = "Apple chutney" }, { food = "Mustard dressing" }]

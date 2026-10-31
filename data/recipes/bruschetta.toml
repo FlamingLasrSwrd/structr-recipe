@@ -1,0 +1,37 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Family Meals (NIH 10-7531), page 65. US government
+# work; facts only (docs/recipe-copyright.md). Transcription choices:
+# - the page's alternative to half a whole-grain baguette, 3 slices of whole-wheat bread cut in four,
+#   is used: FDC gives no weight for a whole-grain baguette;
+# - "6 Kalamata olives (or any black olive)" as 6 large canned black olives; jarred roasted peppers;
+# - the toasting names no tool on the page, so none here; minutes: prep (15) and cook (5) added.
+# - the book gives 119 kcal a serving (an independent check of the transcription).
+name = "Bruschetta"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-7531.pdf"
+servings = 4
+minutes = 20
+meal_types = ["Snack"]
+
+[[steps]]
+name = "toast the bread"
+method = "Toasting"
+makes = "Bread squares (toasted)"
+inputs = [{ food = "Whole wheat bread", amount = 3, unit = "each" }]
+
+[[steps]]
+name = "mix the topping"
+method = "Mixing"
+makes = "Tomato and pepper topping"
+after = []
+inputs = [
+  { food = "Tomato", amount = 1, unit = "cup" },
+  { food = "Roasted red peppers (jarred)", amount = 0.25, unit = "cup" },
+  { food = "Black olives (canned)", amount = 6, unit = "each" },
+  { food = "Olive oil", amount = 0.5, unit = "tbsp" },
+  { food = "Basil", amount = 2, unit = "tbsp" },
+  { food = "Black pepper", amount = 0.25, unit = "tsp" },
+]
+
+[[steps]]
+name = "top the toasts"
+after = ["toast the bread", "mix the topping"]
+inputs = [{ food = "Bread squares (toasted)" }, { food = "Tomato and pepper topping" }]

@@ -1,0 +1,23 @@
+# NIH NHLBI, Heart-Healthy Home Cooking African American Style (NIH 21-HL-3792), page 29. US government
+# work; facts only (docs/recipe-copyright.md). Transcription choices:
+# - 4 ice cubes as 4 fl oz of tap water, an estimate (a standard cube is about 1 fl oz);
+# - "6 medium strawberries" by FDC's medium strawberry; any blender or food processor will do;
+# - the page gives no times.
+# - the book gives 121 kcal a serving (an independent check of the transcription).
+name = "Summer Breeze Smoothie"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/WEHL-RecipeBook_508.pdf"
+servings = 3
+meal_types = ["Breakfast", "Snack"]
+
+[[steps]]
+name = "purée until smooth"
+method = "Mixing"
+equipment = [{ capability = "Puréeing" }]
+inputs = [
+  { food = "Nonfat plain yogurt", amount = 1, unit = "cup" },
+  { food = "Strawberries", amount = 6, unit = "each" },
+  { food = "Crushed pineapple (canned in juice)", amount = 1, unit = "cup" },
+  { food = "Banana", amount = 1, unit = "each" },
+  { food = "Vanilla extract", amount = 1, unit = "tsp" },
+  { food = "Tap water", amount = 4, unit = "fl_oz" },
+]

@@ -1,0 +1,37 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Dinners (NIH 10-2921), page 52. US government
+# work; facts only (docs/recipe-copyright.md). Transcription choices:
+# - the cooking spray has no amount: optional; minutes: the page's prep (10) and cook (20) times added.
+# - the book gives 196 kcal a serving (an independent check of the transcription).
+name = "Baked Salmon Dijon"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-2921.pdf"
+servings = 6
+minutes = 30
+meal_types = ["Dinner"]
+
+[[steps]]
+name = "whisk the sauce"
+method = "Mixing"
+makes = "Dijon dill sauce"
+equipment = ["Whisk", "Mixing bowl"]
+inputs = [
+  { food = "Sour cream (fat-free)", amount = 1, unit = "cup" },
+  { food = "Dried dill", amount = 2, unit = "tsp" },
+  { food = "Scallions", amount = 3, unit = "tbsp" },
+  { food = "Dijon mustard", amount = 2, unit = "tbsp" },
+  { food = "Lemon juice", amount = 2, unit = "tbsp" },
+]
+
+[[steps]]
+name = "bake the salmon under the sauce"
+method = "Baking"
+equipment = [{ tool = "Oven", temp = 400, unit = "F" }, "Sheet pan"]
+wait_minutes = 20
+until = "opaque and flaking easily"
+inside = { temp = 145, unit = "F" }
+inputs = [
+  { food = "Salmon fillet (raw)", amount = 1.5, unit = "lb" },
+  { food = "Garlic powder", amount = 0.5, unit = "tsp" },
+  { food = "Black pepper", amount = 0.5, unit = "tsp" },
+  { food = "Dijon dill sauce" },
+  { food = "Cooking spray", optional = true },
+]

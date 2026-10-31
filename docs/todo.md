@@ -10,6 +10,7 @@ Nothing here is started. Each item says where it came from. The owner decides wh
 | **Imports from similar applications, Grocy first** | 2026-10-26 | Grocy's REST API or export: products as foods (matched to `data/vocabulary.toml`, or a new food to add), quantity units and their conversions as weights per item and densities, locations as storage conditions, stock entries as Purchase bookings (`mealplanner/pantry.py`), with their best-before dates once a printed date can be recorded (below), the shopping list, price history as `PriceObservation`s (J27, not built), and recipes as recipe files under `docs/recipe-copyright.md`. Then Mealie, Tandoor, Paprika and KitchenOwl exports, and schema.org `Recipe` data, the same way |
 | **Fill in the missing facts of a recipe's steps** | 2026-10-26: "The missing facts need to be filled in" | **Built 2026-10-26** (data-model.md J35, `docs/recipe-format.md` "A step's facts"): a step's working and waiting minutes, the steps before it (`after`, P-Plan's `isPreceededBy`), a tool's heat (a temperature or a burner level) and the doneness of what it makes (words, and a temperature inside), and cut forms as mechanical methods. Substitutions too (J36, `docs/recipe-format.md` "What may stand in"), and a tool named by what it does, "broil or grill" (J37, "A tool named by what it does"). **Still to do:** a cook recording which substitute it used (`via_substitution`, invariant 18); and the owner's 53 recipes transcribed again for the new facts, facts only, from their sources, which this repository does not hold. A recipe already cooked takes its facts as a new `version` |
 | **Instructions written from the steps** | 2026-10-26 | **Built 2026-10-26**: the recipe page's "How to make it", each step one sentence of our own from its facts (`mealplanner/instructions.py`, `pages/lib/75_instructions.js`, `docs/recipe-format.md`); the two writers are compared word for word by `tools/check_instructions.py` and every recipe page by `tools/check_pages.py`. They read better as the recipes gain their facts (above) |
+| **A basic set of recipes with the repository, and common ingredients and tools** | 2026-10-31: "Find some recipes that can be included as a basic set along with the git project"; "do a search for common recipe ingredients ... Do the same with common kitchen tools" | **Built 2026-10-31**: 20 recipes from NIH NHLBI recipe books (US government works) in `data/recipes/`, loaded only when asked for (`docs/recipe-format.md`, "The basic recipe set"); 77 foods and 20 kitchen tools added to `data/vocabulary.toml`, chosen from what the recipes need and from published studies of how often an ingredient appears in recipes, each food matched to an FDC record. **Open:** the matches are Claude's, for the owner to review, as the vocabulary's always are (J19) |
 | **Releasing it for self-hosting** | 2026-10-24 | `docs/self-hosting.md`: written, not started, at the owner's word |
 | **The Structr features this project does not use** | 2026-10-27: "work on implementing these features in this project" | A guide to Structr for AI use (`docs/structr-reference.md`), the features and the spikes' findings (`docs/structr-features.md`, `tools/spikes/`), and six batches to adopt them (its §5). **Being built** in that order; each batch's owner steps are added below as it lands |
 
@@ -92,6 +93,19 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
   `admin` only if `admin`/`admin` still signs in; if you changed its password, it keeps it, says so,
   and takes its one failed sign-in back off its count. Whether your instance (first built on 6.0.0)
   has one was not checked.
+- **Import the vocabulary's new foods and tools into your instance** (built 2026-10-31, at your word):
+  `STRUCTR_URL=http://localhost:8085 python3 tools/import_vocabulary.py`. It adds 77 foods and 20 kitchen
+  tools, and gives 12 foods you have a figure from their own FDC record: a density to 11 (Pecans, Powdered
+  sugar, Carrot, Basil, Kale, Diced tomatoes (canned), Chickpeas (canned drained), Green and Red bell
+  pepper, Tomato, Bok choy and napa cabbage) and a weight per chop (170 g) to Boneless pork chops (raw).
+  The recipes using those 12 are worked out again, and a figure that rested on an unconvertible cup or
+  chop may become known. On the development stack the whole vocabulary took 49 minutes
+  from empty; yours holds most of it already. Then, if you want the basic recipes,
+  `STRUCTR_URL=http://localhost:8085 python3 tools/import_recipe.py --check data/recipes/*.toml` lists
+  what they would add and the tools your kitchen lacks, and the same without `--check` asks before
+  loading one your kitchen cannot make. Worth reviewing in `data/vocabulary.toml` (the block headed
+  "added 2026-10-31"): the FDC record each new food is matched to, and the new foods with no FoodKeeper
+  shelf life.
 - Sign in as Elijah and press one booking button: page bookings for a signed-in household member are
   untested (`docs/pages.md`).
 - Copy `~/mealplanner-backups` off this machine now and then (`docs/backups.md`).

@@ -1,0 +1,35 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Family Meals (NIH 10-7531), page 53 (a side dish
+# there; here a breakfast). US government work; facts only (docs/recipe-copyright.md). Transcription
+# choices:
+# - "vegetable oil" as Canola oil; the cooking spray has no amount: optional;
+# - "a large nonstick sauté pan or griddle" as a Skillet (the most general tool that will do);
+# - minutes: the page's prep (10) and cook (25) times added.
+# - the book gives 227 kcal a serving (an independent check of the transcription).
+name = "Spinach and Corn Pancakes"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-7531.pdf"
+servings = 4
+minutes = 35
+meal_types = ["Breakfast", "Lunch"]
+
+[[steps]]
+name = "mix the batter"
+method = "Mixing"
+makes = "Spinach corn batter"
+equipment = ["Mixing bowl"]
+inputs = [
+  { food = "Whole wheat flour", amount = 0.5, unit = "cup" },
+  { food = "Fat-free milk", amount = 1, unit = "cup" },
+  { food = "Canola oil", amount = 2, unit = "tbsp" },
+  { food = "Egg", amount = 2, unit = "each" },
+  { food = "Frozen chopped spinach", amount = 1, unit = "cup" },
+  { food = "Frozen corn kernels", amount = 1, unit = "cup" },
+  { food = "Black pepper", amount = 0.25, unit = "tsp" },
+]
+
+[[steps]]
+name = "cook the pancakes"
+method = "Pan-frying"
+equipment = [{ tool = "Skillet", heat = "medium" }]
+minutes = 25
+until = "golden brown on both sides"
+inputs = [{ food = "Spinach corn batter" }, { food = "Cooking spray", optional = true }]

@@ -468,6 +468,92 @@ parent = "Appliance"
 name = "Kitchen torch"
 parent = "Appliance"
 
+# Added 2026-10-31 (Claude, to be reviewed): the waffle iron the basic recipe set needs, and common
+# tools the list lacked, judged against home-kitchen essentials lists (knives, boards, skillets and
+# saucepans, baking sheets, spatulas and spoons, a whisk, shears, tongs, measures, bowls, a grater).
+
+[[equipment]]
+name = "Blender"
+parent = "Appliance"
+can = ["Puréeing"]
+
+[[equipment]]
+name = "Hand mixer"
+parent = "Appliance"
+
+[[equipment]]
+name = "Slow cooker"
+parent = "Appliance"
+
+[[equipment]]
+name = "Toaster"
+parent = "Appliance"
+
+[[equipment]]
+name = "Waffle iron"
+parent = "Appliance"
+
+[[equipment]]
+name = "Griddle"
+parent = "Cookware"
+
+[[equipment]]
+name = "Grill pan"
+parent = "Cookware"
+can = ["Broiler heat"]
+
+[[equipment]]
+name = "Steamer basket"
+parent = "Cookware"
+
+[[equipment]]
+name = "Loaf pan"
+parent = "Bakeware"
+
+[[equipment]]
+name = "Cake pan"
+parent = "Bakeware"
+
+[[equipment]]
+name = "Pie dish"
+parent = "Bakeware"
+
+[[equipment]]
+name = "Cooling rack"
+parent = "Bakeware"
+
+[[equipment]]
+name = "Kitchen shears"
+parent = "Prep tool"
+
+[[equipment]]
+name = "Rolling pin"
+parent = "Prep tool"
+
+[[equipment]]
+name = "Garlic press"
+parent = "Prep tool"
+
+[[equipment]]
+name = "Citrus juicer"
+parent = "Prep tool"
+
+[[equipment]]
+name = "Potato masher"
+parent = "Prep tool"
+
+[[equipment]]
+name = "Turner"
+parent = "Utensil"
+
+[[equipment]]
+name = "Slotted spoon"
+parent = "Utensil"
+
+[[equipment]]
+name = "Pastry brush"
+parent = "Utensil"
+
 # -- groups already in the vocabulary ----------------------------------------------------------
 
 [[food]]
@@ -1413,6 +1499,7 @@ foodkeeper = 306
 parent = "Fresh tomatoes"
 fdc = 170457                    # SR: Tomatoes, red, ripe, raw, year round average
 each = 'medium whole (2-3/5" dia)'
+volume = "cup, chopped or sliced"   # added 2026-10-31 for the basic recipe set: its own FDC record's portion
 
 [[food]]
 name = "Roma tomato"
@@ -1427,6 +1514,7 @@ foodkeeper = 296
 parent = "Other vegetables"
 fdc = 170108                    # SR: Peppers, sweet, red, raw
 each = 'medium (approx 2-3/4" long, 2-1/2 dia.)'
+volume = "cup, chopped"   # added 2026-10-31 for the basic recipe set: its own FDC record's portion
 
 [[food]]
 name = "Green bell pepper"
@@ -1434,6 +1522,7 @@ foodkeeper = 296
 parent = "Other vegetables"
 fdc = 170427                    # SR: Peppers, sweet, green, raw
 each = 'medium (approx 2-3/4" long, 2-1/2" dia)'
+volume = "cup, chopped"   # added 2026-10-31 for the basic recipe set: its own FDC record's portion
 
 [[food]]
 name = "Poblano pepper"
@@ -1495,12 +1584,14 @@ name = "Bok choy and napa cabbage"   # HelloFresh sends the two mixed
 foodkeeper = 275
 parent = "Leafy greens"
 sources = [{ mean = [170390, 169979], status = "estimated", note = "SR bok choy (pak-choi) and napa (pe-tsai) raw, in equal parts (assumed)" }]
+volume = { portions = [[170390, "cup, shredded"], [169979, "cup, shredded"]] }   # added 2026-10-31 for the basic recipe set: its own FDC record's portion
 
 [[food]]
 name = "Basil"
 foodkeeper = 509
 parent = "Fresh herbs"
 fdc = 172232                    # SR: Basil, fresh
+volume = "tbsp, chopped"   # added 2026-10-31 for the basic recipe set: its own FDC record's portion
 
 [[food]]
 name = "Chives"
@@ -1531,6 +1622,7 @@ name = "Boneless pork chops (raw)"
 foodkeeper = 64
 parent = "Fresh pork"
 fdc = 168286                    # SR: Pork, fresh, loin, center loin (chops), boneless, separable lean and fat, raw
+each = "chop"   # added 2026-10-31 for the basic recipe set: its own FDC record's portion
 
 [[food]]
 name = "Ground pork (raw)"
@@ -2013,6 +2105,7 @@ name = "Pecans"
 foodkeeper = 444
 parent = "Nuts and seeds"
 fdc = 170182                    # SR: Nuts, pecans
+volume = "cup, chopped"   # added 2026-10-31 for the basic recipe set: its own FDC record's portion
 
 [[food]]
 name = "Pistachios (roasted salted)"
@@ -2066,6 +2159,7 @@ name = "Carrot"
 foodkeeper = 279
 parent = "Root vegetables"
 fdc = 170393                    # SR: Carrots, raw
+volume = "cup chopped"   # added 2026-10-31 for the basic recipe set: its own FDC record's portion
 
 [[food]]
 name = "Chickpeas (canned)"
@@ -2080,6 +2174,7 @@ foodkeeper = 372
 parent = "Cooked legumes"
 fdc = 173801                    # SR: Chickpeas, mature seeds, canned, drained, rinsed in tap water
 sources = [{ fdc = 2707418, status = "estimated", moisture = true, note = "FNDDS Chickpeas from canned: what SR does not report" }]
+volume = "cup drained, rinsed"   # added 2026-10-31 for the basic recipe set: its own FDC record's portion
 
 [[food]]
 name = "Red chili flakes"
@@ -2099,6 +2194,7 @@ name = "Diced tomatoes (canned)"
 foodkeeper = 373
 parent = "Canned tomatoes"
 fdc = 170051                    # SR: Tomatoes, red, ripe, canned, packed in tomato juice
+volume = "cup"   # added 2026-10-31 for the basic recipe set: its own FDC record's portion
 
 [[food]]
 name = "Dill"
@@ -2166,6 +2262,7 @@ name = "Kale"
 foodkeeper = 423
 parent = "Leafy greens"
 fdc = 168421                    # SR: Kale, raw
+volume = "cup"   # added 2026-10-31 for the basic recipe set: its own FDC record's portion
 
 [[food]]
 name = "Pork breakfast sausage (raw)"
@@ -2201,6 +2298,7 @@ each = "piece whole"
 name = "Powdered sugar"
 foodkeeper = 241
 fdc = 169656                    # SR: Sugars, powdered
+volume = "cup unsifted"   # added 2026-10-31 for the basic recipe set: its own FDC record's portion
 
 [[food]]
 name = "Ricotta salata"
@@ -2451,3 +2549,509 @@ label = { per = "each", status = "estimated", source = "one unit (2026-10-22): 1
 name = "Calcium supplement (260 mg)"
 parent = "Dietary supplement"
 label = { per = "each", status = "estimated", source = "one unit (2026-10-22): 20% of the FDA Daily Value for calcium (1,300 mg, 21 CFR 101.9), 260 mg", figures = { 1087 = 260 } }
+
+# -- added 2026-10-31: the basic recipe set (data/recipes/) and common ingredients ------------------
+# Chosen by Claude, to be reviewed, as every match above. The recipe set's foods come from the NIH
+# NHLBI recipe books it transcribes; the common ingredients are staples the vocabulary lacked, judged
+# against the most frequent ingredients that recipe-corpus studies report (salt, butter, sugar, onion,
+# eggs, oil, flour, milk, garlic and so on, all already here; e.g. arXiv:1111.3919, arXiv:1803.04343).
+# A food with no `foodkeeper` has no FoodKeeper product in data/foodkeeper/ that fits, and FSIS's
+# full file could not be fetched (2026-10-31): its keeping time stays unknown until one is pinned.
+
+[[food]]
+name = "Whole wheat flour"
+foodkeeper = { id = 222, proxy = true }
+parent = "Flours and starches"
+fdc = 168893                    # SR: Wheat flour, whole-grain
+volume = "cup"
+
+[[food]]
+name = "Fat-free milk"
+foodkeeper = 27
+parent = "Milk and cream"
+fdc = 171269                    # SR: Milk, nonfat, fluid, with added vitamin A and vitamin D (fat free or skim)
+volume = "cup"
+
+[[food]]
+name = "Evaporated milk (fat-free)"
+foodkeeper = 372
+parent = "Milk and cream"
+fdc = 170878                    # SR: Milk, canned, evaporated, nonfat, with added vitamin A and vitamin D
+volume = "fl oz"                # its "cup" is listed twice (1 cup and 0.5 cup)
+
+[[food]]
+name = "Buttermilk"
+foodkeeper = { id = 27, proxy = true }
+parent = "Milk and cream"
+fdc = 170874                    # SR: Milk, buttermilk, fluid, cultured, lowfat
+volume = "cup"
+
+[[food]]
+name = "Nonfat plain yogurt"
+fdc = 170887                    # SR: Yogurt, plain, skim milk
+volume = "cup (8 fl oz)"
+
+[[food]]
+name = "Nonfat Greek yogurt"
+fdc = 170894                    # SR: Yogurt, Greek, plain, nonfat
+each = "container"
+
+[[food]]
+name = "Sour cream (fat-free)"
+foodkeeper = 29
+parent = "Milk and cream"
+fdc = 173444                    # SR: Sour cream, fat free
+volume = "cup"
+
+[[food]]
+name = "Egg white"
+foodkeeper = { id = 21, proxy = true }   # the eggs' keeping time, in the shell
+parent = "Eggs"
+fdc = 172183                    # SR: Egg, white, raw, fresh
+each = "large"
+
+[[food]]
+name = "Strawberries"
+foodkeeper = { id = 482, proxy = true }  # raspberries'
+parent = "Fresh fruits"
+fdc = 167762                    # SR: Strawberries, raw
+each = "medium (1-1/4\" dia)"
+volume = "cup, halves"
+
+[[food]]
+name = "Blackberries"
+foodkeeper = { id = 482, proxy = true }  # raspberries'
+parent = "Fresh fruits"
+fdc = 173946                    # SR: Blackberries, raw
+volume = "cup"
+
+[[food]]
+name = "Pineapple"
+parent = "Fresh fruits"
+fdc = 169124                    # SR: Pineapple, raw, all varieties
+volume = "cup, chunks"
+
+[[food]]
+name = "Crushed pineapple (canned in juice)"
+foodkeeper = 373
+fdc = 169126                    # SR: Pineapple, canned, juice pack, solids and liquids
+volume = "cup, crushed, sliced, or chunks"
+
+[[food]]
+name = "Tangerine"
+foodkeeper = 256
+parent = "Citrus fruits"
+fdc = 169105                    # SR: Tangerines, (mandarin oranges), raw
+each = "medium (2-1/2\" dia)"
+
+[[food]]
+name = "Peach"
+parent = "Fresh fruits"
+fdc = 169928                    # SR: Peaches, yellow, raw
+each = "medium (2-2/3\" dia)"
+volume = "cup slices"
+
+[[food]]
+name = "Pear"
+parent = "Fresh fruits"
+fdc = 169118                    # SR: Pears, raw
+each = "medium"
+volume = "cup, slices"
+
+[[food]]
+name = "Golden raisins"
+foodkeeper = 379
+parent = "Dried fruits"
+fdc = 168164                    # SR: Raisins, golden, seedless
+volume = "cup (not packed)"
+
+[[food]]
+name = "Lemon juice"
+foodkeeper = { id = 457, proxy = true }  # fresh orange juice's
+fdc = 167747                    # SR: Lemon juice, raw
+volume = "cup"
+
+[[food]]
+name = "Lime juice"
+foodkeeper = { id = 457, proxy = true }  # fresh orange juice's
+fdc = 168156                    # SR: Lime juice, raw
+volume = "cup"
+
+[[food]]
+name = "Frozen chopped spinach"
+parent = "Leafy greens"
+fdc = 169287                    # SR: Spinach, frozen, chopped or leaf, unprepared
+volume = "cup"
+
+[[food]]
+name = "Frozen corn kernels"
+parent = "Other vegetables"
+fdc = 168398                    # SR: Corn, sweet, yellow, frozen, kernels cut off cob, unprepared
+volume = "cup"
+
+[[food]]
+name = "Frozen green peas"
+parent = "Other vegetables"
+fdc = 170016                    # SR: Peas, green, frozen, unprepared
+volume = "cup"
+
+[[food]]
+name = "Frozen stir-fry vegetables"
+parent = "Other vegetables"
+fdc = 170471                    # SR: Vegetables, mixed, frozen, unprepared
+proxy = true                    # SR's mix is corn, peas, carrots and beans; a stir-fry bag differs
+
+[[food]]
+name = "Red leaf lettuce"
+foodkeeper = { id = 415, proxy = true }  # bagged greens'
+parent = "Leafy greens"
+fdc = 168431                    # SR: Lettuce, red leaf, raw
+each = "leaf outer"
+volume = "cup shredded"
+
+[[food]]
+name = "Romaine lettuce"
+foodkeeper = { id = 415, proxy = true }  # bagged greens'
+parent = "Leafy greens"
+fdc = 169247                    # SR: Lettuce, cos or romaine, raw
+each = "leaf outer"
+volume = "cup shredded"
+
+[[food]]
+name = "Green cabbage"
+parent = "Other vegetables"
+fdc = 169975                    # SR: Cabbage, raw
+volume = "cup, shredded"
+
+[[food]]
+name = "Cauliflower"
+parent = "Other vegetables"
+fdc = 169986                    # SR: Cauliflower, raw
+volume = "cup chopped (1/2\" pieces)"
+
+[[food]]
+name = "Green beans"
+parent = "Other vegetables"
+fdc = 169961                    # SR: Beans, snap, green, raw
+volume = "cup 1/2\" pieces"
+
+[[food]]
+name = "Zucchini"
+parent = "Other vegetables"
+fdc = 169291                    # SR: Squash, summer, zucchini, includes skin, raw
+each = "medium"
+volume = "cup, sliced"
+
+[[food]]
+name = "Celery"
+parent = "Other vegetables"
+fdc = 169988                    # SR: Celery, raw
+each = "stalk, medium (7-1/2\" - 8\" long)"
+volume = "cup chopped"
+
+[[food]]
+name = "Jalapeño pepper"
+foodkeeper = 548
+parent = "Other vegetables"
+fdc = 168576                    # SR: Peppers, jalapeno, raw
+each = "pepper"
+
+[[food]]
+name = "Roasted red peppers (jarred)"
+foodkeeper = 373
+parent = "Canned vegetables"
+fdc = 168546                    # SR: Peppers, sweet, red, canned, solids and liquids
+proxy = true                    # FDC has no roasted jarred peppers; canned red peppers are the nearest
+volume = { grams = 140, per = "cup", source = "FDC 168546: 1 cup, halves = 140 g (its 1/2 cup, 70 g, agrees)" }
+
+[[food]]
+name = "Water chestnuts (canned)"
+foodkeeper = 372
+parent = "Canned vegetables"
+fdc = 170067                    # SR: Waterchestnuts, chinese, canned, solids and liquids
+volume = "cup slices"
+
+[[food]]
+name = "Black olives (canned)"
+foodkeeper = { id = 353, proxy = true }  # pickles'
+fdc = 169094                    # SR: Olives, ripe, canned (small-extra large)
+each = "large"
+volume = "tbsp"
+
+[[food]]
+name = "Tomato juice (no salt added)"
+foodkeeper = 373
+fdc = 170545                    # SR: Tomato juice, canned, without salt added
+volume = "cup"
+
+[[food]]
+name = "Tomato sauce (canned)"
+foodkeeper = 373
+parent = "Canned tomatoes"
+fdc = 170054                    # SR: Tomato products, canned, sauce
+volume = "cup"
+
+[[food]]
+name = "Salsa"
+foodkeeper = { id = 373, proxy = true }  # high-acid canned goods'
+fdc = 2709738                   # FNDDS: Salsa, red
+volume = "cup"
+
+[[food]]
+name = "Kidney beans (canned drained)"
+foodkeeper = 372
+parent = "Cooked legumes"
+fdc = 174285                    # SR: Beans, kidney, red, mature seeds, canned, drained solids
+each = "can drained solids"
+
+[[food]]
+name = "Pinto beans (canned drained)"
+foodkeeper = 372
+parent = "Cooked legumes"
+fdc = 174286                    # SR: Beans, pinto, canned, drained solids
+each = "can drained solids"
+
+[[food]]
+name = "Brown lentils (dry)"
+parent = "Cooked legumes"
+fdc = 172420                    # SR: Lentils, raw
+volume = "cup"
+
+[[food]]
+name = "Brown rice (dry)"
+foodkeeper = { id = 338, proxy = true }  # white rice's
+parent = "Rice"
+fdc = 169703                    # SR: Rice, brown, long-grain, raw
+volume = "cup"
+
+[[food]]
+name = "Instant brown rice (dry)"
+foodkeeper = { id = 338, proxy = true }  # white rice's
+parent = "Rice"
+fdc = 169703                    # SR: Rice, brown, long-grain, raw
+proxy = true                    # FDC has no instant brown rice; the label's 180 kcal per 50 g is raw brown rice's (367 per 100 g) within 2%
+volume = { grams = 100, per = "cup", source = "Minute 100% Whole Grain Brown Rice label: 1/2 cup dry is 50 g (shoprite.com product 00017400118457, 2026-10-31)" }
+
+[[food]]
+name = "Quinoa (dry)"
+parent = "Rice"
+fdc = 168874                    # SR: Quinoa, uncooked
+volume = "cup"
+
+[[food]]
+name = "Couscous (dry)"
+foodkeeper = { id = 335, proxy = true }  # dry pasta's
+parent = "Pasta"
+fdc = 169699                    # SR: Couscous, dry
+volume = "cup"
+
+[[food]]
+name = "Cornmeal"
+foodkeeper = { id = 222, proxy = true }  # white flour's
+parent = "Flours and starches"
+fdc = 169697                    # SR: Cornmeal, whole-grain, yellow
+volume = "cup"
+
+[[food]]
+name = "Bread crumbs (plain)"
+foodkeeper = 643
+fdc = 174928                    # SR: Bread, crumbs, dry, grated, plain
+volume = "cup"
+
+[[food]]
+name = "Cornflake crumbs"
+foodkeeper = { id = 643, proxy = true }  # commercial breadcrumbs'
+fdc = 174648                    # SR: Cereals ready-to-eat, RALSTON Corn Flakes
+proxy = true                    # the flakes, crushed
+volume = { grams = 5.5, per = "tbsp", source = "Kellogg's Corn Flake Crumbs label: a serving is 6 Tbsp (33 g) (smartlabel.kelloggs.com/Product/Index/038000070105, 2026-10-31)" }
+
+[[food]]
+name = "Whole wheat bread"
+foodkeeper = 195
+parent = "Breads"
+fdc = 172688                    # SR: Bread, whole-wheat, commercially prepared
+each = "slice"
+
+[[food]]
+name = "Peanut butter (creamy)"
+foodkeeper = 387
+parent = "Nuts and seeds"
+fdc = 174266                    # SR: Peanut butter, smooth style, with salt
+volume = "tbsp"
+
+[[food]]
+name = "Sesame seeds"
+parent = "Nuts and seeds"
+fdc = 170150                    # SR: Seeds, sesame seeds, whole, dried
+volume = "tbsp"
+
+[[food]]
+name = "Cocoa powder (unsweetened)"
+foodkeeper = { id = 216, proxy = true }  # baking chocolate's
+fdc = 169593                    # SR: Cocoa, dry powder, unsweetened
+volume = "tbsp"
+
+[[food]]
+name = "Vegetable shortening"
+foodkeeper = { id = 227, proxy = true }  # oils'
+fdc = 173584                    # SR: Shortening, vegetable, household, composite
+volume = "tbsp"
+
+[[food]]
+name = "Cooking spray"
+foodkeeper = { id = 227, proxy = true }  # oils'
+fdc = 171430                    # SR: Oil, PAM cooking spray, original
+each = "spray , about 1/3 second (1 NLEA serving)"
+
+[[food]]
+name = "Salmon fillet (raw)"
+fdc = 175167                    # SR: Fish, salmon, Atlantic, farmed, raw
+
+[[food]]
+name = "Cod fillet (raw)"
+fdc = 171955                    # SR: Fish, cod, Atlantic, raw
+each = "fillet"
+
+[[food]]
+name = "Canned tuna (in water)"
+foodkeeper = 372
+fdc = 175158                    # SR: Fish, tuna, white, canned in water, drained solids
+each = "can"
+
+[[food]]
+name = "Chicken drumsticks (raw)"
+foodkeeper = 118
+parent = "Chicken"
+fdc = 173614                    # SR: Chicken, broilers or fryers, dark meat, drumstick, meat only, raw
+each = "drumstick without skin"
+
+[[food]]
+name = "Vegetable broth"
+foodkeeper = { id = 486, proxy = true }  # chicken broth's
+fdc = 171583                    # SR: Soup, vegetable broth, ready to serve
+volume = "cup"
+
+[[food]]
+name = "Hoisin sauce"
+foodkeeper = { id = 360, proxy = true }  # soy and teriyaki sauce's
+fdc = 172886                    # SR: Sauce, hoisin, ready-to-serve
+volume = "tbsp"
+
+[[food]]
+name = "Teriyaki sauce (reduced sodium)"
+foodkeeper = 360
+fdc = 172890                    # SR: Sauce, teriyaki, ready-to-serve, reduced sodium
+volume = "Tbsp"
+
+[[food]]
+name = "Apple cider vinegar"
+foodkeeper = 361
+fdc = 173469                    # SR: Vinegar, cider
+volume = "tbsp"
+
+[[food]]
+name = "Distilled white vinegar"
+foodkeeper = 361
+fdc = 172237                    # SR: Vinegar, distilled
+volume = "tbsp"
+
+[[food]]
+name = "Red wine vinegar"
+foodkeeper = 361
+fdc = 172240                    # SR: Vinegar, red wine
+volume = "tbsp"
+
+[[food]]
+name = "Dry red wine"
+foodkeeper = { id = 463, proxy = true }  # white wine's
+fdc = 173190                    # SR: Alcoholic beverage, wine, table, red
+volume = "fl oz"
+
+[[food]]
+name = "Dry sherry"
+foodkeeper = { id = 463, proxy = true }  # white wine's
+fdc = 175112                    # SR: Alcoholic beverage, wine, dessert, dry
+volume = "fl oz"
+
+[[food]]
+name = "Mint"
+foodkeeper = 288
+parent = "Fresh herbs"
+fdc = 173475                    # SR: Spearmint, fresh
+volume = "tbsp"
+
+[[food]]
+name = "Dried basil"
+foodkeeper = 236
+fdc = 171317                    # SR: Spices, basil, dried
+volume = "tsp, leaves"
+
+[[food]]
+name = "Dried dill"
+foodkeeper = 236
+fdc = 171322                    # SR: Spices, dill weed, dried
+volume = "tsp"
+
+[[food]]
+name = "Bay leaves"
+foodkeeper = 236
+fdc = 170917                    # SR: Spices, bay leaf
+volume = "tsp, crumbled"
+
+[[food]]
+name = "Chili powder"
+foodkeeper = 232
+fdc = 171319                    # SR: Spices, chili powder
+volume = "tsp"
+
+[[food]]
+name = "Ground ginger"
+foodkeeper = 238
+fdc = 170926                    # SR: Spices, ginger, ground
+volume = "tsp"
+
+[[food]]
+name = "Ground coriander"
+foodkeeper = 238
+fdc = 170922                    # SR: Spices, coriander seed (ground: its tsp is ground seed's)
+volume = "tsp"
+
+[[food]]
+name = "Ground cloves"
+foodkeeper = 238
+fdc = 171321                    # SR: Spices, cloves, ground
+volume = "tsp"
+
+[[food]]
+name = "Ground allspice"
+foodkeeper = 238
+fdc = 171315                    # SR: Spices, allspice, ground
+volume = "tsp"
+
+[[food]]
+name = "Mustard powder"
+foodkeeper = 238
+fdc = 170929                    # SR: Spices, mustard seed, ground
+volume = "tsp"
+
+[[food]]
+name = "Black beans (canned drained)"
+foodkeeper = 372
+parent = "Cooked legumes"
+fdc = 2644285                   # Foundation: Beans, black, canned, sodium added, drained and rinsed
+sources = [{ fdc = 175188, status = "estimated", moisture = true, note = "SR black beans, canned (solids and liquid): what the Foundation record does not report" }]
+each = { grams = 270, per = "each", source = "one 15-oz can of beans drained and rinsed: 255-285 g, midpoint (kitchencalculator.app canned-beans chart, as for Canned cannellini beans (drained))" }
+
+[[food]]
+name = "Whole wheat tortilla"
+foodkeeper = 196
+parent = "Breads"
+fdc = 174081                    # SR: Tortillas, ready-to-bake or -fry, whole wheat
+each = "tortilla 1 serving"
+
+[[food]]
+name = "Reduced-fat cheddar"
+foodkeeper = 3
+parent = "Cheeses"
+fdc = 171292                    # SR: Cheese, cheddar, reduced fat
+volume = { portions = [[173414, "cup, shredded"]] }   # FDC gives only a slice; full-fat cheddar's shredded cup

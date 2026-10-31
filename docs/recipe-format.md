@@ -65,6 +65,38 @@ inputs = [
   nothing may be used before it is made.
 - **Names** cannot contain a comma or a semicolon (Structr's exact-match lookup cannot find them).
 
+## The basic recipe set
+
+`data/recipes/` holds 20 recipes that ship with the repository (2026-10-31, at the owner's request: "a
+basic set along with the git project"), so a new instance has something to plan with. They are
+transcribed, facts only and by the rules above, from three NIH NHLBI recipe books, which are US
+government works and in the public domain: *Keep the Beat Recipes: Deliciously Healthy Dinners*
+(NIH 10-2921), *Deliciously Healthy Family Meals* (NIH 10-7531) and *Heart-Healthy Home Cooking African
+American Style* (NIH 21-HL-3792). Each file names its book in `source` and its page and choices in a
+comment. The books' photographs, by a private studio, are not used, as no photograph is.
+
+Chosen as a representative mix: 5 breakfasts, 5 lunches, 8 dinners and 2 snacks; poultry, fish, beef,
+pork, beans and lentils, eggs and tofu, ten of them with no meat or fish; baking, simmering,
+stir-frying, broiling, roasting and no cooking at all; from a 5-minute smoothie to a 50-minute
+stir-fry; and a few that need less common tools (a waffle iron, a blender or food processor, skewers),
+so the importer's kitchen check has something to ask about. `tests/test_basic_recipes.py` checks that
+each still loads and names only what the vocabulary holds, and that the mix stays as chosen.
+
+Each file's header gives the energy per serving its book prints, an independent check of the
+transcription and of the vocabulary's matches. Loaded on the development instance (2026-10-31), every
+recipe's energy is known and the median recipe is 17% from its book, 8 of the 20 within 15%; the
+furthest are the pork chops (+106%: FDC's only chop is 170 g of lean and fat, the book's are half-inch
+lean ones), the salmon (+39%) and the tofu stir-fry (+30%). The books' own figures are estimates from
+other data, so a difference is a question about the match, not a verdict on it.
+
+They are loaded only when asked for, never by the build, and not into the owner's instance unless the
+owner does it (some may be near recipes already there):
+
+```bash
+python3 tools/import_recipe.py --check data/recipes/*.toml   # needs the vocabulary imported first
+python3 tools/import_recipe.py data/recipes/*.toml
+```
+
 ## A daily baseline
 
 What is eaten every day outside the planned meals (supplements, the morning coffee) is written as a

@@ -1,0 +1,56 @@
+# NIH NHLBI, Keep the Beat Recipes: Deliciously Healthy Dinners (NIH 10-2921), pages 30-31. US government
+# work; facts only (docs/recipe-copyright.md). Transcription choices:
+# - "brown sugar or honey": brown sugar; "peanut oil or vegetable oil": peanut oil;
+# - "a large wok or sauté pan" as a Skillet (the most general tool that will do; a wok also does);
+# - the lettuce: the 8 leaves the wraps use, not the whole head the page lists (FDC's outer leaf);
+#   the 8 basil leaves by FDC's leaf (0.5 g);
+# - minutes: the page's prep (15) and cook (20) times added; the sauce's chilling is waiting.
+# - the book gives 242 kcal a serving (an independent check of the transcription).
+name = "Asian-Style Chicken Wraps"
+source = "https://www.nhlbi.nih.gov/sites/default/files/publications/10-2921.pdf"
+servings = 4
+minutes = 35
+meal_types = ["Lunch", "Dinner"]
+
+[[steps]]
+name = "boil and chill the sauce"
+method = "Boiling"
+makes = "Chili lime sauce"
+equipment = [{ tool = "Saucepan", heat = "high" }]
+wait_minutes = 20
+inputs = [
+  { food = "Jalapeño pepper", amount = 1, unit = "each" },
+  { food = "Garlic", amount = 1, unit = "tbsp" },
+  { food = "Brown sugar", amount = 3, unit = "tbsp" },
+  { food = "Tap water", amount = 4, unit = "fl_oz" },
+  { food = "Fish sauce", amount = 0.5, unit = "tbsp" },
+  { food = "Lime juice", amount = 2, unit = "tbsp" },
+]
+
+[[steps]]
+name = "stir-fry the chicken"
+method = "Stir-Frying"
+makes = "Chicken stir-fry"
+after = []
+equipment = ["Skillet"]
+minutes = 10
+inputs = [
+  { food = "Peanut oil", amount = 1, unit = "tbsp" },
+  { food = "Ginger", amount = 1, unit = "tbsp" },
+  { food = "Garlic", amount = 1, unit = "tbsp" },
+  { food = "Chicken Breast (raw)", amount = 12, unit = "oz" },
+  { food = "Soy sauce (low sodium)", amount = 1, unit = "tbsp" },
+  { food = "Sesame oil", amount = 1, unit = "tbsp", optional = true },
+  { food = "Sesame seeds", amount = 1, unit = "tbsp", optional = true },
+]
+
+[[steps]]
+name = "assemble the wraps"
+after = ["boil and chill the sauce", "stir-fry the chicken"]
+inputs = [
+  { food = "Red leaf lettuce", amount = 8, unit = "each" },
+  { food = "Chicken stir-fry" },
+  { food = "Basil", amount = 4, unit = "g" },
+  { food = "Bok choy and napa cabbage", amount = 2, unit = "cup" },
+  { food = "Chili lime sauce" },
+]
