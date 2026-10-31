@@ -91,7 +91,7 @@ from mealplanner.connection import connect
 from mealplanner.household import latest_plan as household_latest_plan
 from mealplanner.profiles import ProfileError
 from mealplanner.nutrition_scope import active_entries, eaten_instead_entries, entry_start, nutrition_report
-from mealplanner.planning.extract import RequestError, SlotSpec
+from mealplanner.planning.extract import ReadChangedError, RequestError, SlotSpec
 from mealplanner.planning.model import PrepSession
 from mealplanner.planning.nutrients import describe_nutrients
 from mealplanner.planning.plan import plan_week
@@ -380,7 +380,7 @@ def main(argv=None) -> int:
                            repeat_tolerance=week.get("repeat_tolerance"),
                            repeat_weight=float(week.get("weights", {}).get("repeats", 1)),
                            **limits, **({"shortlist_above": week["shortlist_above"]} if "shortlist_above" in week else {}))
-    except RequestError as exc:
+    except (RequestError, ReadChangedError) as exc:
         print(f"problem: {exc}")
         return 1
     except ProposalError as exc:

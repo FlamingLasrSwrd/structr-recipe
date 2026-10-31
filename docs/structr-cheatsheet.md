@@ -1099,6 +1099,25 @@ returns `400 "Unknown search key pageSize"`; the working form is
 function call with positional arguments, not a query-string key, so
 this particular gotcha is REST-API-specific.)
 
+✅ **`lastModifiedDate` records a node's own properties changing, not
+its relationships** (verified 2026-10-31 on 7.1.0, the development
+instance, `TEST -- ` nodes): a PATCH that changes a property moves the
+node's date (one that sets the value it already has does not); a PATCH
+of a relationship property (`{"parent": id}`, `{"requestsRecipe": [...]}`)
+moves **neither** end's date, nor does making or deleting the node at the
+other end. A relationship has dates of its own: every one is listed
+under `/structr/rest/RelationshipInterface`, with `createdDate`,
+`lastModifiedDate`, `relType`, `sourceNode` and `targetNode` in its
+`/all` view, so a link made shows there as a new relationship. A delete,
+of a node or of a relationship, leaves no date anywhere. Both dates are
+outside the default view: sort or filter on them through `/all`. Costs on
+the development instance holding the whole vocabulary and 20 recipes: `?_sort=lastModifiedDate&_order=desc&_pageSize=1`
+over every node below a root trait 1.1 to 1.6 s (it sorts them all), over
+the relationships 0.3 s; a range read
+`?lastModifiedDate=[2026-10-31T05:48:00+0000 TO 2100-01-01T00:00:00+0000]`
+0.05 s. The time is given to the second. `planning/extract.change_mark`
+is built on this.
+
 ### Views
 
 ✅ **The default REST response only returns a handful of base

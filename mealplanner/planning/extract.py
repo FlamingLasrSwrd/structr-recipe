@@ -80,6 +80,71 @@ def stored_figures_view(client) -> str:
     return "all"
 
 
+# The roots of every type this project made: whatever the planner reads is below one of them, and
+# Structr's own nodes (sessions, users, pages) are below none, so signing in changes nothing here.
+# tests/test_planning_reads.py checks the list against the schema in tools/expected_state.json.
+# A relationship made or changed changes neither end's lastModifiedDate (7.1.0, 2026-10-31), so the
+# relationships, every one of which Structr lists as a RelationshipInterface, are marked too.
+CHANGE_ROOTS = ("Entity", "ConceptScheme", "DomainType", "RelationKind", "TypeHierarchy")
+RELATIONSHIPS = "RelationshipInterface"
+READ_ATTEMPTS = 2
+UNTIL = "2100-01-01T00:00:00+0000"
+
+
+class ReadChangedError(RuntimeError):
+    """The instance kept changing while the week was read, so what was read may be half of a write."""
+
+
+def change_mark(client) -> dict:
+    """The newest change Structr records below each of CHANGE_ROOTS and among the relationships, for
+    changes_since: root -> (its lastModifiedDate, what changed in that second or since, id ->
+    (lastModifiedDate, label)).
+
+    Finding the newest sorts every node (1.1 to 1.6 s on the development instance holding the whole
+    vocabulary, 0.3 s for the relationships); what changed since a time is a range read (0.05 to
+    0.3 s). Structr gives the time to the second, so what changed in that second tells two changes in
+    it apart."""
+    return {root: _root_mark(client, root) for root in (*CHANGE_ROOTS, RELATIONSHIPS)}
+
+
+def _root_mark(client, root: str) -> tuple:
+    newest = client.get(f"/structr/rest/{root}/all",
+                        params={"_sort": "lastModifiedDate", "_order": "desc", "_pageSize": 1})["result"]
+    when = newest[0].get("lastModifiedDate") if newest else None
+    return when, _changed_since(client, root, when)
+
+
+def _changed_since(client, root: str, when: str | None, limit: int | None = None) -> dict:
+    if when is None:
+        return {}
+    params = {"lastModifiedDate": f"[{when} TO {UNTIL}]", **({"_pageSize": limit} if limit else {})}
+    rows = client.get(f"/structr/rest/{root}/all", params=params)["result"]
+    return {r["id"]: (r.get("lastModifiedDate"), f"{r.get('type')} {_named(r)} at {r.get('lastModifiedDate')}")
+            for r in rows}
+
+
+def _named(row: dict) -> str:
+    if "relType" not in row:
+        return repr(row.get("name"))
+    return f"from {(row.get('sourceNode') or {}).get('name')!r} to {(row.get('targetNode') or {}).get('name')!r}"
+
+
+def changes_since(client, mark: dict) -> list[str]:
+    """What was made or changed below CHANGE_ROOTS, or among the relationships, since change_mark read
+    `mark`: a label for each it read, [] when nothing was. It reads at most one more than the mark
+    held, per root, which is enough to tell.
+
+    What it does not see (checked on 7.1.0, 2026-10-31): a delete, of a node or of a relationship,
+    changes nothing that is left. Of what the pages and the bookings write, only taking a request back
+    (requests.withdraw) removes and makes nothing else; a relationship they replace is seen by the one
+    that replaces it. The importers that delete also make or change nodes in the same run."""
+    changed = []
+    for root, (when, seen) in mark.items():
+        now = _root_mark(client, root)[1] if when is None else _changed_since(client, root, when, limit=len(seen) + 1)
+        changed += [label for node_id, (date, label) in now.items() if seen.get(node_id, (None,))[0] != date]
+    return changed
+
+
 class RequestError(ValueError):
     """A recipe asked for that the week cannot take: no such recipe, or no such meal to pin it to."""
 
@@ -147,7 +212,39 @@ def build_problem(
 
     preps: PrepSessions, when the week may cook ahead (docs/optimizer-design.md Sec 12). A dish
     already committed at one (an entry at its start that no one eats) takes its share of the
-    session's dishes and minutes."""
+    session's dishes and minutes.
+
+    The week is read in many requests, so a write made meanwhile (a page's booking, an import) could be
+    half seen. The newest change Structr records (change_mark) is read before the reads and after
+    them; if it moved, the week is read again, and ReadChangedError says so after READ_ATTEMPTS reads
+    that each saw a change (REVIEW.md round 3, #14)."""
+    template = list(template)                 # read again on a retry, so not a one-pass iterable
+    seen = []
+    for _ in range(READ_ATTEMPTS):
+        before = change_mark(client)
+        problem = _read_problem(
+            client, meal_plan_id, template, now, servings_eaten=servings_eaten, max_difficulty=max_difficulty,
+            leftover_days=leftover_days, leftovers=leftovers, portions=portions, eater_portions=eater_portions,
+            shortlist_above=shortlist_above, shortlist_factor=shortlist_factor, requests=requests, preps=preps,
+            cooking_time=cooking_time, repeat_tolerance=repeat_tolerance, repeat_weight=repeat_weight,
+        )
+        changed = changes_since(client, before)
+        if not changed:
+            return problem
+        seen.append(changed)
+    raise ReadChangedError(f"the instance changed while the week was read, {len(seen)} times running (last: "
+                           f"{'; '.join(seen[-1])}); nothing was planned: plan again once the import or booking "
+                           f"that is writing has finished")
+
+
+def _read_problem(
+    client, meal_plan_id: str, template, now: datetime, *,
+    servings_eaten: float = 1.0, max_difficulty: str | None = None, leftover_days: float | None = None,
+    leftovers: bool = True, portions: tuple = (), eater_portions: dict | None = None,
+    shortlist_above: int | None = SHORTLIST_ABOVE, shortlist_factor: float = FACTOR, requests: tuple = (),
+    preps: tuple = (), cooking_time: float = 0.0, repeat_tolerance: int | None = None, repeat_weight: float = 1.0,
+) -> PlanningProblem:
+    """build_problem's reads, once: what it says it reads, through one ReadCache."""
     client = ReadCache(client)
     # Read in bulk what the recipes read node by node: profiled on the owner's week, these
     # types were 21,297 of 21,804 requests, one node each (552 of 589 s of reading). The
