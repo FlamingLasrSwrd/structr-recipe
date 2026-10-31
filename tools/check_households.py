@@ -487,8 +487,11 @@ def read_check(check: Check, client, m: dict, week_id: str, food: str, own_a: li
     wrong = [r for r in rows if (r["target"], r["group"]) not in shown or shown[(r["target"], r["group"])]["status"] != r["status"]
              or abs((shown[(r["target"], r["group"])].get("total") or 0) - (r.get("total") or 0)) > 1e-6]
     if got.get("problem") or not rows or len(shown) != len(rows) or wrong:
+        differing = "; ".join(f"{r['group']}: Python {r['status']} {r.get('total')}, method "
+                              f"{(shown.get((r['target'], r['group'])) or {}).get('status')} {(shown.get((r['target'], r['group'])) or {}).get('total')}"
+                              for r in wrong)
         check.fail(f"A1's nutritionReport for A's week: {got.get('problem')}; {len(shown)} groups against Python's {len(rows)}, "
-                   f"{len(wrong)} differing")
+                   f"{len(wrong)} differing{': ' + differing if differing else ''}")
     else:
         print(f"  A1's nutritionReport for A's week: {len(rows)} groups, as Python's nutrition_report")
     now = datetime.now(timezone.utc)

@@ -146,6 +146,9 @@ Structr died in left 47.
   last is a real gap the rule closes: finding by name had found the shared week before; and both of
   the read methods' rules, each left out, caught (own stock: the list counted stock everyone sees; own
   week: A1 read the week everyone sees).
+- (2026-10-31, Structr 7.1.0, a build from nothing) the recipe's figure not stored: the day and the
+  week each indeterminate with 0 g by the method, ok with 116.25 g by Python; and, with it stored,
+  `servingFigure` doubling what it read: above the maximum with 232.5 g.
 
 `tools/check_bookings.py` and `tools/check_pages.py` still found the pages the same as Python after
 the pantry's bookings moved into `pages/common.js`, which both the pantry page and `bookPantry` run.
