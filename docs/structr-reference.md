@@ -107,6 +107,8 @@ through REST - 6 Scripting and methods - 7 Transactions and concurrency - 8 REST
   first connects to an empty database (`initialuser.create`). **[D7]** **[V7.1]**: a fresh 7.1.0
   database had `admin` with the password `admin` and `isAdmin: true`, and it logged in with
   headers. Delete it, or change its password, before anything else reaches the instance.
+  `STRUCTR_initialuser_create=false` stops a new database from getting it (a fresh 7.1.0 database
+  then had no user). **[V7.1]**
 - **[7.1]** Without a second factor, three failed superuser logins within 15 minutes (counted
   across the configuration interface, headers and Basic auth together) block the superuser
   everywhere for 15 minutes, even with the right password (`configservlet.login.maxattempts`,

@@ -201,7 +201,10 @@ fresh 7.1.0 development stack; `tools/create_tools_user.py` is the result):
 - ⚠️ **A fresh 7.1.0 database gets an `admin` user with the password `admin` and
   `isAdmin: true`** (`initialuser.create`), and it logs in with headers. Seen on a
   development stack straight after its first start, before any script ran. Whether an
-  instance first built on 6.0.0 has one was not checked.
+  instance first built on 6.0.0 has one was not checked. ✅
+  `STRUCTR_initialuser_create=false` stops it: a fresh database then had no user at all and
+  `admin`/`admin` answered 401 (2026-10-31; `docker-compose.yml`, and `scripts/48a`
+  removes one an existing database has while its password is still `admin`).
 
 📖 Full permission resolution order per the docs (not independently
 re-verified beyond what's above): admin bypass → visibility flags

@@ -58,6 +58,10 @@ services:
       - STRUCTR_application_heap_min__size=256m
       - STRUCTR_application_heap_max__size=1g
       - STRUCTR_superuser_password=${STRUCTR_SUPERUSER_PASSWORD}
+      # Structr 7.1 gives a fresh database a user admin with the password admin and full admin rights
+      # (initialuser.create, 2026-10-31). Nothing here uses it, so a new database gets none;
+      # scripts/48a removes one a database already has, as long as its password is still admin.
+      - STRUCTR_initialuser_create=false
       - STRUCTR_database_available_connections=neo4j_default
       - STRUCTR_neo4j__default_database_driver=org.structr.bolt.BoltDatabaseService
       - STRUCTR_neo4j__default_database_connection_url=bolt://neo4j:7687

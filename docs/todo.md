@@ -85,12 +85,13 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
   core.hooksPath .githooks`, once. After that `git push` runs both interpreters' suites (`.venv` for the
   one with OR-tools), `tools/check_names.py` and `scripts/23a_schema_drift_test.py` first, about a
   minute, and stops on a failure; `git push --no-verify` skips it when you mean to.
-- Decide what to do with Structr's initial `admin` account. A fresh 7.1.0 database is given a user
-  `admin` with the password `admin` and full admin rights, and it logs in (found 2026-10-31 on a
-  fresh development stack; `docs/structr-cheatsheet.md` §2). Whether your instance, first built on
-  6.0.0, has one was not checked: `curl -s -o /dev/null -w '%{http_code}\n' -H 'X-User: admin'
-  -H 'X-Password: admin' http://localhost:8085/structr/rest/User` answers 200 if it does. Nothing in
-  this project uses it; deleting it, or giving it a long password, would close it.
+- **Close Structr's initial `admin` account on your instance** (built 2026-10-31, your choice (a)): a fresh
+  7.1.0 database is given a user `admin` with the password `admin` and full admin rights, and it logs in.
+  `docker-compose.yml` now stops new databases from getting one; for yours, after the tools' account
+  above, `STRUCTR_URL=http://localhost:8085 python3 scripts/48a_remove_initial_admin.py`. It deletes
+  `admin` only if `admin`/`admin` still signs in; if you changed its password, it keeps it, says so,
+  and takes its one failed sign-in back off its count. Whether your instance (first built on 6.0.0)
+  has one was not checked.
 - Sign in as Elijah and press one booking button: page bookings for a signed-in household member are
   untested (`docs/pages.md`).
 - Copy `~/mealplanner-backups` off this machine now and then (`docs/backups.md`).
