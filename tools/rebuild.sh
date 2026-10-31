@@ -3,14 +3,15 @@
 #
 #   tools/rebuild.sh
 #
-# Waits for Structr, runs every script in scripts/ in build order (stopping at the first
-# failure and showing the tail of its log), then diffs the resulting graph and schema against
-# tools/expected_state.json. Prints SNAPSHOT IDENTICAL and exits 0 only if all of that held.
+# Waits for Structr, makes the account the scripts log in as (tools/create_tools_user.py, the
+# one step that uses the superuser), runs every script in scripts/ in build order (stopping at
+# the first failure and showing the tail of its log), then diffs the resulting graph and schema
+# against tools/expected_state.json. Prints SNAPSHOT IDENTICAL and exits 0 only if all of that held.
 # It does not start or stop containers: bring the stack up first (cloud/bootstrap.sh).
 #
 # Environment (all optional):
 #   STRUCTR_URL      instance to build (default http://localhost:8083)
-#   STRUCTR_SUPERUSER_PASSWORD   read from the environment, else from .env
+#   STRUCTR_SUPERUSER_PASSWORD, STRUCTR_TOOLS_PASSWORD   read from the environment, else from .env
 #   PYTHON           interpreter (default python3)
 #   WAIT_S           seconds to wait for Structr (default 300)
 #   LOG_DIR          where each script's output goes (default ${TMPDIR:-/tmp}/structr-rebuild-logs)
@@ -23,11 +24,12 @@
 set -u
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$here" || exit 1
-if [ -z "${STRUCTR_SUPERUSER_PASSWORD:-}" ] && [ -f .env ]; then
+if { [ -z "${STRUCTR_SUPERUSER_PASSWORD:-}" ] || [ -z "${STRUCTR_TOOLS_PASSWORD:-}" ]; } && [ -f .env ]; then
   set -a; . ./.env; set +a
 fi
 : "${STRUCTR_SUPERUSER_PASSWORD:?set STRUCTR_SUPERUSER_PASSWORD, or create .env (cloud/bootstrap.sh --env-only does)}"
-export STRUCTR_SUPERUSER_PASSWORD
+: "${STRUCTR_TOOLS_PASSWORD:?set STRUCTR_TOOLS_PASSWORD, or add it to .env (cloud/bootstrap.sh --env-only does)}"
+export STRUCTR_SUPERUSER_PASSWORD STRUCTR_TOOLS_PASSWORD
 export STRUCTR_URL="${STRUCTR_URL:-http://localhost:8083}"
 py="${PYTHON:-python3}"
 glob="${SCRIPTS_GLOB:-scripts/*.py}"
@@ -40,6 +42,10 @@ if [ "${DRY_RUN:-}" = "1" ]; then echo "$scripts"; exit 0; fi
 
 mkdir -p "$logdir"
 bash tools/wait_for_structr.sh "${WAIT_S:-300}" || exit 1
+if ! "$py" tools/create_tools_user.py; then
+  echo "FAILED to make the tools' account (tools/create_tools_user.py, above)"
+  exit 1
+fi
 start=$(date +%s)
 count=0
 for f in $scripts; do

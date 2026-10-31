@@ -36,18 +36,19 @@ python3 tools/check_names.py      # undefined names and unused imports
 To build against a live instance:
 
 ```bash
-cp .env.example .env            # then edit the two passwords
+cp .env.example .env            # then edit the three passwords
 docker compose up -d            # first boot takes a minute or two
-set -a && source .env && set +a # the scripts read the password from the environment
+set -a && source .env && set +a # the scripts read the passwords from the environment
 ```
 
-Wait until `http://localhost:8083/structr/rest/SchemaNode` answers, then run the scripts in numeric order:
+Wait until `http://localhost:8083/structr/health/ready` answers 200, make the account the scripts log in as, then run the scripts in numeric order:
 
 ```bash
+python3 tools/create_tools_user.py
 for f in $(ls scripts/*.py | sort -V); do echo "== $f"; python3 "$f" || break; done
 ```
 
-`bash tools/rebuild.sh` is that loop as a script: it waits for Structr, stops at the first failure, and finishes with the snapshot check below. `bash cloud/bootstrap.sh` does the `.env` and `docker compose up` steps too, generating throwaway passwords if you have none.
+`bash tools/rebuild.sh` is those steps as a script: it waits for Structr, makes the account, stops at the first failure, and finishes with the snapshot check below. `bash cloud/bootstrap.sh` does the `.env` and `docker compose up` steps too, generating throwaway passwords if you have none.
 
 Each script prints its own verification. Most are safe to re-run. To check that your instance now holds exactly what the maintainer's does:
 
@@ -76,7 +77,7 @@ python3 -m venv .venv
 python3 scripts/23a_schema_drift_test.py
 ```
 
-The default superuser is `superadmin` (not `admin`), authenticated with `X-User`/`X-Password` headers; see `docs/structr-cheatsheet.md` for Structr REST details. `structr/license.key` is an intentionally empty placeholder so the compose bind mount has a file to attach to.
+The default superuser is `superadmin` (not `admin`). The scripts and tools do not use it: they log in as `mealplanner-tools`, an admin account `tools/create_tools_user.py` makes with the superuser and `STRUCTR_TOOLS_PASSWORD`, because on Structr 7.1 three wrong superuser passwords within 15 minutes lock the superuser out everywhere for that time. The superuser authenticates with `X-User`/`X-Password` headers; the tools' account logs in once per run and sends the session's token, since on 7.1 a stored user's password checked on every request costs about 0.4 s a request. See `docs/structr-cheatsheet.md` for Structr REST details. `structr/license.key` is an intentionally empty placeholder so the compose bind mount has a file to attach to.
 
 ## License
 

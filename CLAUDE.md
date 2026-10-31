@@ -78,8 +78,9 @@ python3 -m unittest discover -s tests -t .        # offline; no Structr needed (
 python3 tools/check_names.py                       # undefined names and unused imports (no pyflakes here)
 python3 scripts/23a_schema_drift_test.py           # offline schema-helper test
 
-bash cloud/bootstrap.sh            # stack up: makes .env if missing, docker compose up, waits for Structr
-bash tools/rebuild.sh              # every script in build order, then the snapshot check (SNAPSHOT IDENTICAL)
+bash cloud/bootstrap.sh            # stack up: makes .env if missing (or adds a missing password), docker compose up, waits for Structr
+bash tools/rebuild.sh              # the tools' account, every script in build order, then the snapshot check (SNAPSHOT IDENTICAL)
+python3 tools/create_tools_user.py # the admin account every script and tool logs in as (not the superuser); also unlocks it
 set -a && source .env && set +a    # before running any single script by hand
 python3 tools/snapshot_state.py | diff - tools/expected_state.json   # instance vs golden
 

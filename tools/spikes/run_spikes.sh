@@ -29,6 +29,7 @@ fi
 SPIKE_USER_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(18))')"
 export STRUCTR_URL="http://localhost:$port" SPIKE_COMPOSE_PROJECT="$project" SPIKE_USER_PASSWORD
 bash tools/wait_for_structr.sh 300
+python3 tools/create_tools_user.py      # connect() logs in as it; the spikes' own requests stay the superuser's
 only=(); [ -n "${ONLY:-}" ] && only=(--only "$ONLY")
 python3 tools/spikes/structr_feature_spikes.py setup "${only[@]}"
 STRUCTR_PORT=$port "${compose[@]}" restart structr 2>&1 | tail -1

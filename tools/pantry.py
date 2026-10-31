@@ -13,7 +13,7 @@
 A PORTION is its name as `list` prints it, or its id; an ENTRY is an id as `meals` prints it.
 Every booking happens now unless --at gives an ISO time, and is named by --token, else a new
 one, so running the same booking twice with the same token writes nothing new. Writes the
-instance's data, the owner's included; needs STRUCTR_SUPERUSER_PASSWORD and STRUCTR_URL.
+instance's data, the owner's included; needs STRUCTR_TOOLS_PASSWORD and STRUCTR_URL.
 """
 
 import argparse

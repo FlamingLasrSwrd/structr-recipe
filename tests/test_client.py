@@ -141,6 +141,145 @@ class RequestTimeout(unittest.TestCase):
         self.assertEqual(len(StructrClient("http://unused", "u", "p").timeout), 2)
 
 
+class FakeResponse:
+    def __init__(self, status, body=None, cookies=None):
+        self.status_code, self._body, self.cookies = status, body, cookies or {}
+        self.content = b"x" if body is not None else b""
+
+    def json(self):
+        return self._body
+
+
+class SessionServer:
+    """A requests.Session stand-in: logs in the right password once per session token it hands out,
+    and answers 401 to a token it has ended."""
+
+    def __init__(self, password="right", login_status=200):
+        self.headers, self.sent, self.password, self.login_status = {}, [], password, login_status
+        self.live, self.issued = set(), 0
+
+    def end_sessions(self):
+        self.live.clear()
+
+    def request(self, method, url, headers=None, json=None, **kw):
+        merged = {**self.headers, **(headers or {})}
+        path = url.split("unused", 1)[1]
+        self.sent.append((method, path, dict(merged), json))
+        if path == "/structr/rest/login":
+            if self.login_status != 200:
+                return FakeResponse(self.login_status, {"code": self.login_status})
+            if merged.get("X-Password") != self.password or (json or {}).get("password") != self.password:
+                return FakeResponse(401, {"code": 401})
+            self.issued += 1
+            token = f"t{self.issued}"
+            self.live.add(token)
+            return FakeResponse(200, {"result": {"name": "u"}}, cookies={"JSESSIONID": token})
+        if path == "/structr/rest/logout":
+            # as on 7.1.0: only the session cookie ends a session; the token header alone is answered 200 and ignored
+            cookie = merged.get("Cookie", "")
+            self.live.discard(cookie.split("JSESSIONID=", 1)[1] if "JSESSIONID=" in cookie else None)
+            return FakeResponse(200, {})
+        if path == "/structr/rest/Refused":
+            return FakeResponse(401, {"code": 401})        # refused whoever asks
+        if merged.get("X-StructrSessionToken") in self.live or merged.get("X-Password") == self.password:
+            return FakeResponse(200, {"result": []})
+        return FakeResponse(401, {"code": 401})
+
+
+def session_client(server, password="right"):
+    c = StructrClient("http://unused", "u", password, session_login=True)
+    server.headers.update(c.session.headers)
+    c.session = server
+    return c
+
+
+class SessionLogin(unittest.TestCase):
+    def test_the_first_request_logs_in_and_later_ones_send_the_token_not_the_password(self):
+        server = SessionServer()
+        c = session_client(server)
+        c.get("/structr/rest/Thing")
+        c.get("/structr/rest/Thing")
+        paths = [p for _, p, _, _ in server.sent]
+        self.assertEqual(paths, ["/structr/rest/login", "/structr/rest/Thing", "/structr/rest/Thing"])
+        _, _, login_headers, login_body = server.sent[0]
+        self.assertEqual((login_headers["X-User"], login_body), ("u", {"name": "u", "password": "right"}))
+        for _, _, headers, _ in server.sent[1:]:
+            self.assertEqual(headers.get("X-StructrSessionToken"), "t1")
+            self.assertNotIn("X-Password", headers)
+        self.assertEqual(server.issued, 1)
+
+    def test_an_ended_session_is_opened_again_once_and_the_request_repeated(self):
+        server = SessionServer()
+        c = session_client(server)
+        c.get("/structr/rest/Thing")
+        server.end_sessions()
+        self.assertEqual(c.get("/structr/rest/Thing"), {"result": []})
+        self.assertEqual([p for _, p, _, _ in server.sent],
+                         ["/structr/rest/login", "/structr/rest/Thing", "/structr/rest/Thing", "/structr/rest/login", "/structr/rest/Thing"])
+        self.assertEqual(server.sent[-1][2]["X-StructrSessionToken"], "t2")
+
+    def test_a_wrong_password_fails_at_the_login_and_nothing_else_is_sent(self):
+        server = SessionServer()
+        c = session_client(server, password="wrong")
+        with self.assertRaises(StructrError) as caught:
+            c.get("/structr/rest/Thing")
+        self.assertEqual(caught.exception.status, 401)
+        self.assertEqual([p for _, p, _, _ in server.sent], ["/structr/rest/login"])
+
+    def test_a_401_that_logging_in_again_does_not_cure_is_raised_not_looped(self):
+        server = SessionServer()
+        c = session_client(server)
+        c.get("/structr/rest/Thing")
+        server.end_sessions()
+        server.password = "changed"                       # the session ended and the password no longer works
+        with self.assertRaises(StructrError):
+            c.get("/structr/rest/Thing")
+        self.assertEqual([p for _, p, _, _ in server.sent].count("/structr/rest/login"), 2)
+
+    def test_a_request_still_refused_after_logging_in_again_is_raised_not_repeated(self):
+        server = SessionServer()
+        c = session_client(server)
+        c.get("/structr/rest/Thing")
+        with self.assertRaises(StructrError) as caught:
+            c.get("/structr/rest/Refused")
+        self.assertEqual(caught.exception.status, 401)
+        self.assertEqual([p for _, p, _, _ in server.sent],
+                         ["/structr/rest/login", "/structr/rest/Thing", "/structr/rest/Refused", "/structr/rest/login", "/structr/rest/Refused"])
+
+    def test_a_starting_server_answering_the_login_is_waited_for(self):
+        server = SessionServer(login_status=503)
+        c = session_client(server)
+        outcomes = iter([503, 503, 200])
+
+        def request(method, url, **kw):
+            if url.endswith("/login"):
+                server.login_status = next(outcomes)
+            return SessionServer.request(server, method, url, **kw)
+        server.request = request
+        c.wait_until_ready(timeout_s=5, interval_s=0.01)
+        self.assertEqual(server.issued, 1)
+
+    def test_logout_ends_the_session_and_does_nothing_without_one(self):
+        server = SessionServer()
+        c = session_client(server)
+        c.logout()
+        self.assertEqual(server.sent, [])
+        c.get("/structr/rest/Thing")
+        c.logout()
+        self.assertEqual(server.sent[-1][1], "/structr/rest/logout")
+        self.assertEqual(server.live, set())
+        self.assertNotIn("X-StructrSessionToken", server.headers)
+
+    def test_without_it_every_request_carries_the_password_and_nobody_logs_in(self):
+        server = SessionServer()
+        c = StructrClient("http://unused", "u", "right")
+        server.headers.update(c.session.headers)
+        c.session = server
+        c.get("/structr/rest/Thing")
+        self.assertEqual([p for _, p, _, _ in server.sent], ["/structr/rest/Thing"])
+        self.assertEqual(server.sent[0][2]["X-Password"], "right")
+
+
 class ServerWithASmallDefaultPage(StructrClient):
     """Structr returns at most its default page size unless asked for more, and says how many pages there are."""
 

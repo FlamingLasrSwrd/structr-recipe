@@ -27,7 +27,7 @@ expected_state.json is a golden file. If you change what a script creates,
 regenerate it deliberately (`... > tools/expected_state.json`) and read the
 diff in review; a failing diff is the point, not a nuisance.
 
-Needs STRUCTR_SUPERUSER_PASSWORD in the environment; STRUCTR_URL optional.
+Needs STRUCTR_TOOLS_PASSWORD in the environment; STRUCTR_URL optional.
 """
 
 import json
@@ -37,6 +37,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from mealplanner.connection import TOOLS_USER
 from structr_client import StructrClient
 
 BASE_URL = os.environ.get("STRUCTR_URL", "http://localhost:8083")
@@ -120,7 +121,7 @@ def render(entities: dict) -> str:
 
 
 def main():
-    client = StructrClient(BASE_URL, "superadmin", os.environ["STRUCTR_SUPERUSER_PASSWORD"])
+    client = StructrClient(BASE_URL, TOOLS_USER, os.environ["STRUCTR_TOOLS_PASSWORD"], session_login=True)
     client.wait_until_ready()
     print(render(snapshot(client)))
 

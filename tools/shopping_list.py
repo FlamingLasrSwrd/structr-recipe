@@ -5,7 +5,7 @@
 What the week's committed, not yet cooked meals need, less what the pantry holds, grouped by the
 day each food is first needed, with an estimated cost at the week file's price level (`prices`).
 Read-only: a shopping list is computed, never stored (data-model.md Sec 7, AcquisitionList).
-Needs STRUCTR_SUPERUSER_PASSWORD and STRUCTR_URL.
+Needs STRUCTR_TOOLS_PASSWORD and STRUCTR_URL.
 """
 
 import argparse

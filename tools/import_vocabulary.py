@@ -7,7 +7,7 @@ Idempotent: a second run changes nothing. When a run changes a food's profiles, 
 weight per item, retention factors or place in the hierarchy, the stored nutrition per serving
 of every recipe using it, or a food below it, is worked out again (J28). --check also lists every food that lacks a
 Nutrition Facts figure (vocabulary_import.CORE_NUTRIENTS). Meant for the owner's instance as well
-as any other; needs STRUCTR_SUPERUSER_PASSWORD and STRUCTR_URL.
+as any other; needs STRUCTR_TOOLS_PASSWORD and STRUCTR_URL.
 """
 
 import argparse

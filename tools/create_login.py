@@ -9,7 +9,7 @@ local and behind a firewall. A name of one of the household's people (a `Person`
 Structr account, data-model.md K1) gives that person a password, so they sign in as themselves:
 the owner's choice for Elijah, the same day. Any other name is a Structr `User` of its own. The
 password is typed without being shown and is stored nowhere but in Structr, as Structr stores
-passwords. For the same name again, it sets a new password. Needs STRUCTR_SUPERUSER_PASSWORD and
+passwords. For the same name again, it sets a new password. Needs STRUCTR_TOOLS_PASSWORD and
 STRUCTR_URL.
 """
 

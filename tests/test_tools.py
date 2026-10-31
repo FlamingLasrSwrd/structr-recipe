@@ -40,7 +40,7 @@ class ShellScripts(unittest.TestCase):
 
     def test_rebuild_lists_the_scripts_in_build_order_without_running_them(self):
         result = self.run_script(str(ROOT / "tools/rebuild.sh"), cwd=ROOT,
-                                 env_extra={"DRY_RUN": "1", "STRUCTR_SUPERUSER_PASSWORD": "x"})
+                                 env_extra={"DRY_RUN": "1", "STRUCTR_SUPERUSER_PASSWORD": "x", "STRUCTR_TOOLS_PASSWORD": "y"})
         self.assertEqual(result.returncode, 0, result.stderr)
         listed = result.stdout.split()
         self.assertEqual(listed, sorted(listed, key=lambda p: [int(t) if t.isdigit() else t for t in
@@ -50,15 +50,18 @@ class ShellScripts(unittest.TestCase):
         self.assertEqual(listed[0], "scripts/00_verify_client.py")
         self.assertEqual(len(listed), len(list((ROOT / "scripts").glob("*.py"))))
 
-    def test_rebuild_refuses_to_run_without_a_password(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            # a copy of the tools with no .env beside them, and the variable unset
-            (pathlib.Path(tmp) / "tools").mkdir()
-            for name in ("rebuild.sh", "wait_for_structr.sh"):
-                (pathlib.Path(tmp) / "tools" / name).write_text((ROOT / "tools" / name).read_text())
-            result = self.run_script(str(pathlib.Path(tmp) / "tools/rebuild.sh"), cwd=tmp, env_drop=("STRUCTR_SUPERUSER_PASSWORD",))
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("STRUCTR_SUPERUSER_PASSWORD", result.stderr)
+    def test_rebuild_refuses_to_run_without_either_password(self):
+        for missing, present in (("STRUCTR_SUPERUSER_PASSWORD", "STRUCTR_TOOLS_PASSWORD"),
+                                 ("STRUCTR_TOOLS_PASSWORD", "STRUCTR_SUPERUSER_PASSWORD")):
+            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as tmp:
+                # a copy of the tools with no .env beside them, and the one variable unset
+                (pathlib.Path(tmp) / "tools").mkdir()
+                for name in ("rebuild.sh", "wait_for_structr.sh"):
+                    (pathlib.Path(tmp) / "tools" / name).write_text((ROOT / "tools" / name).read_text())
+                result = self.run_script(str(pathlib.Path(tmp) / "tools/rebuild.sh"), cwd=tmp,
+                                         env_drop=(missing,), env_extra={present: "x"})
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(missing, result.stderr)
 
     def bootstrap_copy(self, tmp):
         tmp = pathlib.Path(tmp)
@@ -70,12 +73,14 @@ class ShellScripts(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = self.bootstrap_copy(tmp)
             result = self.run_script(str(tmp / "cloud/bootstrap.sh"), "--env-only", cwd=tmp,
-                                     env_drop=("NEO4J_PASSWORD", "STRUCTR_SUPERUSER_PASSWORD"))
+                                     env_drop=("NEO4J_PASSWORD", "STRUCTR_SUPERUSER_PASSWORD", "STRUCTR_TOOLS_PASSWORD"))
             self.assertEqual(result.returncode, 0, result.stderr)
             values = dict(line.split("=", 1) for line in (tmp / ".env").read_text().split())
-            self.assertEqual(set(values), {"NEO4J_PASSWORD", "STRUCTR_SUPERUSER_PASSWORD"})
+            self.assertEqual(set(values), {"NEO4J_PASSWORD", "STRUCTR_SUPERUSER_PASSWORD", "STRUCTR_TOOLS_PASSWORD"})
             self.assertTrue(all(len(v) >= 24 for v in values.values()))
-            self.assertNotIn(values["NEO4J_PASSWORD"], result.stdout + result.stderr)
+            self.assertEqual(len(set(values.values())), 3)                     # three passwords, not one thrice
+            for value in values.values():
+                self.assertNotIn(value, result.stdout + result.stderr)
             self.assertEqual(oct((tmp / ".env").stat().st_mode & 0o777), "0o600")
 
     def test_bootstrap_uses_the_environments_variables_when_they_exist(self):
@@ -83,19 +88,45 @@ class ShellScripts(unittest.TestCase):
             tmp = self.bootstrap_copy(tmp)
             result = self.run_script(str(tmp / "cloud/bootstrap.sh"), "--env-only", cwd=tmp,
                                      env_extra={"NEO4J_PASSWORD": "from-the-environment-a",
-                                                "STRUCTR_SUPERUSER_PASSWORD": "from-the-environment-b"})
+                                                "STRUCTR_SUPERUSER_PASSWORD": "from-the-environment-b",
+                                                "STRUCTR_TOOLS_PASSWORD": "from-the-environment-c"})
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual((tmp / ".env").read_text(),
-                             "NEO4J_PASSWORD=from-the-environment-a\nSTRUCTR_SUPERUSER_PASSWORD=from-the-environment-b\n")
+                             "NEO4J_PASSWORD=from-the-environment-a\nSTRUCTR_SUPERUSER_PASSWORD=from-the-environment-b\n"
+                             "STRUCTR_TOOLS_PASSWORD=from-the-environment-c\n")
             self.assertIn("taken from the environment", result.stdout)
 
     def test_bootstrap_never_overwrites_an_existing_env(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = self.bootstrap_copy(tmp)
-            (tmp / ".env").write_text("NEO4J_PASSWORD=mine\nSTRUCTR_SUPERUSER_PASSWORD=mine\n")
-            result = self.run_script(str(tmp / "cloud/bootstrap.sh"), "--env-only", cwd=tmp)
+            mine = "NEO4J_PASSWORD=mine\nSTRUCTR_SUPERUSER_PASSWORD=mine\nSTRUCTR_TOOLS_PASSWORD=mine\n"
+            (tmp / ".env").write_text(mine)
+            result = self.run_script(str(tmp / "cloud/bootstrap.sh"), "--env-only", cwd=tmp,
+                                     env_extra={"STRUCTR_TOOLS_PASSWORD": "not-this-one"})
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual((tmp / ".env").read_text(), "NEO4J_PASSWORD=mine\nSTRUCTR_SUPERUSER_PASSWORD=mine\n")
+            self.assertEqual((tmp / ".env").read_text(), mine)
+
+    def test_bootstrap_adds_the_tools_password_to_an_older_env_and_changes_nothing_else(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = self.bootstrap_copy(tmp)
+            older = "NEO4J_PASSWORD=mine\nSTRUCTR_SUPERUSER_PASSWORD=mine\n"
+            (tmp / ".env").write_text(older)
+            (tmp / ".env").chmod(0o600)
+            result = self.run_script(str(tmp / "cloud/bootstrap.sh"), "--env-only", cwd=tmp,
+                                     env_drop=("STRUCTR_TOOLS_PASSWORD",))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            text = (tmp / ".env").read_text()
+            self.assertTrue(text.startswith(older))
+            added = text[len(older):].split()
+            self.assertEqual(len(added), 1)
+            name, value = added[0].split("=", 1)
+            self.assertEqual(name, "STRUCTR_TOOLS_PASSWORD")
+            self.assertGreaterEqual(len(value), 24)
+            self.assertNotIn(value, result.stdout + result.stderr)
+            self.assertEqual(oct((tmp / ".env").stat().st_mode & 0o777), "0o600")
+            again = self.run_script(str(tmp / "cloud/bootstrap.sh"), "--env-only", cwd=tmp)
+            self.assertEqual((tmp / ".env").read_text(), text)                 # added once, not each run
+            self.assertIn("leaving it alone", again.stdout)
 
     def test_bootstrap_rejects_an_unknown_option(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -156,16 +187,17 @@ class FakeStructr:
 
 class WaitForStructr(unittest.TestCase):
     def run_wait(self, url, *args):
-        env = {**os.environ, "STRUCTR_URL": url, "STRUCTR_SUPERUSER_PASSWORD": "secret-pw"}
+        env = {**os.environ, "STRUCTR_URL": url, "STRUCTR_SUPERUSER_PASSWORD": "secret-pw", "STRUCTR_TOOLS_PASSWORD": "pw"}
         return subprocess.run(["bash", str(ROOT / "tools/wait_for_structr.sh"), *args], env=env, capture_output=True, text=True)
 
-    def test_it_returns_as_soon_as_structr_answers_and_sends_the_credentials(self):
+    def test_it_returns_as_soon_as_structr_is_ready_and_sends_no_password(self):
         fake = FakeStructr()
         self.addCleanup(fake.close)
         result = self.run_wait(fake.url, "20")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Structr answered", result.stdout)
-        self.assertEqual(fake.seen[0], ("/structr/rest/SchemaNode", "superadmin", "secret-pw"))
+        # the health endpoint, with no credentials: a wait is never a login attempt
+        self.assertEqual(fake.seen, [("/structr/health/ready", None, None)])
 
     def test_it_gives_up_after_the_timeout_when_nothing_answers(self):
         fake = FakeStructr()
@@ -176,11 +208,11 @@ class WaitForStructr(unittest.TestCase):
         self.assertIn("did not answer", result.stderr)
 
     def test_a_server_that_answers_with_an_error_is_not_ready(self):
-        fake = FakeStructr(status=401)
+        fake = FakeStructr(status=503)
         self.addCleanup(fake.close)
         result = self.run_wait(fake.url, "3")
         self.assertEqual(result.returncode, 1)
-        self.assertIn("401", result.stderr)
+        self.assertIn("503", result.stderr)
 
 
 class RebuildLoop(unittest.TestCase):
@@ -197,14 +229,20 @@ class RebuildLoop(unittest.TestCase):
         self.ran = self.repo / "ran.txt"
         (self.repo / "tools" / "snapshot_state.py").write_text('print(\'{"state": 1}\')\n')
         (self.repo / "tools" / "expected_state.json").write_text('{"state": 1}\n')
+        self.account(ok=True)
         self.fake = FakeStructr()
         self.addCleanup(self.fake.close)
+
+    def account(self, ok):
+        """A stand-in for tools/create_tools_user.py that records that it ran, and fails if told to."""
+        (self.repo / "tools" / "create_tools_user.py").write_text(
+            f"open({str(self.ran)!r}, 'a').write('account\\n')\n" + ("" if ok else "raise SystemExit('wrong superuser password')\n"))
 
     def script(self, name, body="pass"):
         (self.repo / "scripts" / name).write_text(f"open({str(self.ran)!r}, 'a').write({name!r} + '\\n')\n{body}\n")
 
     def run_rebuild(self, **extra):
-        env = {**os.environ, "STRUCTR_URL": self.fake.url, "STRUCTR_SUPERUSER_PASSWORD": "pw",
+        env = {**os.environ, "STRUCTR_URL": self.fake.url, "STRUCTR_SUPERUSER_PASSWORD": "pw", "STRUCTR_TOOLS_PASSWORD": "pw2",
                "LOG_DIR": str(self.repo / "logs"), "WAIT_S": "10", **extra}
         return subprocess.run(["bash", str(self.repo / "tools/rebuild.sh")], env=env, capture_output=True, text=True)
 
@@ -213,7 +251,7 @@ class RebuildLoop(unittest.TestCase):
             self.script(name)
         result = self.run_rebuild()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(self.ran.read_text().split(), ["1_first.py", "2_second.py", "10_last.py"])     # 10 after 2, not before
+        self.assertEqual(self.ran.read_text().split(), ["account", "1_first.py", "2_second.py", "10_last.py"])     # 10 after 2, not before
         self.assertIn("all 3 scripts ran", result.stdout)
         self.assertIn("SNAPSHOT IDENTICAL", result.stdout)
 
@@ -225,8 +263,16 @@ class RebuildLoop(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("FAILED at scripts/2_broken.py", result.stdout)
         self.assertIn("the schema drifted", result.stdout)                 # the tail of its log is shown
-        self.assertEqual(self.ran.read_text().split(), ["1_ok.py", "2_broken.py"])
+        self.assertEqual(self.ran.read_text().split(), ["account", "1_ok.py", "2_broken.py"])
         self.assertNotIn("SNAPSHOT", result.stdout)
+
+    def test_no_script_runs_when_the_account_cannot_be_made(self):
+        self.account(ok=False)
+        self.script("1_never.py")
+        result = self.run_rebuild()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("FAILED to make the tools' account", result.stdout)
+        self.assertEqual(self.ran.read_text().split(), ["account"])
 
     def test_a_different_snapshot_fails_the_run(self):
         self.script("1_ok.py")
@@ -242,7 +288,7 @@ class RebuildLoop(unittest.TestCase):
         (self.repo / "tools" / "expected_state.json").write_text('{"state": 2}\n')      # would differ, but is skipped
         result = self.run_rebuild(SCRIPTS_GLOB="scripts/1_*.py", SKIP_SNAPSHOT="1")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(self.ran.read_text().split(), ["1_a.py"])
+        self.assertEqual(self.ran.read_text().split(), ["account", "1_a.py"])
 
     def test_it_will_not_start_when_structr_never_answers(self):
         self.script("1_ok.py")

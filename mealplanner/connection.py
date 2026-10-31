@@ -3,8 +3,16 @@
 Every script used to repeat the same three constants and the same client
 construction (45 copies), so changing how a connection is made meant editing
 all of them. The URL comes from STRUCTR_URL (default: the local compose stack)
-and the password from STRUCTR_SUPERUSER_PASSWORD, which has no default on
-purpose: a script run without it should stop, not try a guess.
+and the password from STRUCTR_TOOLS_PASSWORD, which has no default on purpose:
+a script run without it should stop, not try a guess.
+
+The scripts log in as TOOLS_USER, an admin account tools/create_tools_user.py
+makes, not as the superuser: on Structr 7.1 three wrong superuser passwords in
+15 minutes block the superuser everywhere, the admin interface included, so a
+wrong password in .env now locks out the tools' account alone, which that tool
+opens again. It logs in once and sends the session's token after that
+(StructrClient's session_login): a password sent with every request cost 0.4 s
+a request on 7.1.
 
 It is also the one guard between the demo scripts and the owner's data. An
 instance holding the owner's real data carries a marker (a Concept named
@@ -23,7 +31,8 @@ from structr_client import StructrClient
 from structr_client.client import StructrError
 
 DEFAULT_URL = "http://localhost:8083"
-SUPERUSER = "superadmin"
+SUPERUSER = "superadmin"            # the admin interface and tools/create_tools_user.py only
+TOOLS_USER = "mealplanner-tools"
 OWNER_MARKER = "INSTANCE -- owner data"
 
 
@@ -47,7 +56,7 @@ def connect(*, owner_data_ok: bool = False) -> StructrClient:
     the instance and refuses one that holds the owner's data; otherwise it does
     not wait, and the caller calls wait_until_ready() when it needs to."""
     url = os.environ.get("STRUCTR_URL", DEFAULT_URL)
-    client = StructrClient(url, SUPERUSER, os.environ["STRUCTR_SUPERUSER_PASSWORD"])
+    client = StructrClient(url, TOOLS_USER, os.environ["STRUCTR_TOOLS_PASSWORD"], session_login=True)
     if not owner_data_ok:
         client.wait_until_ready()
         if is_owner_instance(client):

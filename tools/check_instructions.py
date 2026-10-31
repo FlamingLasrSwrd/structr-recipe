@@ -10,7 +10,7 @@ level or none, working and waiting minutes, the steps before, doneness in words 
 to the writeInstructions method, and compares each sentence with mealplanner/instructions.py's. It reads
 nothing of the instance, so it may be run on any. tools/check_pages.py compares each recipe page's
 instructions, read from the graph, with Python's for the same Plan. Exits 1 on any difference.
-Needs STRUCTR_SUPERUSER_PASSWORD and STRUCTR_URL, and the methods installed (tools/install_methods.py).
+Needs STRUCTR_TOOLS_PASSWORD and STRUCTR_URL, and the methods installed (tools/install_methods.py).
 """
 
 import argparse

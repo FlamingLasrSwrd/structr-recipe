@@ -14,7 +14,7 @@ visible to signed-in users only, the sign-in page to anyone.
 Before the pages, it makes the one node their bookings lock so that they run one at a time
 (ensure_booking_lock; pages/lib/40_bookings.js). Pages are code: each run replaces each page whole. Its elements are deleted first, since deleting a
 Page leaves them behind (verified on Structr 6.0.0), and every element states its `tag`, without which
-Structr 6 renders nothing. Needs STRUCTR_SUPERUSER_PASSWORD and STRUCTR_URL.
+Structr 6 renders nothing. Needs STRUCTR_TOOLS_PASSWORD and STRUCTR_URL.
 
 The superuser cannot sign in to pages (Structr answers "login with superuser not supported"), so
 reading them in a browser needs a Structr user with a password; this tool creates none.

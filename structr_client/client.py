@@ -8,6 +8,7 @@ for the empirical findings this implements.
 
 from __future__ import annotations
 
+import atexit
 import time
 from typing import Any
 
@@ -93,38 +94,95 @@ class DuplicateMatchError(RuntimeError):
         )
 
 
+LOGIN = "/structr/rest/login"
+LOGOUT = "/structr/rest/logout"
+
+
 class StructrClient:
-    def __init__(self, base_url: str, username: str, password: str, timeout: tuple[float, float] = (5.0, 120.0)):
+    def __init__(self, base_url: str, username: str, password: str, timeout: tuple[float, float] = (5.0, 120.0),
+                 session_login: bool = False):
         """timeout is (connect, read) seconds for EVERY request. Without one, a
         single hung connection blocks forever and wait_until_ready's own
         deadline is never reached. The read side is generous because a schema
-        change recompiles and can legitimately take many seconds."""
+        change recompiles and can legitimately take many seconds.
+
+        With session_login, the first request logs in and every request after
+        it carries the session's token instead of the password. That is for a
+        user stored in the database: on Structr 7.1 each header login checks
+        its password against an Argon2id hash (64 MB, three passes by default),
+        about 0.4 s a request where the superuser's took 15 ms, and a session
+        brings it back to the superuser's. The superuser cannot log in this way
+        (Structr refuses it), so it keeps sending its headers. A session that
+        ends (Structr's application.session.timeout, a restart) is opened again
+        once, on the 401 it answers; the session is closed at exit."""
         self.timeout = timeout
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
-        self.session.headers.update(
-            {
-                "X-User": username,
-                "X-Password": password,
-                "Content-Type": "application/json",
-            }
-        )
+        self.session.headers["Content-Type"] = "application/json"
+        self._credentials = {"X-User": username, "X-Password": password}
+        self.session_login = session_login
+        self._token: str | None = None
+        self._logout_registered = False
+        if not session_login:
+            self.session.headers.update(self._credentials)
 
     # -- low-level HTTP -----------------------------------------------
 
     def _url(self, path: str) -> str:
         return f"{self.base_url}{path}" if path.startswith("/") else f"{self.base_url}/{path}"
 
+    def login(self) -> None:
+        """Open a session (see __init__). The request carries the credentials both
+        as headers, which as an admin lets it through without an anonymous
+        `_login` grant, and as the body the login endpoint reads."""
+        url = self._url(LOGIN)
+        resp = self.session.request("POST", url, headers=self._credentials, timeout=self.timeout,
+                                    json={"name": self._credentials["X-User"], "password": self._credentials["X-Password"]})
+        if resp.status_code >= 400:
+            raise StructrError("POST", url, resp.status_code, self._body(resp))
+        token = resp.cookies.get("JSESSIONID")
+        if not token:
+            raise StructrError("POST", url, resp.status_code, "the login answered without a session cookie")
+        self._token = token
+        self.session.headers["X-StructrSessionToken"] = token
+        if not self._logout_registered:
+            atexit.register(self.logout)
+            self._logout_registered = True
+
+    def logout(self) -> None:
+        """Close the session, if one is open, so it does not linger on the user's node until it times out.
+        It goes as the session cookie: a logout carrying only the token header answered 200 on 7.1.0 and
+        left the session open. Structr marks the cookie Secure, so over http requests would not send it."""
+        if self._token is None:
+            return
+        try:
+            self.session.request("POST", self._url(LOGOUT), json={}, timeout=self.timeout,
+                                 headers={"Cookie": f"JSESSIONID={self._token}"})
+        except requests.exceptions.RequestException:
+            pass                                   # it times out on its own
+        self._token = None
+        self.session.headers.pop("X-StructrSessionToken", None)
+
+    @staticmethod
+    def _body(resp):
+        try:
+            return resp.json()
+        except ValueError:
+            return resp.text
+
     def _request(self, method: str, path: str, **kwargs) -> dict | list | None:
         url = self._url(path)
         kwargs.setdefault("timeout", self.timeout)
+        if self.session_login and self._token is None:
+            self.login()
         resp = self.session.request(method, url, **kwargs)
+        if resp.status_code == 401 and self._token is not None:
+            self._token = None                     # the session ended: log in again, once, and repeat the request
+            self.session.headers.pop("X-StructrSessionToken", None)
+            self.login()
+            resp = self.session.request(method, url, **kwargs)
         if resp.status_code >= 400:
-            try:
-                body = resp.json()
-            except ValueError:
-                body = resp.text
-            raise StructrError(method, url, resp.status_code, body)
+            raise StructrError(method, url, resp.status_code, self._body(resp))
         if not resp.content:
             return None
         return resp.json()

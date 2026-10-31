@@ -9,7 +9,7 @@ already loaded changes nothing. Exits 1 if any file failed. Each recipe loaded
 then has its nutrition per serving worked out again and stored, where the
 instance can store it (mealplanner/recipe_nutrition.py, J28).
 
-Needs STRUCTR_SUPERUSER_PASSWORD (and optionally STRUCTR_URL) in the
+Needs STRUCTR_TOOLS_PASSWORD (and optionally STRUCTR_URL) in the
 environment: `set -a && source .env && set +a`.
 """
 

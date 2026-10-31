@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from datetime import timezone
 
-os.environ.setdefault("STRUCTR_SUPERUSER_PASSWORD", "unused-in-tests")
+os.environ.setdefault("STRUCTR_TOOLS_PASSWORD", "unused-in-tests")
 _spec = importlib.util.spec_from_file_location("plan_week_tool", os.path.join(os.path.dirname(__file__), "..", "tools", "plan_week.py"))
 tool = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(tool)

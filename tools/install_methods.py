@@ -17,7 +17,7 @@ before its first call has finished answers some of them 404 (docs/structr-cheats
 The source's second line names the file it came from. That is how this tool knows its own methods
 (it never touches another, such as the validators) and how tools/snapshot_state.py leaves them out:
 they are code, like the pages, not instance state. Each run replaces each method whole and removes
-those whose file is gone. Needs STRUCTR_SUPERUSER_PASSWORD and STRUCTR_URL.
+those whose file is gone. Needs STRUCTR_TOOLS_PASSWORD and STRUCTR_URL.
 """
 
 import argparse

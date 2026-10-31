@@ -24,7 +24,9 @@ url="http://localhost:$port"
 
 compose() { STRUCTR_PORT="$port" docker compose -p "$project" "$@"; }
 load_env() {
-  if [ -z "${STRUCTR_SUPERUSER_PASSWORD:-}" ] && [ -f .env ]; then set -a; . ./.env; set +a; fi
+  if { [ -z "${STRUCTR_SUPERUSER_PASSWORD:-}" ] || [ -z "${STRUCTR_TOOLS_PASSWORD:-}" ]; } && [ -f .env ]; then
+    set -a; . ./.env; set +a
+  fi
   : "${STRUCTR_SUPERUSER_PASSWORD:?set STRUCTR_SUPERUSER_PASSWORD, or create .env}"
   export STRUCTR_SUPERUSER_PASSWORD STRUCTR_URL="$url"
 }

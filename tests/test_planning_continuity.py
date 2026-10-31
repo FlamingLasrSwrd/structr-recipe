@@ -16,7 +16,7 @@ import importlib.util
 import os
 import unittest
 
-os.environ.setdefault("STRUCTR_SUPERUSER_PASSWORD", "unused-in-tests")
+os.environ.setdefault("STRUCTR_TOOLS_PASSWORD", "unused-in-tests")
 _spec = importlib.util.spec_from_file_location(
     "selector_11c", os.path.join(os.path.dirname(__file__), "..", "scripts", "11c_simple_selector.py"))
 sel = importlib.util.module_from_spec(_spec)

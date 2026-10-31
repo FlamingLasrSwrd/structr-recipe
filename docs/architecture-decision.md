@@ -249,7 +249,7 @@ The first version of this document said things the owner challenged, and they we
 
 - **"The calculations planned as Structr methods ended up in Python because Structr's script language could not handle multi-step traversals."** True of StructrScript only. Structr also runs methods written in JavaScript, which the project never found. Probed: recursion between calls with an argument, and a stock-on-hand method agreeing with Python on every portion, faster (§3). The build sketch's §5 note and the cheatsheet's §3a are corrected to match.
 - **"The planner depends on the engines", given as the main reason for P.** True only of the planner's two graph-facing modules; the search depends on none of them (§1, §5a), which leaves the paths close.
-- **"Structr's per-household permissions go unused" was put as a cost of Structr.** It is the implementation's: tools connect as the superuser and pages write through `$.doPrivileged` because security was out of scope by the owner's choice. Structr's access control (§3) is a strength for the hosted service, and §1 and §5 now weigh it as one.
+- **"Structr's per-household permissions go unused" was put as a cost of Structr.** It is the implementation's: tools connect as an account that bypasses access control (the superuser until 2026-10-31, an admin user since) and pages write through `$.doPrivileged` because security was out of scope by the owner's choice. Structr's access control (§3) is a strength for the hosted service, and §1 and §5 now weigh it as one.
 
 ## Sources (checked 2026-10-26)
 

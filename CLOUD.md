@@ -32,9 +32,10 @@ cloud database fine: nothing in it is precious.
 3. **Create an environment** (the settings dialog at claude.ai/code):
    - *Name:* `structr-recipe`.
    - *Network access:* **Trusted** (the default). It allows Docker Hub, where both images live, and PyPI.
-   - *Environment variables:* `NEO4J_PASSWORD` and `STRUCTR_SUPERUSER_PASSWORD`. Use two new random
-     strings (`openssl rand -hex 16`), **not** passwords you use anywhere else: anyone who can use the
-     environment can read them, and the database they protect is disposable.
+   - *Environment variables:* `NEO4J_PASSWORD`, `STRUCTR_SUPERUSER_PASSWORD` and, optionally,
+     `STRUCTR_TOOLS_PASSWORD` (the tools' own account; `cloud/bootstrap.sh` generates it if it is not
+     set). Use new random strings (`openssl rand -hex 16`), **not** passwords you use anywhere else:
+     anyone who can use the environment can read them, and the database they protect is disposable.
    - *Setup script:* paste the contents of `cloud/setup.sh`.
 4. **Start a session.** In the desktop app choose **Cloud** instead of **Local** when you start it,
    then pick the repository and this environment. From a terminal in the repo:

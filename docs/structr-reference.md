@@ -991,6 +991,21 @@ keystore (Structr terminates TLS itself; the `letsencrypt` command fills the key
     value not tried again), `schedule`, `sync`, `evaluateScript`, health and histogram, the Event
     Action Mapping library, and default visibility's stored flag. Python still does not run.
   - A full application build was identical to its 6.0 build, node for node.
+- **7.1.0, verified** **[V7.1]** (2026-10-31, a fresh development instance):
+  - An admin `User` (`isAdmin`) does through REST all a build script needs of the superuser:
+    schema changes, methods, maintenance commands, and reading owner-only nodes of others. With
+    `skipSecurityRelationships` what it creates has no owner and no grants; without it, every node
+    it creates gets both.
+  - A `User` refuses even its right password after more than four wrong ones in a row (four
+    then the right one worked; six did not), until `passwordAttempts` is set back to 0. The
+    superuser is unaffected.
+  - Header authentication as a stored user costs about 0.4 s a request (its Argon2id hash,
+    `security.passwordhash.*`), against 15 ms for the superuser. A session costs one login
+    (`POST /structr/rest/login`; an admin sending its headers needs no `_login` grant) and then
+    11-15 ms a request with `X-StructrSessionToken`. Logout ends the session only when it carries
+    the `JSESSIONID` cookie; with the token header alone it answers 200 and ends nothing.
+  - `/structr/health/ready` answers through the published port without credentials.
+  - A fresh database gets the initial user `admin` / `admin` with `isAdmin: true`, and it logs in.
 
 Check the running version on the dashboard ("About Structr") or the server log's "Started
 Structr" line.

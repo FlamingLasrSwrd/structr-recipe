@@ -18,7 +18,6 @@ Nothing here is started. Each item says where it came from. The owner decides wh
 | Item | Offered | What it would take |
 |---|---|---|
 | Batches 5 and 6 of the Structr features | 2026-10-27 | `docs/structr-features.md` §5: declared parameters and GET for the Structr methods (it changes how every caller calls them; needed only with Structr 7.1), and a recipe's import as one transaction (a spike of nested creation, or a redesign of the importer, after measuring where an import's time goes) |
-| The tools log in as an admin user, not the superuser | 2026-10-27 | In Structr 7.1 three wrong superuser passwords within 15 minutes block the superuser everywhere for that time, and if its second factor is ever turned on, every header request needs a fresh code. An admin `User` for the tools (made by a numbered script, its password in `.env`), and `mealplanner/connection.py` using it, keep the superuser for the admin interface alone |
 | The cheap security fixes | 2026-10-26 | Structr's port bound to this machine unless other devices should reach it; bookings as form posts with a token tied to the session; HTTPS once phones connect (`docs/self-hosting.md` step 4, which says why a firewall does not cover them, and ranks the rest) |
 | A "Plan the week" button and a preferences page | 2026-10-24, 2026-10-26 | A planner container watching the graph for a request to plan (self-hosting step 3); the week file's settings kept on the week's MealPlan and edited on a page |
 | Weights that read as shares of the score | 2026-10-26 | Today each weight is per unit (per meal, per target and day, per hour), so a term's pull grows with how many units it has (`docs/optimizer-design.md` §4.5). Scaling each family by its count would let a preference say "nutrition matters twice as much as time". An objective change: the owner's call |
@@ -66,6 +65,24 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
   REST (spiked 2026-10-27, `docs/structr-features.md` §3). The rule still holds as a rule: adding a
   trait to a populated type needs that extra step.
 
+- **Move your instance's tools onto their own account** (built 2026-10-31, at your word): the tools and
+  scripts now log in as `mealplanner-tools`, an admin account, not as the superuser, so a wrong password
+  in `.env` can no longer lock the superuser and the admin interface out for 15 minutes. Until these
+  three steps, every tool answers 401 on your instance:
+  1. `bash cloud/bootstrap.sh --env-only` adds a generated `STRUCTR_TOOLS_PASSWORD` to `.env` and
+     changes nothing else in it.
+  2. With your stack up, `STRUCTR_URL=http://localhost:8085 python3 tools/create_tools_user.py` makes
+     the account (the one step that still uses the superuser). It changes no data, and what the
+     account creates has no owner, as when the superuser made it. Run it again whenever the account
+     is locked: more than four wrong passwords in a row lock it until this tool clears them.
+  3. The development stack gets the account from its next `tools/rebuild.sh`, or the same command
+     with port 8083.
+- Decide what to do with Structr's initial `admin` account. A fresh 7.1.0 database is given a user
+  `admin` with the password `admin` and full admin rights, and it logs in (found 2026-10-31 on a
+  fresh development stack; `docs/structr-cheatsheet.md` §2). Whether your instance, first built on
+  6.0.0, has one was not checked: `curl -s -o /dev/null -w '%{http_code}\n' -H 'X-User: admin'
+  -H 'X-Password: admin' http://localhost:8085/structr/rest/User` answers 200 if it does. Nothing in
+  this project uses it; deleting it, or giving it a long password, would close it.
 - Sign in as Elijah and press one booking button: page bookings for a signed-in household member are
   untested (`docs/pages.md`).
 - Copy `~/mealplanner-backups` off this machine now and then (`docs/backups.md`).

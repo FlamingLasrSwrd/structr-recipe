@@ -4,7 +4,7 @@
     python3 tools/import_profiles.py --check    # parse the files; write nothing
 
 Idempotent. Meant for the owner's instance as well as any other; needs
-STRUCTR_SUPERUSER_PASSWORD and STRUCTR_URL.
+STRUCTR_TOOLS_PASSWORD and STRUCTR_URL.
 """
 
 import argparse

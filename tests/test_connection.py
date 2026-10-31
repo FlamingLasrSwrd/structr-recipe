@@ -49,7 +49,7 @@ class Marker(unittest.TestCase):
 class Connect(unittest.TestCase):
     def connect_to(self, instance, **kwargs):
         with mock.patch.object(connection, "StructrClient", return_value=instance), \
-                mock.patch.dict(os.environ, {"STRUCTR_SUPERUSER_PASSWORD": "x"}):
+                mock.patch.dict(os.environ, {"STRUCTR_TOOLS_PASSWORD": "x"}):
             return connect(**kwargs)
 
     def test_a_script_is_refused_on_the_owners_instance(self):

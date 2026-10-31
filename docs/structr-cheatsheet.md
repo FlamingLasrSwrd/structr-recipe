@@ -140,6 +140,55 @@ authenticated.
   `flags=255` (every bit) first with zero effect, then adding
   `visibleToPublicUsers=True` and immediately getting a working login.
 
+✅ **An admin `User` for scripts, in place of the superuser** (probed 2026-10-31 on a
+fresh 7.1.0 development stack; `tools/create_tools_user.py` is the result):
+
+- An account made by the superuser with `isAdmin: true` changed the schema
+  (`SchemaNode`, `SchemaProperty`, `SchemaMethod` POSTs), created, patched and deleted
+  nodes, called a static method, ran `maintenance/createLabels`, read `_schema` and `me`,
+  and listed an owner-only node another (non-admin) user had made.
+- **It owns what it creates unless `skipSecurityRelationships: true`.** Without the flag
+  a node it created had an `owner` and a grantee (OWNS and SECURITY relationships); with
+  it, `owner` was null and `grantees` empty, as for a node the superuser makes. Only an
+  admin may set the flag (the superuser did).
+- **A `User` locks after more than four wrong passwords in a row**: four wrong then the
+  right one answered 200; six wrong then the right one answered 401, with
+  `passwordAttempts: 6` stored and `blocked` still false. A right password before the
+  limit resets the count to 0. The lock did not lift by itself in the minutes watched
+  (how long it lasts was not measured); `PATCH {"passwordAttempts": 0}` by the superuser
+  opened it at once. The superuser kept working throughout, unlike its own lockout
+  (`structr-reference.md` §2.3), which takes the admin interface with it.
+- **⚠️ Header authentication as a database user is slow on 7.1: about 0.4 s a request**
+  (370-400 ms measured, against 15 ms for the superuser on the same instance), because
+  every request checks the password against its Argon2id hash
+  (`security.passwordhash.memory` 64 MB, `.iterations` 3 by default). A build sends
+  thousands of requests: the first rebuild tried this way took 12 minutes to reach the
+  point the superuser's reaches in under one.
+- **A session fixes it.** `POST /structr/rest/login` with the credentials both as
+  `X-User`/`X-Password` headers and as the JSON body (`{"name", "password"}`) logged the
+  admin in with no `_login` grant on the instance (the body alone answered 401 "Access
+  denied" there), in about 0.95 s (two hash checks). The answer's `JSESSIONID` cookie,
+  sent back as `X-StructrSessionToken: <id>` (or as the cookie), then authenticated each
+  request in 11-15 ms. The cookie is marked `Secure` and `HttpOnly`, so Python `requests`
+  does not send it back over plain http by itself. A session id is stored on the user
+  (`sessionIds`), and a header-authenticated request's own `JSESSIONID` is not tied to
+  the user (sent back alone it answered 401).
+- **Log out with the cookie.** `POST /structr/rest/logout` carrying only
+  `X-StructrSessionToken` answered 200 and left the session open (still in `sessionIds`,
+  still accepted); with `Cookie: JSESSIONID=<id>` it removed the session. A request made
+  with the session after a `docker restart` of Structr still succeeded.
+- **Each session is also a node**: a `SessionDataNode` (Jetty's stored session), one per
+  login, still there after the logout (a full rebuild left 77; header requests leave
+  none). Structr's session store looks them up by `lastAccessed` for Jetty's expiry sweep,
+  so they should go once idle past `application.session.timeout` (1800 s). Not yet
+  watched happening. The snapshot does not see them (not a schema type).
+- `GET /structr/health/ready` answers 200 from the host through the published port, with
+  no credentials, so a readiness wait need not be a login attempt.
+- ⚠️ **A fresh 7.1.0 database gets an `admin` user with the password `admin` and
+  `isAdmin: true`** (`initialuser.create`), and it logs in with headers. Seen on a
+  development stack straight after its first start, before any script ran. Whether an
+  instance first built on 6.0.0 has one was not checked.
+
 📖 Full permission resolution order per the docs (not independently
 re-verified beyond what's above): admin bypass → visibility flags
 (`visibleToPublicUsers`/`visibleToAuthenticatedUsers`) → ownership →

@@ -26,7 +26,7 @@ booking may not make itself. Then, each member as themselves:
   meal A cannot change, and a week of that name A's request must not add to.
 
 It removes everything it made, and first sweeps what an interrupted earlier run left (sweep). Exits 1
-on any failure. Needs STRUCTR_SUPERUSER_PASSWORD and
+on any failure. Needs STRUCTR_TOOLS_PASSWORD and
 STRUCTR_URL, and the methods installed (tools/install_methods.py, and tools/install_pages.py for the
 bookings' lock).
 """

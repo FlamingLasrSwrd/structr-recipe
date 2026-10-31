@@ -24,7 +24,7 @@ commits its booking before it answers.
 
 It also says whether the page could write as the superuser for a user who is not one
 ($.doPrivileged), which is what lets a household member's booking through. Exits 1 on any
-difference. Needs STRUCTR_SUPERUSER_PASSWORD and STRUCTR_URL.
+difference. Needs STRUCTR_TOOLS_PASSWORD and STRUCTR_URL.
 """
 
 import argparse
