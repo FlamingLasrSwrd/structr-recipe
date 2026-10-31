@@ -92,9 +92,8 @@ def main(argv=None) -> int:
     for n in range(args.count):
         steps, bearers = random_steps(rng), random_bearers(rng)
         want = instructions(steps, bearers)
-        r = client.session.post(f"{client.base_url}/structr/rest/writeInstructions",
-                                json={"steps": as_data(steps), "bearers": {c: list(b) for c, b in bearers.items()}},
-                                timeout=client.timeout)
+        r = client.request("POST", "/structr/rest/writeInstructions",
+                           json={"steps": as_data(steps), "bearers": {c: list(b) for c, b in bearers.items()}})
         if r.status_code == 404:
             print("problem: the writeInstructions method is not installed here (tools/install_methods.py)")
             return 1

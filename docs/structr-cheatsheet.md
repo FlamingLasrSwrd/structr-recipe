@@ -186,6 +186,9 @@ fresh 7.1.0 development stack; `tools/create_tools_user.py` is the result):
   `X-StructrSessionToken` answered 200 and left the session open (still in `sessionIds`,
   still accepted); with `Cookie: JSESSIONID=<id>` it removed the session. A request made
   with the session after a `docker restart` of Structr still succeeded.
+- **A page answers an ended session 404, not 401** (2026-10-31, 7.1.0). REST answers the same token 401,
+  so a retry on 401 recovers a REST call and never a page; on a page's 404, ask `/structr/rest/me`
+  (`StructrClient.request`).
 - **Each session is also a node**: a `SessionDataNode` (Jetty's stored session), one per
   login, still there after the logout (a full rebuild left 76 to 77; header requests leave
   none). None had gone 48 minutes after the oldest session's last use, although Structr's

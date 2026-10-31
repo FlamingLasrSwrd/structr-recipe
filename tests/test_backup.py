@@ -27,6 +27,7 @@ class FakeDocker:
         self.running, self.counts, self.restored = set(running), counts, restored or counts
         self.pages_rc, self.fail_on, self.calls = pages_rc, fail_on, []
         self.no_volumes = set(no_volumes)              # volumes the stack has never made
+        self.tools_account_at = []                     # the URL each run of create_tools_user.py was pointed at
 
     def __call__(self, args, *, env=None, check=True):
         line = " ".join(args)
@@ -64,6 +65,8 @@ class FakeDocker:
             out = "abc123\n"
         elif args[0] == "bash" and args[1].endswith("owner_stack.sh"):
             self.running |= {f"{tool.OWNER}-neo4j-1", f"{tool.OWNER}-structr-1"}
+        elif "create_tools_user.py" in line:
+            self.tools_account_at.append((env or {}).get("STRUCTR_URL"))
         elif "check_pages.py" in line:
             out, rc = ("0 difference(s)\n" if self.pages_rc == 0 else "2 difference(s)\n"), self.pages_rc
         return subprocess.CompletedProcess(args, rc, out, "")
@@ -198,6 +201,41 @@ class Checking(WithATempRepo):
         self.assertEqual([c["ok"] for c in checks], [False, False, False])
         self.assertIn("database load failed", checks[-1]["problem"])
 
+    def test_the_tools_account_is_made_on_the_throwaway_before_its_pages_are_checked(self):
+        """check_pages logs in as the tools' account, which a backup made before that account has not got."""
+        self.made()
+        docker = self.docker()
+        self.assertTrue(tool.verify(None))
+        self.assertEqual(docker.tools_account_at, ["http://localhost:8086"])
+        self.assertLess(docker.index("wait_for_structr.sh"), docker.index("create_tools_user.py"))
+        self.assertLess(docker.index("create_tools_user.py"), docker.index("check_pages.py"))
+        self.assertLess(docker.index("cypher-shell"), docker.index("create_tools_user.py"))    # counted as backed up
+
+    def test_the_repositorys_pages_and_methods_are_what_is_checked_not_the_backups_older_ones(self):
+        self.made()
+        docker = self.docker()
+        self.assertTrue(tool.verify(None))
+        self.assertLess(docker.index("create_tools_user.py"), docker.index("install_pages.py"))
+        self.assertLess(docker.index("install_pages.py"), docker.index("install_methods.py"))
+        self.assertLess(docker.index("install_methods.py"), docker.index("check_pages.py"))
+
+    def test_when_they_cannot_be_installed_it_says_so_and_the_throwaway_still_goes(self):
+        folder = self.made()
+        docker = self.docker(fail_on="install_methods.py")
+        self.assertFalse(tool.verify(folder.name))
+        self.assertIn("install_methods.py failed", json.loads((folder / "manifest.json").read_text())["verified"][-1]["problem"])
+        self.assertFalse(any("check_pages.py" in c for c in docker.calls))
+        self.assertIn(f"docker compose -p {tool.VERIFY} down -v", docker.calls)
+
+    def test_when_the_account_cannot_be_made_it_says_so_and_the_throwaway_still_goes(self):
+        folder = self.made()
+        docker = self.docker(fail_on="create_tools_user.py")
+        self.assertFalse(tool.verify(folder.name))
+        check = json.loads((folder / "manifest.json").read_text())["verified"][-1]
+        self.assertIn("create_tools_user.py failed", check["problem"])
+        self.assertFalse(any("check_pages.py" in c for c in docker.calls))
+        self.assertIn(f"docker compose -p {tool.VERIFY} down -v", docker.calls)
+
     def test_not_beside_another_stack_nor_from_a_changed_file(self):
         folder = self.made()
         self.docker(running=OWNER_UP)
@@ -230,6 +268,29 @@ class Restoring(WithATempRepo):
         self.assertTrue((tool.REPO / f"private.restored-{folder.name}" / "private").is_dir())
         self.assertTrue((tool.REPO / "private").is_dir())
         self.assertFalse(any("down -v" in c for c in docker.calls))
+
+
+class RestoringTheToolsAccount(WithATempRepo):
+    def restored(self, **kw):
+        self.docker(running=OWNER_UP)
+        folder = tool.now(leave_stopped=True)
+        docker = self.docker(running=OWNER_UP, **kw)
+        with contextlib.redirect_stdout(io.StringIO()) as said:
+            tool.restore(folder.name, answer=lambda prompt: folder.name)
+        return docker, said.getvalue()
+
+    def test_it_is_made_on_the_owners_instance_once_that_is_up(self):
+        docker, said = self.restored()
+        self.assertEqual(docker.tools_account_at, ["http://localhost:8085"])
+        self.assertLess(docker.index("owner_stack.sh"), docker.index("create_tools_user.py"))
+        self.assertNotIn("could not be made", said)
+        self.assertIn("tools/install_pages.py and tools/install_methods.py", said)      # told, not done
+        self.assertFalse(any("install_pages.py" in c for c in docker.calls))
+
+    def test_when_it_cannot_be_the_restore_stands_and_says_what_is_left_to_do(self):
+        _, said = self.restored(fail_on="create_tools_user.py")
+        self.assertIn("restored ", said)
+        self.assertIn("until tools/create_tools_user.py has run, every tool answers 401", said)
 
 
 class Parsing(unittest.TestCase):

@@ -49,7 +49,7 @@ DATA = re.compile(r'<script type="application/json" id="page-data">(.*?)</script
 
 
 def page_data(client, path: str):
-    r = client.session.get(f"{client.base_url}/structr/html/{path}", timeout=client.timeout)
+    r = client.request("GET", f"/structr/html/{path}")
     r.raise_for_status()
     found = DATA.search(r.text)
     if not found:
@@ -97,7 +97,7 @@ def check_week(client, reads, week: dict, problems: list[str]) -> int:
 
 def method(client, name: str, **arguments):
     """A Structr method's answer, called as the superuser; None when it is not installed."""
-    r = client.session.post(f"{client.base_url}/structr/rest/{name}", json=arguments, timeout=client.timeout)
+    r = client.request("POST", f"/structr/rest/{name}", json=arguments)
     if r.status_code == 404:
         return None
     r.raise_for_status()

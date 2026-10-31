@@ -76,6 +76,11 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
      is locked: more than four wrong passwords in a row lock it until this tool clears them.
   3. The development stack gets the account from its next `tools/rebuild.sh`, or the same command
      with port 8083.
+- **Install the pages and methods on your instance** (2026-10-31; after the account above):
+  `STRUCTR_URL=http://localhost:8085 python3 tools/install_pages.py && STRUCTR_URL=http://localhost:8085
+  python3 tools/install_methods.py`. The nutrition page and `nutritionReport` now mark totals that rest on
+  estimates; until they are installed the page has no marks, and `check_pages` reports a difference for
+  every total that does (896 on a copy of your backup of 2026-10-27, none in the data; 0 once installed).
 - **Retire `resolveDefault` on your instance** (built 2026-10-31, at your word; after the account
   above): `STRUCTR_URL=http://localhost:8085 python3 scripts/47a_retire_resolve_default.py`, then
   restart Structr (`tools/owner_stack.sh stop`, then `up`). It deletes the StructrScript method

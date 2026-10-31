@@ -7,6 +7,7 @@ exercised by running them (see CLOUD.md's first-run checklist)."""
 import http.server
 import os
 import pathlib
+import re
 import subprocess
 import tempfile
 import threading
@@ -237,6 +238,17 @@ case "$1" in
         if [ "$n" -ge "${FAKE_PULL_OK_AT:-1}" ]; then touch "$state/have-$3"; else exit 1; fi ;;
 esac
 """
+
+
+class ToolsGoThroughTheClient(unittest.TestCase):
+    def test_none_sends_a_request_on_the_clients_session_itself(self):
+        """client.session has no login and no second try: a tool that used it read a page with a session that
+        had ended. client.request does both (structr_client/client.py)."""
+        around = re.compile(r"client\.session\.(get|post|put|patch|delete|head|request)\(")
+        found = [f"{path.relative_to(ROOT)}:{n}" for folder in ("tools", "scripts", "mealplanner")
+                 for path in sorted((ROOT / folder).rglob("*.py"))
+                 for n, line in enumerate(path.read_text().splitlines(), 1) if around.search(line)]
+        self.assertEqual(found, [])
 
 
 class BootstrapStartsTheStack(unittest.TestCase):

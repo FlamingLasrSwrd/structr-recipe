@@ -193,6 +193,9 @@ class SessionServer:
             params = kw.get("params") or {}                # as Structr: no filter lists them all
             return FakeResponse(200, {"result": [{"id": i} for i, s in self.stored.items()
                                                  if "sessionId" not in params or s == params["sessionId"]]})
+        if path.startswith("/structr/html/"):              # as on 7.1.0: a page answers an ended session 404, not 401
+            alive = merged.get("X-StructrSessionToken") in self.live
+            return FakeResponse(200 if alive and not path.endswith("/missing") else 404, {})
         if path == "/structr/rest/Refused":
             return FakeResponse(401, {"code": 401})        # refused whoever asks
         if merged.get("X-StructrSessionToken") in self.live or merged.get("X-Password") == self.password:
@@ -231,6 +234,68 @@ class SessionLogin(unittest.TestCase):
         self.assertEqual([p for _, p, _, _ in server.sent],
                          ["/structr/rest/login", "/structr/rest/Thing", "/structr/rest/Thing", "/structr/rest/login", "/structr/rest/Thing"])
         self.assertEqual(server.sent[-1][2]["X-StructrSessionToken"], "t2.node0")
+
+    def test_request_logs_in_first_and_hands_back_the_response(self):
+        server = SessionServer()
+        c = session_client(server)
+        response = c.request("GET", "/structr/html/week")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([p for _, p, _, _ in server.sent], ["/structr/rest/login", "/structr/html/week"])
+        self.assertEqual(server.sent[-1][2]["X-StructrSessionToken"], "t1.node0")
+
+    def test_request_opens_an_ended_session_again_and_repeats_once(self):
+        server = SessionServer()
+        c = session_client(server)
+        c.request("GET", "/structr/html/week")
+        server.end_sessions()
+        self.assertEqual(c.request("POST", "/structr/rest/nutritionReport", json={"week": "w"}).status_code, 200)
+        self.assertEqual([p for _, p, _, _ in server.sent],
+                         ["/structr/rest/login", "/structr/html/week", "/structr/rest/nutritionReport",
+                          "/structr/rest/login", "/structr/rest/nutritionReport"])
+        self.assertEqual(server.sent[-1][3], {"week": "w"})
+
+    def test_a_page_answering_an_ended_session_404_opens_it_again_and_repeats_once(self):
+        server = SessionServer()
+        c = session_client(server)
+        c.request("GET", "/structr/html/week")
+        server.end_sessions()
+        self.assertEqual(c.request("GET", "/structr/html/week").status_code, 200)
+        self.assertEqual([p for _, p, _, _ in server.sent],
+                         ["/structr/rest/login", "/structr/html/week", "/structr/html/week", "/structr/rest/me",
+                          "/structr/rest/login", "/structr/html/week"])
+        self.assertEqual(server.sent[-1][2]["X-StructrSessionToken"], "t2.node0")
+
+    def test_a_page_that_is_not_there_is_a_404_and_the_session_stays(self):
+        server = SessionServer()
+        c = session_client(server)
+        self.assertEqual(c.request("GET", "/structr/html/missing").status_code, 404)
+        self.assertEqual([p for _, p, _, _ in server.sent], ["/structr/rest/login", "/structr/html/missing", "/structr/rest/me"])
+        self.assertEqual(server.issued, 1)
+
+    def test_a_rest_404_does_not_ask_about_the_session(self):
+        server = SessionServer()
+        c = session_client(server)
+        real = server.request
+        server.request = lambda method, url, **kw: FakeResponse(404, {}) if url.endswith("/Gone") else real(method, url, **kw)
+        self.assertEqual(c.request("GET", "/structr/rest/Gone").status_code, 404)
+        self.assertEqual([p for _, p, _, _ in server.sent], ["/structr/rest/login"])
+
+    def test_a_page_that_stays_404_after_logging_in_again_is_returned_not_looped(self):
+        server = SessionServer()
+        c = session_client(server)
+        c.request("GET", "/structr/html/week")
+        server.end_sessions()
+        self.assertEqual(c.request("GET", "/structr/html/missing").status_code, 404)
+        self.assertEqual(server.issued, 2)
+        self.assertEqual([p for _, p, _, _ in server.sent][-4:],
+                         ["/structr/html/missing", "/structr/rest/me", "/structr/rest/login", "/structr/html/missing"])
+
+    def test_request_returns_a_refusal_rather_than_raising_it(self):
+        server = SessionServer()
+        c = session_client(server)
+        self.assertEqual(c.request("GET", "/structr/rest/Refused").status_code, 401)      # a caller reads its status
+        with self.assertRaises(StructrError):
+            c.get("/structr/rest/Refused")
 
     def test_a_wrong_password_fails_at_the_login_and_nothing_else_is_sent(self):
         server = SessionServer()

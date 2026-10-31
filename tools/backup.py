@@ -296,6 +296,23 @@ def put_back(project: str, folder: Path) -> None:
             restore_volume(project, volume, folder)
 
 
+def tools_account(port: int) -> None:
+    """Make the account every tool logs in as on the instance at `port`, or bring it into line with .env
+    (tools/create_tools_user.py). A backup made before the account existed (2026-10-31) does not hold it,
+    and one made since may hold another password."""
+    run([sys.executable, str(REPO / "tools" / "create_tools_user.py")],
+        env={**load_env(), "STRUCTR_URL": f"http://localhost:{port}"})
+
+
+def install_code(port: int) -> None:
+    """The repository's pages and methods on the instance at `port`. A backup holds those of when it was
+    made, and check_pages compares what they show with today's Python, so an older page differs though the
+    data is sound (2026-10-31: 896 differences, every one the nutrition page's new mark for estimates)."""
+    env = {**load_env(), "STRUCTR_URL": f"http://localhost:{port}"}
+    for tool in ("install_pages.py", "install_methods.py"):
+        run([sys.executable, str(REPO / "tools" / tool)], env=env)
+
+
 def verify(name: str | None) -> bool:
     folder = chosen(name)
     intact(folder)
@@ -315,6 +332,8 @@ def verify(name: str | None) -> bool:
         result["counts_match"] = expected is None or (expected["nodes"], expected["relationships"]) == (nodes, relationships)
         url = f"http://localhost:{VERIFY_PORT}"
         run(["bash", str(REPO / "tools" / "wait_for_structr.sh"), str(WAIT_S)], env={**load_env(), "STRUCTR_URL": url})
+        tools_account(VERIFY_PORT)            # after the count: neither is part of what was backed up
+        install_code(VERIFY_PORT)
         pages = run([sys.executable, str(REPO / "tools" / "check_pages.py")], env={**load_env(), "STRUCTR_URL": url}, check=False)
         result["pages"] = (pages.stdout.strip().splitlines() or ["(nothing printed)"])[-1]
         result["ok"] = bool(result["counts_match"] and pages.returncode == 0)
@@ -356,6 +375,12 @@ def restore(name: str, answer=input) -> None:
     c = read_manifest(folder).get("counts")
     print(f"restored {folder.name}: {nodes:,} nodes and {relationships:,} relationships"
           + (f" (backed up: {c['nodes']:,} and {c['relationships']:,})" if c else ""))
+    try:
+        tools_account(OWNER_PORT)
+    except BackupError as exc:                # the data is back all the same: say what is left to do
+        print(f"the tools' account could not be made ({exc}): until tools/create_tools_user.py has run, every tool answers 401")
+    print("its pages and methods are those of when it was made: tools/install_pages.py and tools/install_methods.py "
+          "bring them up to the repository's")
 
 
 def main(argv=None) -> int:

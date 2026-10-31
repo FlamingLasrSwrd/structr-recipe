@@ -106,7 +106,7 @@ class Check:
         print(f"  DIFFERS: {text}")
 
     def page(self, path: str, **params) -> dict:
-        r = self.client.session.get(f"{self.client.base_url}/structr/html/{path}", params=params, timeout=self.client.timeout)
+        r = self.client.request("GET", f"/structr/html/{path}", params=params)
         r.raise_for_status()
         found = DATA.search(r.text)
         if not found:
@@ -429,6 +429,7 @@ def menu_check(check: Check, client, t: dict) -> None:
 def at_once(client, path: str, forms: list) -> list[str]:
     """Each form sent to the page at the same moment, each on a connection of its own: the answers."""
     ready, answers = threading.Barrier(len(forms)), [None] * len(forms)
+    client.get("/structr/rest/me")            # a session that has ended is opened here, before each copy takes its token
 
     def send(i):
         session = type(client.session)()
@@ -509,7 +510,7 @@ def request_check(check: Check, client) -> None:
     recipe = plan["specializationOf"]["id"]
 
     def shown() -> dict:
-        r = client.session.get(f"{client.base_url}/structr/html/recipe/{plan['id']}", timeout=client.timeout)
+        r = client.request("GET", f"/structr/html/recipe/{plan['id']}")
         r.raise_for_status()
         return json.loads(PAGE_DATA.search(r.text).group(1))["request"]
 

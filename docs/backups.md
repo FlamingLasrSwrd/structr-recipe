@@ -47,8 +47,12 @@ python3 tools/backup.py verify            # the newest; or name one
 ```
 
 `verify` restores the backup into a throwaway stack (`mealplanner-verify`, port 8086), counts its
-nodes and relationships against the manifest, runs `tools/check_pages.py` against it (every page
-against what the Python tools work out), and removes the throwaway, volumes and all. It refuses while
+nodes and relationships against the manifest, makes the tools' account there
+(`tools/create_tools_user.py`: a backup made before 2026-10-31 does not hold it, and every tool logs in
+as it), installs the repository's pages and methods (a backup holds those of when it was made, and an
+older page differs from today's Python though the data is sound), runs `tools/check_pages.py` against it
+(every page against what the Python tools work out), and removes the throwaway, volumes and all. So it
+checks the backup's data with today's code, not the code the backup holds. It refuses while
 another stack runs (two do not fit in 8 GB), and records the result in the manifest. It checks the
 files' checksums first, so a damaged backup is caught before anything is started.
 
@@ -56,6 +60,12 @@ files' checksums first, so a damaged backup is caught before anything is started
 counts, and every page gave 0 differences: the week of 26 Oct (21 meals, 448 target groups, 84 foods
 to buy), 53 recipes, 43 pantry portions. It took 6.5 minutes, most of it Structr starting and the
 page check.
+
+**Checked 2026-10-31,** on copies of two backups made before the tools' account: `2026-10-27_164404`
+(42,706 nodes, 89,401 relationships) and `2026-10-27_152625` (42,386 and 88,680, made before migrations
+40a to 46a), each OK with the same counts and 0 differences. Before `verify` made the account, it called
+the first FAILED with nothing printed; before it installed the current pages, 896 differences, every one
+the nutrition page's mark for estimates.
 
 ## Putting a backup back
 
@@ -66,7 +76,9 @@ python3 tools/backup.py restore 2026-10-26_133432
 This replaces everything in the owner's instance, so it asks for the backup's name to be typed
 first, and before changing anything it backs up what is there now (`<time>-before-restore`), so a
 restore can itself be undone. It then stops the stack, loads the graph and the Structr volumes,
-starts the stack and counts the graph against the manifest. The backup's `private/` is unpacked
+starts the stack, counts the graph against the manifest, and makes the tools' account again if the
+backup does not hold it. The pages and methods stay those of the backup, and it says so: `check_pages`
+differs until `tools/install_pages.py` and `tools/install_methods.py` have run. The backup's `private/` is unpacked
 beside yours as `private.restored-<name>/`, not over it: copy from it what you need.
 
 ## How it works, and what to keep in mind
@@ -82,8 +94,9 @@ beside yours as `private.restored-<name>/`, not over it: copy from it what you n
 - **A backup is put back under the Structr that `docker-compose.yml` names.** Since 2026-10-27 that is
   7.1.0, which upgrades a database made by 6.0 when it starts (`application.migration.mode`, `apply` by
   default). So a backup made before the upgrade, restored now, comes back upgraded; to have it on 6.0
-  again, set the image line back to `structr/structr:6.0.0` first. Each manifest records the images it
-  was made with.
+  again, set the image line back to `structr/structr:6.0.0` first. A manifest records the images
+  `docker-compose.yml` named when it was made, not what the stack last ran: `2026-10-27_152625`, taken
+  just before the upgrade, says 7.1.0 of data still on 6.0.
 - The changelog lives in files, not in the graph, so it is backed up as a volume. A volume the stack has never
   made (the changelog's, before its first start with it) is left out rather than made: the first
   backup after the changelog was added made the owner's as a plain volume, so Compose warns at each

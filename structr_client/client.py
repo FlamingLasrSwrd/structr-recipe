@@ -94,6 +94,8 @@ class DuplicateMatchError(RuntimeError):
         )
 
 
+REST = "/structr/rest/"
+ME = "/structr/rest/me"
 LOGIN = "/structr/rest/login"
 LOGOUT = "/structr/rest/logout"
 SESSION_NODES = "/structr/rest/SessionDataNode"
@@ -180,19 +182,32 @@ class StructrClient:
         except ValueError:
             return resp.text
 
-    def _request(self, method: str, path: str, **kwargs) -> dict | list | None:
+    def request(self, method: str, path: str, **kwargs) -> requests.Response:
+        """The response itself, whatever its status: for a page, which is not JSON, or a method that may not
+        be installed. Anything that needs the session goes through here, so that it logs in first and logs
+        in again, once, when the session has ended; self.session alone does neither.
+
+        REST answers an ended session 401. A page answers it 404, as it answers anyone it is not visible to
+        (7.1.0, 2026-10-31), so a page's 404 asks REST whether the session is still open."""
         url = self._url(path)
         kwargs.setdefault("timeout", self.timeout)
         if self.session_login and self._token is None:
             self.login()
         resp = self.session.request(method, url, **kwargs)
-        if resp.status_code == 401 and self._token is not None:
+        ended = self._token is not None and (resp.status_code == 401 or (
+            resp.status_code == 404 and not path.startswith(REST)
+            and self.session.request("GET", self._url(ME), timeout=self.timeout).status_code == 401))
+        if ended:
             self._token = None                     # the session ended: log in again, once, and repeat the request
             self.session.headers.pop("X-StructrSessionToken", None)
             self.login()
             resp = self.session.request(method, url, **kwargs)
+        return resp
+
+    def _request(self, method: str, path: str, **kwargs) -> dict | list | None:
+        resp = self.request(method, path, **kwargs)
         if resp.status_code >= 400:
-            raise StructrError(method, url, resp.status_code, self._body(resp))
+            raise StructrError(method, self._url(path), resp.status_code, self._body(resp))
         if not resp.content:
             return None
         return resp.json()

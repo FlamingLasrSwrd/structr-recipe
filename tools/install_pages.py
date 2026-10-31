@@ -103,7 +103,7 @@ def ensure_booking_lock(client) -> None:
     remove_page(client, LOCK_PAGE)
     build_page(client, LOCK_PAGE, "Booking lock", LOCK_SCRIPT)
     try:
-        r = client.session.get(f"{client.base_url}/structr/html/{LOCK_PAGE}", timeout=client.timeout)
+        r = client.request("GET", f"/structr/html/{LOCK_PAGE}")
         r.raise_for_status()
         if "booking locks: 1" not in r.text:
             raise RuntimeError(f"the bookings' lock was not made: {r.text[:300]}")
