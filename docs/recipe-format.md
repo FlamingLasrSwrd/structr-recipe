@@ -90,7 +90,9 @@ lean ones), the salmon (+39%) and the tofu stir-fry (+30%). The books' own figur
 other data, so a difference is a question about the match, not a verdict on it.
 
 They are loaded only when asked for, never by the build, and not into the owner's instance unless the
-owner does it (some may be near recipes already there):
+owner does it (some may be near recipes already there). Not on a stack the demos are run on either:
+`scripts/26a`'s planner checks assume that every recipe but its own fixtures lacks usable nutrition,
+and these have it (`docs/todo.md`).
 
 ```bash
 python3 tools/import_recipe.py --check data/recipes/*.toml   # needs the vocabulary imported first

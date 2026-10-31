@@ -162,7 +162,7 @@ def main():
         others = [c for c in problem.candidates.values() if not c.name.startswith(P)]
         check(all(ineligible_reason(problem, 0, c) for c in others),
               f"all {len(others)} other recipes are refused (placeholder, missing or unmarked nutrition): "
-              + "; ".join(sorted({ineligible_reason(problem, 0, c).split(',')[0] for c in others})[:2]))
+              + "; ".join(sorted({(ineligible_reason(problem, 0, c) or "eligible").split(',')[0] for c in others})[:2]))
         per_serving = {c.name: c.nutrients[protein] for c in problem.candidates.values() if c.name.startswith(P)}
         check(all(abs(per_serving[P + n] - RECIPES[n][0]) < 1e-9 for n in RECIPES), "protein per serving read as 12, 10, 24, 30, 45 g")
 
