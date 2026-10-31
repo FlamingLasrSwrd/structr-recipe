@@ -14,7 +14,8 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
-SCRIPTS = ["tools/wait_for_structr.sh", "tools/rebuild.sh", "tools/owner_stack.sh", "cloud/bootstrap.sh", "cloud/setup.sh"]
+SCRIPTS = ["tools/wait_for_structr.sh", "tools/rebuild.sh", "tools/owner_stack.sh", "cloud/bootstrap.sh", "cloud/setup.sh",
+           ".githooks/pre-push"]
 
 
 def write(directory, name, text):
@@ -158,6 +159,69 @@ class ShellScripts(unittest.TestCase):
         for line in compose.splitlines():
             if line.strip().startswith("image:"):
                 self.assertIn(line.split("image:")[1].strip(), text)   # every image the stack uses is pre-pulled
+
+
+class PrePushHook(unittest.TestCase):
+    """.githooks/pre-push in a throwaway repository whose checks are stand-ins that pass or fail as told."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.repo = pathlib.Path(self.tmp.name)
+        subprocess.run(["git", "init", "-q", str(self.repo)], check=True)
+        (self.repo / ".githooks").mkdir()
+        (self.repo / ".githooks" / "pre-push").write_text((ROOT / ".githooks" / "pre-push").read_text())
+        for folder in ("tests", "tools", "scripts"):
+            (self.repo / folder).mkdir()
+        (self.repo / "tests" / "__init__.py").write_text("")
+        self.ran = self.repo / "ran.txt"
+        self.check("tests/test_stand_in.py", "import unittest\n\nclass T(unittest.TestCase):\n    def test_it(self):\n        {body}\n")
+        self.check("tools/check_names.py")
+        self.check("scripts/23a_schema_drift_test.py")
+
+    def check(self, name, template="{body}\n", fails=False):
+        record = f"open({str(self.ran)!r}, 'a').write({name!r} + '\\n')"
+        body = record + ("; raise SystemExit('broken on purpose')" if fails else "")
+        if name.startswith("tests/"):
+            body = record + ("; self.fail('broken on purpose')" if fails else "")
+        (self.repo / name).write_text(template.format(body=body))
+
+    def run_hook(self, **env):
+        return subprocess.run(["bash", str(self.repo / ".githooks" / "pre-push")], cwd=self.repo, capture_output=True, text=True,
+                              env={**os.environ, "SOLVER_PYTHON": "python3", **env})
+
+    def test_every_check_runs_and_the_push_goes_ahead(self):
+        result = self.run_hook()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.ran.read_text().split(), ["tests/test_stand_in.py", "tests/test_stand_in.py",   # both interpreters
+                                                        "tools/check_names.py", "scripts/23a_schema_drift_test.py"])
+        self.assertIn("all checks passed", result.stdout)
+
+    def test_a_failing_test_stops_the_push_and_shows_why(self):
+        self.check("tests/test_stand_in.py", "import unittest\n\nclass T(unittest.TestCase):\n    def test_it(self):\n        {body}\n",
+                   fails=True)
+        result = self.run_hook()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("tests (python3) FAILED", result.stdout)
+        self.assertIn("broken on purpose", result.stdout)
+        self.assertEqual(self.ran.read_text().split(), ["tests/test_stand_in.py"])      # it stops at the first failure
+
+    def test_each_later_check_also_stops_it(self):
+        for name in ("tools/check_names.py", "scripts/23a_schema_drift_test.py"):
+            with self.subTest(name=name):
+                self.setUp()
+                self.check(name, fails=True)
+                result = self.run_hook()
+                self.assertEqual(result.returncode, 1, name)
+                self.assertIn("FAILED", result.stdout)
+
+    def test_without_an_interpreter_that_has_or_tools_it_says_so(self):
+        hook = self.repo / ".githooks" / "pre-push"            # the cloud's place for one, made to point nowhere
+        hook.write_text(hook.read_text().replace("/opt/solver-venv/bin/python", str(self.repo / "no-such-venv/python")))
+        result = self.run_hook(SOLVER_PYTHON="")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("no interpreter with OR-tools", result.stdout)
+        self.assertEqual(self.ran.read_text().split().count("tests/test_stand_in.py"), 1)
 
 
 class FakeStructr:

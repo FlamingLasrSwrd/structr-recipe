@@ -44,7 +44,7 @@ requests once the model met real recipes and a real household. In order of how m
   pantry profiles, public prices; the owner's data in its own instance, out of reach of the demos
   (`tools/owner_stack.sh`); memory caps after the 8 GB laptop froze; backups of that instance, checked
   by restoring them (`tools/backup.py`, `docs/backups.md`).
-- **Testing:** 853 offline tests (72 when the second review's fixes landed), two mutation sweeps
+- **Testing:** 857 offline tests (72 when the second review's fixes landed), two mutation sweeps
   (below), and checks of the pages against Python on real Structr.
 
 ## What is being reviewed
@@ -84,7 +84,7 @@ describe a known posture rather than a regression.
 ## Running it
 
 ```bash
-python3 -m unittest discover -s tests -t .            # 853 offline tests, no Structr (29 skip without OR-tools)
+python3 -m unittest discover -s tests -t .            # 857 offline tests, no Structr (29 skip without OR-tools)
 .venv/bin/python -m unittest discover -s tests -t .   # the same with OR-tools (requirements-solver.txt)
 python3 tools/check_names.py                          # undefined names and unused imports (no pyflakes here)
 python3 scripts/23a_schema_drift_test.py              # offline: the schema helpers against a drifted schema
@@ -142,7 +142,7 @@ rest are the commit after it.
 | 12 | Nutrition and cost need clear uncertainty: estimates and unknowns visible; cost a floor | **Mostly so.** A hard target is never decided on an unknown, placeholder or unmarked figure (J15); the planner's report names each recipe whose figures rest on estimates (J21); a recipe page gives each figure's source; a day with an unknown figure is "indeterminate", never met; a cost is called a floor. **Open:** the nutrition page does not mark a total that rests on estimates (`docs/todo.md`) |
 | 13 | Alternatives: a smaller application model mapped to BFO, PostgreSQL with an append-only ledger, maintained projections, one solver | **Noted.** The review recommends none of them now, and neither do we; BFO is already design discipline, not a runtime dependency (`docs/CLAUDE.md`). The owner's call if the project becomes a product |
 | 14 | Batch the planner's reads into one snapshot and compute in memory; 95 requests and 3.1 s for a small run | **Partly a mix-up.** The 95 requests are the per-slot selector's (round 2 #15). The planner already reads the week once through a `ReadCache` and searches in memory (`planning/extract.py`). It is right that those reads are many requests, not one consistent snapshot, so a write during them could be half seen: `docs/todo.md` |
-| 15 | Restore automated checks: the offline suite, the name check and the schema-drift test, OR-tools in its own job, a slow integration job | **Declined for GitHub by the owner** (2026-10-24: GitHub runs nothing). The point that a check should not rest on remembering stands: a git pre-push hook running the same is offered in `docs/todo.md` |
+| 15 | Restore automated checks: the offline suite, the name check and the schema-drift test, OR-tools in its own job, a slow integration job | **Declined for GitHub by the owner** (2026-10-24: GitHub runs nothing). The point that a check should not rest on remembering stands, so since 2026-10-31 a git pre-push hook in the repository (`.githooks/pre-push`, enabled once per clone with `git config core.hooksPath .githooks`) runs the offline suite on both interpreters, the name check and the schema-drift test, and stops the push on a failure. The slow integration job has no hook: `tools/rebuild.sh` needs a stack |
 | 16 | Backups: restore onto a real instance untested; copies on the same disk | **Partly.** `verify` restores every backup it checks into a real throwaway stack with the same code `restore` uses to load it (`put_back`), and the first was verified so (above). What has run only against faked Docker is `restore`'s sequence around that: the safety backup, stopping the owner's stack, starting it again. Copying backups off the machine is the owner's to-do (`docs/backups.md`) |
 
 **Where the review was wrong:** #3's quotes, from an older commit than the one it reviewed, and #14's

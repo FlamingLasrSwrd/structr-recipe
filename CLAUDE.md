@@ -77,6 +77,7 @@ python3 -m unittest discover -s tests -t .        # offline; no Structr needed (
 .venv/bin/python -m unittest discover -s tests -t .   # the same with OR-tools (locally: .venv; cloud: /opt/solver-venv/bin/python)
 python3 tools/check_names.py                       # undefined names and unused imports (no pyflakes here)
 python3 scripts/23a_schema_drift_test.py           # offline schema-helper test
+git config core.hooksPath .githooks                # once per clone, cloud sessions too: git push then runs the four above first
 
 bash cloud/bootstrap.sh            # stack up: makes .env if missing (or adds a missing password), docker compose up, waits for Structr
 bash tools/rebuild.sh              # the tools' account, every script in build order, then the snapshot check (SNAPSHOT IDENTICAL)
@@ -124,3 +125,5 @@ tests over an in-memory graph - `REVIEW.md` what became of every review finding.
   instance is disposable: never treat it as the owner's data, and never put a real secret in it.
 - **Memory does not carry over**; this file and `docs/CLAUDE.md` are what you have.
 - You work on a branch that gets pushed; the owner merges. Do not assume you can push to `main`.
+- A fresh clone has no hooks: run `git config core.hooksPath .githooks` before the first push, so the
+  offline checks run before it (`/opt/solver-venv/bin/python` is the interpreter with OR-tools there).

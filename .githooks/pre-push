@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Before every push: the offline checks CLAUDE.md asks for, so none of them rests on remembering
+# (REVIEW.md round 3, #15; GitHub runs nothing, the owner's choice of 2026-10-24).
+#
+# Enable it once per clone:   git config core.hooksPath .githooks
+# Skip it once, knowingly:    git push --no-verify
+#
+# It runs, stopping at the first failure:
+#   1. the test suite with python3 (the solver's tests skip without OR-tools)
+#   2. the test suite with an interpreter that has OR-tools: $SOLVER_PYTHON if set, else .venv/bin/python
+#      (a laptop), else /opt/solver-venv/bin/python (a cloud session). With none of them it says so
+#      and goes on: the suite has still passed once, with the solver's tests skipped
+#   3. tools/check_names.py (undefined names and unused imports)
+#   4. scripts/23a_schema_drift_test.py (the schema helpers, offline)
+# It needs no Structr and changes nothing. It checks the working tree, which is what was just
+# committed when the tree is clean; it warns when it is not.
+set -u
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$here" || exit 1
+
+if [ -n "$(git status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+  echo "pre-push: the working tree has uncommitted changes; the checks run on it as it is, not on the commits being pushed"
+fi
+
+solver="${SOLVER_PYTHON:-}"
+if [ -z "$solver" ]; then
+  for candidate in .venv/bin/python /opt/solver-venv/bin/python; do
+    if [ -x "$candidate" ]; then solver="$candidate"; break; fi
+  done
+fi
+
+step() {
+  local name="$1"; shift
+  local log
+  log="$(mktemp)"
+  local start=$SECONDS
+  if "$@" >"$log" 2>&1; then
+    echo "pre-push: $name passed ($((SECONDS - start)) s)"
+    rm -f "$log"
+  else
+    echo "pre-push: $name FAILED; the push is stopped. Its output:"
+    tail -40 "$log"
+    rm -f "$log"
+    exit 1
+  fi
+}
+
+step "tests (python3)" python3 -m unittest discover -s tests -t .
+if [ -n "$solver" ]; then
+  step "tests ($solver, with OR-tools)" "$solver" -m unittest discover -s tests -t .
+else
+  echo "pre-push: no interpreter with OR-tools (.venv, /opt/solver-venv or SOLVER_PYTHON), so the solver's tests ran only skipped"
+fi
+step "check_names" python3 tools/check_names.py
+step "23a schema drift test" python3 scripts/23a_schema_drift_test.py
+echo "pre-push: all checks passed"

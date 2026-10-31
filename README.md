@@ -33,6 +33,8 @@ python3 -m unittest discover -s tests -t .
 python3 tools/check_names.py      # undefined names and unused imports
 ```
 
+Run `git config core.hooksPath .githooks` once per clone, and every `git push` first runs these two, the suite again with OR-tools when `.venv` has it (below), and `scripts/23a_schema_drift_test.py`, and stops the push if one fails (`.githooks/pre-push`; `git push --no-verify` skips it).
+
 To build against a live instance:
 
 ```bash
