@@ -85,8 +85,10 @@ each still loads and names only what the vocabulary holds, and that the mix stay
 
 Each file's `source_kcal` is the energy per serving its book prints (next section). Loaded on the
 development instance (2026-10-31), every recipe's energy is known and the median recipe is 17% from its
-book, 8 of the 20 within 15%; the furthest are the pork chops (+106%: FDC's only chop is 170 g of lean
-and fat, the book's are half-inch lean ones), the salmon (+39%) and the tofu stir-fry (+30%).
+book, 8 of the 20 within 15% and 18 within 30% (`tools/check_source_energy.py`, run live, the figures the
+same as the earlier scratch script's on all 20); the furthest are the pork chops (+106%: FDC's only chop
+is 170 g of lean and fat, the book's are half-inch lean ones), the salmon (+39%) and the tofu stir-fry
+(+30%).
 
 ## Checking a recipe's energy
 
