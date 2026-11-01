@@ -108,6 +108,9 @@ checked first, each on a throwaway stack:
   file. No key was refused, the container was healthy, and the server log held no error.
 - **The pages and methods** installed on that build: `check_pages`, `check_bookings`,
   `check_households` (households kept apart) and `check_instructions` found no difference.
+  On a later build from nothing (2026-10-31), `check_households` failed its nutrition comparison: a
+  build stores no recipe's nutrition per serving, which `nutritionReport` reads and Python works out
+  when none is stored. It now stores the one figure it needs itself (batch 4, section 5).
 - **The owner's data**: the newest backup (2026-10-26) restored into a throwaway on 7.1.0. In
   `dry-run`, Structr's migrations found one change to make (a `DataSource` label on 58 schema nodes),
   changed nothing, and did not start; with `apply` it started, the graph kept its 42,386 nodes and
@@ -215,7 +218,8 @@ It showed one thing: with the twins in, a validator's error comes before the for
 too, so `scripts/45b` now accepts either token for an edit. On that instance, with all four batches in force, the pages and
 methods were installed and `check_bookings.py`, `check_pages.py` and `check_instructions.py` found no
 difference; `check_households.py` did too once the recipes' nutrition per serving was stored
-(`calculate_recipe_nutrition.py`), which its nutrition comparison needs on any fresh build.
+(`calculate_recipe_nutrition.py`), which its nutrition comparison needed on any fresh build. It now
+stores the one figure it needs itself, TEST-named, and removes it (2026-10-27).
 
 **Batch 5, methods:** declared parameters for every argument a method reads, GET for the read-only
 ones, `includeInOpenAPI` with a tag for the planner contract. Not needed for 7.1 after all: a
