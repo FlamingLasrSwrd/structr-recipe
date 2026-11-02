@@ -5,13 +5,20 @@ The kitchen is tests/test_planning_extract.py's: an omelette (yield 2) takes 300
 5 days sealed in the fridge, 2 opened, 180 sealed in the freezer.
 """
 
+import io
+import pathlib
+import re
 import unittest
+from contextlib import redirect_stdout
+from unittest import mock
 
 from mealplanner.inventory import instance_expiration
-from mealplanner.pantry import PantryError, buy, cook, discard, move, on_hand, open_portion, stock_take, use
+from mealplanner.pantry import USED_UP_G, PantryError, buy, cook, discard, move, on_hand, open_portion, stock_take, use
 from tests.fakegraph import Ref, WritableGraph, at, when
 from tests.planning_graph import add_entry, add_portion, add_type
 from tests.test_planning_extract import kitchen
+from tools import check_pages
+from tools import pantry as pantry_tool
 
 NOW = when(25, 12)
 
@@ -156,6 +163,56 @@ class Cook(unittest.TestCase):
         add_entry(g, "e2", None, at(26, 9), leftover_of="e1")
         with self.assertRaises(PantryError):
             cook(g, "e2", when(26, 10), "c1")
+
+
+class UsedUp(unittest.TestCase):
+    """A Use typed as the rounded amount shown leaves a crumb: 32 fl oz of broth is 996.0005 g, shown as
+    "996 g", and 996 g used leaves 0.0005 g, which stayed in the pantry as "0 g", expired, for good."""
+
+    def left(self, bought, used):
+        g = pantry()
+        buy(g, "Eggs", bought, "g", NOW, "t1", keeps="Fresh Meat")
+        eggs = portion_named(g, "Purchase t1 -- Eggs")
+        use(g, eggs, used, "g", when(25, 13), "t2")
+        return g, eggs
+
+    def page_says(self, g, *shown):
+        problems = []
+        rows = [{"portion": "Purchase t1 -- Eggs", "grams": grams_shown, "days": None} for grams_shown in shown]
+        with mock.patch.object(check_pages, "page_data", return_value=rows):
+            counted = check_pages.check_pantry(g, g, problems)
+        return counted, problems
+
+    def test_a_crumb_is_used_up_and_the_page_leaves_it_out(self):
+        g, _ = self.left(996.0005, 996)
+        self.assertEqual(self.page_says(g), (0, []))
+
+    def test_a_page_still_showing_a_crumb_is_a_difference(self):
+        g, _ = self.left(996.0005, 996)
+        counted, problems = self.page_says(g, 0.0005)
+        self.assertEqual(counted, 0)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("is shown, but nothing of it is known to be on hand", problems[0])
+
+    def test_half_a_gram_shows_as_a_gram_so_it_is_still_on_hand(self):
+        g, _ = self.left(100.5, 100)
+        counted, problems = self.page_says(g)
+        self.assertEqual(counted, 1)
+        self.assertIn("is on hand (0.5 g) but not shown", problems[0])
+
+    def test_the_terminal_list_leaves_a_crumb_out_and_keeps_a_gram(self):
+        for used, listed in ((996, False), (995, True)):
+            g, _ = self.left(996.0005, used)
+            said = io.StringIO()
+            with redirect_stdout(said):
+                pantry_tool.show(g, None, when(25, 14))
+            self.assertEqual("Purchase t1 -- Eggs" in said.getvalue(), listed, used)
+
+    def test_the_pages_use_the_same_number(self):
+        root = pathlib.Path(__file__).resolve().parents[1]
+        engine = re.search(r"const USED_UP_G = ([0-9.]+);", (root / "pages" / "lib" / "30_stock.js").read_text())
+        self.assertEqual(float(engine.group(1)), USED_UP_G)
+        self.assertIn("level[0] < USED_UP_G", (root / "pages" / "pantry.js").read_text())
 
 
 if __name__ == "__main__":

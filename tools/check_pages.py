@@ -34,6 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner.connection import connect
 from mealplanner.instructions import instructions
+from mealplanner.pantry import USED_UP_G
 from mealplanner.recipe_import import capability_bearers, export_plan
 from mealplanner.inventory import current_magnitude, instance_expiration, mass_quality
 from mealplanner.prices import price_table
@@ -191,7 +192,7 @@ def check_pantry(client, reads, problems: list[str]) -> int:
         for portion in reads.get_all(type_name)["result"]:
             quality = mass_quality(reads, portion)
             grams = current_magnitude(reads, quality["id"], now) if quality else None
-            if grams is None or grams <= 1e-9:          # never weighed, or used up: the page leaves it out
+            if grams is None or grams < USED_UP_G:      # never weighed, or used up: the page leaves it out
                 if portion["name"] in shown:
                     problems.append(f"pantry: {portion['name']} is shown, but nothing of it is known to be on hand")
                 continue

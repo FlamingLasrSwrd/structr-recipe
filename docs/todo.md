@@ -21,6 +21,8 @@ Nothing here is started. Each item says where it came from. The owner decides wh
 | Item | Offered | What it would take |
 |---|---|---|
 | `check_households.py` sweeps the grants and pantry operations an interrupted run made | 2026-10-27 | Found on a throwaway: a run killed partway leaves what `setup()` makes where missing, the 19 `ResourceAccess` grants its members need and the `Purchase` and `Use` operations with their `Pantry Operation` hierarchy. The next run finds them present, uses them and leaves them, so the instance stays off its golden snapshot (which shows the three nodes, not the grants). The sweep cannot tell them from ones that were there before: the bookings find the operations by name, so a TEST name is not open to them, and the check would need another record of what it made, written before it makes them |
+| A Use of the amount shown is not refused when it was rounded up | 2026-11-01 | The other side of a used-up crumb (`pantry.USED_UP_G`): 996.6 g shows as "997 g", and a Use of 997 g is more than the portion holds, so invariant 15 refuses it. A Use within what the rounding hides (0.5 g) would count as all of it, in `mealplanner/pantry.py` and `pages/lib/50_pantry.js`, with `check_bookings.py` comparing them. Read from the code; not tried on an instance |
+| A booking records who made it | 2026-11-01 | Found booking from the pantry page signed in: the Use has an empty `wasAssociatedWith` and is created by the system user, since a page writes with `$.doPrivileged`. The model names the relation (`Process -[WAS_ASSOCIATED_WITH]-> Person`, data-model.md K1), but neither the pages, the methods nor `mealplanner/pantry.py` set it. With two people in the household, and for a pantry journal, each booking would name `$.me`'s Person, in the page and in Python, with `check_bookings.py` comparing them |
 | Batches 5 and 6 of the Structr features | 2026-10-27 | `docs/structr-features.md` §5: declared parameters and GET for the Structr methods (it changes how every caller calls them, and 7.1 does not need it after all: the owner's word, 2026-10-31, is that it waits for the architecture decision), and a recipe's import as one transaction: measured and spiked on 2026-10-31 (`docs/structr-features.md` §5, Batch 6). Nested creation makes a recipe's writes one transaction and about four times faster, but writes are a tenth of an import's time, and a nested object repeating a unique value takes over the existing node; reading the resolve step's nodes in bulk and a narrower view for the nutrition step's listings would save more. Whether to build it, and which, is the owner's |
 | The cheap security fixes | 2026-10-26 | Structr's port bound to this machine unless other devices should reach it; bookings as form posts with a token tied to the session; HTTPS once phones connect (`docs/self-hosting.md` step 4, which says why a firewall does not cover them, and ranks the rest) |
 | A "Plan the week" button and a preferences page | 2026-10-24, 2026-10-26 | A planner container watching the graph for a request to plan (self-hosting step 3); the week file's settings kept on the week's MealPlan and edited on a page |
@@ -67,46 +69,20 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
   REST (spiked 2026-10-27, `docs/structr-features.md` §3). The rule still holds as a rule: adding a
   trait to a populated type needs that extra step.
 
-- **Move your instance's tools onto their own account** (built 2026-10-31, at your word): the tools and
-  scripts now log in as `mealplanner-tools`, an admin account, not as the superuser, so a wrong password
-  in `.env` can no longer lock the superuser and the admin interface out for 15 minutes. Until these
-  three steps, every tool answers 401 on your instance:
-  1. `bash cloud/bootstrap.sh --env-only` adds a generated `STRUCTR_TOOLS_PASSWORD` to `.env` and
-     changes nothing else in it.
-  2. With your stack up, `STRUCTR_URL=http://localhost:8085 python3 tools/create_tools_user.py` makes
-     the account (the one step that still uses the superuser). It changes no data, and what the
-     account creates has no owner, as when the superuser made it. Run it again whenever the account
-     is locked: more than four wrong passwords in a row lock it until this tool clears them.
-  3. The development stack gets the account from its next `tools/rebuild.sh`, or the same command
-     with port 8083.
-- **Install the pages and methods on your instance** (2026-10-31; after the account above):
-  `STRUCTR_URL=http://localhost:8085 python3 tools/install_pages.py && STRUCTR_URL=http://localhost:8085
-  python3 tools/install_methods.py`. The nutrition page and `nutritionReport` now mark totals that rest on
-  estimates; until they are installed the page has no marks, and `check_pages` reports a difference for
-  every total that does (896 on a copy of your backup of 2026-10-27, none in the data; 0 once installed).
-- **Retire `resolveDefault` on your instance** (built 2026-10-31, at your word; after the account
-  above): `STRUCTR_URL=http://localhost:8085 python3 scripts/47a_retire_resolve_default.py`, then
-  restart Structr (`tools/owner_stack.sh stop`, then `up`). It deletes the StructrScript method
-  `DomainType.resolveDefault`, which nothing calls, and changes no data. Run again, it finds nothing.
+- ~~Move your instance's tools onto their own account, install the pages and methods, retire `resolveDefault`~~
+  **Done 2026-11-01.** `mealplanner-tools` created on the owner's instance; run `tools/create_tools_user.py`
+  again whenever it is locked (more than four wrong passwords in a row). The development stack gets the
+  account from its next `tools/rebuild.sh`, or the same command with port 8083.
 - **Turn on the pre-push hook in your clone** (built 2026-10-31, at your word): `git config
   core.hooksPath .githooks`, once. After that `git push` runs both interpreters' suites (`.venv` for the
   one with OR-tools), `tools/check_names.py` and `scripts/23a_schema_drift_test.py` first, about a
   minute, and stops on a failure; `git push --no-verify` skips it when you mean to.
-- **Close Structr's initial `admin` account on your instance** (built 2026-10-31, your choice (a)): a fresh
-  7.1.0 database is given a user `admin` with the password `admin` and full admin rights, and it logs in.
-  `docker-compose.yml` now stops new databases from getting one; for yours, after the tools' account
-  above, `STRUCTR_URL=http://localhost:8085 python3 scripts/48a_remove_initial_admin.py`. It deletes
-  `admin` only if `admin`/`admin` still signs in; if you changed its password, it keeps it, says so,
-  and takes its one failed sign-in back off its count. Whether your instance (first built on 6.0.0)
-  has one was not checked.
-- **Import the vocabulary's new foods and tools into your instance** (built 2026-10-31, at your word):
-  `STRUCTR_URL=http://localhost:8085 python3 tools/import_vocabulary.py`. It adds 77 foods and 20 kitchen
-  tools, and gives 12 foods you have a figure from their own FDC record: a density to 11 (Pecans, Powdered
-  sugar, Carrot, Basil, Kale, Diced tomatoes (canned), Chickpeas (canned drained), Green and Red bell
-  pepper, Tomato, Bok choy and napa cabbage) and a weight per chop (170 g) to Boneless pork chops (raw).
-  The recipes using those 12 are worked out again, and a figure that rested on an unconvertible cup or
-  chop may become known. On the development stack the whole vocabulary took 49 minutes
-  from empty; yours holds most of it already. Then, if you want the basic recipes,
+- ~~Close Structr's initial `admin` account on your instance~~ **Done 2026-11-01**: the instance had one, still
+  with the password `admin`, and `scripts/48a` removed it.
+- ~~Import the vocabulary's new foods and tools into your instance~~ **Done 2026-11-01**: 8,001 nodes created
+  and none changed; the 22 recipes using the 89 changed foods worked out again, all 616 figures the same.
+  `check_pages` then found no difference, through the methods too, and `check_instructions` none in 1,145
+  sentences. **Still open, if you want the basic recipes:**
   `STRUCTR_URL=http://localhost:8085 python3 tools/import_recipe.py --check data/recipes/*.toml` lists
   what they would add and the tools your kitchen lacks, and the same without `--check` asks before
   loading one your kitchen cannot make. Worth reviewing in `data/vocabulary.toml` (the block headed
@@ -115,8 +91,12 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
   With the recipes loaded, `STRUCTR_URL=http://localhost:8085 python3 tools/check_source_energy.py`
   compares each one's energy with its book's (docs/recipe-format.md); run it again after any later
   vocabulary change, and add `source_kcal` to your own recipe files where their source prints one.
-- Sign in as Elijah and press one booking button: page bookings for a signed-in household member are
-  untested (`docs/pages.md`).
+- ~~Sign in as Elijah and press one booking button~~ **Done 2026-11-01**: a Use booked from the pantry page
+  by a signed-in household member was saved once, with no error in the server log.
+- **Reinstall the pages at your next session** (2026-11-01): `STRUCTR_URL=http://localhost:8085 python3
+  tools/install_pages.py`. It takes a used-up item off the pantry page: a portion below 0.5 g, which shows as
+  0 g, no longer stays there with its old expiry. Until then `check_pages` reports the chicken broth as a
+  difference.
 - Copy `~/mealplanner-backups` off this machine now and then (`docs/backups.md`).
 - ~~Bring your instance up to date: migrations 40a to 46a, the vocabulary, the pages and the methods~~
   **Done 2026-10-27**, on 7.1.0: the seven migrations in order (44a found no shared target, 45a no

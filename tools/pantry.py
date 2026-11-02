@@ -54,7 +54,7 @@ def show(client, food: str | None, now: datetime) -> None:
         except QuantityError as exc:
             rows.append((float("inf"), portion["name"], f"? ({exc})", ""))
             continue
-        if grams is None or grams <= 0:
+        if grams is None or grams < pantry.USED_UP_G:
             continue
         _, days = instance_expiration(client, portion, now)
         rows.append((days if days is not None else float("inf"), portion["name"], f"{grams:,.0f} g",

@@ -47,6 +47,10 @@ bookings section of `pages/common.js` (the same from the pages, which follow the
 function, as the pages' reads do). The pages write as the superuser, through Structr's
 `$.doPrivileged`, as the tools do, and every node states its visibility (hard rule 4).
 
+**An item is used up below 0.5 g** (`pantry.USED_UP_G`), what shows as 0 g, and leaves the page and the
+tool's list. An amount is stored as it was given, so a Use typed as the rounded figure shown (996 g of
+32 fl oz, which is 996.0005 g) leaves a crumb, which used to stay there for good with its expiry.
+
 ## What does not fit yet
 
 These are findings, recorded rather than worked around (CLAUDE.md, "When something doesn't fit").

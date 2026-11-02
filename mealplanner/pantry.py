@@ -42,6 +42,10 @@ from structr_client.client import UNSAFE_EXACT_MATCH_CHARS
 OPERATIONS = "Pantry Operation"                   # the TypeHierarchy of the Processes' kinds
 PURCHASE, USE, DISCARDING = "Purchase", "Use", "Discarding"
 STORAGE = ("Fridge", "Freezer", "Pantry")
+# Less than this on hand shows as 0 g, and counts as used up. A Use typed as the rounded amount shown ("996 g",
+# of what 32 fl oz converts to, 996.0005 g) leaves a crumb that would otherwise stay in the pantry for good,
+# with its expiry. The pages' USED_UP_G (pages/lib/30_stock.js) is the same number.
+USED_UP_G = 0.5
 SEEN = {"visibleToAuthenticatedUsers": True, "visibleToPublicUsers": False}
 
 

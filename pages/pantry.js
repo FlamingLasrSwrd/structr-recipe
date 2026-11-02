@@ -21,7 +21,7 @@ const rows = [];
 for (const portion of $.find("PortionOfSubstance").concat($.find("DiscreteWholeItem"))) {
   const level = onHand(portion);
   if (level == null) continue;                                      // no weighing yet: not known to exist
-  if (Array.isArray(level) && level[0] <= 1e-9) continue;          // used up
+  if (Array.isArray(level) && level[0] < USED_UP_G) continue;      // used up
   const [days, why] = daysUntilExpiry(portion);
   rows.push({portion: portion, food: portion.instanceOf ? portion.instanceOf.name : portion.name, level: level, days: days, why: why});
 }
