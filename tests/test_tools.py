@@ -12,6 +12,7 @@ import subprocess
 import tempfile
 import threading
 import unittest
+from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -172,6 +173,13 @@ class ShellScripts(unittest.TestCase):
                 self.assertIn(line.split("image:")[1].strip(), text)   # every image the stack uses is pre-pulled
 
 
+def without_git_variables() -> dict:
+    """The environment less what git exports to a hook it runs (GIT_DIR and the like). The hook runs these
+    tests, and a git command they start would otherwise act on the repository pushing, not on its own
+    throwaway one: run that way, setUp's `git init` once made the owner's repository bare (2026-11-03)."""
+    return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+
+
 class PrePushHook(unittest.TestCase):
     """.githooks/pre-push in a throwaway repository whose checks are stand-ins that pass or fail as told."""
 
@@ -179,7 +187,7 @@ class PrePushHook(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.repo = pathlib.Path(self.tmp.name)
-        subprocess.run(["git", "init", "-q", str(self.repo)], check=True)
+        self.git("init", "-q", str(self.repo))
         (self.repo / ".githooks").mkdir()
         (self.repo / ".githooks" / "pre-push").write_text((ROOT / ".githooks" / "pre-push").read_text())
         for folder in ("tests", "tools", "scripts"):
@@ -197,9 +205,12 @@ class PrePushHook(unittest.TestCase):
             body = record + ("; self.fail('broken on purpose')" if fails else "")
         (self.repo / name).write_text(template.format(body=body))
 
+    def git(self, *args):
+        subprocess.run(["git", *args], cwd=self.repo, env=without_git_variables(), check=True)
+
     def run_hook(self, **env):
         return subprocess.run(["bash", str(self.repo / ".githooks" / "pre-push")], cwd=self.repo, capture_output=True, text=True,
-                              env={**os.environ, "SOLVER_PYTHON": "python3", **env})
+                              env={**without_git_variables(), "SOLVER_PYTHON": "python3", **env})
 
     def test_every_check_runs_and_the_push_goes_ahead(self):
         result = self.run_hook()
@@ -228,9 +239,8 @@ class PrePushHook(unittest.TestCase):
 
     def commit_all(self):
         (self.repo / ".gitignore").write_text("ran.txt\n__pycache__/\nprivate/\n")
-        subprocess.run(["git", "add", "-A"], cwd=self.repo, check=True)
-        subprocess.run(["git", "-c", "user.name=TEST", "-c", "user.email=test@example.invalid", "commit", "-qm", "TEST"],
-                       cwd=self.repo, check=True)
+        self.git("add", "-A")
+        self.git("-c", "user.name=TEST", "-c", "user.email=test@example.invalid", "commit", "-qm", "TEST")
 
     def test_a_clean_tree_passes_with_no_warning(self):
         self.commit_all()
@@ -259,6 +269,31 @@ class PrePushHook(unittest.TestCase):
         result = self.run_hook()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertNotIn("not in git", result.stdout)
+
+    def test_run_by_git_it_leaves_the_repository_pushing_alone(self):
+        """As inside a real push from a worktree: GIT_DIR names that worktree's place in the repository
+        pushing, here a decoy, none of whose files may change."""
+        decoy_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(decoy_dir.cleanup)
+        main, linked = pathlib.Path(decoy_dir.name, "main"), pathlib.Path(decoy_dir.name, "linked")
+        for args in (["init", "-q", str(main)],
+                     ["-C", str(main), "-c", "user.name=TEST", "-c", "user.email=test@example.invalid",
+                      "commit", "-q", "--allow-empty", "-m", "TEST"],
+                     ["-C", str(main), "worktree", "add", "-q", str(linked)]):
+            subprocess.run(["git", *args], env=without_git_variables(), check=True)
+
+        def files():
+            return {p: p.read_bytes() for p in (main / ".git").rglob("*") if p.is_file()}
+
+        before = files()
+        with mock.patch.dict(os.environ, {"GIT_DIR": str(main / ".git" / "worktrees" / "linked")}):
+            self.setUp()
+            self.commit_all()
+            (self.repo / "tools" / "new_module.py").write_text("")
+            result = self.run_hook()
+        self.assertEqual(files(), before)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("  tools/new_module.py", result.stdout)              # it looked at its own repository
 
     def test_without_an_interpreter_that_has_or_tools_it_says_so(self):
         hook = self.repo / ".githooks" / "pre-push"            # the cloud's place for one, made to point nowhere

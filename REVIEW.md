@@ -44,7 +44,7 @@ requests once the model met real recipes and a real household. In order of how m
   pantry profiles, public prices; the owner's data in its own instance, out of reach of the demos
   (`tools/owner_stack.sh`); memory caps after the 8 GB laptop froze; backups of that instance, checked
   by restoring them (`tools/backup.py`, `docs/backups.md`).
-- **Testing:** 960 offline tests (72 when the second review's fixes landed), two mutation sweeps
+- **Testing:** 961 offline tests (72 when the second review's fixes landed), two mutation sweeps
   (below), and checks of the pages against Python on real Structr.
 
 ## What is being reviewed
@@ -84,7 +84,7 @@ describe a known posture rather than a regression.
 ## Running it
 
 ```bash
-python3 -m unittest discover -s tests -t .            # 960 offline tests, no Structr (29 skip without OR-tools)
+python3 -m unittest discover -s tests -t .            # 961 offline tests, no Structr (29 skip without OR-tools)
 .venv/bin/python -m unittest discover -s tests -t .   # the same with OR-tools (requirements-solver.txt)
 python3 tools/check_names.py                          # undefined names and unused imports (no pyflakes here)
 python3 scripts/23a_schema_drift_test.py              # offline: the schema helpers against a drifted schema
@@ -257,7 +257,7 @@ scripts with these changes (SNAPSHOT IDENTICAL), never on the owner's instance.
 | 3 | `tools/check_bookings.py` counted every delete it tried as done, failed ones included, in its sweep and in its clean-up | **Fixed.** Only a 404 (gone already, which is what Structr answers, checked live) is passed over. A refused delete is not counted: the sweep raises once the rest are tried, and the clean-up names each refused node and makes the run exit 1 (`tests/test_check_bookings.py`; that exit code is read from the code, not run, and the whole check was not run again live) |
 | 4 | `StructrClient.logout` deleted every SessionDataNode its filtered read returned, trusting the server to have applied the filter | **Fixed.** Only a row naming its own session is deleted (`tests/test_client.py`). Live, a row carries `sessionId` and the filter is applied, so the clean-up still works: the rebuild's 76 runs left no session behind |
 | 5 | `tools/import_recipe.py` resolved each recipe's names twice, once for the kitchen check and again inside the import, and `kitchen_check.missing` found a capability's bearers again for each kitchen | **Fixed.** The names are resolved once and handed to the import, and each capability's bearers are found once a run (`tests/test_kitchen_check.py`, `tests/test_recipe_step_facts.py`). **Not measured:** the 8 GB laptop froze while the throwaway was timing the 20 shipped recipes, with the vocabulary just loaded into it, and the stack was not started again. What it saves is one resolution of every name in each recipe, and each capability's walk past the first kitchen |
-| 6 | The pre-push hook's warning left out untracked files, and the checks import from the working tree, so a module never added to git passed although the pushed commits lack it | **Fixed.** The hook names every regular file git neither tracks nor ignores (not the `/dev/null` a sandbox mounts over `.bashrc` and the like), and a clean tree passes with no warning (`tests/test_tools.py`). It is still a warning, not a stop |
+| 6 | The pre-push hook's warning left out untracked files, and the checks import from the working tree, so a module never added to git passed although the pushed commits lack it | **Fixed.** The hook names every regular file git neither tracks nor ignores (not the `/dev/null` a sandbox mounts over `.bashrc` and the like), and a clean tree passes with no warning (`tests/test_tools.py`). It is still a warning, not a stop. **The fix broke something first:** once `core.hooksPath` was set, a real push ran the hook's own tests inside git, which exports `GIT_DIR` to a hook, and their `git init` re-initialised the repository pushing and made it bare (2026-11-03, restored the next morning). They now drop git's variables, and a test pushes from a decoy worktree and checks that none of the decoy's files change |
 | 7 | `tools/check_pages.py` and `tools/check_bookings.py` said they read as the superuser | **Fixed.** They say the tools' account, which they have logged in as since 2026-10-31 |
 
 ## Open items
