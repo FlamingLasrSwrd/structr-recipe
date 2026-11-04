@@ -159,15 +159,19 @@ class StructrClient:
 
         First, while the session still works, it deletes the session's stored copy, the SessionDataNode
         Jetty keeps in the graph: on 7.1.0 a logout left it there, one per run, and none had gone 48
-        minutes after the session timeout. Only an admin may; for anyone else the refusal is ignored."""
+        minutes after the session timeout. Only an admin may; for anyone else the refusal is ignored.
+        Only a row that names this session is deleted: an admin is answered every session there is when
+        the filter is not applied, and those are other people's sign-ins (review of 2026-11-01)."""
         if self._token is None:
             return
         try:
+            session_id = self._token.split(".")[0]
             stored = self.session.request("GET", self._url(SESSION_NODES), timeout=self.timeout,
-                                          params={"sessionId": self._token.split(".")[0]})
+                                          params={"sessionId": session_id})
             if stored.status_code == 200:
                 for row in stored.json().get("result", []):
-                    self.session.request("DELETE", self._url(f"{SESSION_NODES}/{row['id']}"), timeout=self.timeout)
+                    if row.get("sessionId") == session_id:
+                        self.session.request("DELETE", self._url(f"{SESSION_NODES}/{row['id']}"), timeout=self.timeout)
             self.session.request("POST", self._url(LOGOUT), json={}, timeout=self.timeout,
                                  headers={"Cookie": f"JSESSIONID={self._token}"})
         except requests.exceptions.RequestException:

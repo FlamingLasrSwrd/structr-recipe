@@ -44,7 +44,9 @@ review, so what the README and REVIEW.md claim has to be true.
   never `down -v` it: nothing can rebuild it. The exception is a schema-only migration (such as
   `30a` to `43a`), which declares `owner_data_ok=True` and must be run on the owner's instance as well,
   then Structr restarted (hard rule 8).
-- **The development laptop has 8 GB and has frozen three times.** Run one stack at a time (stop
+- **The development laptop has 8 GB and has frozen four times** (the fourth on 2026-11-03: a throwaway
+  stack with the whole vocabulary loaded, timing imports beside the desktop apps, its swap full; read
+  `free -m`'s swap line too, not only "available"). Run one stack at a time (stop
   one before starting another), keep the owner's stack up through a working session and stop it at
   the session's end (the owner's decision, 2026-10-22: each restart cost a minute and a cold first
   read), stop any other stack once its work is done, and check `free -m` before

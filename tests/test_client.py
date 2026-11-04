@@ -159,6 +159,7 @@ class SessionServer:
         self.live, self.issued = set(), 0
         self.stored = {}                                   # SessionDataNode id -> sessionId, as Jetty keeps them
         self.admin = True
+        self.filters = True                                # False: a query's sessionId filter is not applied
 
     def end_sessions(self):
         self.live.clear()
@@ -190,9 +191,9 @@ class SessionServer:
             if method == "DELETE":
                 del self.stored[path.rsplit("/", 1)[1]]
                 return FakeResponse(200, {})
-            params = kw.get("params") or {}                # as Structr: no filter lists them all
-            return FakeResponse(200, {"result": [{"id": i} for i, s in self.stored.items()
-                                                 if "sessionId" not in params or s == params["sessionId"]]})
+            params = kw.get("params") if self.filters else None          # as Structr: no filter lists them all
+            return FakeResponse(200, {"result": [{"id": i, "sessionId": s} for i, s in self.stored.items()
+                                                 if "sessionId" not in (params or {}) or s == params["sessionId"]]})
         if path.startswith("/structr/html/"):              # as on 7.1.0: a page answers an ended session 404, not 401
             alive = merged.get("X-StructrSessionToken") in self.live
             return FakeResponse(200 if alive and not path.endswith("/missing") else 404, {})
@@ -360,6 +361,18 @@ class SessionLogin(unittest.TestCase):
         paths = [(m, p) for m, p, _, _ in server.sent[-3:]]
         self.assertEqual(paths, [("GET", "/structr/rest/SessionDataNode"), ("DELETE", "/structr/rest/SessionDataNode/s2"),
                                  ("POST", "/structr/rest/logout")])        # while the session still works, then logout
+
+    def test_logout_deletes_only_its_own_stored_node_when_the_filter_is_not_applied(self):
+        server = SessionServer()
+        server.filters = False
+        others = [session_client(server), session_client(server)]
+        for other in others:
+            other.get("/structr/rest/Thing")               # other runs' sessions, still open
+        c = session_client(server)
+        c.get("/structr/rest/Thing")
+        c.logout()
+        self.assertEqual(sorted(server.stored.values()), ["t1", "t2"])   # its own (t3) went, the others stay
+        self.assertEqual(server.live, {"t1.node0", "t2.node0"})
 
     def test_a_user_who_may_not_delete_it_still_logs_out(self):
         server = SessionServer()

@@ -44,7 +44,7 @@ requests once the model met real recipes and a real household. In order of how m
   pantry profiles, public prices; the owner's data in its own instance, out of reach of the demos
   (`tools/owner_stack.sh`); memory caps after the 8 GB laptop froze; backups of that instance, checked
   by restoring them (`tools/backup.py`, `docs/backups.md`).
-- **Testing:** 944 offline tests (72 when the second review's fixes landed), two mutation sweeps
+- **Testing:** 960 offline tests (72 when the second review's fixes landed), two mutation sweeps
   (below), and checks of the pages against Python on real Structr.
 
 ## What is being reviewed
@@ -84,7 +84,7 @@ describe a known posture rather than a regression.
 ## Running it
 
 ```bash
-python3 -m unittest discover -s tests -t .            # 944 offline tests, no Structr (29 skip without OR-tools)
+python3 -m unittest discover -s tests -t .            # 960 offline tests, no Structr (29 skip without OR-tools)
 .venv/bin/python -m unittest discover -s tests -t .   # the same with OR-tools (requirements-solver.txt)
 python3 tools/check_names.py                          # undefined names and unused imports (no pyflakes here)
 python3 scripts/23a_schema_drift_test.py              # offline: the schema helpers against a drifted schema
@@ -243,6 +243,22 @@ Between and before the reviews.
 24. **The first rule for where a loose portion is kept** dated flour, rice, cans and oil as if refrigerated, or not at all, and put garlic in the fridge. It is now where the food keeps longest unopened (J31, `inventory.assumed_storage`).
 25. **A second mutation sweep, of the week's new code** (2026-10-26): 17 changes to the menu changes, the requests, the soft repeat tolerance, settled groups, the week totals, the step-name limit and the backups. 16 were caught; the 17th, CP-SAT's constant for a recipe only committed meals take past the tolerance, raised the ceiling without breaking "ceiling at least the optimum". A proven solve's ceiling is now required to equal the optimum (`tests/test_planning_repeats.py`).
 26. **Backups named to the second collided** when two were made within one (a restore's safety backup right after another): found by the tests, fixed before first use.
+
+### Our own code review of 2026-11-01
+
+Seven findings, each confirmed when it was found and again before its fix (2026-11-03). Every new test was
+broken on purpose once and caught it. The live checks were made on a throwaway stack rebuilt from the
+scripts with these changes (SNAPSHOT IDENTICAL), never on the owner's instance.
+
+| # | Finding | What became of it |
+|---|---|---|
+| 1 | `cloud/bootstrap.sh` added the tools' password to an existing `.env` without looking at its last byte, so a hand-edited one lacking a final newline ran the two lines together, spoiling one password and leaving the other unset | **Fixed.** A missing final newline is added first (`tests/test_tools.py`) |
+| 2 | The planner's change mark (round 3 #14) took a household member signing in for a change to the week: `Person` is a `User` as well as an `Entity`, one of the roots, and a session is stored on the user | **Fixed, and confirmed live:** a sign-in moved a Person's `lastModifiedDate` and the old roots reported it. A sign-in is not a change to plan from, so `Entity` is no longer a root: its subtrees beside Person's line of abstract ancestors are. A member renamed while the week is read now goes unseen; the planner reads only a Person's name, once. Their targets, baselines and household are relationships and nodes below the other roots, still seen (`tests/test_planning_reads.py`; the cheatsheet). A mark costs about 0.3 s more (0.7 s against 0.4 s on the throwaway) |
+| 3 | `tools/check_bookings.py` counted every delete it tried as done, failed ones included, in its sweep and in its clean-up | **Fixed.** Only a 404 (gone already, which is what Structr answers, checked live) is passed over. A refused delete is not counted: the sweep raises once the rest are tried, and the clean-up names each refused node and makes the run exit 1 (`tests/test_check_bookings.py`; that exit code is read from the code, not run, and the whole check was not run again live) |
+| 4 | `StructrClient.logout` deleted every SessionDataNode its filtered read returned, trusting the server to have applied the filter | **Fixed.** Only a row naming its own session is deleted (`tests/test_client.py`). Live, a row carries `sessionId` and the filter is applied, so the clean-up still works: the rebuild's 76 runs left no session behind |
+| 5 | `tools/import_recipe.py` resolved each recipe's names twice, once for the kitchen check and again inside the import, and `kitchen_check.missing` found a capability's bearers again for each kitchen | **Fixed.** The names are resolved once and handed to the import, and each capability's bearers are found once a run (`tests/test_kitchen_check.py`, `tests/test_recipe_step_facts.py`). **Not measured:** the 8 GB laptop froze while the throwaway was timing the 20 shipped recipes, with the vocabulary just loaded into it, and the stack was not started again. What it saves is one resolution of every name in each recipe, and each capability's walk past the first kitchen |
+| 6 | The pre-push hook's warning left out untracked files, and the checks import from the working tree, so a module never added to git passed although the pushed commits lack it | **Fixed.** The hook names every regular file git neither tracks nor ignores (not the `/dev/null` a sandbox mounts over `.bashrc` and the like), and a clean tree passes with no warning (`tests/test_tools.py`). It is still a warning, not a stop |
+| 7 | `tools/check_pages.py` and `tools/check_bookings.py` said they read as the superuser | **Fixed.** They say the tools' account, which they have logged in as since 2026-10-31 |
 
 ## Open items
 

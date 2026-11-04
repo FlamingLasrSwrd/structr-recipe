@@ -5,9 +5,9 @@
 For a development or throwaway instance only: it writes, then removes what it wrote (connect()
 refuses the owner's instance; --keep leaves it for a look). Every token it books with begins with
 MARK, so each run first removes whatever an earlier one left, interrupted or kept. Each booking (buy, use, count, open,
-freeze, discard, and a planned meal cooked) is made once through the page, as the superuser
-(Structr honours the X-User headers for pages), and once through Python, on two portions of the
-same food, and it compares:
+freeze, discard, and a planned meal cooked) is made once through the page, as the tools' account
+(mealplanner-tools, the admin tools/create_tools_user.py makes, signed in with a session), and once
+through Python, on two portions of the same food, and it compares:
 
   the nodes each wrote, field by field, the booking's token aside;
   what the inventory engine then says of the two portions: grams on hand, days to expiry;
@@ -43,6 +43,7 @@ from mealplanner import menu_changes, pantry, requests
 from mealplanner.connection import connect
 from mealplanner.inventory import FMT, instance_expiration
 from mealplanner.nutrition_scope import day_zone, raw_inputs
+from structr_client import StructrError
 
 DATA = re.compile(r'<script type="application/json" id="booking-data">(.*?)</script>', re.S)
 PAGE_DATA = re.compile(r'<script type="application/json" id="page-data">(.*?)</script>', re.S)
@@ -70,29 +71,53 @@ def sweep(client) -> int:
     """Remove what an earlier run left, interrupted or with --keep: every node whose name holds MARK, which
     each booking's names and the check's own weeks carry, and then the bookings' kinds (pantry.py makes
     them on first use, and a run removes those it made) if no Process is left of any of them. How many
-    were removed."""
+    were removed; RuntimeError, once every one has been tried, if Structr refused to remove any."""
     found = {}                                # id -> its own type: a supertype's query answers its subtypes too
     for type_name in SWEPT:
         for row in client.get(f"/structr/rest/{type_name}", params={"name": MARK, "_inexact": 1})["result"]:
             if MARK in (row.get("name") or ""):
                 found[row["id"]] = row.get("type") or type_name
-    removed = _remove(client, found)
+    removed, refused = _remove(client, found)
     kinds = {row["id"]: "DomainType" for name in (pantry.PURCHASE, pantry.USE, pantry.DISCARDING)
              for row in client.get("/structr/rest/DomainType", params={"name": name})["result"] if row.get("type") == "DomainType"}
     if kinds and not any((p.get("hasKind") or {}).get("id") in kinds for p in client.get_all("Process")["result"]):
         kinds.update({row["id"]: "TypeHierarchy" for row in client.get("/structr/rest/TypeHierarchy",
                                                                        params={"name": pantry.OPERATIONS})["result"]})
-        removed += _remove(client, kinds)
+        more, also = _remove(client, kinds)
+        removed, refused = removed + more, refused + also
+    if refused:
+        raise RuntimeError(f"could not remove {len(refused)} node(s) an earlier run left: " + "; ".join(refused))
     return removed
 
 
-def _remove(client, nodes: dict) -> int:
+def _remove(client, nodes: dict) -> tuple[int, list[str]]:
+    """Delete each of `nodes` (id -> its own type): how many this removed, and a line for each Structr
+    refused (a 401, a 5xx, an onSave validator's 422). One already gone, with another it hung on, Structr
+    answers 404: neither (review of 2026-11-01: every failure used to count as removed)."""
+    removed, refused = 0, []
     for node_id, type_name in nodes.items():
         try:
             client.delete(f"/structr/rest/{type_name}/{node_id}")
-        except Exception:                     # already gone with another
-            pass
-    return len(nodes)
+        except StructrError as exc:
+            if exc.status != 404:
+                refused.append(f"{type_name} {node_id}: {exc.status} {exc.body}")
+            continue
+        removed += 1
+    return removed, refused
+
+
+def remove_written(client, made: list) -> list[str]:
+    """Remove what a run wrote, `made` as (type, id) in the order written, newest first, and say what
+    became of it; a line for each node Structr refused to remove, which the next run's sweep tries again."""
+    nodes = {node_id: type_name for type_name, node_id in reversed(made)}
+    removed, refused = _remove(client, nodes)
+    for line in refused:
+        print(f"  could not remove {line}")
+    print(f"removed {removed} of the {len(nodes)} node(s) written ({len(nodes) - removed - len(refused)} had gone with "
+          f"another)" + (f"; {len(refused)} left for the next run's sweep" if refused else ""))
+    return refused
+
+
 SEEN = ("visibleToAuthenticatedUsers", "visibleToPublicUsers")
 TIMES = ("hasBeginning", "hasTime")
 
@@ -204,6 +229,7 @@ def main(argv=None) -> int:
     t = {k: new_token() for k in ("buy", "use", "count", "discard", "cook", "pybuy", "pyuse", "pycount",
                                             "pydiscard", "pycook", "week", "stock", "menu", "pymenu")}
     now = datetime.now(timezone.utc)
+    left = []                                 # what could not be removed at the end
     try:
         print("buy")
         got = check.page("pantry", do="buy", food=args.food, amount="600", unit="g", storage="Fridge", keeps=args.keeps,
@@ -276,14 +302,9 @@ def main(argv=None) -> int:
             for name in ("Pantry Operation", "Purchase", "Use", "Discarding"):
                 if name not in before:
                     check.remember([name])
-            for type_name, node_id in reversed(check.made):
-                try:
-                    client.delete(f"/structr/rest/{type_name}/{node_id}")
-                except Exception as exc:          # already gone with another
-                    print(f"  (could not remove {type_name} {node_id}: {exc})")
-            print(f"removed the {len(check.made)} node(s) written")
+            left = remove_written(client, check.made)
     print("all the same" if not check.problems else f"{len(check.problems)} difference(s)")
-    return 1 if check.problems else 0
+    return 1 if check.problems or left else 0
 
 
 def cook_check(check: Check, client, t: dict, food: str, keeps: str) -> None:

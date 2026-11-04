@@ -195,8 +195,11 @@ fresh 7.1.0 development stack; `tools/create_tools_user.py` is the result):
   session store queries them by `lastAccessed` for Jetty's expiry sweep. An admin can list
   them (`GET /structr/rest/SessionDataNode?sessionId=<id>`, the id being the cookie's value
   before its dot) and delete its own while the session still works; it did not come back
-  at the logout after. `StructrClient.logout` does that, so a tool run leaves none (a
-  rebuild from empty then left 0). The snapshot does not see them (not a schema type). A
+  at the logout after. A row of the default view carries `sessionId` (with `cpath`, `vhost`,
+  `lastAccessed` and `version`), and the filter is applied: an id that is no session answered
+  no rows (2026-11-03, 7.1.0). `StructrClient.logout` does that, deleting only a row that names
+  its own session, so a tool run leaves none (a rebuild from empty then left 0, again on
+  2026-11-03). The snapshot does not see them (not a schema type). A
   sign-in to the pages goes through the same login, so it presumably leaves one too (not
   checked).
 - `GET /structr/health/ready` answers 200 from the host through the published port, with
@@ -1034,7 +1037,7 @@ GET    /structr/rest/{Type}/{id}         # one by internal id
 POST   /structr/rest/{Type}              # create — 201, body is the new object
 PATCH  /structr/rest/{Type}/{id}         # partial update of one object
 PUT    /structr/rest/{Type}/{id}         # full update of one object
-DELETE /structr/rest/{Type}/{id}         # delete one
+DELETE /structr/rest/{Type}/{id}         # delete one; 404 if it is gone already (2026-11-03, 7.1.0)
 DELETE /structr/rest/{Type}?filter=...   # ⚠ bulk delete — no filter = deletes ALL of that type
 ```
 
@@ -1127,7 +1130,14 @@ under `/structr/rest/RelationshipInterface`, with `createdDate`,
 `lastModifiedDate`, `relType`, `sourceNode` and `targetNode` in its
 `/all` view, so a link made shows there as a new relationship. A delete,
 of a node or of a relationship, leaves no date anywhere. Both dates are
-outside the default view: sort or filter on them through `/all`. Costs on
+outside the default view: sort or filter on them through `/all`. **A
+sign-in changes the user's node** (2026-11-03, 7.1.0, a throwaway): a
+`Person` that logged in (as an admin: a plain one's login answered 401
+there, with no `_login` grant installed) had its `lastModifiedDate` moved
+and one more entry in `sessionIds`, and no relationship was made or
+changed; so
+`change_mark` leaves Person out, not to take a household member signing
+in for a change to the week. Costs on
 the development instance holding the whole vocabulary and 20 recipes: `?_sort=lastModifiedDate&_order=desc&_pageSize=1`
 over every node below a root trait 1.1 to 1.6 s (it sorts them all), over
 the relationships 0.3 s; a range read

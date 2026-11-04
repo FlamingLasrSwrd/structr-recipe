@@ -130,6 +130,16 @@ class ShellScripts(unittest.TestCase):
             self.assertEqual((tmp / ".env").read_text(), text)                 # added once, not each run
             self.assertIn("leaving it alone", again.stdout)
 
+    def test_bootstrap_ends_an_env_without_a_final_newline_before_adding_to_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = self.bootstrap_copy(tmp)
+            older = "NEO4J_PASSWORD=mine\nSTRUCTR_SUPERUSER_PASSWORD=mine"              # edited by hand, no newline
+            (tmp / ".env").write_text(older)
+            result = self.run_script(str(tmp / "cloud/bootstrap.sh"), "--env-only", cwd=tmp,
+                                     env_extra={"STRUCTR_TOOLS_PASSWORD": "from-the-environment-c"})
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((tmp / ".env").read_text(), older + "\nSTRUCTR_TOOLS_PASSWORD=from-the-environment-c\n")
+
     def test_bootstrap_rejects_an_unknown_option(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = self.bootstrap_copy(tmp)
@@ -215,6 +225,40 @@ class PrePushHook(unittest.TestCase):
                 result = self.run_hook()
                 self.assertEqual(result.returncode, 1, name)
                 self.assertIn("FAILED", result.stdout)
+
+    def commit_all(self):
+        (self.repo / ".gitignore").write_text("ran.txt\n__pycache__/\nprivate/\n")
+        subprocess.run(["git", "add", "-A"], cwd=self.repo, check=True)
+        subprocess.run(["git", "-c", "user.name=TEST", "-c", "user.email=test@example.invalid", "commit", "-qm", "TEST"],
+                       cwd=self.repo, check=True)
+
+    def test_a_clean_tree_passes_with_no_warning(self):
+        self.commit_all()
+        result = self.run_hook()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("uncommitted", result.stdout)
+        self.assertNotIn("not in git", result.stdout)
+
+    def test_a_module_never_added_is_named_and_an_ignored_file_is_not(self):
+        self.commit_all()
+        (self.repo / "tools" / "new_module.py").write_text("")
+        (self.repo / "private").mkdir()
+        (self.repo / "private" / "mine.toml").write_text("")
+        result = self.run_hook()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)        # a warning, not a stop
+        self.assertIn("files not in git", result.stdout)
+        self.assertIn("  tools/new_module.py", result.stdout)
+        self.assertNotIn("private", result.stdout)
+        self.assertNotIn("uncommitted", result.stdout)
+
+    def test_what_is_not_a_regular_file_is_not_named(self):
+        """A sandbox mounts /dev/null over .bashrc and the like, which git lists. Making a device takes root
+        (and git does not list a pipe), so a link to nothing stands in: git lists it, and it is no file."""
+        self.commit_all()
+        (self.repo / ".bashrc").symlink_to(self.repo / "nothing-here")
+        result = self.run_hook()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("not in git", result.stdout)
 
     def test_without_an_interpreter_that_has_or_tools_it_says_so(self):
         hook = self.repo / ".githooks" / "pre-push"            # the cloud's place for one, made to point nowhere

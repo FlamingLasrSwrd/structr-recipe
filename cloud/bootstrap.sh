@@ -38,6 +38,9 @@ if [ -f .env ]; then
   if grep -q '^STRUCTR_TOOLS_PASSWORD=' .env; then
     echo ".env already exists; leaving it alone"
   else
+    # A hand-edited .env may lack its final newline, and the line added would then run on from its
+    # last one, spoiling that password and leaving this one unset (review of 2026-11-01).
+    if [ -s .env ] && [ -n "$(tail -c 1 .env)" ]; then printf '\n' >> .env; fi
     printf 'STRUCTR_TOOLS_PASSWORD=%s\n' "${STRUCTR_TOOLS_PASSWORD:-$(generate)}" >> .env
     echo ".env already exists; added STRUCTR_TOOLS_PASSWORD to it (value not shown), changed nothing else"
   fi

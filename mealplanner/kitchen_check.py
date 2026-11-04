@@ -56,10 +56,13 @@ def bearers(client, capability_id: str) -> frozenset[str]:
     return frozenset(found)
 
 
-def missing(client, steps, equipment: dict[str, str], kitchen: dict) -> list[Missing]:
+def missing(client, steps, equipment: dict[str, str], kitchen: dict, can_give: dict | None = None) -> list[Missing]:
     """What `steps` (recipe_import.StepDoc) need that `kitchen` (from kitchens()) lacks, in step order.
-    `equipment` maps each name the steps give to its DomainType id (recipe_import.Resolved.equipment)."""
-    out, can_give = [], {}
+    `equipment` maps each name the steps give to its DomainType id (recipe_import.Resolved.equipment).
+    `can_give` (capability id -> bearers()) is filled as it goes: pass the same dict for every kitchen and
+    recipe of a run to find each capability's bearers once, not once a kitchen."""
+    out = []
+    can_give = {} if can_give is None else can_give
     for step in steps:
         for need in step.equipment:
             type_id = equipment[need]

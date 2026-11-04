@@ -30,18 +30,19 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mealplanner import kitchen_check
 from mealplanner.connection import connect
 from mealplanner.recipe_import import (
-    RecipeFormatError, RecipeFrozenError, RecipeResolutionError, import_recipe, loaded_unchanged, read_recipe,
+    RecipeFormatError, RecipeFrozenError, RecipeResolutionError, import_recipe, loaded_unchanged, read_recipe, resolve,
 )
 from mealplanner.recipe_nutrition import calculate, schema_ready
 
 YES = {"y", "yes"}
 
 
-def tools_missing(client, doc, names, kitchens) -> bool:
-    """Print what each kitchen lacks for `doc`'s steps; whether any kitchen lacks something."""
+def tools_missing(client, doc, names, kitchens, can_give: dict) -> bool:
+    """Print what each kitchen lacks for `doc`'s steps; whether any kitchen lacks something. `can_give`
+    holds what kitchen_check.missing finds of each capability, for every kitchen and recipe of the run."""
     lacking = False
     for kitchen in kitchens:
-        gaps = kitchen_check.missing(client, doc.steps, names.equipment, kitchen)
+        gaps = kitchen_check.missing(client, doc.steps, names.equipment, kitchen, can_give)
         if gaps:
             lacking = True
             print(f"   missing in the kitchen {kitchen['name']!r}: " + "; ".join(kitchen_check.describe(g) for g in gaps))
@@ -63,12 +64,13 @@ def main(argv=None, ask=input, interactive=None) -> int:
         print("no kitchen on this instance (tools/instantiate_profile.py kitchen): the steps' tools are not checked")
     failed = 0
     loaded = []
+    can_give = {}                               # a capability's bearers: an import adds no equipment type
     for path in args.files:
         print(f"== {path}")
         try:
             doc = read_recipe(path)
-            names = import_recipe(client, doc, check_only=True)
-            lacking = tools_missing(client, doc, names, kitchens)
+            names = resolve(client, doc)                     # once: the import below is handed them
+            lacking = tools_missing(client, doc, names, kitchens, can_give)
             if lacking and not args.check and not loaded_unchanged(client, doc):
                 if not interactive:
                     failed += 1
@@ -78,7 +80,7 @@ def main(argv=None, ask=input, interactive=None) -> int:
                 if ask("   Import it anyway? [y/N] ").strip().lower() not in YES:
                     print("   not imported")
                     continue
-            result = names if args.check else import_recipe(client, doc)
+            result = names if args.check else import_recipe(client, doc, names=names)
         except (RecipeFormatError, RecipeResolutionError) as exc:
             failed += 1
             for problem in exc.problems:

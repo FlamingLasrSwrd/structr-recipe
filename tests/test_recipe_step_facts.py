@@ -5,9 +5,11 @@ file loaded twice is unchanged and an edited one leaves nothing behind."""
 
 import tomllib
 import unittest
+from unittest import mock
 
+from mealplanner import recipe_import
 from mealplanner.recipe_import import (
-    Heat, RecipeFormatError, RecipeResolutionError, export_plan, import_recipe, parse_recipe,
+    Heat, RecipeFormatError, RecipeResolutionError, export_plan, import_recipe, parse_recipe, resolve,
 )
 from tests.fakegraph import Ref, WritableGraph, cascading_schema
 
@@ -171,6 +173,15 @@ class Load(unittest.TestCase):
         self.assertEqual(roast["isPrecededBy"], [])                            # side by side with the rice
         oven = g.nodes["StateRequirement:Roast Chicken and Rice v1 step 3 equipment 1 Oven heat"]
         self.assertEqual((oven["targetsProperty"].id, g.nodes[oven["expectedValueQty"].id]["unit"]), ("Temperature", "degF"))
+
+    def test_names_resolved_already_are_not_asked_for_again(self):
+        """tools/import_recipe.py resolves a file's names for the kitchen check and hands them on (review of
+        2026-11-01): the same Plan, read back as the file says it, with no second resolution."""
+        g, doc = kitchen(), parse_recipe(data())
+        names = resolve(g, doc)
+        with mock.patch.object(recipe_import, "resolve", side_effect=AssertionError("resolved again")):
+            report = import_recipe(g, doc, names=names)
+        self.assertEqual(export_plan(g, report.plan_id), doc.plan_part())
 
     def test_an_edited_file_leaves_nothing_behind(self):
         g = kitchen()

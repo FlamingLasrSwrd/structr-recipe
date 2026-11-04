@@ -80,12 +80,21 @@ def stored_figures_view(client) -> str:
     return "all"
 
 
-# The roots of every type this project made: whatever the planner reads is below one of them, and
-# Structr's own nodes (sessions, users, pages) are below none, so signing in changes nothing here.
-# tests/test_planning_reads.py checks the list against the schema in tools/expected_state.json.
-# A relationship made or changed changes neither end's lastModifiedDate (7.1.0, 2026-10-31), so the
-# relationships, every one of which Structr lists as a RelationshipInterface, are marked too.
-CHANGE_ROOTS = ("Entity", "ConceptScheme", "DomainType", "RelationKind", "TypeHierarchy")
+# The roots of every type this project made but Person: whatever else the planner reads is below one
+# of them, and Structr's own nodes (sessions, the tools' account, pages) are below none. A Person is a
+# User as well as an Entity, and Structr keeps each session on its user (sessionIds), so a household
+# member signing in to the pages moves their lastModifiedDate (checked on 7.1.0, 2026-11-03), and would
+# make plan_week read the week again, or refuse it, for nothing (review of 2026-11-01). Of a Person the
+# planner reads only the name, once, through the cache; their targets, baselines and household are
+# relationships, marked below. So Entity is no root: the subtrees beside Person's line of abstract
+# ancestors are, and a member renamed while the week is read goes unseen. tests/test_planning_reads.py
+# checks the list against the schema in tools/expected_state.json. A relationship made or changed
+# changes neither end's lastModifiedDate (7.1.0, 2026-10-31), so the relationships, every one of which
+# Structr lists as a RelationshipInterface, are marked too.
+UNMARKED = ("Person",)
+CHANGE_ROOTS = ("Occurrent", "GenericallyDependentContinuant", "SpecificallyDependentContinuant", "ObjectAggregate",
+                "ContainerObject", "EquipmentObject", "FoodObject",           # Entity, but for Person
+                "ConceptScheme", "DomainType", "RelationKind", "TypeHierarchy")
 RELATIONSHIPS = "RelationshipInterface"
 READ_ATTEMPTS = 2
 UNTIL = "2100-01-01T00:00:00+0000"
@@ -101,9 +110,10 @@ def change_mark(client) -> dict:
     (lastModifiedDate, label)).
 
     Finding the newest sorts every node (1.1 to 1.6 s on the development instance holding the whole
-    vocabulary, 0.3 s for the relationships); what changed since a time is a range read (0.05 to
-    0.3 s). Structr gives the time to the second, so what changed in that second tells two changes in
-    it apart."""
+    vocabulary, measured with Entity as one root, 0.3 s for the relationships); what changed since a
+    time is a range read (0.05 to 0.3 s). Entity split into its subtrees costs a little more: 0.7 s a
+    mark against 0.4 s on a freshly rebuilt throwaway (2026-11-03). Structr gives the time to the
+    second, so what changed in that second tells two changes in it apart."""
     return {root: _root_mark(client, root) for root in (*CHANGE_ROOTS, RELATIONSHIPS)}
 
 

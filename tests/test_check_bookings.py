@@ -10,6 +10,8 @@ import unittest
 from contextlib import redirect_stdout
 from unittest import mock
 
+from structr_client import StructrError
+
 
 def load():
     path = os.path.join(os.path.dirname(__file__), "..", "tools", "check_bookings.py")
@@ -22,10 +24,12 @@ def load():
 class Left:
     """Nodes by type and id, queried as Structr answers `?name=<part>&_inexact=1`: names holding the part in
     any case, and a supertype's query also answering its subtypes' nodes (as a Process query does a
-    Cook's); without `_inexact`, names equal to it."""
+    Cook's); without `_inexact`, names equal to it. A delete of a node not there is answered 404; one in
+    `refuse` (id -> status) is refused with that status and stays."""
 
-    def __init__(self, nodes, kinds=None):
+    def __init__(self, nodes, kinds=None, refuse=None):
         self.nodes, self.deleted, self.kinds = dict(nodes), [], dict(kinds or {})       # kinds: Process id -> kind id
+        self.refuse = dict(refuse or {})
 
     def get_all(self, type_name):
         return {"result": [{"id": i, "type": t, "name": n, "hasKind": {"id": self.kinds[i]} if i in self.kinds else None}
@@ -41,7 +45,9 @@ class Left:
     def delete(self, path):
         type_name, node_id = path.rsplit("/", 2)[-2:]
         if node_id not in self.nodes or self.nodes[node_id][0] != type_name:
-            raise RuntimeError("404")
+            raise StructrError("DELETE", path, 404, {"code": 404})
+        if node_id in self.refuse:
+            raise StructrError("DELETE", path, self.refuse[node_id], {"code": self.refuse[node_id]})
         self.deleted.append(node_id)
         del self.nodes[node_id]
 
@@ -78,6 +84,36 @@ class Sweep(unittest.TestCase):
 
     def test_nothing_left_is_nothing_removed(self):
         self.assertEqual(self.tool.sweep(Left({})), 0)
+
+    def test_a_node_already_gone_is_neither_removed_nor_refused(self):
+        g = Left({"p": ("Process", "Purchase 1a2b3c4d")})
+        self.assertEqual(self.tool._remove(g, {"gone": "Process", "p": "Process"}), (1, []))
+
+    def test_a_refused_delete_is_not_counted_and_the_sweep_says_so_once_the_rest_are_tried(self):
+        for status in (401, 422, 500):
+            with self.subTest(status=status):
+                mark = self.tool.MARK
+                g = Left({"p": ("Process", f"Purchase {mark}11112222"), "q": ("Process", f"Use {mark}33334444")},
+                         refuse={"p": status})
+                self.assertEqual(self.tool._remove(g, {"p": "Process", "q": "Process"}),
+                                 (1, [f"Process p: {status} {{'code': {status}}}"]))
+                g = Left({"p": ("Process", f"Purchase {mark}11112222"), "q": ("Process", f"Use {mark}33334444")},
+                         refuse={"p": status})
+                with self.assertRaises(RuntimeError) as caught:
+                    self.tool.sweep(g)
+                self.assertIn(f"could not remove 1 node(s) an earlier run left: Process p: {status}", str(caught.exception))
+                self.assertEqual(sorted(g.nodes), ["p"])
+
+    def test_what_a_run_wrote_is_removed_newest_first_and_a_refusal_reported(self):
+        g = Left({"a": ("Process", "A"), "b": ("Process", "B"), "c": ("Process", "C")}, refuse={"b": 500})
+        out = io.StringIO()
+        with redirect_stdout(out):
+            left = self.tool.remove_written(g, [("Process", "a"), ("Process", "b"), ("Process", "gone"), ("Process", "c")])
+        self.assertEqual(g.deleted, ["c", "a"])
+        self.assertEqual(left, ["Process b: 500 {'code': 500}"])
+        self.assertIn("could not remove Process b: 500", out.getvalue())
+        self.assertIn("removed 2 of the 4 node(s) written (1 had gone with another); 1 left for the next run's sweep",
+                      out.getvalue())
 
     def test_a_run_sweeps_before_it_books(self):
         g, seen = Left({"old": ("Process", f"Purchase {self.tool.MARK}11112222")}), []

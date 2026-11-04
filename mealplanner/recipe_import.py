@@ -696,11 +696,13 @@ def output_name(doc: RecipeDoc, i: int, step: StepDoc) -> str:
     return f"{doc.plan_name} step {i} output {step.makes}"
 
 
-def import_recipe(client, doc: RecipeDoc, *, check_only: bool = False) -> ImportReport | Resolved:
+def import_recipe(client, doc: RecipeDoc, *, check_only: bool = False,
+                  names: Resolved | None = None) -> ImportReport | Resolved:
     """Load `doc`. With check_only, resolve every name and stop (returns the
     Resolved names). Raises RecipeResolutionError before writing anything if a
-    name is missing, and RecipeFrozenError if the Plan was cooked and differs."""
-    names = resolve(client, doc)
+    name is missing, and RecipeFrozenError if the Plan was cooked and differs.
+    `names`: what resolve() answered for `doc` just before, so it is not asked again."""
+    names = resolve(client, doc) if names is None else names
     if check_only:
         return names
 

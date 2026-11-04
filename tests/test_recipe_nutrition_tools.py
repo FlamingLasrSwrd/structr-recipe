@@ -73,6 +73,7 @@ class ImportRecipeTool(unittest.TestCase):
                                  without_profiles=[])
         doc = SimpleNamespace(plan_name="pasta")
         with mock.patch.object(self.tool, "read_recipe", return_value=doc), \
+                mock.patch.object(self.tool, "resolve", return_value=result), \
                 mock.patch.object(self.tool, "import_recipe", return_value=result), \
                 mock.patch.object(self.tool, "calculate", return_value=Report(plans=1)) as calc:
             code, out = run(self.tool, ["a.toml", "b.toml"], ready(stocked()))
@@ -86,6 +87,7 @@ class ImportRecipeTool(unittest.TestCase):
         doc = SimpleNamespace(plan_name="pasta")
         for argv, g in ((["a.toml"], stocked()), (["--check", "a.toml"], ready(stocked()))):
             with mock.patch.object(self.tool, "read_recipe", return_value=doc), \
+                    mock.patch.object(self.tool, "resolve", return_value=result), \
                     mock.patch.object(self.tool, "import_recipe", return_value=result), \
                     mock.patch.object(self.tool, "calculate") as calc:
                 run(self.tool, argv, g)

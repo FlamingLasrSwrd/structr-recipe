@@ -87,6 +87,17 @@ class WhatIsMissing(unittest.TestCase):
         got = lacks(graph(members=()), step("one", "Pan"), step("two", "Oven heat", "Wok", capabilities=["Oven heat"]))
         self.assertEqual(got, [("one", "Pan", False), ("two", "Oven heat", True), ("two", "Wok", False)])
 
+    def test_a_capabilitys_bearers_are_found_once_for_every_call_given_the_same_dict(self):
+        g = graph()
+        (kitchen,) = kitchen_check.kitchens(g)
+        steps = (step("bake", "Oven heat", capabilities=["Oven heat"]), step("crisp", "Oven heat", capabilities=["Oven heat"]))
+        can_give = {}
+        with mock.patch.object(kitchen_check, "bearers", wraps=kitchen_check.bearers) as found:
+            for _ in range(2):                                     # two kitchens, or two recipes
+                self.assertEqual(kitchen_check.missing(g, steps, EQUIPMENT, kitchen, can_give), [])
+        self.assertEqual(found.call_count, 1)
+        self.assertEqual(can_give, {"Oven heat": {"Oven"}})
+
     def test_the_description_says_which_step_and_what(self):
         self.assertEqual(kitchen_check.describe(kitchen_check.Missing("broil", "Broiler heat", True)),
                          "step 'broil': something that gives Broiler heat")
@@ -117,13 +128,23 @@ class TheImporterAsks(unittest.TestCase):
     """tools/import_recipe.py's choices, with the graph's answers stood in for."""
 
     def run_tool(self, *argv, lacking=True, kitchens=({"name": "TEST -- kitchen", "types": frozenset()},),
-                 unchanged=False, answer="", interactive=True):
+                 unchanged=False, answer="", interactive=True, files=("dish.toml",)):
         calls = {"imports": 0, "asked": 0}
+        self.resolved, self.handed, self.caches = [], [], []
 
-        def import_recipe(client, doc, check_only=False):
+        def resolve(client, doc):
+            self.resolved.append(Imported())
+            return self.resolved[-1]
+
+        def import_recipe(client, doc, check_only=False, names=None):
             if not check_only:
                 calls["imports"] += 1
+                self.handed.append(names)
             return Imported()
+
+        def missing(client, steps, equipment, kitchen, can_give=None):
+            self.caches.append(can_give)
+            return gaps
 
         def ask(prompt):
             calls["asked"] += 1
@@ -132,13 +153,14 @@ class TheImporterAsks(unittest.TestCase):
         gaps = [kitchen_check.Missing("sear", "Wok", False)] if lacking else []
         with mock.patch.object(tool, "connect"), \
                 mock.patch.object(tool, "read_recipe", return_value=Doc()), \
+                mock.patch.object(tool, "resolve", side_effect=resolve), \
                 mock.patch.object(tool, "import_recipe", side_effect=import_recipe), \
                 mock.patch.object(tool, "loaded_unchanged", return_value=unchanged), \
                 mock.patch.object(tool.kitchen_check, "kitchens", return_value=list(kitchens)), \
-                mock.patch.object(tool.kitchen_check, "missing", return_value=gaps), \
+                mock.patch.object(tool.kitchen_check, "missing", side_effect=missing), \
                 mock.patch.object(tool, "schema_ready", return_value=False), \
                 mock.patch("builtins.print") as printed:
-            code = tool.main(["dish.toml", *argv], ask=ask, interactive=interactive)
+            code = tool.main([*files, *argv], ask=ask, interactive=interactive)
         out = "\n".join(" ".join(str(a) for a in c.args) for c in printed.call_args_list)
         return code, calls, out
 
@@ -173,6 +195,18 @@ class TheImporterAsks(unittest.TestCase):
         code, calls, out = self.run_tool(lacking=False)
         self.assertEqual((code, calls), (0, {"imports": 1, "asked": 0}))
         self.assertNotIn("missing", out)
+
+    def test_each_recipes_names_are_resolved_once_and_handed_to_its_import(self):
+        code, calls, out = self.run_tool(lacking=False, files=("one.toml", "two.toml"))
+        self.assertEqual((code, calls), (0, {"imports": 2, "asked": 0}))
+        self.assertEqual(len(self.resolved), 2)
+        self.assertEqual([id(n) for n in self.handed], [id(n) for n in self.resolved])
+
+    def test_every_kitchen_and_recipe_of_a_run_shares_what_was_found_of_the_capabilities(self):
+        two = ({"name": "TEST -- kitchen", "types": frozenset()}, {"name": "TEST -- cabin", "types": frozenset()})
+        self.run_tool(lacking=False, kitchens=two, files=("one.toml", "two.toml"))
+        self.assertEqual(len(self.caches), 4)
+        self.assertTrue(all(c is self.caches[0] for c in self.caches) and isinstance(self.caches[0], dict))
 
     def test_without_a_kitchen_it_says_the_tools_were_not_checked_and_imports(self):
         code, calls, out = self.run_tool(kitchens=(), lacking=False)

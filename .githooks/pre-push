@@ -13,13 +13,24 @@
 #   3. tools/check_names.py (undefined names and unused imports)
 #   4. scripts/23a_schema_drift_test.py (the schema helpers, offline)
 # It needs no Structr and changes nothing. It checks the working tree, which is what was just
-# committed when the tree is clean; it warns when it is not.
+# committed when the tree is clean; it warns when it is not: changes not committed, and files git
+# does not track and does not ignore, which the checks would import or read although the commits
+# being pushed lack them (a new module never added; review of 2026-11-01). Regular files only: a
+# sandboxed shell sees /dev/null mounted over .bashrc, .mcp.json and the like, which git lists too.
 set -u
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$here" || exit 1
 
 if [ -n "$(git status --porcelain --untracked-files=no 2>/dev/null)" ]; then
   echo "pre-push: the working tree has uncommitted changes; the checks run on it as it is, not on the commits being pushed"
+fi
+untracked="$(git ls-files --others --exclude-standard 2>/dev/null | while IFS= read -r f; do
+  if [ -f "$f" ]; then printf '%s\n' "$f"; fi
+done)"
+if [ -n "$untracked" ]; then
+  echo "pre-push: files not in git, which the checks may use although the commits being pushed lack them:"
+  printf '%s\n' "$untracked" | head -10 | sed 's/^/  /'
+  if [ "$(printf '%s\n' "$untracked" | wc -l)" -gt 10 ]; then echo "  ..."; fi
 fi
 
 solver="${SOLVER_PYTHON:-}"

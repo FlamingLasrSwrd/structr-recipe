@@ -3,8 +3,8 @@
     python3 tools/check_pages.py
 
 The pages work their figures out again in Structr's JavaScript, so this renders each one as the
-superuser (Structr honours the X-User headers for pages) and compares the data block each prints
-(#page-data) with Python's answer for the same graph:
+tools' account (mealplanner-tools, the admin tools/create_tools_user.py makes, signed in with a
+session) and compares the data block each prints (#page-data) with Python's answer for the same graph:
 
   week        every committed entry: cook or leftovers, the recipe, servings cooked and eaten, each
               person's share, and when a dish made ahead must be started (planning/commit.py writes them)
@@ -21,7 +21,7 @@ superuser (Structr honours the X-User headers for pages) and compares the data b
 
 for every week with entries. Where the Structr methods are installed (tools/install_methods.py), it
 compares nutritionReport's and shoppingList's answers with Python's the same way, called as the
-superuser. Read-only, so meant for the owner's instance as well as any other. Exits 1 on any difference.
+tools' account. Read-only, so meant for the owner's instance as well as any other. Exits 1 on any difference.
 """
 
 import json
@@ -97,7 +97,7 @@ def check_week(client, reads, week: dict, problems: list[str]) -> int:
 
 
 def method(client, name: str, **arguments):
-    """A Structr method's answer, called as the superuser; None when it is not installed."""
+    """A Structr method's answer, called as the tools' account; None when it is not installed."""
     r = client.request("POST", f"/structr/rest/{name}", json=arguments)
     if r.status_code == 404:
         return None
