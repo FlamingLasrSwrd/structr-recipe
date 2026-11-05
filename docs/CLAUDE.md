@@ -24,6 +24,7 @@ A meal-planning tool, single-user until the owner chose (2026-09-28) to move tow
 | `backups.md` | 📘 Guide, as built (2026-10-26) | how the owner's instance is backed up, how a backup is checked, and how one is put back |
 | `recipe-copyright.md` | 📘 Guide (2026-10-26), research, not legal advice | what a recipe import may keep and what it may not, the rules for imports, and what a hosted service would add |
 | `todo.md` | 📋 List, kept for the owner | future work: asked for, offered and waiting, and the owner's own to-dos |
+| `session-plan.md` | 📋 Plan, kept for the owner (2026-11-04) | which `todo.md` items separate sessions take, which files each owns, the stack each may use, and what waits on the owner |
 | `pantry.md` | 📘 Guide, as built (2026-10-23) | the pantry's bookings (buy, use, count, open, freeze, discard, cook) and what does not fit the model yet |
 | `self-hosting.md` | 📝 **Plan, not started** (2026-10-24) | what releasing the project for others to run at home would take, step by step, and the owner's decisions it needs |
 | `methods.md` | 📘 Guide, as built (2026-10-26) | the Structr methods (`methods/`), how households are kept apart by Structr's access control, and the gate that checks it (Path S, stages 1 and 2) |

@@ -2,6 +2,7 @@
 
 **Status: a list, kept by Claude for the owner** (started 2026-10-26, when the owner asked for one).
 Nothing here is started. Each item says where it came from. The owner decides what is next.
+`session-plan.md` groups the items a session can take without the owner's decision.
 
 ## Asked for
 
