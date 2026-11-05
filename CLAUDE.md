@@ -104,6 +104,7 @@ STRUCTR_URL=http://localhost:8085 python3 tools/instantiate_household.py private
 STRUCTR_URL=http://localhost:8085 python3 tools/import_prices.py      # data/prices.toml; then instantiate_profile.py prices private/prices.toml (docs/prices.md)
 STRUCTR_URL=http://localhost:8085 python3 tools/plan_week.py private/week.toml            # propose a week, report nutrients and cost; --commit writes it
 python3 tools/plan_problem.py private/week.problem.json   # the planner as a worker: a problem file (plan_week.py --export-problem) in, a plan file out; no Structr
+python3 tools/import_grocy.py private/grocy/ --map private/grocy-map.toml --check   # a Grocy export: what it would book (docs/imports.md)
 python3 tools/install_pages.py && python3 tools/install_methods.py   # the pages and the Structr methods (methods/): code, safe on any instance
 python3 tools/check_households.py   # dev only: two test households book and read as themselves through the methods, kept apart (docs/methods.md)
 python3 tools/check_instructions.py # the recipe page writes instructions word for word as mealplanner/instructions.py (any instance)

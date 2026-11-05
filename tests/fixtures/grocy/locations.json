@@ -1,0 +1,8 @@
+[
+  {"id": 1, "name": "Pantry", "description": null, "is_freezer": 0, "active": 1, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 2, "name": "Candy cupboard", "description": null, "is_freezer": 0, "active": 1, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 3, "name": "Tinned food cupboard", "description": null, "is_freezer": 0, "active": 1, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 4, "name": "Fridge", "description": null, "is_freezer": 0, "active": 1, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 5, "name": "Chest freezer", "description": null, "is_freezer": 1, "active": 1, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 6, "name": "Fruit bowl", "description": null, "is_freezer": 0, "active": 1, "row_created_timestamp": "2026-09-01 10:00:00"}
+]

@@ -23,6 +23,7 @@ A meal-planning tool, single-user until the owner chose (2026-09-28) to move tow
 | `prices.md` | 📘 Guide, as built | where the interim food prices come from, how they are layered, the owner's own prices, and what a recipe or a week costs |
 | `backups.md` | 📘 Guide, as built (2026-10-26) | how the owner's instance is backed up, how a backup is checked, and how one is put back |
 | `recipe-copyright.md` | 📘 Guide (2026-10-26), research, not legal advice | what a recipe import may keep and what it may not, the rules for imports, and what a hosted service would add |
+| `imports.md` | 📘 Guide, as built (2026-11-04), first stage; not yet run live | imports from similar applications: Grocy's products, units, locations and stock read from an export, matched only through the owner's map, and booked as purchases; what is left for later stages |
 | `todo.md` | 📋 List, kept for the owner | future work: asked for, offered and waiting, and the owner's own to-dos |
 | `session-plan.md` | 📋 Plan, kept for the owner (2026-11-04) | which `todo.md` items separate sessions take, which files each owns, the stack each may use, and what waits on the owner |
 | `pantry.md` | 📘 Guide, as built (2026-10-23) | the pantry's bookings (buy, use, count, open, freeze, discard, cook) and what does not fit the model yet |
