@@ -63,7 +63,10 @@ are also Structr `User`s (data-model K1, K2).
   household (a caller in none, or in several, is refused). Every node it makes is visible to no one
   by its flags and is granted (read, write, delete) to the household's Group, so each member reads and
   changes it and no one else sees it. A portion of another household is "no such portion", because the
-  caller cannot read it.
+  caller cannot read it. Each Process it writes is meant to name the caller as who made it (`wasAssociatedWith`
+  their Person, `docs/pantry.md`), through the same `bookProcess` that names whoever is signed in on a
+  page. That a method's booking does was not yet checked on an instance (2026-11-04): the pages' was,
+  by `tools/check_bookings.py`, and `tools/check_households.py` does not look at it yet.
 - **It never makes shared vocabulary.** A pantry operation's kind ("Purchase", "Use") must already
   exist. The pages, as the superuser, still make one on first use.
 - **It acts on the household's own data only.** Stock, a meal or a week that every signed-in user

@@ -5,11 +5,13 @@
 For a development or throwaway instance only: it writes, then removes what it wrote (connect()
 refuses the owner's instance; --keep leaves it for a look). Every token it books with begins with
 MARK, so each run first removes whatever an earlier one left, interrupted or kept. Each booking (buy, use, count, open,
-freeze, discard, and a planned meal cooked) is made once through the page, as the tools' account
-(mealplanner-tools, the admin tools/create_tools_user.py makes, signed in with a session), and once
-through Python, on two portions of the same food, and it compares:
+freeze, discard, a Use of the amount shown rounded up, and a planned meal cooked) is made once through
+the page, as a test Person made for the run ("TEST -- booker", signed in with a generated password
+that is never shown, deleted at the end), and once through Python, naming that Person as who made it
+(`by`), on two portions of the same food, and it compares:
 
-  the nodes each wrote, field by field, the booking's token aside;
+  the nodes each wrote, field by field, the booking's token aside, who made it (wasAssociatedWith) among
+  them, and that the page's Process names the Person signed in;
   what the inventory engine then says of the two portions: grams on hand, days to expiry;
   that sending the page's form again writes nothing new.
 
@@ -49,7 +51,7 @@ DATA = re.compile(r'<script type="application/json" id="booking-data">(.*?)</scr
 PAGE_DATA = re.compile(r'<script type="application/json" id="page-data">(.*?)</script>', re.S)
 FIELDS = {     # what a booking writes on each type
     "TemporalRegion": ("hasBeginning", "hasEnd"),
-    "Process": ("hasKind", "occupiesTemporalRegion", "concretizes"),
+    "Process": ("hasKind", "occupiesTemporalRegion", "concretizes", "wasAssociatedWith"),
     "ContainerObject": ("hasStorageCondition", "hasOpenedStatus"),
     "PortionOfSubstance": ("instanceOf", "beginsToExistDuring", "locatedIn", "hasPerishabilityType"),
     "Quality": ("hasKind", "inheresIn"),
@@ -58,7 +60,7 @@ FIELDS = {     # what a booking writes on each type
     "MealPlanEntry": ("fulfilledBy", "isSkipped", "eatenInstead", "references", "hasPlannedServings", "isAbout", "memberOf"),
     "TypeHierarchy": (), "DomainType": ("hierarchy", "isLookupBearing"),
 }
-SWEPT = (*FIELDS, "MealPlan", "QuantitySpecification", "MealShare")      # every type the check and its bookings name
+SWEPT = (*FIELDS, "MealPlan", "QuantitySpecification", "MealShare", "Person")   # every type the check and its bookings name
 MARK = "c4ecb00c"      # begins every token the check books with; a page's own token is 8 random hex digits
 
 
@@ -125,13 +127,34 @@ TIMES = ("hasBeginning", "hasTime")
 class Check:
     def __init__(self, client):
         self.client, self.problems, self.made = client, [], []     # made: (type, id) to remove at the end
+        self.booker = self.booker_id = None       # the test Person's session and id, for the pantry and the cook
+
+    def sign_in_booker(self) -> None:
+        """A Person made for the run, with a generated password never shown, who books the page's side."""
+        name, password = f"TEST -- booker {new_token()}", secrets.token_urlsafe(18)
+        self.booker_id = self.client.post("/structr/rest/Person", {"name": name, "password": password, "isAdmin": False,
+                                                                   "visibleToAuthenticatedUsers": True,
+                                                                   "visibleToPublicUsers": False})["result"][0]
+        self.made.insert(0, ("Person", self.booker_id))          # removed last, after what names it
+        self.booker = type(self.client.session)()
+        self.booker.headers.update({"X-User": name, "X-Password": password})
+
+    def booked_by_booker(self, what: str, process: str | None) -> None:
+        """The page's Process names the Person signed in, and no one else."""
+        rows = [row for t, row in self.nodes(process) if t == "Process"] if process else []
+        who = [ref.get("id") for ref in (rows[0].get("wasAssociatedWith") or [])] if rows else None
+        if who != [self.booker_id]:
+            self.fail(f"{what}: the page's {process!r} names {who!r} as who made it, not the Person signed in")
 
     def fail(self, text: str) -> None:
         self.problems.append(text)
         print(f"  DIFFERS: {text}")
 
     def page(self, path: str, **params) -> dict:
-        r = self.client.request("GET", f"/structr/html/{path}", params=params)
+        """A page's booking, as the test Person, made on the first booking (sign_in_booker)."""
+        if self.booker is None:
+            self.sign_in_booker()
+        r = self.booker.get(f"{self.client.base_url}/structr/html/{path}", params=params, timeout=self.client.timeout)
         r.raise_for_status()
         found = DATA.search(r.text)
         if not found:
@@ -227,7 +250,8 @@ def main(argv=None) -> int:
     check = Check(client)
     before = {name for name in ("Pantry Operation", "Purchase", "Use", "Discarding") if check.nodes(name)}
     t = {k: new_token() for k in ("buy", "use", "count", "discard", "cook", "pybuy", "pyuse", "pycount",
-                                            "pydiscard", "pycook", "week", "stock", "menu", "pymenu")}
+                                            "pydiscard", "pycook", "week", "stock", "menu", "pymenu", "shown",
+                                            "pyshown", "recount", "pyrecount")}
     now = datetime.now(timezone.utc)
     left = []                                 # what could not be removed at the end
     try:
@@ -239,7 +263,8 @@ def main(argv=None) -> int:
             check.fail(f"buy through the page: {got['problem']}")
             return 1
         check.remember(got["created"])
-        py = pantry.buy(client, args.food, 600, "g", now, t["pybuy"], storage="Fridge", keeps=args.keeps)
+        check.booked_by_booker("buy", got["process"])
+        py = pantry.buy(client, args.food, 600, "g", now, t["pybuy"], storage="Fridge", keeps=args.keeps, by=check.booker_id)
         check.remember(py.created)
         check.same_nodes("buy", got["created"], [t["buy"]], py.created, [t["pybuy"]])
         again = check.page("pantry", do="buy", food=args.food, amount="600", unit="g", storage="Fridge", keeps=args.keeps,
@@ -251,7 +276,7 @@ def main(argv=None) -> int:
         check.same_stock("bought", p_portion, y_portion)
 
         for action, page_args, py_call, token, py_token in (
-            ("use", dict(amount="150", unit="g"), lambda tok: pantry.use(client, y_portion, 150, "g", datetime.now(timezone.utc), tok), "use", "pyuse"),
+            ("use", dict(amount="150", unit="g"), lambda tok: pantry.use(client, y_portion, 150, "g", datetime.now(timezone.utc), tok, by=check.booker_id), "use", "pyuse"),
             ("count", dict(amount="420", unit="g"), lambda tok: pantry.stock_take(client, y_portion, 420, "g", datetime.now(timezone.utc), tok), "count", "pycount"),
         ):
             print(action)
@@ -260,6 +285,8 @@ def main(argv=None) -> int:
                 check.fail(f"{action} through the page: {got['problem']}")
                 continue
             check.remember(got["created"])
+            if action == "use":
+                check.booked_by_booker(action, got["process"])
             py = py_call(t[py_token])
             check.remember(py.created)
             check.same_nodes(action, got["created"], [t["buy"], t[token]], py.created, [t["pybuy"], t[py_token]])
@@ -281,10 +308,14 @@ def main(argv=None) -> int:
             check.fail(f"discard through the page: {got['problem']}")
         else:
             check.remember(got["created"])
-            py = pantry.discard(client, y_portion, datetime.now(timezone.utc), t["pydiscard"])
+            check.booked_by_booker("discard", got["process"])
+            py = pantry.discard(client, y_portion, datetime.now(timezone.utc), t["pydiscard"], by=check.booker_id)
             check.remember(py.created)
             check.same_nodes("discard", got["created"], [t["buy"], t["discard"]], py.created, [t["pybuy"], t["pydiscard"]])
             check.same_stock("discard", p_portion, y_portion)
+
+        print("use the amount shown, rounded up")
+        shown_check(check, client, p_portion, y_portion, t)
 
         print("cook")
         cook_check(check, client, t, args.food, args.keeps)
@@ -305,6 +336,30 @@ def main(argv=None) -> int:
             left = remove_written(client, check.made)
     print("all the same" if not check.problems else f"{len(check.problems)} difference(s)")
     return 1 if check.problems or left else 0
+
+
+def shown_check(check: Check, client, p_portion: str, y_portion: str, t: dict) -> None:
+    """A Use of the amount the page shows, rounded up: each portion counted at 300.6 g, which shows as
+    "301 g", and 301 g used through the page and through Python. Each must take all of it, 300.6 g, and
+    leave nothing (pantry.USED_UP_G), where it used to be refused as more than there is."""
+    for portion, token in ((p_portion, t["recount"]), (y_portion, t["pyrecount"])):
+        check.remember(pantry.stock_take(client, portion, 300.6, "g", datetime.now(timezone.utc), token).created)
+    got = check.page("pantry", do="use", portion=p_portion, amount="301", unit="g", token=t["shown"])
+    if got["problem"]:
+        check.fail(f"301 g of 300.6 g through the page: {got['problem']}")
+        return
+    check.remember(got["created"])
+    try:
+        py = pantry.use(client, y_portion, 301, "g", datetime.now(timezone.utc), t["pyshown"], by=check.booker_id)
+    except pantry.PantryError as exc:
+        check.fail(f"301 g of 300.6 g through Python: {exc}")
+        return
+    check.remember(py.created)
+    check.same_nodes("use the amount shown", got["created"], [t["buy"], t["shown"]], py.created, [t["pybuy"], t["pyshown"]])
+    check.same_stock("use the amount shown", p_portion, y_portion)
+    drawn = [row["value"] for name in got["created"] for type_name, row in check.nodes(name) if type_name == "Measurement"]
+    if drawn != [300.6]:
+        check.fail(f"use the amount shown: the page drew {drawn}, not all of the 300.6 g")
 
 
 def cook_check(check: Check, client, t: dict, food: str, keeps: str) -> None:
@@ -342,8 +397,10 @@ def cook_check(check: Check, client, t: dict, food: str, keeps: str) -> None:
         check.fail(f"cook through the page: {got['problem']}")
         return
     check.remember(got["created"])
-    booking, short = pantry.cook(client, entries[1], datetime.now(timezone.utc), t["pycook"])
+    check.booked_by_booker("cook", got["process"])
+    booking, short = pantry.cook(client, entries[1], datetime.now(timezone.utc), t["pycook"], by=check.booker_id)
     check.remember(booking.created)
+    check.same_nodes("cook: its Process", [got["process"]], [t["cook"]], [booking.process], [t["pycook"]])
 
     def drawn(token: str) -> dict:
         totals = {}

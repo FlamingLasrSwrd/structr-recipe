@@ -13,7 +13,8 @@ from contextlib import redirect_stdout
 from unittest import mock
 
 from mealplanner.inventory import instance_expiration
-from mealplanner.pantry import USED_UP_G, PantryError, buy, cook, discard, move, on_hand, open_portion, stock_take, use
+from mealplanner.pantry import (USED_UP_G, PantryError, buy, cook, discard, move, on_hand, open_portion, person_named,
+                                signed_in_person, stock_take, use)
 from tests.fakegraph import Ref, WritableGraph, at, when
 from tests.planning_graph import add_entry, add_portion, add_type
 from tests.test_planning_extract import kitchen
@@ -28,7 +29,7 @@ class Graph(WritableGraph):
     RELATIONS = WritableGraph.RELATIONS | {
         "process", "hasActualQuantity", "occupiesTemporalRegion", "beginsToExistDuring", "locatedIn",
         "hasStorageCondition", "hasOpenedStatus", "hasPerishabilityType", "concretizes", "fulfills", "fulfilledBy",
-        "isAbout"}
+        "isAbout", "wasAssociatedWith"}
     REVERSES = {**WritableGraph.REVERSES, "isAbout": "allocationsAbout", "process": "qualifiedUsage"}
 
 
@@ -213,6 +214,108 @@ class UsedUp(unittest.TestCase):
         engine = re.search(r"const USED_UP_G = ([0-9.]+);", (root / "pages" / "lib" / "30_stock.js").read_text())
         self.assertEqual(float(engine.group(1)), USED_UP_G)
         self.assertIn("level[0] < USED_UP_G", (root / "pages" / "pantry.js").read_text())
+
+
+class WhoBooked(unittest.TestCase):
+    """Each booking's Process names the Person who made it (wasAssociatedWith, data-model.md K1)."""
+
+    def setUp(self):
+        self.g = pantry()
+        self.g.add("Person", "Jamie")
+        self.g.add("Person", "Alex")
+
+    def who(self, process_name):
+        (row,) = [n for n in self.g.nodes.values() if n["type"] == "Process" and n["name"] == process_name]
+        return sorted(ref.id for ref in row.get("wasAssociatedWith") or [])
+
+    def test_a_purchase_a_use_a_discard_and_a_cook_name_who_made_them(self):
+        buy(self.g, "Eggs", 600, "g", NOW, "t1", keeps="Fresh Meat", by="Jamie")
+        eggs = portion_named(self.g, "Purchase t1 -- Eggs")
+        use(self.g, eggs, 100, "g", when(25, 13), "u1", by="Alex")
+        discard(self.g, eggs, when(25, 14), "d1", by="Jamie")
+        add_entry(self.g, "e1", "omelette", at(25, 9), servings=2.0)
+        booking, _ = cook(self.g, "e1", when(25, 15), "c1", by="Alex")
+        self.assertEqual([self.who(name) for name in ("Purchase t1", "Use u1", "Discard d1", booking.process)],
+                         [["Jamie"], ["Alex"], ["Jamie"], ["Alex"]])
+
+    def test_no_one_given_names_no_one(self):
+        buy(self.g, "Eggs", 600, "g", NOW, "t1")
+        self.assertEqual(self.who("Purchase t1"), [])
+
+    def test_a_booking_repeated_by_someone_else_is_still_the_first_ones(self):
+        buy(self.g, "Eggs", 600, "g", NOW, "t1", by="Jamie")
+        self.assertEqual(buy(self.g, "Eggs", 600, "g", NOW, "t1", by="Alex").created, [])
+        self.assertEqual(self.who("Purchase t1"), ["Jamie"])
+
+    def test_a_person_by_name(self):
+        self.assertEqual(person_named(self.g, "Jamie"), "Jamie")
+        with self.assertRaises(PantryError):
+            person_named(self.g, "Sam")
+        self.g.add("Person", "Jamie 2", name="Jamie")
+        with self.assertRaises(PantryError):
+            person_named(self.g, "Jamie")
+
+    def test_the_signed_in_person_is_only_a_person(self):
+        class Me:
+            def __init__(self, row):
+                self.row = row
+
+            def get(self, path, params=None):
+                assert path == "/structr/rest/me"
+                return {"result": self.row}
+        self.assertEqual(signed_in_person(Me({"id": "p1", "type": "Person", "name": "Jamie"})), "p1")
+        self.assertIsNone(signed_in_person(Me({"id": "u1", "type": "User", "name": "mealplanner-tools"})))
+        self.assertEqual(signed_in_person(Me([{"id": "p1", "type": "Person"}])), "p1")
+
+    def test_the_pages_name_the_signed_in_person_on_every_process(self):
+        root = pathlib.Path(__file__).resolve().parents[1]
+        engine = (root / "pages" / "lib" / "40_bookings.js").read_text()
+        self.assertIn('const BOOKED_BY = $.me && $.me.type === "Person" ? $.me.id : null;', engine)
+        self.assertIn("wasAssociatedWith: bookedBy()", engine.split("function bookProcess", 1)[1].split("\n}", 1)[0])
+
+
+class RoundedUp(unittest.TestCase):
+    """The pantry shows whole grams, so the amount shown can be up to half a gram more than there is: a Use
+    within USED_UP_G of what a portion holds, either way, is all of it. Worked by hand: 996.6 g shows as
+    "997 g"; 997 g used is 0.4 g more than there is, so it draws the 996.6 g."""
+
+    def after(self, bought, used):
+        g = pantry()
+        buy(g, "Eggs", bought, "g", NOW, "t1", keeps="Fresh Meat")
+        eggs = portion_named(g, "Purchase t1 -- Eggs")
+        use(g, eggs, used, "g", when(25, 13), "u1")
+        (drawn,) = [n["value"] for n in g.nodes.values() if n["type"] == "Measurement" and n["name"] == "Use u1 -- Purchase t1 -- Eggs amount"]
+        return grams(g, eggs, when(25, 14)), drawn
+
+    def test_the_amount_shown_rounded_up_is_all_of_it(self):
+        self.assertEqual(self.after(996.6, 997), (0.0, 996.6))
+
+    def test_half_a_gram_over_is_all_of_it(self):
+        self.assertEqual(self.after(996.5, 997), (0.0, 996.5))
+
+    def test_one_that_would_leave_a_crumb_is_all_of_it(self):
+        self.assertEqual(self.after(996.4, 996), (0.0, 996.4))
+
+    def test_half_a_gram_left_is_still_left(self):
+        self.assertEqual(self.after(100.5, 100), (0.5, 100.0))
+
+    def test_more_than_half_a_gram_over_is_refused(self):
+        with self.assertRaises(PantryError):
+            self.after(996.4, 997)
+
+    def test_nothing_is_taken_from_what_is_used_up(self):
+        g = pantry()
+        buy(g, "Eggs", 600, "g", NOW, "t1", keeps="Fresh Meat")
+        eggs = portion_named(g, "Purchase t1 -- Eggs")
+        use(g, eggs, 600, "g", when(25, 13), "u1")
+        with self.assertRaises(PantryError):
+            use(g, eggs, 0.4, "g", when(25, 14), "u2")
+
+    def test_the_pages_have_the_same_rule(self):
+        root = pathlib.Path(__file__).resolve().parents[1]
+        use_action = (root / "pages" / "lib" / "50_pantry.js").read_text().split("  use: ", 1)[1].split("\n  },", 1)[0]
+        self.assertIn("if (have - grams >= -USED_UP_G && have - grams < USED_UP_G) take = have;", use_action)
+        self.assertIn("if (!(have > 0))", use_action)
 
 
 if __name__ == "__main__":

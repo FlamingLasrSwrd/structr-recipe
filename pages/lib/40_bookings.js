@@ -25,6 +25,10 @@ const LOCK = "MATCH (l:MealPlannerBookingLock) WITH l ORDER BY elementId(l) LIMI
 const SEEN = {visibleToAuthenticatedUsers: true, visibleToPublicUsers: false};
 const PRIVATE = {visibleToAuthenticatedUsers: false, visibleToPublicUsers: false};
 const stamp = (d) => d.toISOString().replace(/\.\d{3}Z$/, "+0000");
+// pantry.signed_in_person: who is signed in, if they are a Person (data-model.md K1), taken before a page's
+// booking runs as the superuser ($.doPrivileged), where $.me may be someone else. Each booking's Process
+// names them (wasAssociatedWith); a stock take, an opening and a move write no Process, so name no one.
+const BOOKED_BY = $.me && $.me.type === "Person" ? $.me.id : null;
 const newToken = () => Math.random().toString(16).slice(2, 10);
 
 class BookingError extends Error {}
@@ -66,7 +70,17 @@ function bookProcess(booking, kind, name, when, extra) {
   const region = ensureNode(booking, "TemporalRegion", name + " time", {hasBeginning: stamp(when)});
   booking.process = name;
   return ensureNode(booking, "Process", name, Object.assign({hasKind: kind ? operationKind(booking, kind) : null,
-                                                             occupiesTemporalRegion: region}, extra || {}));
+                                                             occupiesTemporalRegion: region,
+                                                             wasAssociatedWith: bookedBy()}, extra || {}));
+}
+
+// The signed-in Person, loaded again in the booking's own transaction, as a list for wasAssociatedWith; null
+// for anyone else (the tools' account, the superuser)
+function bookedBy() {
+  if (!BOOKED_BY) return null;
+  const found = $.find("Person", {id: BOOKED_BY});
+  const person = Array.isArray(found) ? found[0] : found;
+  return person ? [person] : null;
 }
 
 // pantry._draw: an input Allocation of `grams` from a portion, its amount an observed Measurement
