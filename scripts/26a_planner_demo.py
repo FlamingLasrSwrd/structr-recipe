@@ -6,15 +6,20 @@ serving is just its NutrientProfile amount (12, 10, 24, 30, 45 g), taking 20, 25
 35, 40 and 90 minutes; a MealPlan with a HARD daily protein range of 70-140 g, a
 30-minute time budget and weight 0.6 on time fit (no variety, stock or waste
 weight). The profiles are marked `sourced`: they are throwaway TEST fixtures, and
-a planner will not decide a hard target on placeholder data.
+a planner will not decide a hard target on placeholder data. The fixtures are
+tagged with a meal type of their own, "TEST -- Z26 meal", and every slot planned
+is of that meal, so the planner chooses among the fixtures only and the checks
+hold whatever other recipes the instance holds (the basic recipes of
+data/recipes/ have sourced nutrition and would otherwise be eligible).
 
 Expected values are worked out here with plain arithmetic and an enumeration of
 every menu, not by calling the planner. The end-to-end proof that a committed
 plan meets the minimum uses nutrition_report(), which predates the planner and
 shares no code with it.
 
-  1  Only the five fixtures are eligible under the hard target (every recipe with
-     placeholder or missing nutrition is refused, and the reason says so).
+  1  Only the five fixtures are eligible at the fixtures' meal (every other recipe
+     is refused, and the reason says so; how many of them nutrition alone would
+     let through is shown, not checked).
   2  Three slots on one day: the planner finds the best feasible menu; exact,
      beam and an independent enumeration agree on its score.
   3  Committing it writes MealPlanEntries the model's validators accept, and
@@ -41,7 +46,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner.connection import connect
 from mealplanner.nutrition_scope import nutrition_report
-from mealplanner.planning.evaluate import evaluate, ineligible_reason
+from mealplanner.planning.evaluate import basic_reason, evaluate, ineligible_reason
 from mealplanner.planning.extract import SlotSpec, build_problem
 from mealplanner.planning.model import Pick
 from mealplanner.planning.plan import plan_week
@@ -50,6 +55,7 @@ from mealplanner.planning.search import beam
 from mealplanner.typetree import dt
 
 P = "TEST -- Z26 "
+MEAL = P + "meal"                # the fixtures' own meal type, a Concept in the Meal Type scheme
 FMT = "%Y-%m-%dT%H:%M:%S+0000"
 BUDGET, W_TIME, W_TARGET = 30.0, 0.6, 0.2
 FLOOR, CEILING = 70.0, 140.0
@@ -59,7 +65,7 @@ RECIPES = {                      # name: (protein g per serving, minutes)
 }
 SWEEP_ORDER = [
     "MealPlanEntry", "MealPlan", "TemporalRegion", "NutritionTarget", "Specification", "Step", "Plan",
-    "RecipeIdentity", "NutrientProfile", "QuantitySpecification", "DomainType",
+    "RecipeIdentity", "NutrientProfile", "QuantitySpecification", "DomainType", "Concept",
 ]
 
 
@@ -122,7 +128,7 @@ def main():
 
     protein = dt(client, "Protein")
     tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    template = [SlotSpec(tomorrow + timedelta(hours=h), None, name) for h, name in ((8, "breakfast"), (12, "lunch"), (18, "dinner"))]
+    template = [SlotSpec(tomorrow + timedelta(hours=h), MEAL, name) for h, name in ((8, "breakfast"), (12, "lunch"), (18, "dinner"))]
 
     def qty(name, **fields):
         return client.upsert("QuantitySpecification", "name", P + name, {"status": "specified", **fields})
@@ -131,12 +137,14 @@ def main():
     try:
         print("[0] Fixtures: five recipes, a MealPlan and a hard daily protein range...")
         hierarchy = client.get("/structr/rest/TypeHierarchy", params={"name": "Food Identity"})["result"][0]["id"]
+        scheme = client.get("/structr/rest/ConceptScheme", params={"name": "Meal Type"})["result"][0]["id"]
+        meal = client.upsert("Concept", "name", MEAL, {"inScheme": scheme})
         profiles = {}
         for name, (grams, minutes) in RECIPES.items():
             dish = client.upsert("DomainType", "name", f"{P}{name} dish", {"hierarchy": hierarchy, "isLookupBearing": True})
             profiles[name] = client.upsert("NutrientProfile", "name", f"{P}{name} protein profile", {
                 "isAbout": dish, "forNutrient": protein, "amount": grams, "basis": "per_100g", "unit": "g", "provenance": "sourced"})
-            recipe = client.upsert("RecipeIdentity", "name", f"{P}{name} recipe", {"isRetired": False})
+            recipe = client.upsert("RecipeIdentity", "name", f"{P}{name} recipe", {"isRetired": False, "hasMealType": [meal]})
             plan = client.upsert("Plan", "name", P + name, {
                 "specializationOf": recipe, "estimatedDurationMinutes": minutes,
                 "hasRecipeYield": qty(f"{name} yield", value=1.0, unit="servings")})
@@ -152,17 +160,20 @@ def main():
             "timeBudgetMinutes": BUDGET, "timeBudgetWeight": W_TIME, "varietyWeight": 0.0, "stockWeight": 0.0, "wasteWeight": 0.0})
         client.patch(f"/structr/rest/MealPlan/{week}", {"hasConstraint": [target]})
         plan_ids = {name: client.get("/structr/rest/Plan", params={"name": P + name})["result"][0]["id"] for name in RECIPES}
-        print(f"    {len(RECIPES)} recipes, MealPlan {week}")
+        print(f"    {len(RECIPES)} recipes of the meal {MEAL!r}, MealPlan {week}")
 
-        print("\n[1] Eligibility under the hard target...")
+        print("\n[1] Eligibility at the fixtures' meal, under the hard target...")
         problem = build_problem(client, week, template, now)
         eligible = {c.name for c in problem.candidates.values() if ineligible_reason(problem, 0, c) is None}
         check(eligible == {P + n for n in RECIPES},
               f"exactly the five sourced fixtures are eligible ({len(problem.candidates)} recipes read, {len(eligible)} eligible)")
         others = [c for c in problem.candidates.values() if not c.name.startswith(P)]
         check(all(ineligible_reason(problem, 0, c) for c in others),
-              f"all {len(others)} other recipes are refused (placeholder, missing or unmarked nutrition): "
+              f"all {len(others)} other recipes are refused: "
               + "; ".join(sorted({(ineligible_reason(problem, 0, c) or "eligible").split(',')[0] for c in others})[:2]))
+        alone = [basic_reason(problem, c) for c in others]
+        print(f"    (at a meal of any type, {alone.count(None)} of them would be eligible; the rest are refused: "
+              + "; ".join(sorted({r.split(',')[0] for r in alone if r})[:2]) + ")")
         per_serving = {c.name: c.nutrients[protein] for c in problem.candidates.values() if c.name.startswith(P)}
         check(all(abs(per_serving[P + n] - RECIPES[n][0]) < 1e-9 for n in RECIPES), "protein per serving read as 12, 10, 24, 30, 45 g")
 

@@ -25,7 +25,9 @@ booking may not make itself. Then, each member as themselves:
   apart): a portion expiring sooner than A's, which A's cook must not draw on and A cannot book on, a
   meal A cannot change, and a week of that name A's request must not add to.
 
-It removes everything it made, and first sweeps what an interrupted earlier run left (sweep). Exits 1
+It removes everything it made, and first sweeps what an interrupted earlier run left (sweep). What it
+makes itself it writes down first, in .cache/check_households/ (Record), so the sweep finds the grants
+and shared operations a killed run made and leaves the ones that were there before. Exits 1
 on any failure. Needs STRUCTR_TOOLS_PASSWORD and
 STRUCTR_URL, and the methods installed (tools/install_methods.py, and tools/install_pages.py for the
 bookings' lock).
@@ -42,11 +44,14 @@ build runs.
 """
 
 import argparse
+import json
 import os
+import re
 import secrets
 import sys
 import threading
 import time
+import uuid
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -59,6 +64,7 @@ from mealplanner.nutrition_scope import (
 )
 from mealplanner.recipe_nutrition import stored_fields
 from mealplanner.shopping import shopping_list
+from structr_client.client import StructrError
 
 PRIVATE = {"visibleToAuthenticatedUsers": False, "visibleToPublicUsers": False}
 SEEN = {"visibleToAuthenticatedUsers": True, "visibleToPublicUsers": False}
@@ -94,17 +100,86 @@ SHARED_TOKEN = "e0e0e0"         # the start of the token of the stock everyone s
 STORED = "TEST -- check households -- "     # the start of the name of a recipe figure the check stores (store_figures)
 
 
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def record_path(client) -> str:
+    """The record of what the check made on this instance (git-ignored .cache/), one file per URL."""
+    instance = re.sub(r"[^A-Za-z0-9]+", "_", client.base_url.split("://", 1)[-1]).strip("_")
+    return os.path.join(ROOT, ".cache", "check_households", f"{instance}.json")
+
+
+class Record:
+    """Every node make() creates, written down, with the id the check chose for it, BEFORE the request
+    that creates it, so a run killed at any point leaves a record of all it may have made. The sweep
+    deletes what the record names, and only that. It is what tells the grants and the shared pantry
+    operations a run made (unnamed, or named as the bookings need them) from ones that were there before:
+    a name cannot. An id named but never made is simply not found."""
+
+    def __init__(self, client):
+        self.client, self.path = client, record_path(client)
+
+    def read(self) -> list:
+        try:
+            with open(self.path) as f:
+                return [tuple(entry) for entry in json.load(f)]
+        except FileNotFoundError:
+            return []
+
+    def write(self, entries: list) -> None:
+        if not entries:
+            if os.path.exists(self.path):
+                os.remove(self.path)
+            return
+        os.makedirs(os.path.dirname(self.path), exist_ok=True)
+        with open(self.path + ".new", "w") as f:
+            json.dump([list(e) for e in entries], f)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(self.path + ".new", self.path)
+
+    def add(self, type_name: str, node_id: str) -> None:
+        self.write(self.read() + [(type_name, node_id)])
+
+    def exists(self, type_name: str, node_id: str) -> bool:
+        try:
+            self.client.get(f"/structr/rest/{type_name}/{node_id}")
+            return True
+        except StructrError as exc:
+            if exc.status == 404:
+                return False
+            raise
+
+    def clear(self) -> int:
+        """Delete what the record names, newest first; keep in it only what is still there."""
+        entries, gone = self.read(), 0
+        for type_name, node_id in reversed(entries):
+            if self.exists(type_name, node_id):
+                try:
+                    self.client.delete(f"/structr/rest/{type_name}/{node_id}")
+                    gone += 1
+                except StructrError:
+                    pass
+        self.write([e for e in entries if self.exists(*e)])
+        return gone
+
+
 class Check:
     def __init__(self, client):
         self.client, self.problems = client, []
         self.made = []                                   # (type, id), removed at the end in reverse
+        self.record = Record(client)
 
     def fail(self, text: str) -> None:
         self.problems.append(text)
         print(f"  FAILS: {text}")
 
     def make(self, type_name: str, fields: dict) -> str:
-        node = self.client.post(f"/structr/rest/{type_name}", fields)["result"][0]
+        node_id = uuid.uuid4().hex                       # chosen here, so the record can name it first
+        self.record.add(type_name, node_id)
+        node = self.client.post(f"/structr/rest/{type_name}", {"id": node_id, **fields})["result"][0]
+        if node != node_id:
+            raise RuntimeError(f"Structr made {type_name} {node}, not the id asked for ({node_id}): the record would miss it")
         self.made.append((type_name, node))
         return node
 
@@ -161,14 +236,15 @@ def at_once(member: Member, method: str, arguments: dict, n: int) -> list:
 def sweep(client) -> int:
     """What an interrupted run left: whatever its test members own or its test households were granted,
     the weeks it names, its stock everyone sees, the recipe figures it stored, its setup method, and
-    the people and households."""
+    the people and households; and first, everything its record says it made (Record), which is the
+    only way to find the grants and the shared pantry operations it made."""
     def ours(row: dict) -> bool:
         name = row.get("name") or ""
         return ((row.get("owner") or {}).get("name") or "").startswith("TEST -- member") \
             or any((g.get("name") or "").startswith("TEST -- household") for g in row.get("grantees") or []) \
             or name.startswith(("CHECK household A week", "CHECK everyone's week", f"Purchase {SHARED_TOKEN}")) \
             or name == "Week of 2099-12-28"
-    gone = 0
+    gone = Record(client).clear()
     for type_name in WRITTEN:
         for row in client.get_all(type_name)["result"]:
             if row.get("type") == type_name and ours(row):
@@ -333,6 +409,7 @@ def main(argv=None) -> int:
                 client.delete(f"/structr/rest/{type_name}/{node_id}")
             except Exception as exc:                      # already gone with another
                 print(f"  (could not remove {type_name} {node_id}: {exc})")
+        check.record.clear()                                # what is left of it, and the record itself
         print(f"removed the {len(check.made)} node(s) made")
     print("households kept apart" if not check.problems else f"{len(check.problems)} failure(s)")
     return 1 if check.problems else 0
