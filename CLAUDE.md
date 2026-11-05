@@ -44,9 +44,13 @@ review, so what the README and REVIEW.md claim has to be true.
   never `down -v` it: nothing can rebuild it. The exception is a schema-only migration (such as
   `30a` to `43a`), which declares `owner_data_ok=True` and must be run on the owner's instance as well,
   then Structr restarted (hard rule 8).
-- **The development laptop has 8 GB and has frozen four times** (the fourth on 2026-11-03: a throwaway
-  stack with the whole vocabulary loaded, timing imports beside the desktop apps, its swap full; read
-  `free -m`'s swap line too, not only "available"). Run one stack at a time (stop
+- **The development computer, since 2026-11-04: 24 GB of memory, 8 GB of swap, 8 CPU cores, about
+  420 GB of disk free.** The project moved there from an 8 GB laptop that froze four times (the fourth
+  on 2026-11-03: a throwaway stack with the whole vocabulary loaded, timing imports beside the desktop
+  apps, its swap full). A stack takes up to 3.5 GB (the caps below), so two now fit, but the tools
+  (`owner_stack.sh build`, `backup.py`, `tools/spikes/run_spikes.sh`) still refuse while another
+  stack runs, and other projects' Structr stacks on this computer count. Read `free -m`'s swap line
+  too, not only "available". Run one stack at a time (stop
   one before starting another), keep the owner's stack up through a working session and stop it at
   the session's end (the owner's decision, 2026-10-22: each restart cost a minute and a cold first
   read), stop any other stack once its work is done, and check `free -m` before
