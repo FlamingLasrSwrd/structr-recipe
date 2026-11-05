@@ -12,7 +12,9 @@
 
 A PORTION is its name as `list` prints it, or its id; an ENTRY is an id as `meals` prints it.
 Every booking happens now unless --at gives an ISO time, and is named by --token, else a new
-one, so running the same booking twice with the same token writes nothing new. Writes the
+one, so running the same booking twice with the same token writes nothing new. A purchase, a use,
+a discard and a cook name who made them: the Person --by names, else the Person the tool signs in as,
+if it signs in as one (the tools' own account is none, so they then name no one). Writes the
 instance's data, the owner's included; needs STRUCTR_TOOLS_PASSWORD and STRUCTR_URL.
 """
 
@@ -100,6 +102,7 @@ def main(argv=None) -> int:
     parser.add_argument("--keeps", help="its Perishability Class, for a shelf life")
     parser.add_argument("--at", help="when it happened, ISO with a zone; default now")
     parser.add_argument("--token", help="the booking's name; default a new one")
+    parser.add_argument("--by", help="the Person who made it, by name; default the Person signed in, if any")
     args = parser.parse_args(argv)
     now = datetime.fromisoformat(args.at) if args.at else datetime.now(timezone.utc)
     token = args.token or secrets.token_hex(4)
@@ -111,14 +114,15 @@ def main(argv=None) -> int:
     client.wait_until_ready()
     a = args.args
     try:
+        by = pantry.person_named(client, args.by) if args.by else pantry.signed_in_person(client)
         if args.action == "list":
             show(client, a[0] if a else None, now)
         elif args.action == "meals":
             return meals(client, a[0])
         elif args.action == "buy":
-            report(pantry.buy(client, a[0], float(a[1]), a[2], now, token, storage=args.storage, keeps=args.keeps))
+            report(pantry.buy(client, a[0], float(a[1]), a[2], now, token, storage=args.storage, keeps=args.keeps, by=by))
         elif args.action == "use":
-            report(pantry.use(client, find_portion(client, a[0]), float(a[1]), a[2], now, token))
+            report(pantry.use(client, find_portion(client, a[0]), float(a[1]), a[2], now, token, by=by))
         elif args.action == "count":
             report(pantry.stock_take(client, find_portion(client, a[0]), float(a[1]), a[2], now, token))
         elif args.action == "open":
@@ -126,9 +130,9 @@ def main(argv=None) -> int:
         elif args.action == "move":
             report(pantry.move(client, find_portion(client, a[0]), a[1]))
         elif args.action == "discard":
-            report(pantry.discard(client, find_portion(client, a[0]), now, token))
+            report(pantry.discard(client, find_portion(client, a[0]), now, token, by=by))
         elif args.action == "cook":
-            booking, short = pantry.cook(client, a[0], now, token)
+            booking, short = pantry.cook(client, a[0], now, token, by=by)
             report(booking)
             for s in short:
                 print(f"not in the pantry: {s.food}, {s.needed - s.drawn:,.0f} g of the {s.needed:,.0f} g it took")

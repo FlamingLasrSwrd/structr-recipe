@@ -75,14 +75,18 @@ const PANTRY_ACTIONS = {
                          + ", so no expiry (name a perishability class when buying)");
     }
   },
-  // pantry.use
+  // pantry.use: within USED_UP_G of what it holds, either way, is all of it (the page shows whole grams)
   use: (booking, r, token) => {
     const portion = portionFrom(r, booking), food = portion.instanceOf;
     const grams = bookingGrams(food, amountFrom(r), String(r.unit || "g"));
     const level = onHand(portion);
     if (!Array.isArray(level)) throw new BookingError(portion.name + ": " + (level || "never weighed") + ", so there is nothing to take from it (count it first)");
-    if (grams > level[0] + 1e-6) throw new BookingError(portion.name + ": " + number(grams, 0) + " g is more than the " + number(level[0], 0) + " g on hand");
-    bookDraw(booking, bookProcess(booking, "Use", "Use " + token, NOW), portion, grams, NOW, portion.name);
+    const have = level[0];
+    if (!(have > 0)) throw new BookingError(portion.name + ": nothing on hand to take from it");
+    let take = grams;
+    if (have - grams >= -USED_UP_G && have - grams < USED_UP_G) take = have;   // the amount shown, or one leaving a crumb: all of it
+    else if (grams > have) throw new BookingError(portion.name + ": " + number(grams, 0) + " g is more than the " + number(have, 0) + " g on hand");
+    bookDraw(booking, bookProcess(booking, "Use", "Use " + token, NOW), portion, take, NOW, portion.name);
   },
   // pantry.discard
   discard: (booking, r, token) => {

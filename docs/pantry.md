@@ -35,6 +35,15 @@ count everything else.
 The Process kinds are DomainTypes in a *Pantry Operation* hierarchy, made the first time one is used.
 A cook has no kind: it `concretizes` its recipe, as data-model.md §10's braise does.
 
+**A booking names who made it** (2026-11-04): each Process it writes (a purchase, a use, a discard, a
+cook) is `wasAssociatedWith` the Person who booked it (PROV; data-model.md K1). On the pages and in the
+methods that is whoever is signed in, `$.me`, when they are a `Person` (taken before a page's booking runs
+as the superuser); `mealplanner/pantry.py` takes it as `by`, which `tools/pantry.py` fills from `--by NAME`
+or else the Person it signs in as (the tools' own account is none, so a booking from the terminal then
+names no one). A stock take, an opening and a move write no Process, so they name no one yet: a stock
+take as a Process of its own, with the weighing it generated, is part of the checks of
+`docs/verification-and-sharing.md` §3.1. A booking sent again by someone else is still the first one's.
+
 **Every booking is named by a token** (a page form carries one made when the page was drawn; the tool
 makes one per run, or takes `--token`), and every node it writes is found by name before it is
 created, so a form sent twice, or a page reloaded, writes nothing new (CLAUDE.md hard rule 5). A use
@@ -50,6 +59,13 @@ function, as the pages' reads do). The pages write as the superuser, through Str
 **An item is used up below 0.5 g** (`pantry.USED_UP_G`), what shows as 0 g, and leaves the page and the
 tool's list. An amount is stored as it was given, so a Use typed as the rounded figure shown (996 g of
 32 fl oz, which is 996.0005 g) leaves a crumb, which used to stay there for good with its expiry.
+
+**A Use within half a gram of what a portion holds is all of it** (2026-11-04), either way: the page and
+the tool show whole grams, so 996.6 g shows as "997 g", and a Use of 997 g, which invariant 15 used to
+refuse as more than there is, now draws the 996.6 g; a Use of 996 g of 996.4 g draws the 996.4 g rather
+than leave a crumb. Half a gram left (100 g of 100.5 g) is still left, as it still shows. More than half a
+gram over is refused, and so is a Use of what is used up. The same rule is in `pantry.use` and the pages'
+`PANTRY_ACTIONS.use` (`pages/lib/50_pantry.js`), and `tools/check_bookings.py` books one both ways.
 
 ## What does not fit yet
 

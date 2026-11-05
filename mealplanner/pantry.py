@@ -25,6 +25,11 @@ A booking is named by a token the caller chooses (a page form makes one per form
 run), and every node it writes is found by name before it is created, so repeating a booking (a
 page reloaded, a command run twice) writes nothing new (CLAUDE.md hard rule 5). Every node states
 its visibility (hard rule 4).
+
+Each booking's Process names who made it, `wasAssociatedWith` a Person (PROV; data-model.md K1), when
+`by` gives one: the pages give the signed-in Person (`$.me`), the tool the Person it signs in as or
+the one `--by` names (`signed_in_person`, `person_named`). A stock take, an opening and a move write
+no Process, so they name no one.
 """
 
 from __future__ import annotations
@@ -44,7 +49,9 @@ PURCHASE, USE, DISCARDING = "Purchase", "Use", "Discarding"
 STORAGE = ("Fridge", "Freezer", "Pantry")
 # Less than this on hand shows as 0 g, and counts as used up. A Use typed as the rounded amount shown ("996 g",
 # of what 32 fl oz converts to, 996.0005 g) leaves a crumb that would otherwise stay in the pantry for good,
-# with its expiry. The pages' USED_UP_G (pages/lib/30_stock.js) is the same number.
+# with its expiry. The pages' USED_UP_G (pages/lib/30_stock.js) is the same number. It is also how far a Use
+# may miss what the portion holds and count as all of it (`use`): 996.6 g shows as "997 g", and 997 g used is
+# all of it, not more than there is.
 USED_UP_G = 0.5
 SEEN = {"visibleToAuthenticatedUsers": True, "visibleToPublicUsers": False}
 
@@ -96,11 +103,28 @@ def _operation(writer: _Writer, kind: str) -> str:
     return writer.ensure("DomainType", kind, {"hierarchy": hierarchy, "isLookupBearing": False})
 
 
-def _process(writer: _Writer, kind: str | None, name: str, when: datetime, **fields) -> str:
+def _process(writer: _Writer, kind: str | None, name: str, when: datetime, by: str | None = None, **fields) -> str:
     region = writer.ensure("TemporalRegion", f"{name} time", {"hasBeginning": _time(when)})
     writer.booking.process = name
     return writer.ensure("Process", name, {"hasKind": _operation(writer, kind) if kind else None,
-                                           "occupiesTemporalRegion": region, **fields})
+                                           "occupiesTemporalRegion": region,
+                                           "wasAssociatedWith": [by] if by else None, **fields})
+
+
+def person_named(client, name: str) -> str:
+    """The id of the one Person of this name: who made a booking, given by name (tools/pantry.py --by)."""
+    found = [r for r in client.get("/structr/rest/Person", params={"name": name})["result"] if r.get("type") == "Person"]
+    if len(found) != 1:
+        raise PantryError(f"expected one Person named {name!r}, found {len(found)}")
+    return found[0]["id"]
+
+
+def signed_in_person(client) -> str | None:
+    """The Person the client is signed in as, if it is one (a Person is also a Structr account, K1), as the
+    pages take `$.me`; None for any other account, such as the tools' (mealplanner-tools)."""
+    me = client.get("/structr/rest/me")["result"]
+    me = me[0] if isinstance(me, list) and me else me
+    return me["id"] if isinstance(me, dict) and me.get("type") == "Person" else None
 
 
 def _portion(client, portion_id: str) -> dict:
@@ -126,7 +150,7 @@ def on_hand(client, portion: dict, when: datetime) -> float | None:
 
 
 def buy(client, food: str, amount: float, unit: str, when: datetime, token: str, *, storage: str = "Fridge",
-        keeps: str | None = None) -> Booking:
+        keeps: str | None = None, by: str | None = None) -> Booking:
     """Book a purchase of `amount` `unit` of `food`, kept in `storage`. Its expiry is its food's
     FoodKeeper shelf life (J31); `keeps` names a Perishability Class for a food without one, and
     without it the class of the latest portion of the same food that has one is taken, if any
@@ -138,7 +162,7 @@ def buy(client, food: str, amount: float, unit: str, when: datetime, token: str,
     keeps_id = dt(client, keeps) if keeps else last_perishability(client, food_id)
     booking = Booking()
     w = _Writer(client, booking)
-    process = _process(w, PURCHASE, f"Purchase {token}", when)
+    process = _process(w, PURCHASE, f"Purchase {token}", when, by)
     name = f"Purchase {token} -- {food}"
     box = w.ensure("ContainerObject", f"{name} container", {
         "hasStorageCondition": dt(client, storage), "hasOpenedStatus": dt(client, "Sealed")})
@@ -173,23 +197,29 @@ def _draw(w: _Writer, process: str, portion: dict, grams: float, when: datetime,
                                   "process": process, "fulfills": spec})
 
 
-def use(client, portion_id: str, amount: float, unit: str, when: datetime, token: str) -> Booking:
-    """Book `amount` `unit` taken from a portion. More than it holds is refused (invariant 15)."""
+def use(client, portion_id: str, amount: float, unit: str, when: datetime, token: str, *, by: str | None = None) -> Booking:
+    """Book `amount` `unit` taken from a portion. More than it holds is refused (invariant 15), but an amount
+    within USED_UP_G of what it holds, either way, is all of it: what the pages and the tool show is rounded to
+    the gram, so the amount shown, used, may be up to half a gram more than there is."""
     portion = _portion(client, portion_id)
     food = portion.get("instanceOf") or {}
     grams = _grams(client, food.get("id"), food.get("name", portion["name"]), amount, unit)
     have = on_hand(client, portion, when)
     if have is None:
         raise PantryError(f"{portion['name']}: never weighed, so there is nothing to take from it (take stock first)")
-    if grams > have + 1e-6:
+    if have <= 0:
+        raise PantryError(f"{portion['name']}: nothing on hand to take from it")
+    if -USED_UP_G <= have - grams < USED_UP_G:
+        grams = have                    # the amount shown, or one that would leave a crumb: all of it
+    elif grams > have:
         raise PantryError(f"{portion['name']}: {grams:.0f} g is more than the {have:.0f} g on hand")
     booking = Booking()
     w = _Writer(client, booking)
-    _draw(w, _process(w, USE, f"Use {token}", when), portion, grams, when, portion["name"])
+    _draw(w, _process(w, USE, f"Use {token}", when, by), portion, grams, when, portion["name"])
     return booking
 
 
-def discard(client, portion_id: str, when: datetime, token: str) -> Booking:
+def discard(client, portion_id: str, when: datetime, token: str, *, by: str | None = None) -> Booking:
     """Book everything left in a portion as thrown away."""
     portion = _portion(client, portion_id)
     have = on_hand(client, portion, when)
@@ -197,7 +227,7 @@ def discard(client, portion_id: str, when: datetime, token: str) -> Booking:
         raise PantryError(f"{portion['name']}: nothing on hand to discard")
     booking = Booking()
     w = _Writer(client, booking)
-    _draw(w, _process(w, DISCARDING, f"Discard {token}", when), portion, have, when, portion["name"])
+    _draw(w, _process(w, DISCARDING, f"Discard {token}", when, by), portion, have, when, portion["name"])
     return booking
 
 
@@ -264,7 +294,7 @@ class Shortfall:
     drawn: float           # grams taken from stock
 
 
-def cook(client, entry_id: str, when: datetime, token: str) -> tuple[Booking, list[Shortfall]]:
+def cook(client, entry_id: str, when: datetime, token: str, *, by: str | None = None) -> tuple[Booking, list[Shortfall]]:
     """Book a planned meal as cooked: each ingredient the recipe buys, scaled from its yield to the
     servings planned, drawn from eligible stock of the food or a food below it, soonest to expire
     first. What stock cannot cover is listed, not drawn (no portion goes below none). The entry is
@@ -286,7 +316,7 @@ def cook(client, entry_id: str, when: datetime, token: str) -> tuple[Booking, li
     scale = entry["hasPlannedServings"] / yield_["value"]
     booking = Booking()
     w = _Writer(client, booking)
-    process = _process(w, None, f"Cook {token} -- {plan.get('name')}", when, concretizes=plan["id"])
+    process = _process(w, None, f"Cook {token} -- {plan.get('name')}", when, by, concretizes=plan["id"])
     short: list[Shortfall] = []
     for step, spec in raw_inputs(client, plan):
         food = spec["specifies"]

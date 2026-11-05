@@ -1,7 +1,8 @@
 // Stock on hand and when it expires (inventory.py).
 
 const NOW = new Date();
-const USED_UP_G = 0.5;                 // pantry.USED_UP_G: less than this shows as 0 g, and counts as used up
+const USED_UP_G = 0.5;                 // pantry.USED_UP_G: less than this shows as 0 g, and counts as used up; a Use
+                                       // this close to what a portion holds is all of it (PANTRY_ACTIONS.use)
 
 // inventory.mass_quality
 const massQuality = (portion) => (portion.bearerOf || []).find((q) => q.type === "Quality" && q.hasKind && q.hasKind.name === "Mass") || null;
