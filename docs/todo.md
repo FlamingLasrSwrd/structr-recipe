@@ -93,10 +93,10 @@ What the review recommended that is more than a fix (`REVIEW.md` round 3 says wh
   vocabulary change, and add `source_kcal` to your own recipe files where their source prints one.
 - ~~Sign in as Elijah and press one booking button~~ **Done 2026-11-01**: a Use booked from the pantry page
   by a signed-in household member was saved once, with no error in the server log.
-- **Reinstall the pages at your next session** (2026-11-01): `STRUCTR_URL=http://localhost:8085 python3
-  tools/install_pages.py`. It takes a used-up item off the pantry page: a portion below 0.5 g, which shows as
-  0 g, no longer stays there with its old expiry. Until then `check_pages` reports the chicken broth as a
-  difference.
+- ~~Reinstall the pages at your next session~~ **Done 2026-11-04**, on the new computer: the instance was
+  restored from `2026-11-01_170052` (50,713 nodes and 105,386 relationships, as backed up), then the pages
+  and methods installed. `check_pages` found no difference (53 recipes, 42 portions on hand, the week of
+  2026-10-26 through the methods too) and `check_instructions` none in 1,145 sentences.
 - Copy `~/mealplanner-backups` off this machine now and then (`docs/backups.md`).
 - ~~Bring your instance up to date: migrations 40a to 46a, the vocabulary, the pages and the methods~~
   **Done 2026-10-27**, on 7.1.0: the seven migrations in order (44a found no shared target, 45a no
