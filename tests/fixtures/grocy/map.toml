@@ -1,0 +1,15 @@
+# The owner's review of tests/fixtures/grocy (docs/imports.md): which vocabulary food each Grocy
+# product is, and the storage condition of each Grocy location the importer cannot read from Grocy.
+[foods]
+"Eggs" = "Egg"
+"Tomato" = "Tomato"
+"Milk" = "Whole milk"
+"Minced meat" = "Ground beef 85% lean (raw)"
+"Flour" = "AP Flour"
+"Sugar" = "Granulated sugar"
+"Pickles" = ""                  # not a food here: its stock is skipped
+"Bananas" = "Banana"
+
+[locations]
+"Candy cupboard" = "Pantry"
+"Tinned food cupboard" = "Pantry"

@@ -1,0 +1,11 @@
+[
+  {"id": 1, "name": "Piece", "name_plural": "Pieces", "description": null, "plural_forms": null, "active": 1, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 2, "name": "Pack", "name_plural": "Packs", "description": null, "plural_forms": null, "active": 1, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 3, "name": "Glass", "name_plural": "Glasses", "description": null, "plural_forms": null, "active": 1, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 4, "name": "Tin", "name_plural": "Tins", "description": null, "plural_forms": null, "active": 1, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 5, "name": "Gram", "name_plural": "Grams", "description": null, "plural_forms": null, "active": 1, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 6, "name": "Kilogram", "name_plural": "Kilograms", "description": null, "plural_forms": null, "active": 1, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 7, "name": "Liter", "name_plural": "Liters", "description": null, "plural_forms": null, "active": 1, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 8, "name": "Milliliter", "name_plural": "Milliliters", "description": null, "plural_forms": null, "active": 1, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 9, "name": "Bottle", "name_plural": "Bottles", "description": null, "plural_forms": null, "active": 1, "row_created_timestamp": "2026-09-01 10:00:00"}
+]

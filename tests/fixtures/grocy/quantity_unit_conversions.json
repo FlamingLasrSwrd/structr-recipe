@@ -1,0 +1,11 @@
+[
+  {"id": 1, "from_qu_id": 6, "to_qu_id": 5, "factor": 1000, "product_id": null, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 2, "from_qu_id": 7, "to_qu_id": 8, "factor": 1000, "product_id": null, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 3, "from_qu_id": 1, "to_qu_id": 5, "factor": 100, "product_id": 2, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 4, "from_qu_id": 9, "to_qu_id": 7, "factor": 1, "product_id": 5, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 5, "from_qu_id": 7, "to_qu_id": 5, "factor": 1030, "product_id": 5, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 6, "from_qu_id": 1, "to_qu_id": 5, "factor": 120, "product_id": 6, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 7, "from_qu_id": 2, "to_qu_id": 5, "factor": 500, "product_id": 7, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 8, "from_qu_id": 2, "to_qu_id": 6, "factor": 1, "product_id": 11, "row_created_timestamp": "2026-09-01 10:00:00"},
+  {"id": 9, "from_qu_id": 2, "to_qu_id": 1, "factor": 12, "product_id": 1, "row_created_timestamp": "2026-09-01 10:00:00"}
+]
