@@ -2,6 +2,7 @@
 
     python3 tools/pantry.py list [FOOD]                 # what is on hand, soonest to expire first
     python3 tools/pantry.py buy FOOD AMOUNT UNIT [--storage Fridge|Freezer|Pantry] [--keeps CLASS]
+    python3 tools/pantry.py scan BARCODE [PACKAGES]     # buy a product by its barcode: one package, or so many
     python3 tools/pantry.py use PORTION AMOUNT UNIT
     python3 tools/pantry.py count PORTION AMOUNT UNIT   # stock take: what it holds now
     python3 tools/pantry.py open PORTION
@@ -10,7 +11,8 @@
     python3 tools/pantry.py meals private/week.toml     # the week's meals not yet cooked
     python3 tools/pantry.py cook ENTRY                  # a planned meal, cooked: its ingredients drawn
 
-A PORTION is its name as `list` prints it, or its id; an ENTRY is an id as `meals` prints it.
+A PORTION is its name as `list` prints it, or its id; an ENTRY is an id as `meals` prints it. A FOOD
+is a food or a product; a BARCODE is one a product was loaded with (tools/import_products.py).
 Every booking happens now unless --at gives an ISO time, and is named by --token, else a new
 one, so running the same booking twice with the same token writes nothing new. A purchase, a use,
 a discard and a cook name who made them: the Person --by names, else the Person the tool signs in as,
@@ -28,7 +30,7 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mealplanner import pantry
+from mealplanner import pantry, products
 from mealplanner.connection import connect
 from mealplanner.inventory import instance_expiration
 from mealplanner.unit_conversion import QuantityError
@@ -85,6 +87,24 @@ def meals(client, week_file: str) -> int:
     return 0
 
 
+def scan(client, barcode: str, packages: float, when: datetime, token: str, **how) -> pantry.Booking:
+    """Buy so many packages of the product a barcode names, each holding what the product says one holds."""
+    if packages <= 0:
+        raise pantry.PantryError("the number of packages must be more than 0")
+    try:
+        found = products.find(client, barcode)
+    except ValueError as exc:               # not a product's barcode at all, or one two products share
+        raise pantry.PantryError(str(exc)) from None
+    if found is None:
+        raise pantry.PantryError(f"no product has barcode {products.normalize(barcode)}: add it to the products file "
+                                 "(tools/import_products.py), or buy the food by name")
+    if found.amount is None:
+        raise pantry.PantryError(f"{found.product}: no package size is known for it, so buy it by name with an amount")
+    booking = pantry.buy(client, found.product, found.amount * packages, found.unit, when, token, **how)
+    booking.notes.insert(0, f"{found.product}: {packages:g} x {found.amount:g} {found.unit}")
+    return booking
+
+
 def report(booking: pantry.Booking) -> None:
     if booking.process and not booking.created:
         print(f"{booking.process}: booked before; nothing new written")
@@ -96,7 +116,7 @@ def report(booking: pantry.Booking) -> None:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("action", choices=["list", "buy", "use", "count", "open", "move", "discard", "meals", "cook"])
+    parser.add_argument("action", choices=["list", "buy", "scan", "use", "count", "open", "move", "discard", "meals", "cook"])
     parser.add_argument("args", nargs="*")
     parser.add_argument("--storage", default="Fridge")
     parser.add_argument("--keeps", help="its Perishability Class, for a shelf life")
@@ -106,7 +126,7 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     now = datetime.fromisoformat(args.at) if args.at else datetime.now(timezone.utc)
     token = args.token or secrets.token_hex(4)
-    wants = {"list": (0, 1), "buy": (3, 3), "use": (3, 3), "count": (3, 3), "open": (1, 1), "move": (2, 2),
+    wants = {"list": (0, 1), "buy": (3, 3), "scan": (1, 2), "use": (3, 3), "count": (3, 3), "open": (1, 1), "move": (2, 2),
              "discard": (1, 1), "meals": (1, 1), "cook": (1, 1)}[args.action]
     if not wants[0] <= len(args.args) <= wants[1]:
         parser.error(f"{args.action} takes {wants[0]}" + ("" if wants[0] == wants[1] else f" to {wants[1]}") + " argument(s)")
@@ -121,6 +141,9 @@ def main(argv=None) -> int:
             return meals(client, a[0])
         elif args.action == "buy":
             report(pantry.buy(client, a[0], float(a[1]), a[2], now, token, storage=args.storage, keeps=args.keeps, by=by))
+        elif args.action == "scan":
+            report(scan(client, a[0], float(a[1]) if len(a) > 1 else 1.0, now, token, storage=args.storage,
+                        keeps=args.keeps, by=by))
         elif args.action == "use":
             report(pantry.use(client, find_portion(client, a[0]), float(a[1]), a[2], now, token, by=by))
         elif args.action == "count":

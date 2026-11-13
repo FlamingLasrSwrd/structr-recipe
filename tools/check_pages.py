@@ -14,7 +14,8 @@ session) and compares the data block each prints (#page-data) with Python's answ
   recipe      one recipe's ingredients and stored figures, for the first recipe in the book; and every
               recipe's instructions, written from its steps' facts, against mealplanner/instructions.py
               for the same Plan as recipe_import.export_plan reads it (J35)
-  pantry      inventory.current_magnitude and instance_expiration for every portion on hand
+  pantry      inventory.current_magnitude and instance_expiration for every portion on hand; and what
+              Buy offers (#buy-data), against products.buyable
   shopping    shopping.shopping_list: each food to buy, what is needed and on hand, the cost at
               "Home prices" where it exists, and what the pantry covers; a food a StockPolicy
               tops up is left out, since the page applies no policy (and says so)
@@ -35,6 +36,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mealplanner.connection import connect
 from mealplanner.instructions import instructions
 from mealplanner.pantry import USED_UP_G
+from mealplanner.products import buyable
 from mealplanner.recipe_import import capability_bearers, export_plan
 from mealplanner.inventory import current_magnitude, instance_expiration, mass_quality
 from mealplanner.prices import price_table
@@ -47,6 +49,7 @@ from structr_client import ReadCache
 
 TOLERANCE = 1e-6
 DATA = re.compile(r'<script type="application/json" id="page-data">(.*?)</script>', re.S)
+BUY_DATA = re.compile(r'<script type="application/json" id="buy-data">(.*?)</script>', re.S)
 
 
 def page_data(client, path: str):
@@ -210,6 +213,26 @@ def check_pantry(client, reads, problems: list[str]) -> int:
     return counted
 
 
+def buy_data(client) -> list[str]:
+    r = client.request("GET", "/structr/html/pantry")
+    r.raise_for_status()
+    found = BUY_DATA.search(r.text)
+    if not found:
+        raise ValueError("/structr/html/pantry printed no buy data")
+    return json.loads(found.group(1))
+
+
+def check_buyable(client, reads, problems: list[str]) -> int:
+    """What the pantry page's Buy offers, against products.buyable: a food that only products sit under is
+    still offered, and so is each product."""
+    shown, want = buy_data(client), buyable(reads)
+    for name in sorted(set(want) - set(shown)):
+        problems.append(f"pantry: {name} can be bought, but Buy does not offer it")
+    for name in sorted(set(shown) - set(want)):
+        problems.append(f"pantry: Buy offers {name}, which is a group of foods or no food")
+    return len(want)
+
+
 def check_shopping(client, week: dict, problems: list[str], shown=None, who: str = "the page") -> int:
     if shown is None:
         shown = page_data(client, f"shopping/{week['id']}")
@@ -268,6 +291,7 @@ def main(argv=None) -> int:
         print("  and the same through nutritionReport and shoppingList")
     print(f"recipes: {check_recipes(client, reads, problems)} shown")
     print(f"pantry: {check_pantry(client, reads, problems)} portions on hand")
+    print(f"pantry: {check_buyable(client, reads, problems)} foods and products to buy")
     for problem in problems:
         print(f"difference: {problem}")
     print(f"{len(problems)} difference(s)")
