@@ -42,3 +42,7 @@ SCHEME = "Identifier Scheme"
 WEB_PAGE = "Web page"            # the URL of the page a recipe was transcribed from
 FDC_ID = "FDC ID"                # a USDA FoodData Central food id
 SCHEME_CONCEPTS = [WEB_PAGE, FDC_ID]
+# A product's barcode, as 14 digits (mealplanner/products.py). Not among the Concepts scripts/29a seeds:
+# the products loader makes it the first time a product is loaded, as the vocabulary loader makes
+# "FDC nutrient id", so an instance built before it needs no script run again.
+GTIN = "GTIN"

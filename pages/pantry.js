@@ -28,7 +28,13 @@ for (const portion of $.find("PortionOfSubstance").concat($.find("DiscreteWholeI
 rows.sort((a, b) => (a.days == null) - (b.days == null) || (a.days - b.days) || a.food.localeCompare(b.food));
 
 const typesIn = (hierarchy) => (($.find("TypeHierarchy", {name: hierarchy})[0] || {}).domainTypes || []);
-const foods = typesIn("Food Identity").filter((t) => !(t.children || []).length).map((t) => t.name).sort();
+// products.product_ids: the Types a GTIN denotes, each a packaged product below the food it is a kind of
+const products = {};
+for (const code of (($.find("Concept", {name: "GTIN"})[0] || {}).identifiersInScheme || [])) {
+  if (code.denotesType) products[code.denotesType.id] = true;
+}
+// products.buyable: a food nothing but products sits under (a food others sit under is a group), and each product
+const foods = typesIn("Food Identity").filter((t) => (t.children || []).every((c) => products[c.id])).map((t) => t.name).sort();
 const classes = typesIn("Perishability Class").map((t) => t.name).sort();
 
 let html = nav("pantry") + "<h1>Pantry</h1>" + said
@@ -67,4 +73,5 @@ html += "</tbody></table><p class=\"note\">Imputed: an amount from the pantry pr
   + "estimate: the shelf life for how a portion is kept now, opened or sealed, counted from when it was bought or first weighed. "
   + "When it was opened, frozen or moved is not recorded, so freezing keeps a portion's shelf life as if it had always been "
   + "frozen, and opening one judges it as if opened from the start (storage is a tag, not a history: docs/pantry.md).</p>";
-$.print(html + "<script type=\"application/json\" id=\"page-data\">" + JSON.stringify(data).replace(/</g, "\\u003c") + "</script>");
+$.print(html + "<script type=\"application/json\" id=\"page-data\">" + JSON.stringify(data).replace(/</g, "\\u003c") + "</script>"
+  + "<script type=\"application/json\" id=\"buy-data\">" + JSON.stringify(foods).replace(/</g, "\\u003c") + "</script>");
