@@ -45,7 +45,7 @@ requests once the model met real recipes and a real household. In order of how m
   pantry profiles, public prices; the owner's data in its own instance, out of reach of the demos
   (`tools/owner_stack.sh`); memory caps after the 8 GB laptop froze; backups of that instance, checked
   by restoring them (`tools/backup.py`, `docs/backups.md`).
-- **Testing:** 1088 offline tests (72 when the second review's fixes landed), two mutation sweeps
+- **Testing:** 1118 offline tests (72 when the second review's fixes landed), three mutation sweeps
   (below), and checks of the pages against Python on real Structr.
 
 ## What is being reviewed
@@ -85,7 +85,7 @@ describe a known posture rather than a regression.
 ## Running it
 
 ```bash
-python3 -m unittest discover -s tests -t .            # 1088 offline tests, no Structr (29 skip without OR-tools)
+python3 -m unittest discover -s tests -t .            # 1118 offline tests, no Structr (29 skip without OR-tools)
 .venv/bin/python -m unittest discover -s tests -t .   # the same with OR-tools (requirements-solver.txt)
 python3 tools/check_names.py                          # undefined names and unused imports (no pyflakes here)
 python3 scripts/23a_schema_drift_test.py              # offline: the schema helpers against a drifted schema
@@ -260,6 +260,43 @@ scripts with these changes (SNAPSHOT IDENTICAL), never on the owner's instance.
 | 5 | `tools/import_recipe.py` resolved each recipe's names twice, once for the kitchen check and again inside the import, and `kitchen_check.missing` found a capability's bearers again for each kitchen | **Fixed.** The names are resolved once and handed to the import, and each capability's bearers are found once a run (`tests/test_kitchen_check.py`, `tests/test_recipe_step_facts.py`). **Not measured:** the 8 GB laptop froze while the throwaway was timing the 20 shipped recipes, with the vocabulary just loaded into it, and the stack was not started again. What it saves is one resolution of every name in each recipe, and each capability's walk past the first kitchen |
 | 6 | The pre-push hook's warning left out untracked files, and the checks import from the working tree, so a module never added to git passed although the pushed commits lack it | **Fixed.** The hook names every regular file git neither tracks nor ignores (not the `/dev/null` a sandbox mounts over `.bashrc` and the like), and a clean tree passes with no warning (`tests/test_tools.py`). It is still a warning, not a stop. **The fix broke something first:** once `core.hooksPath` was set, a real push ran the hook's own tests inside git, which exports `GIT_DIR` to a hook, and their `git init` re-initialised the repository pushing and made it bare (2026-11-03, restored the next morning). They now drop git's variables, and a test pushes from a decoy worktree and checks that none of the decoy's files change |
 | 7 | `tools/check_pages.py` and `tools/check_bookings.py` said they read as the superuser | **Fixed.** They say the tools' account, which they have logged in as since 2026-10-31 |
+
+### Our own code review of 2026-11-22
+
+Of the three merges of that day (products, package sizes, sizes counted from FDC) and the bookings, menu
+changes and twins beside them. Each finding was reproduced before its fix; each fix Python can hold has a
+test in `tests/test_overnight_review.py` that fails on the code before (`4b1f231`).
+On a throwaway Structr 7.1, main and the fixes were each rebuilt from nothing (SNAPSHOT IDENTICAL);
+1, 2, 4 and 5 were reproduced there on main and seen fixed, and 8 seen refused from the page; and
+`check_bookings`, `check_households`, `check_instructions` and `check_pages` pass with the fixes. The
+rest were reproduced off Structr, over an in-memory graph of the pinned schema with the pages' own
+JavaScript run in gjs, which also compared the two sides on random weeks and bookings.
+
+| # | Finding | What became of it |
+|---|---|---|
+| 1 | A cook drew an ingredient a recipe uses in two places only once, in Python and on the page alike (6 of the 20 shipped recipes): the second draw had the first's name, was found, and was never written, so the pantry overstated | **Fixed.** A later draw is numbered, and stock is shared out from what there was before the cook, read once each (a cook from the terminal took minutes of requests). Cooks booked before this stay under-drawn: only a stock take corrects those portions |
+| 2 | A skipped meal planned again under its name (another kind of meal of the same recipe) kept what it was: a cook and leftovers at once. Invariant 7's validator runs on create only | **Fixed** in `planning/commit.py` and both menu-change twins: what the entry no longer is, is cleared. The validator is as it was: an update is still not checked |
+| 3 | An entry is named by day, meal and recipe alone, so committing an overlapping week moved the other week's meal into itself | **Guarded:** refused before anything is written. The names are as they were |
+| 4 | The pantry's Discard built its confirmation between single quotes, so a name with an apostrophe ("Za'atar", most brand names) broke it and the form submitted unasked; a name could also carry script | **Fixed.** A JSON string, escaped for the attribute |
+| 5 | The recipe book never showed fiber or sodium: it looked for FDC's names, which hold commas, and the vocabulary writes them with dashes. `check_pages` compares only the columns shown | **Fixed**, with a test of the names |
+| 6 | The shopping page counted a food's stock for itself and for the food above it when a week needs both; Python gives it to the nearer | **Fixed** in the page |
+| 7 | A shortfall of a ten-millionth of a gram, which a cook's rounding leaves, bought a whole package once lists rounded up to packages | **Fixed.** Under a milligram short is not short (`shopping.SHORT_G`) |
+| 8 | NaN and infinity passed for amounts: from Python a booking was half written before it failed; from the page Structr refused the commit and said only "validation failed" | **Fixed** in the bookings, products, package sizes and prices |
+| 9 | A misspelt heading read as an empty file: `[own]` removed every size or price of the owner's level, `[[package]]` the whole public level; `[product]` loaded nothing and said it had worked | **Fixed.** Refused before anything is written |
+| 10 | A package or price level given a food's name moved that food out of the vocabulary to be the level; a level could fall back on itself | **Fixed.** Refused |
+| 11 | A product with no container was assumed kept in the fridge, since only a food's own shelf lives decided that: a flour product had no expiry | **Fixed.** The nearest food above it with any decides; no food of the vocabulary changes |
+| 12 | `package_weight` fractions lost their numerator ("1/2 gal" as 2 gallons) | **Fixed** in the parser. `data/packages/fdc.json` was counted before the fix and is not yet counted again: run `tools/package_extract.py` |
+| 13 | A cook stopped half written when stock held a `DiscreteWholeItem`, which the page ignored | **Fixed.** Both draw it |
+| 14 | `instantiate_profile.py pantry --list` took a food with a product for a group and dropped its mark | **Fixed** |
+| 15 | `check_pages` failed a right page when recipes sharing a food without an amount came in another order | **Fixed.** It compares which recipes |
+| 16 | Six of 48 changes made on purpose to this code went unnoticed by its tests | **Each is now a test** |
+
+Left open: a use booked in the past can overdraw a portion used since; Grocy rows that share a `stock_id`
+(a split entry) book only the first; a repeated use or discard answers with an error where it should say
+"booked before"; what is left of a food bought for an overdue meal is said to keep to a date already past.
+On a development instance (not the owner's, whose build removes the demos' placeholders) the vocabulary's
+density and weight per item sit beside the demos' placeholders for the same food, so any conversion of
+such a food is ambiguous and `tools/import_profiles.py` fails on Yellow Onion.
 
 ## Open items
 

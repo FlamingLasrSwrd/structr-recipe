@@ -34,6 +34,7 @@ no Process, so they name no one.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -42,6 +43,7 @@ from mealplanner.inventory import _magnitude as magnitude_of
 from mealplanner.nutrition_scope import raw_inputs
 from mealplanner.typetree import dt
 from mealplanner.unit_conversion import convert_to_grams
+from structr_client import ReadCache
 from structr_client.client import UNSAFE_EXACT_MATCH_CHARS
 
 OPERATIONS = "Pantry Operation"                   # the TypeHierarchy of the Processes' kinds
@@ -135,8 +137,8 @@ def _portion(client, portion_id: str) -> dict:
 
 
 def _grams(client, food_id: str, food: str, amount: float, unit: str) -> float:
-    if amount is None or amount <= 0:
-        raise PantryError(f"{food}: an amount must be more than 0")
+    if amount is None or not math.isfinite(amount) or amount <= 0:
+        raise PantryError(f"{food}: an amount must be a number more than 0")
     grams = convert_to_grams(client, food_id, amount, unit)
     if grams is None:
         raise PantryError(f"{food}: {amount:g} {unit} does not convert to grams (no density or weight per item for it)")
@@ -235,7 +237,7 @@ def stock_take(client, portion_id: str, amount: float, unit: str, when: datetime
     """Book a recount: what the portion holds now, weighed or counted. 0 is allowed: it is used up."""
     portion = _portion(client, portion_id)
     food = portion.get("instanceOf") or {}
-    if amount is None or amount < 0:
+    if amount is None or not math.isfinite(amount) or amount < 0:
         raise PantryError("a stock take is 0 or more")
     if amount > 0:
         _grams(client, food.get("id"), food.get("name", portion["name"]), amount, unit)
@@ -318,7 +320,15 @@ def cook(client, entry_id: str, when: datetime, token: str, *, by: str | None = 
     w = _Writer(client, booking)
     process = _process(w, None, f"Cook {token} -- {plan.get('name')}", when, by, concretizes=plan["id"])
     short: list[Shortfall] = []
-    for step, spec in raw_inputs(client, plan):
+    inputs = raw_inputs(client, plan)
+    # The stock as it was before this cook, and what the cook has taken of each portion so far: two inputs
+    # may be one food, or a food and one below it. Each use is an Allocation of its own, so a second draw
+    # of a food from one portion is numbered: named alike, it was found by name and never written.
+    reads = ReadCache(client)          # read once each, all before the first draw is written
+    stock = {f: eligible_lots(reads, f, when) for f in {spec["specifies"]["id"] for _, spec in inputs}}
+    taken: dict[str, float] = {}
+    drawn: dict[str, int] = {}
+    for step, spec in inputs:
         food = spec["specifies"]
         qty_ref = spec.get("hasSpecifiedQuantity")
         qty = client.get_all("QuantitySpecification", qty_ref["id"])["result"] if qty_ref else {}
@@ -327,12 +337,20 @@ def cook(client, entry_id: str, when: datetime, token: str, *, by: str | None = 
             booking.notes.append(f"{food.get('name')}: no amount in the recipe, so none is drawn")
             continue
         need, left = grams * scale, grams * scale
-        for lot in eligible_lots(client, food["id"], when):
+        for lot in stock[food["id"]]:
             if left <= 1e-9:
                 break
-            take = min(left, lot.grams)
-            portion = client.get_all("PortionOfSubstance", lot.portion_id)["result"]
-            _draw(w, process, portion, take, when, f"{food.get('name')} from {lot.name}", spec["id"])
+            free = lot.grams - taken.get(lot.portion_id, 0.0)
+            if free <= 1e-9:
+                continue
+            take = min(left, free)
+            label = f"{food.get('name')} from {lot.name}"
+            drawn[label] = drawn.get(label, 0) + 1
+            if drawn[label] > 1:
+                label += f" #{drawn[label]}"
+            # a lot may be a DiscreteWholeItem, which is no PortionOfSubstance: only its id is needed
+            _draw(w, process, {"id": lot.portion_id}, take, when, label, spec["id"])
+            taken[lot.portion_id] = taken.get(lot.portion_id, 0.0) + take
             left -= take
         if left > 1e-6:
             short.append(Shortfall(food.get("name"), need, need - left))

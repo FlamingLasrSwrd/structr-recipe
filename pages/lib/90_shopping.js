@@ -5,7 +5,7 @@
 const COUNT = ["each", "whole", "count"];
 const PRICE_KIND = "Unit Price", PRICE_HIERARCHY = "Price Reference";
 const PACKAGE_KIND = "PurchaseQuantity", PUBLIC_PACKAGES = "US supermarket", HOME_PACKAGES = "Home packages";
-const SLACK = 1e-6, LEFT_G = 0.5;           // packages.SLACK, shopping.LEFT_G
+const SLACK = 1e-6, LEFT_G = 0.5, SHORT_G = 1e-3;   // packages.SLACK, shopping.LEFT_G, shopping.SHORT_G
 
 // prices.price_table and food_price: a level's Unit Price defaults by food, nearest level first;
 // a food without one takes its nearest priced ancestor's
@@ -159,9 +159,13 @@ function needs(week) {
 }
 
 // inventory.eligible_on_hand_with_urgency, with no policy filters: positive, unexpired stock of the type
-// or any type below it
-function eligibleGrams(food, portions) {
+// or any type below it, leaving out what is another pool's (reservation._nested_pools: where the list
+// needs Butter and Butter (salted), salted stock is the second's alone, not counted for both)
+function eligibleGrams(food, portions, pools) {
   const types = subtypesOf(food);
+  for (const other of Object.keys(pools).filter((id) => id !== food.id && types[id])) {
+    for (const id of Object.keys(subtypesOf(pools[other].food))) delete types[id];
+  }
   let total = 0;
   for (const portion of portions) {
     if (!portion.instanceOf || !types[portion.instanceOf.id]) continue;
@@ -190,8 +194,8 @@ function shoppingFor(week, levelName, ownOnly, packageLevel) {
   const lines = [], notBought = [], unpriced = [];
   for (const id of Object.keys(n.pools)) {
     const p = n.pools[id];
-    const have = eligibleGrams(p.food, portions);
-    const line = {food: p.food.name, need: p.need, have: have, buy: Math.max(0, p.need - have), first: p.first,
+    const have = eligibleGrams(p.food, portions, n.pools), short = p.need - have;
+    const line = {food: p.food.name, need: p.need, have: have, buy: short >= SHORT_G ? short : 0, first: p.first,
                   recipes: p.recipes, optional: p.optional, each: p.counted ? toGrams(p.food, 1, "each") : null, cost: null, estimated: false,
                   packages: [], estimated_size: false, bought: null, left: 0, left_cost: null, keeps_until: null, keeps_opened: false};
     if (line.buy > 0) {

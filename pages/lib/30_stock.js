@@ -45,14 +45,23 @@ function onHand(portion) {
   return [level, weighing, since];
 }
 
+const STORED_IN = ["Fridge", "Pantry", "Freezer"];   // inventory.own_sealed_shelf_lives
 // inventory.assumed_storage: a portion in no container is kept where its food keeps longest unopened,
 // of the fridge and the pantry, the fridge on a tie or when it has neither (J31)
 function assumedStorage(portion) {
-  const own = {};
-  for (const d of portion.instanceOf ? defaultsOf(portion.instanceOf, "ShelfLife") : []) {
-    const names = (d.keyedBy || []).map((k) => k.name);
-    if (names.indexOf("Opened") >= 0 || !d.hasValue || d.hasValue.value == null) continue;
-    for (const storage of names) own[storage] = d.hasValue.value;
+  let own = {};
+  for (const type of ancestorsOrSelf(portion.instanceOf)) {     // the nearest with any: a product has its food's
+    let any = false;
+    for (const d of defaultsOf(type, "ShelfLife")) {
+      const names = (d.keyedBy || []).map((k) => k.name);
+      if (names.indexOf("Opened") >= 0 || !d.hasValue || d.hasValue.value == null) continue;
+      for (const storage of names) {
+        if (STORED_IN.indexOf(storage) < 0) continue;
+        own[storage] = d.hasValue.value;
+        any = true;
+      }
+    }
+    if (any) break;
   }
   const days = (storage) => (storage in own ? own[storage] : -1);
   return days("Pantry") > days("Fridge") ? "Pantry" : "Fridge";

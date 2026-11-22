@@ -115,8 +115,9 @@ week file's `packages = "<level>"` for the tool and `?packages=<level>` for the 
 packages" where the owner has one, else "US supermarket", else none (and the list says amounts are what
 the recipes use, as before). For each food to buy:
 
-- **What to buy** is the whole packages that leave least over, then the fewest packages, then the
-  fewest of the sizes listed first (`packages.choose`): 850 g of tomatoes from 14.5 oz (411 g) and
+- **What to buy** is the whole packages that leave least over (under a milligram short is not short),
+  then the fewest packages, then the fewest of the sizes listed first (in the order of their names:
+  the graph keeps no file order) (`packages.choose`): 850 g of tomatoes from 14.5 oz (411 g) and
   28 oz (794 g) cans is one of each (355 g left), not three small ones (383 g left) or two large. A food the recipes count (eggs, tortillas)
   that no level packages is bought in whole items; anything else, as much as is needed.
 - **What is left over** is what is bought less what the list needed (what the week's meals use beyond

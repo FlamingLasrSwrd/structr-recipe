@@ -25,13 +25,14 @@ what is known, not a guess at the rest.
 from __future__ import annotations
 
 import json
+import math
 import os
 import tomllib
 from dataclasses import dataclass, field
 
 from mealplanner.defaults import resolve_all
 from mealplanner.nutrition_scope import _input_grams, raw_inputs
-from mealplanner.profiles import ProfileError, Report, _name_ok, _one_id, food_types
+from mealplanner.profiles import ProfileError, Report, _name_ok, _one_id, check_level, food_types
 from mealplanner.typetree import ancestors_or_self
 from mealplanner.unit_conversion import UNIT_TABLE, convert_to_grams
 from mealplanner.vocabulary_import import Sync
@@ -261,6 +262,7 @@ def instantiate_prices(client, selection: dict) -> Report:
     kind = _one_id(client, "DomainType", PRICE_KIND)
     if parent is None or kind is None:
         raise ProfileError([f"no price level {selection.get('profile')!r} (load the prices with tools/import_prices.py)"])
+    check_level(client, selection, PRICE_HIERARCHY, name, parent)
     foods = food_types(client)
     own = []
     for food, p in selection.get("own", {}).items():
@@ -269,8 +271,8 @@ def instantiate_prices(client, selection: dict) -> Report:
             problems.append(f"{where}: not a food in the vocabulary")
             continue
         price, amount, unit = p.get("price"), p.get("amount"), p.get("unit")
-        if not isinstance(price, (int, float)) or isinstance(price, bool) or price < 0 \
-                or not isinstance(amount, (int, float)) or isinstance(amount, bool) or amount <= 0 \
+        if not isinstance(price, (int, float)) or isinstance(price, bool) or not math.isfinite(price) or price < 0 \
+                or not isinstance(amount, (int, float)) or isinstance(amount, bool) or not math.isfinite(amount) or amount <= 0 \
                 or not isinstance(unit, str) or unit not in UNIT_TABLE:
             problems.append(f"{where}: give price (0 or more), amount (above 0) and a unit the unit table knows")
             continue

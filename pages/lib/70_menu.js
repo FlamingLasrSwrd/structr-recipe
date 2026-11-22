@@ -6,7 +6,7 @@
 // (ownStock), when a household books
 function eligibleLots(food, booking) {
   const types = subtypesOf(food), lots = [];
-  for (const portion of $.find("PortionOfSubstance")) {
+  for (const portion of $.find("PortionOfSubstance").concat($.find("DiscreteWholeItem"))) {
     if (!portion.instanceOf || !types[portion.instanceOf.id] || !ownStock(booking, portion)) continue;
     const level = onHand(portion);
     if (!Array.isArray(level) || !(level[0] > 0)) continue;
@@ -62,9 +62,16 @@ function heldBy(entry) {
 function replacement(booking, entry, plan) {
   const name = String(entry.name).split(" -- ")[0] + " -- " + plan.name;
   if (name === entry.name) throw new BookingError(plan.name + " is the meal skipped");
+  for (const there of $.find("MealPlanEntry", {name: name})) {
+    if (booking.household && there.visibleToAuthenticatedUsers !== false) continue;     // ensureNode's own nodes
+    if (there.memberOf && entry.memberOf && there.memberOf.id !== entry.memberOf.id) {
+      throw new BookingError(name + " is a meal of " + there.memberOf.name + ", another week");
+    }
+  }
   const region = entry.isAbout, shares = entry.hasShare || [];
   const eaten = shares.length ? shares.reduce((s, x) => s + servingsEaten(x)[0], 0) : servingsEaten(entry)[0];
   const props = {memberOf: entry.memberOf, isSkipped: false, references: plan, hasPlannedServings: eaten,
+                 consumesLeftoverFrom: null, eatenInstead: null, hasPlannedConsumption: null,
                  isAbout: ensureWith(booking, "TemporalRegion", name + " region", {
                    hasBeginning: region && region.hasBeginning ? stamp(new Date(region.hasBeginning)) : null,
                    hasEnd: region && region.hasEnd ? stamp(new Date(region.hasEnd)) : null})};
@@ -145,16 +152,25 @@ const WEEK_ACTIONS = {
     if (!y || y.unit !== "servings" || !y.value) throw new BookingError(plan.name + ": no yield in servings, so its amounts cannot be scaled");
     const scale = entry.hasPlannedServings / y.value;
     const process = bookProcess(booking, null, "Cook " + token + " -- " + plan.name, NOW, {concretizes: plan});
-    for (const [, spec] of rawInputs(plan)) {
+    const inputs = rawInputs(plan), stock = {}, taken = {}, drawn = {};
+    // as pantry.cook: the stock before any draw, and each later draw of a food from one portion numbered
+    for (const [, spec] of inputs) if (!stock[spec.specifies.id]) stock[spec.specifies.id] = eligibleLots(spec.specifies, booking);
+    for (const [, spec] of inputs) {
       const food = spec.specifies, q = spec.hasSpecifiedQuantity;
       const grams = q && q.value ? toGrams(food, q.value, q.unit) : null;
       if (!grams) { booking.notes.push(food.name + ": no amount in the recipe, so none is drawn."); continue; }
       const need = grams * scale;
       let left = need;
-      for (const lot of eligibleLots(food, booking)) {
+      for (const lot of stock[food.id]) {
         if (left <= 1e-9) break;
-        const take = Math.min(left, lot.grams);
-        bookDraw(booking, process, lot.portion, take, NOW, food.name + " from " + lot.portion.name, spec);
+        const id = lot.portion.id, free = lot.grams - (taken[id] || 0);
+        if (free <= 1e-9) continue;
+        const take = Math.min(left, free);
+        let label = food.name + " from " + lot.portion.name;
+        drawn[label] = (drawn[label] || 0) + 1;
+        if (drawn[label] > 1) label += " #" + drawn[label];
+        bookDraw(booking, process, lot.portion, take, NOW, label, spec);
+        taken[id] = (taken[id] || 0) + take;
         left -= take;
       }
       if (left > 1e-6) booking.notes.push("Not in the pantry: " + food.name + ", " + number(left, 0) + " g of the " + number(need, 0) + " g it took.");

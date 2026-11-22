@@ -47,6 +47,7 @@ and its first barcode leaves a Type the next run refuses: delete it in Structr a
 
 from __future__ import annotations
 
+import math
 import tomllib
 from dataclasses import dataclass
 
@@ -137,7 +138,10 @@ def parse_products(data: dict, where: str = "the products file") -> list[Product
     names: set[str] = set()
     owner_of: dict[str, str] = {}
     rows = data.get("product", [])
-    for row in rows if isinstance(rows, list) else []:
+    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+        problems.append(f"{where}: each product is a table of its own, headed [[product]] (two brackets)")
+        rows = []
+    for row in rows:
         name = row.get("name")
         if not isinstance(name, str) or not name.strip():
             problems.append("a product has no name")
@@ -157,7 +161,7 @@ def parse_products(data: dict, where: str = "the products file") -> list[Product
         elif food == name:
             problems.append(f"{name}: a product is named apart from its food")
         amount, unit = row.get("amount"), row.get("unit")
-        if isinstance(amount, bool) or not isinstance(amount, (int, float)) or amount <= 0:
+        if isinstance(amount, bool) or not isinstance(amount, (int, float)) or not math.isfinite(amount) or amount <= 0:
             problems.append(f"{name}: what a package holds (amount) must be more than 0")
         if not isinstance(unit, str) or unit.strip().lower() not in UNIT_TABLE:
             problems.append(f"{name}: unit {unit!r} is not one of {', '.join(sorted(UNIT_TABLE))}")

@@ -101,6 +101,9 @@ class Recorder:
     def __init__(self):
         self.writes = []
 
+    def get(self, path, params=None):
+        return {"result": []}                # nothing there before
+
     def upsert(self, type_name, key, value, fields):
         self.writes.append((type_name, value, dict(fields)))
         return f"{type_name}:{value}"
