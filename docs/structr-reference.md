@@ -768,9 +768,9 @@ switched off by default (404 on 6.0.0), and `_serverLog` is 404 on 6.0.0.
 - **Load/update modes** per element: eager, after the page loads, delayed, when visible, or
   periodically refreshed. **Partials**: `GET /<element uuid>[/<object uuid>]` renders one element.
 - A page's **content type** can be `application/json`, XML or binary: a page can be an API
-  endpoint. `showOnErrorCodes` makes a page the 404 (or other) page (in 7.1.0's code, read 2026-11-22
-  and not run: a page not there or not visible is replaced by the first such page the visitor can
-  see, rendered with the status still 404); the visible page with the
+  endpoint. `showOnErrorCodes` makes a page the 404 (or other) page (in 7.1.0's code, read 2026-11-22:
+  a page not there or not visible is replaced by the first such page the visitor can see, rendered
+  with the status still 404; run that day for a page not visible to someone signed out); the visible page with the
   lowest `position` is the start page.
 - **Translations**: `localize(key, domain)` looks up `Localization` nodes (key, domain, locale,
   text), falling back from full locale to language and to a fallback locale; the locale comes
