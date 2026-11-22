@@ -103,6 +103,7 @@ STRUCTR_URL=http://localhost:8085 python3 tools/import_recipe.py private/baselin
 STRUCTR_URL=http://localhost:8085 python3 tools/instantiate_household.py private/household.toml   # the household's people, their targets and baselines
 STRUCTR_URL=http://localhost:8085 python3 tools/import_prices.py      # data/prices.toml; then instantiate_profile.py prices private/prices.toml (docs/prices.md)
 STRUCTR_URL=http://localhost:8085 python3 tools/import_packages.py    # data/packages.toml (--check offline); then instantiate_profile.py packages private/packages.toml (docs/packages.md)
+python3 tools/package_extract.py --report  # after changing a [package.fdc] rule: re-pins data/packages/fdc.json from the FDC branded zip in .cache/fdc/ (--fetch RELEASE downloads it, ~450 MB)
 STRUCTR_URL=http://localhost:8085 python3 tools/plan_week.py private/week.toml            # propose a week, report nutrients and cost; --commit writes it
 python3 tools/plan_problem.py private/week.problem.json   # the planner as a worker: a problem file (plan_week.py --export-problem) in, a plan file out; no Structr
 STRUCTR_URL=http://localhost:8085 python3 tools/import_products.py private/products.toml   # products: barcodes and package sizes (docs/pantry.md); --check reads only

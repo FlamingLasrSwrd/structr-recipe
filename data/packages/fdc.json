@@ -1,0 +1,2464 @@
+{
+ "foods": {
+  "AP Flour": {
+   "owners": 88,
+   "products": 206,
+   "rule": {
+    "category": "Flours",
+    "exclude": "MIX|GLUTEN|ALMOND|BLEND|BAKING MIX|COCONUT|RICE|OAT|CASSAVA|KETO|SELF[ -]RISING|WHOLE|WHITE WHOLE|SPROUTED|ANCIENT|PASTRY|BREAD FLOUR|PROTEIN|GRAIN FREE|PALEO|SORGHUM|CHICKPEA|1:1|1-TO-1|1 TO 1|CUP FOR CUP|MEASURE",
+    "match": "\\bALL[ -]PURPOSE\\b.*\\bFLOUR\\b|\\bFLOUR\\b.*\\bALL[ -]PURPOSE\\b"
+   },
+   "sizes": [
+    [80.0, 104, 68],
+    [32.0, 48, 39],
+    [160.0, 22, 22],
+    [400.0, 13, 11],
+    [16.0, 4, 4],
+    [22.0, 2, 2],
+    [48.0, 2, 2],
+    [64.0, 2, 2]
+   ]
+  },
+  "Apple cider vinegar": {
+   "owners": 86,
+   "products": 160,
+   "rule": {
+    "category": "Other Cooking Sauces|Vinegar|Condiment",
+    "exclude": "DRINK|BEVERAGE|GUMM|SHOT|TONIC|CAPSULE|TABLET|HONEY|GINGER|TURMERIC|CINNAMON|LEMON|LIME|CAYENNE|POMEGRANATE|BERRY|GRAPE|APPLE JUICE|SPARKLING|BLEND|MIX|DRESSING|VINAIGRETTE|MOTHER|RAW|UNFILTERED|ORGANIC RAW|WITH THE MOTHER|FLAVOR",
+    "match": "\\bAPPLE CIDER VINEGAR\\b|\\bCIDER VINEGAR\\b"
+   },
+   "sizes": [
+    [32.0, 52, 45],
+    [16.0, 51, 44],
+    [128.0, 19, 16],
+    [64.0, 15, 13],
+    [17.0, 7, 7],
+    [33.75, 7, 7],
+    [8.5, 5, 4],
+    [9.0, 2, 1]
+   ]
+  },
+  "Arugula": {
+   "owners": 29,
+   "products": 48,
+   "rule": {
+    "category": "Pre-Packaged Fruit & Vegetables",
+    "exclude": "BLEND|MIX|KIT|SPINACH|SPRING|PESTO|DRESSING|SALAD|ROMAINE|KALE|RADICCHIO|FRISEE|LETTUCE|GREENS|MESCLUN|HERB|CHARD|MICRO|POWER|SUPER|WILD|BOWL|MEAL|CHEESE|NUT|SEED|PIZZA",
+    "match": "\\bARUGULA\\b|\\bROCKET\\b"
+   },
+   "sizes": [
+    [5.0, 35, 26],
+    [16.0, 4, 2],
+    [11.0, 3, 3],
+    [4.0, 2, 2],
+    [3.0, 1, 1],
+    [6.0, 1, 1],
+    [7.0, 1, 1],
+    [10.0, 1, 1]
+   ]
+  },
+  "Baby spinach": {
+   "owners": 40,
+   "products": 97,
+   "rule": {
+    "category": "Pre-Packaged Fruit|Vegetable|Produce|Salad",
+    "exclude": "BLEND|MIX|SALAD KIT|ARUGULA|KALE|SPRING|ROMAINE|DIP|FROZEN|DRESSING|CHARD|RADICCHIO|FRISEE|LETTUCE|GREENS|MESCLUN|HERB|BEET|CARROT|CABBAGE|BROCCOLI|PEA|WATERCRESS|MICRO|POWER|SUPER|BOWL|KIT|MEAL|CHICKEN|EGG|CHEESE|FETA|BACON|STRAWBERR|CRANBERR|WALNUT|PECAN|ALMOND|SEED|NUT|CROUTON|CRISP|WRAP|SANDWICH|PIZZA|PASTA|RAVIOLI|SOUP|PIE|QUICHE|FRITTATA|OMELET|SAUTE|STEAM|COOKED|CREAMED|CHOPPED",
+    "match": "\\bBABY SPINACH\\b"
+   },
+   "sizes": [
+    [5.0, 35, 27],
+    [16.0, 23, 18],
+    [10.0, 17, 15],
+    [11.0, 10, 10],
+    [6.0, 8, 8],
+    [5.25, 2, 2],
+    [7.0, 1, 1],
+    [24.0, 1, 1]
+   ]
+  },
+  "Bacon (raw)": {
+   "owners": 179,
+   "products": 732,
+   "rule": {
+    "category": "Bacon",
+    "exclude": "TURKEY|COOKED|PRECOOKED|PRE-COOKED|READY|MICROWAV|BITS|PIECES|BITE|BREAKFAST|BURGER|BEEF|CANADIAN|CHICKEN|BALL|JERKY|WRAPP|JALAPENO|CHEESE|SAUSAGE|\\bRIBS?\\b|BELLY|SALT PORK|CRUMBLE|TOPPING|SALAD|DIP|SPREAD|JAM|SEASON|FLAVOR|ONION|BEAN|MAPLE|BROWN SUGAR|HONEY|PEPPER|BOURBON|BBQ|PLANT|VEGAN|VEGETARIAN|DUCK|LAMB|BUFFALO|BISON|ELK|VENISON|WILD|FULLY|SLAB|ENDS|CHOP|STEAK|LOIN|HAM|PORK CHOP|SHOULDER|ROLL|KIT",
+    "match": "\\bBACON\\b"
+   },
+   "sizes": [
+    [12.0, 240, 101],
+    [16.0, 235, 88],
+    [24.0, 59, 37],
+    [48.0, 37, 25],
+    [8.0, 31, 15],
+    [20.0, 30, 20],
+    [40.0, 17, 15],
+    [10.0, 15, 9]
+   ]
+  },
+  "Baking powder": {
+   "owners": 37,
+   "products": 64,
+   "rule": {
+    "category": "Baking",
+    "exclude": "BISCUIT|MIX|PANCAKE|SODA|FLOUR|ALUMINUM FREE|FREE|GLUTEN",
+    "match": "\\bBAKING POWDER\\b"
+   },
+   "sizes": [
+    [8.0, 40, 27],
+    [10.0, 7, 7],
+    [4.0, 4, 1],
+    [22.0, 3, 2],
+    [72.0, 2, 1],
+    [0.5, 1, 1],
+    [3.5, 1, 1],
+    [7.0, 1, 1]
+   ]
+  },
+  "Baking soda": {
+   "owners": 47,
+   "products": 75,
+   "rule": {
+    "category": "Baking",
+    "exclude": "POWDER|MIX|FLOUR|CLEAN|DEODOR|TOOTH|FRIDGE|FREEZER|LAUNDRY|DETERG",
+    "match": "\\bBAKING SODA\\b|\\bSODIUM BICARBONATE\\b|\\bBICARBONATE OF SODA\\b"
+   },
+   "sizes": [
+    [16.0, 47, 41],
+    [64.0, 12, 12],
+    [12.0, 6, 5],
+    [32.0, 5, 5],
+    [2.0, 1, 1],
+    [8.0, 1, 1],
+    [56.0, 1, 1],
+    [80.0, 1, 1]
+   ]
+  },
+  "Balsamic vinegar": {
+   "owners": 137,
+   "products": 246,
+   "rule": {
+    "category": "Other Cooking Sauces|Vinegar|Condiment|Salad Dressing",
+    "exclude": "GLAZE|REDUCTION|DRESSING|VINAIGRETTE|WHITE|FIG|CHERRY|RASPBERRY|STRAWBERRY|POMEGRANATE|BLACKBERRY|BLUEBERRY|PEACH|MANGO|ORANGE|LEMON|GARLIC|HERB|TRUFFLE|HONEY|MAPLE|ESPRESSO|CHOCOLATE|CINNAMON|FLAVOR|INFUSED|AGED|RESERVE|CONDIMENT|CREAM|SPRAY|MIST|GOLDEN|SPICY|CHILI|JALAPENO|BASIL|TANGERINE|APPLE|PEAR|PINEAPPLE|COCONUT|VANILLA|DARK|TRADIZIONALE|DOP|IGP|MODENA LEAF|YEAR|GRADE",
+    "match": "\\bBALSAMIC VINEGAR\\b|\\bVINEGAR,? BALSAMIC\\b"
+   },
+   "sizes": [
+    [17.0, 102, 79],
+    [8.5, 100, 70],
+    [33.75, 10, 9],
+    [12.75, 7, 5],
+    [25.5, 3, 3],
+    [12.0, 3, 2],
+    [16.0, 3, 1],
+    [5.0, 2, 2]
+   ]
+  },
+  "Black beans (canned)": {
+   "owners": 117,
+   "products": 225,
+   "rule": {
+    "category": "Canned & Bottled Beans|Canned Vegetables",
+    "exclude": "SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\\bBAR\\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|SEASONED|REFRIED|RICE|CORN|LOW|DRIED|DRY|SPICY|CUBAN|SALSA|PEPPER|LIME|CHIPOTLE|JALAPENO|GARLIC|ONION|MEXICAN|SOUTHWEST|FIESTA|TACO|BBQ|BAKED|COWBOY|RANCH|CHILE|TOMATO|SOFRITO|SAZON|VEGETARIAN|PINTO|KIDNEY|CHICKPEA|CANNELLINI|DIP|PASTE|NOODLE|BLACK[- ]EYED",
+    "match": "\\bBLACK BEANS?\\b"
+   },
+   "sizes": [
+    [15.0, 73, 54],
+    [15.5, 67, 49],
+    [15.25, 21, 14],
+    [29.0, 12, 11],
+    [30.0, 6, 5],
+    [108.0, 6, 4],
+    [14.0, 5, 5],
+    [16.0, 5, 4]
+   ]
+  },
+  "Black olives (canned)": {
+   "owners": 75,
+   "products": 312,
+   "rule": {
+    "category": "Pickles, Olives",
+    "exclude": "KALAMATA|GREEN|TAPENADE|STUFFED|SPREAD|MIX|SALAD|BLEND|MEDLEY|PIMENTO|GREEK|NICOISE|OIL|CURED|PITTED KALAMATA|CAPER|PESTO|DIP|PIZZA|SNACK|CUP|GO|MARINATED|GARLIC|HERB|PEPPER",
+    "match": "\\bRIPE OLIVES\\b|\\bBLACK OLIVES\\b"
+   },
+   "sizes": [
+    [6.0, 117, 46],
+    [2.25, 45, 31],
+    [3.75, 26, 22],
+    [5.75, 18, 17],
+    [4.25, 16, 15],
+    [55.0, 15, 10],
+    [51.0, 11, 6],
+    [6.5, 9, 5]
+   ]
+  },
+  "Black pepper": {
+   "owners": 15,
+   "products": 19,
+   "rule": {
+    "category": "Herbs & Spices",
+    "exclude": "WHOLE|PEPPERCORN|GRINDER|LEMON|GARLIC|SALT|SEASONING|BLEND|MILL|ROYAL|TELLICHERRY|JAVA|MALABAR|SMOKED|TRUFFLE|ONION|HERB|STEAK|MONTREAL|CAJUN|RUB|MIX|SAUCE|MARINADE|JERKY|PACKET|PORTION|\\bCT\\b|COUNT|SINGLE|WHITE|RED|GREEN|PINK|ROSE|SZECHUAN|SICHUAN|MEDLEY|RAINBOW|FOUR|4|BUTCHER|RESTAURANT|TABLE GRIND|SHAKER",
+    "match": "\\bBLACK PEPPER\\b|\\bPEPPER,? BLACK\\b"
+   },
+   "sizes": [
+    [1.5, 2, 2],
+    [4.0, 2, 2],
+    [7.0, 2, 2],
+    [1.75, 2, 1],
+    [1.0, 1, 1],
+    [2.0, 1, 1],
+    [2.75, 1, 1],
+    [3.25, 1, 1]
+   ]
+  },
+  "Bread crumbs (plain)": {
+   "owners": 78,
+   "products": 118,
+   "rule": {
+    "category": "Bread & Muffin Mixes|Baking",
+    "exclude": "PANKO|ITALIAN|SEASONED|GARLIC|HERB|PARMESAN|LEMON|SPICY|CAJUN|CHEESE|GLUTEN|WHOLE WHEAT|ONION|PEPPER|MIX|BLEND|KETO|PORK RIND|CORN|RICE|BUTTER|TOASTED|STUFFING|CHICKEN|SHRIMP|FISH|COATING|FLAVOR|SOFT|FRESH|ITALIANO|ROMANO|BASIL|ROSEMARY",
+    "match": "\\bBREAD ?CRUMBS?\\b|\\bCRUMBS,? BREAD\\b"
+   },
+   "sizes": [
+    [15.0, 58, 47],
+    [24.0, 18, 16],
+    [10.0, 9, 9],
+    [9.0, 8, 6],
+    [8.0, 7, 7],
+    [12.0, 4, 3],
+    [13.0, 2, 2],
+    [16.0, 2, 2]
+   ]
+  },
+  "Broccoli florets": {
+   "owners": 24,
+   "products": 48,
+   "rule": {
+    "category": "Pre-Packaged Fruit & Vegetables",
+    "exclude": "CAULIFLOWER|CARROT|MIX|BLEND|SLAW|RICE|RICED|DIP|STIR|CHEESE|SAUCE|STEAM|MICROWAV|SEASONED|ROASTED|GARLIC|BUTTER|HERB|LEMON|PARMESAN|TOTS|BITES|TATER|PIZZA|CRUST|PASTA|NOODLE|SALAD|KIT|MEAL|BOWL|SNAP|PEA|BEAN|MEDLEY|ROMANESCO|BROCCOLINI|RAAB|RABE|SPROUT|STALK|SPEAR|STEM|SHRED|CHOPPED|FROZEN|BROCCOFLOWER|ASIAN|SESAME|TERIYAKI|CHICKEN|BEEF|SHRIMP|TOFU|DUMPLING|SOUP|CASSEROLE|QUICHE|FRITTATA|BAKE|GRATIN|AU GRATIN",
+    "match": "\\bBROCCOLI\\b.*\\bFLORETS?\\b|\\bBROCCOLI CROWNS?\\b|\\bBROCCOLI CUTS?\\b"
+   },
+   "sizes": [
+    [32.0, 12, 10],
+    [12.0, 11, 9],
+    [16.0, 5, 5],
+    [10.0, 4, 3],
+    [48.0, 3, 3],
+    [9.0, 3, 2],
+    [8.0, 2, 2],
+    [24.0, 2, 2]
+   ]
+  },
+  "Brown lentils (dry)": {
+   "owners": 61,
+   "products": 78,
+   "rule": {
+    "category": "Vegetable and Lentil Mixes|Canned & Bottled Beans|Other Grains|Pre-Packaged",
+    "exclude": "\\bRED\\b|GREEN|FRENCH|BELUGA|BLACK|YELLOW|SOUP|CANNED|READY|COOKED|STEAMED|PASTA|CHIPS|SNACK|CURRY|\\bDAL\\b|DAHL|MIX|BLEND|SPROUTED|PILAF|SALAD|FLOUR|STEW|CRACKER|PUFF|CRISP|BURGER|RICE|QUINOA|BEAN|CHICKPEA|SPLIT|PEAS|BARLEY|MASOOR|URAD|CHANA|MOONG|TOOR|SPICY|SEASON|GARLIC|ONION|TOMATO|VEGETABLE|SAUCE|BOWL|POUCH|MICROWAV|HEAT|PROTEIN|ROASTED|CRUNCH|ITALIAN|HERB|LEMON|BAKED|SMOKED|MEDLEY|PARDINA|PETITE|CALIFORNIA|SPANISH|DUPUY|PUY|MEXICAN|ORANGE|\\bCUPS?\\b|HUMMUS|SPREAD|DIP|PATT|CAKE|MEAL|ENTREE|KIT|SPAGHETTI|PENNE|ROTINI|ELBOW|FUSILLI|LINGUINE|NOODLE",
+    "match": "\\bLENTILS?\\b"
+   },
+   "sizes": [
+    [16.0, 48, 41],
+    [14.0, 5, 5],
+    [12.0, 5, 4],
+    [15.0, 4, 4],
+    [32.0, 3, 3],
+    [22.0, 2, 1],
+    [7.5, 1, 1],
+    [8.0, 1, 1]
+   ]
+  },
+  "Brown rice (dry)": {
+   "owners": 96,
+   "products": 220,
+   "rule": {
+    "category": "^Rice$",
+    "exclude": "READY|MICROWAV|COOKED|HEAT|STEAM|POUCH|\\bCUPS?\\b|BOWL|SEASON|FLAVOR|MIX|FRIED|PILAF|GARLIC|CILANTRO|LIME|CHICKEN|BEEF|VEGETABLE|CAKE|CRACKER|CHIPS|SNACK|PASTA|FLOUR|CRISP|BLEND|MEDLEY|SPANISH|MEXICAN|BUTTER|CHEESE|COCONUT|BEANS|QUINOA|SALAD|90 SEC|BURRITO|SUSHI|INSTANT|MINUTE|QUICK|WILD|RED|BLACK|SPROUTED|SYRUP|PARBOILED|BOIL IN BAG|BAG|SPAGHETTI|PENNE|FUSILLI|ELBOW|LINGUINE|NOODLE|RAMEN|CEREAL|PUFFED|CRISPY",
+    "match": "\\bBROWN RICE\\b|\\bRICE,? BROWN\\b"
+   },
+   "sizes": [
+    [32.0, 78, 48],
+    [16.0, 52, 45],
+    [80.0, 19, 16],
+    [400.0, 12, 7],
+    [14.0, 8, 7],
+    [8.75, 7, 5],
+    [30.0, 5, 5],
+    [28.0, 5, 4]
+   ]
+  },
+  "Brown sugar": {
+   "owners": 56,
+   "products": 133,
+   "rule": {
+    "category": "Granulated, Brown & Powdered Sugar",
+    "exclude": "CINNAMON|MAPLE|OATMEAL|BACON|BBQ|SAUCE|SYRUP|BLEND|STEVIA|SPLENDA|TRUVIA|SUBSTITUTE|ZERO|KETO|MONK|ALTERNATIVE|ALLULOSE|ERYTHRITOL|SWEETENER|COCONUT|CUBE|PACKET|STICK|LIQUID|GRANULATED|PILONCILLO|PANELA|JAGGERY|MUSCOVADO|TURBINADO|DEMERARA|RAW|LESS|REDUCED|FREE|SUGAR BLEND",
+    "match": "\\bBROWN SUGAR\\b"
+   },
+   "sizes": [
+    [32.0, 70, 36],
+    [16.0, 25, 17],
+    [24.0, 17, 15],
+    [800.0, 5, 3],
+    [64.0, 4, 4],
+    [8.0, 2, 2],
+    [28.0, 2, 2],
+    [112.0, 2, 2]
+   ]
+  },
+  "Butter (salted)": {
+   "owners": 220,
+   "products": 415,
+   "rule": {
+    "category": "Butter",
+    "exclude": "UNSALTED|PEANUT|ALMOND|CASHEW|SPREAD|WHIPPED|GARLIC|HONEY|CINNAMON|PLANT|VEGAN|BLEND|\\bOIL\\b|LIGHT|GHEE|MARGARINE|SPRAY|FLAVOR|HERB|MAPLE|SHEA|COCOA|NUT|SEED|APPLE|PUMPKIN|SUNFLOWER|SOY|BISCOFF|COOKIE|TRUFFLE|SPICE|MOLASSES|STEAK|SAUCE|LOWER|REDUCED|OLIVE|AVOCADO|CANOLA|DAIRY FREE|BROWNED",
+    "match": "\\bBUTTER\\b"
+   },
+   "sizes": [
+    [16.0, 202, 124],
+    [8.0, 79, 62],
+    [10.0, 15, 11],
+    [3.5, 12, 7],
+    [8.75, 11, 11],
+    [12.0, 11, 6],
+    [32.0, 10, 9],
+    [64.0, 9, 4]
+   ]
+  },
+  "Butter (unsalted)": {
+   "owners": 104,
+   "products": 181,
+   "rule": {
+    "category": "Butter",
+    "exclude": "PEANUT|ALMOND|CASHEW|SPREAD|WHIPPED|PLANT|VEGAN|BLEND|\\bOIL\\b|GHEE|MARGARINE|NUT|SEED|SUNFLOWER|SOY|OLIVE|AVOCADO",
+    "match": "\\bUNSALTED\\b.*\\bBUTTER\\b|\\bBUTTER\\b.*\\bUNSALTED\\b"
+   },
+   "sizes": [
+    [16.0, 134, 84],
+    [8.0, 36, 29],
+    [32.0, 3, 3],
+    [64.0, 3, 2],
+    [48.0, 2, 2],
+    [7.0, 1, 1],
+    [8.75, 1, 1],
+    [10.0, 1, 1]
+   ]
+  },
+  "Buttermilk": {
+   "owners": 69,
+   "products": 166,
+   "rule": {
+    "category": "Milk|Cream",
+    "exclude": "PANCAKE|BISCUIT|RANCH|DRESSING|POWDER|MIX|BREAD|CHICKEN|\\bDRY\\b",
+    "match": "BUTTERMILK"
+   },
+   "sizes": [
+    [32.0, 67, 43],
+    [64.0, 57, 31],
+    [16.0, 21, 19],
+    [256.0, 9, 8],
+    [128.0, 6, 6],
+    [8.0, 3, 3],
+    [3.25, 1, 1],
+    [3.5, 1, 1]
+   ]
+  },
+  "Canned green chiles": {
+   "owners": 32,
+   "products": 63,
+   "rule": {
+    "category": "Pickles, Olives, Peppers|Canned Vegetables|Oriental, Mexican",
+    "exclude": "SAUCE|SALSA|ENCHILADA|TOMATO|CHEESE|DIP|PORK|CHICKEN|STEW|SOUP|BURRITO|RICE|CORN|BEANS|FROZEN|ROASTED|FIRE|JALAPENO|HOT|SPICY|SEASONING|POWDER|DRIED|PASTE|QUESO|TAMALE|MAC|PIZZA|CHIPS|ONION|GARLIC|BAKED|STUFFED|RELISH",
+    "match": "\\bGREEN CHIL(E|I)E?S\\b"
+   },
+   "sizes": [
+    [4.0, 31, 25],
+    [7.0, 17, 16],
+    [27.0, 5, 4],
+    [10.0, 3, 3],
+    [4.25, 2, 1],
+    [28.0, 2, 1],
+    [3.25, 1, 1],
+    [26.0, 1, 1]
+   ]
+  },
+  "Cannellini beans (canned)": {
+   "owners": 70,
+   "products": 95,
+   "rule": {
+    "category": "Canned & Bottled Beans|Canned Vegetables",
+    "exclude": "SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\\bBAR\\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|SEASONED|LOW|DRIED|DRY|GARLIC|ROSEMARY|TOMATO|PEPPER|HERB|ITALIAN|TUSCAN|SPICY|BAKED",
+    "match": "\\bCANNELLINI\\b|\\bWHITE KIDNEY\\b"
+   },
+   "sizes": [
+    [15.5, 43, 35],
+    [15.0, 35, 28],
+    [14.0, 6, 6],
+    [13.0, 2, 2],
+    [13.5, 2, 2],
+    [29.0, 2, 2],
+    [12.75, 1, 1],
+    [14.25, 1, 1]
+   ]
+  },
+  "Canola oil": {
+   "owners": 91,
+   "products": 219,
+   "rule": {
+    "category": "Oil",
+    "exclude": "SPRAY|BLEND|OLIVE|VEGETABLE|MAYO|MIST|BUTTER|FLAVOR|SPREAD|MARGARINE|SOY|CORN|SUNFLOWER|SAFFLOWER|COCONUT|AVOCADO|PEANUT",
+    "match": "\\bCANOLA OIL\\b|^CANOLA$"
+   },
+   "sizes": [
+    [48.0, 48, 43],
+    [128.0, 35, 33],
+    [32.0, 26, 24],
+    [24.0, 22, 18],
+    [16.0, 13, 12],
+    [17.0, 13, 11],
+    [64.0, 12, 12],
+    [40.0, 9, 9]
+   ]
+  },
+  "Carrot": {
+   "owners": 26,
+   "products": 54,
+   "rule": {
+    "category": "Pre-Packaged Fruit & Vegetables",
+    "exclude": "BABY|SHRED|CHIPS|MATCH|COIN|STICK|CRINKLE|DIP|RANCH|JUICE|CAKE|PEAS|MIX|SNACK|PETITE|RAINBOW|PURPLE|HEIRLOOM|COLORED|CUT|PEELED|SLICED|DICED|JULIENNE|CRUNCH|BITES|TOPS|BUNCH|ROMAINE|CELERY|ONION|BROCCOLI|STIR|SALAD|SOUP|ROAST|STEAM",
+    "match": "^(WHOLE |FRESH |ORGANIC |CELLO |TABLE |JUMBO |MEDIUM |LARGE )*CARROTS$|\\bWHOLE CARROTS\\b"
+   },
+   "sizes": [
+    [80.0, 18, 14],
+    [16.0, 17, 14],
+    [32.0, 15, 14],
+    [160.0, 2, 2],
+    [11.25, 1, 1],
+    [48.0, 1, 1]
+   ]
+  },
+  "Cayenne pepper": {
+   "owners": 11,
+   "products": 12,
+   "rule": {
+    "category": "Herbs & Spices",
+    "exclude": "BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|GARLIC|LEMON|HONEY|SAUCE|HOT SAUCE|CHILI|PACKET|WHOLE|CRUSHED|FLAKES|PODS",
+    "match": "\\bCAYENNE\\b"
+   },
+   "sizes": [
+    [2.0, 4, 3],
+    [2.25, 2, 2],
+    [3.0, 2, 2],
+    [0.5, 1, 1],
+    [1.5, 1, 1],
+    [7.0, 1, 1],
+    [8.0, 1, 1]
+   ]
+  },
+  "Celery": {
+   "owners": 9,
+   "products": 13,
+   "rule": {
+    "category": "Pre-Packaged Fruit & Vegetables",
+    "exclude": "STICKS|SNACK|DIP|RANCH|PEANUT|CARROT|MIX|DICED|CHOPPED|SLICED|CUT|SALT|SEED|ROOT|CELERIAC|JUICE|SOUP|MIREPOIX|SOFRITO|TRINITY|ONION|PEPPER",
+    "match": "\\bCELERY HEARTS\\b|^(FRESH |ORGANIC )*CELERY$|\\bCELERY STALKS\\b"
+   },
+   "sizes": [
+    [16.0, 9, 6],
+    [20.0, 2, 2],
+    [8.0, 1, 1],
+    [10.0, 1, 1]
+   ]
+  },
+  "Cheddar cheese": {
+   "owners": 246,
+   "products": 1416,
+   "rule": {
+    "category": "Cheese",
+    "exclude": "SHRED|SLICE|STRING|STICK|SNACK|CRACKER|SPREAD|DIP|SAUCE|POPCORN|JACK|BLEND|MEXICAN|REDUCED|FAT\\b|LIGHT|CUBE|BITES|CHIPS|PUFF|POWDER|CURD|SALSA|PIMENTO|BACON|JALAPENO|COLBY|HORSERADISH|PORT WINE|BALL|LOG|WINE|CRISP|SPRAY|PIZZA|PEPPER|ONION|GARLIC|CRANBERR|TRUFFLE|SMOKED|HABANERO|CHIPOTLE|BEER|WHISKEY|BOURBON|RANCH|HERB|SAUSAGE|PLANT|VEGAN|DAIRY FREE|FIG|APPLE|CHUNKS|BAR\\b|MINI|STACKS|CRUMBLE|GRATED|PACK|WRAP|ROLL|BAKED|CUP|NUT",
+    "match": "\\bCHEDDAR\\b"
+   },
+   "sizes": [
+    [8.0, 553, 144],
+    [16.0, 231, 86],
+    [7.0, 145, 59],
+    [32.0, 130, 46],
+    [6.0, 66, 41],
+    [24.0, 39, 21],
+    [10.0, 34, 21],
+    [12.0, 27, 15]
+   ]
+  },
+  "Chia seeds": {
+   "owners": 88,
+   "products": 136,
+   "rule": {
+    "category": "Other Grains|Popcorn, Peanuts, Seeds|Wholesome Snacks|Baking|Grain",
+    "exclude": "PUDDING|\\bBAR\\b|DRINK|JUICE|KOMBUCHA|SQUEEZE|CEREAL|CRACKER|CHIPS|JAM|BLEND|MIX|FLAX|HEMP|QUINOA|OAT|GRANOLA|BITES|CLUSTER|CRISP|PUFF|SNACK|POUCH|PACKET|PORTION|SINGLE|\\bCT\\b|COUNT|PROTEIN|POWDER|MILLED|GROUND|FLOUR|OIL|SPROUTED|COCONUT|CHOCOLATE|VANILLA|BERRY|MANGO|CINNAMON|APPLE|BANANA|STRAWBERRY|PEANUT|ALMOND|CASHEW|SUNFLOWER|PUMPKIN|SESAME|NUT|SEED BUTTER|SPREAD|YOGURT|SMOOTHIE|WATER|LEMONADE|TEA|COFFEE",
+    "match": "\\bCHIA SEEDS?\\b|^(ORGANIC |BLACK |WHITE |PREMIUM )*CHIA$"
+   },
+   "sizes": [
+    [12.0, 36, 27],
+    [16.0, 22, 20],
+    [8.0, 13, 13],
+    [32.0, 7, 7],
+    [5.0, 5, 5],
+    [9.0, 5, 5],
+    [6.0, 5, 3],
+    [14.0, 4, 4]
+   ]
+  },
+  "Chicken broth": {
+   "owners": 78,
+   "products": 224,
+   "rule": {
+    "category": "Soup",
+    "exclude": "NOODLE|RICE|BOUILLON|CUBE|POWDER|BASE|CONCENTRATE|CREAM|GRAVY|SOUP|BONE|GINGER|TURMERIC|LEMON|GARLIC|HERB|ROASTED|LOW|LESS|REDUCED|NO SALT|UNSALTED|FAT FREE|COOKING|SEASONED|ITALIAN|MEXICAN|PHO|RAMEN|MISO|CHIPOTLE|SPICY|THAI|CURRY|ONION|MUSHROOM|VEGETABLE|BEEF|TURKEY|PORK|ORGANIC FREE|PACKET|SINGLE|CUP|STICK|ENVELOPE|SACHET",
+    "match": "\\bCHICKEN (BROTH|STOCK)\\b"
+   },
+   "sizes": [
+    [32.0, 115, 57],
+    [14.5, 40, 27],
+    [48.0, 30, 21],
+    [49.5, 8, 7],
+    [14.0, 8, 5],
+    [192.0, 4, 4],
+    [10.5, 3, 2],
+    [13.75, 3, 2]
+   ]
+  },
+  "Chickpeas (canned)": {
+   "owners": 112,
+   "products": 210,
+   "rule": {
+    "category": "Canned & Bottled Beans|Canned Vegetables",
+    "exclude": "SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\\bBAR\\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|HUMMUS|ROASTED|CRUNCH|PASTA|FLOUR|LOW|DRIED|DRY|SEASONED|GARLIC|CURRY|MASALA|SPICY|TOMATO|SPINACH|BLEND|BEANS AND|KIDNEY|BLACK",
+    "match": "\\bCHICK ?PEAS?\\b|\\bGARBANZO"
+   },
+   "sizes": [
+    [15.0, 85, 58],
+    [15.5, 66, 44],
+    [14.0, 14, 13],
+    [29.0, 10, 10],
+    [16.0, 6, 6],
+    [108.0, 5, 3],
+    [110.0, 4, 4],
+    [7.75, 3, 3]
+   ]
+  },
+  "Chili powder": {
+   "owners": 53,
+   "products": 98,
+   "rule": {
+    "category": "Herbs & Spices",
+    "exclude": "BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|ANCHO|CHIPOTLE|GUAJILLO|NEW MEXICO|HATCH|KASHMIRI|KOREAN|GOCHUGARU|THAI|CAYENNE|ARBOL|PASILLA|HABANERO|GHOST|DARK|HOT|MILD|SPICY|EXTRA|SMOKED|SALT FREE|NO SALT|PACKET|GARLIC|ONION|LIME|TACO",
+    "match": "\\bCHILI POWDER\\b|\\bCHILE POWDER\\b"
+   },
+   "sizes": [
+    [2.0, 22, 16],
+    [2.5, 14, 14],
+    [3.0, 13, 11],
+    [4.5, 8, 7],
+    [7.0, 5, 4],
+    [2.25, 3, 3],
+    [2.75, 3, 3],
+    [16.0, 3, 3]
+   ]
+  },
+  "Cocoa powder (unsweetened)": {
+   "owners": 46,
+   "products": 56,
+   "rule": {
+    "category": "Baking|Chocolate|Powdered Drinks",
+    "exclude": "HOT|MIX|DRINK|BUTTER|NIBS|BEVERAGE|SUGAR|MILK|INSTANT|MARSHMALLOW|PROTEIN|CEREAL|PUFF|CRISP|BAR\\b|CANDY|FUDGE|FROSTING|CAKE|COOKIE|BROWNIE|SYRUP|SAUCE|ALMOND|PEANUT|HAZELNUT|MINT|CINNAMON|VANILLA|CARAMEL|MOCHA|COFFEE|LATTE|CHAI|RAW|CEREMONIAL|BLEND|SUPERFOOD|ADAPTOGEN|MUSHROOM|COLLAGEN|MACA|DUTCH|DARK|SPECIAL|BLACK|SWEETENED|^((?!POWDER|UNSWEETENED|BAKING COCOA|100%).)*$",
+    "match": "\\bCOCOA\\b|\\bCACAO POWDER\\b"
+   },
+   "sizes": [
+    [8.0, 26, 21],
+    [7.0, 4, 4],
+    [12.0, 4, 4],
+    [16.0, 4, 4],
+    [4.0, 3, 2],
+    [14.0, 3, 2],
+    [5.25, 2, 2],
+    [10.0, 2, 2]
+   ]
+  },
+  "Coconut milk (canned)": {
+   "owners": 25,
+   "products": 27,
+   "rule": {
+    "category": "Canned|Oriental, Mexican & Ethnic|Other Cooking|Baking|Milk Additives",
+    "exclude": "BEVERAGE|YOGURT|ICE CREAM|FROZEN|CREAMER|ALMOND|CHOCOLATE|VANILLA|DRINK|SHAKE|LITE|LIGHT|POWDER|CURRY|SAUCE|SOUP|RICE|BAR\\b|CANDY|JUICE|WATER|CREAM OF|CONDENSED|SWEETENED|PANDAN|MANGO|BANANA|STRAWBERRY|CORN|TAPIOCA|PUDDING|JELLY|SAGO|SPLIT|BEAN|PALM|BOBA|TEA|COFFEE|LATTE",
+    "match": "\\bCOCONUT MILK\\b"
+   },
+   "sizes": [
+    [13.5, 22, 21],
+    [15.0, 3, 3],
+    [1.0, 1, 1],
+    [13.0, 1, 1]
+   ]
+  },
+  "Coleslaw mix": {
+   "owners": 12,
+   "products": 14,
+   "rule": {
+    "category": "Pre-Packaged Fruit & Vegetables",
+    "exclude": "KIT|DRESSING|DELI|BROCCOLI|ASIAN|RAINBOW|SWEET KALE|KALE|BRUSSEL|SUPERFOOD|CRUNCH|ANGEL HAIR|ANGEL|SHREDDED CABBAGE|RED CABBAGE|GREEN CABBAGE|CARROT|CHOPPED|SALAD|MEAL|BOWL|POPPY|RANCH|BBQ|SPICY|CREAMY|TANGY|HONEY|APPLE|CRANBERR|NUT|SEED|PEANUT|ALMOND|SESAME|GINGER",
+    "match": "\\bCOLE ?SLAW\\b"
+   },
+   "sizes": [
+    [16.0, 7, 7],
+    [32.0, 2, 2],
+    [9.0, 1, 1],
+    [10.0, 1, 1],
+    [14.0, 1, 1],
+    [48.0, 1, 1],
+    [80.0, 1, 1]
+   ]
+  },
+  "Cooking spray": {
+   "owners": 93,
+   "products": 287,
+   "rule": {
+    "category": "Oil",
+    "exclude": "PUMP|NON[- ]AEROSOL|BUTTER FLAVOR|FLAVOR|GARLIC|CHIPOTLE|LEMON|TRUFFLE|HERB|BAKING|FLOUR|GRILL|HIGH HEAT|PROFESSIONAL|BAKERY|PAN|DRESSING|SALAD|COCONUT|AVOCADO",
+    "match": "\\bSPRAY\\b|\\bMIST\\b"
+   },
+   "sizes": [
+    [5.0, 119, 58],
+    [6.0, 86, 39],
+    [8.0, 27, 14],
+    [7.0, 8, 6],
+    [16.0, 7, 7],
+    [17.0, 7, 3],
+    [14.0, 6, 4],
+    [12.0, 3, 2]
+   ]
+  },
+  "Cornstarch": {
+   "owners": 44,
+   "products": 66,
+   "rule": {
+    "category": "Flours & Corn Meal|Baking",
+    "exclude": "MIX|BLEND|POTATO|TAPIOCA|ARROWROOT|PUDDING|BAKING POWDER|FLOUR|MEAL|MASA|PUDIN|MAIZENA FLAVOR|FLAVOR|VANILLA|CHOCOLATE|STRAWBERRY|COCONUT",
+    "match": "\\bCORN ?STARCH\\b"
+   },
+   "sizes": [
+    [16.0, 46, 37],
+    [12.0, 5, 2],
+    [6.5, 3, 1],
+    [8.0, 2, 2],
+    [14.0, 2, 2],
+    [52.0, 2, 1],
+    [6.0, 1, 1],
+    [14.75, 1, 1]
+   ]
+  },
+  "Cottage cheese": {
+   "owners": 119,
+   "products": 686,
+   "rule": {
+    "category": "Cheese|Cottage",
+    "exclude": "PINEAPPLE|FRUIT|PEACH|STRAWBERR|BLUEBERR|CHIVE|MANGO|SNACK|DIP|CHERRY|BERRY|PEAR|HONEY|CINNAMON|RASPBERR|TOMATO|PEPPER|RANCH|\\bAND\\b|&",
+    "match": "\\bCOTTAGE CHEESE\\b"
+   },
+   "sizes": [
+    [16.0, 281, 89],
+    [24.0, 228, 78],
+    [32.0, 38, 14],
+    [48.0, 34, 16],
+    [22.0, 27, 8],
+    [8.0, 16, 11],
+    [80.0, 16, 8],
+    [12.0, 15, 11]
+   ]
+  },
+  "Couscous (dry)": {
+   "owners": 26,
+   "products": 35,
+   "rule": {
+    "category": "Pasta|Rice|Grain|Other Grains",
+    "exclude": "PARMESAN|GARLIC|HERB|ROASTED|TOASTED|PEARL|ISRAELI|PILAF|MIX|CHICKEN|LEMON|TOMATO|BASIL|SPINACH|FLAVOR|SALAD|\\bCUPS?\\b|BOWL|MEDITERRANEAN|SEASON|BROTH|ONION|PESTO|WHOLE WHEAT|TRI[- ]COLOR|GIANT|QUINOA|LENTIL|CAULIFLOWER|ANCIENT|PEPPER|OLIVE|MUSHROOM|CURRY|MOROCCAN|BUTTER|PINE NUT|ALMOND|SPICY|SAFFRON|CHICKPEA|VEGETABLE|ROSEMARY|BLEND|MEDLEY",
+    "match": "\\bCOUSCOUS\\b"
+   },
+   "sizes": [
+    [12.0, 7, 6],
+    [17.5, 4, 3],
+    [10.0, 3, 3],
+    [16.0, 3, 3],
+    [24.0, 3, 3],
+    [13.0, 2, 1],
+    [5.5, 1, 1],
+    [5.75, 1, 1]
+   ]
+  },
+  "Cream cheese": {
+   "owners": 96,
+   "products": 207,
+   "rule": {
+    "category": "Cheese|Cream|Spread",
+    "exclude": "SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\\bBAR\\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|STRAWBERRY|CHIVE|ONION|HONEY|GARLIC|VEGGIE|SALMON|WHIPPED|DANISH|FROSTING|BAGEL|CHEESECAKE|JALAPENO|BROWNIE|BERRY|PUMPKIN|CINNAMON|HERB|BACON|SPREAD|LIGHT|LITE|REDUCED|FAT FREE|NEUFCHATEL|PLANT|VEGAN|DAIRY FREE|ALMOND|CHOCOLATE|CRAB|SHRIMP|CHICKEN|PEPPER|TOMATO|CRANBERRY|PINEAPPLE|PEACH|MAPLE|CARAMEL|FILLED|STUFFED|WONTON|CRAB|SNACK",
+    "match": "\\bCREAM CHEESE\\b"
+   },
+   "sizes": [
+    [8.0, 134, 82],
+    [16.0, 24, 19],
+    [12.0, 10, 9],
+    [48.0, 10, 9],
+    [6.5, 7, 2],
+    [7.0, 5, 4],
+    [7.5, 3, 1],
+    [6.0, 2, 2]
+   ]
+  },
+  "Cremini mushrooms": {
+   "owners": 4,
+   "products": 16,
+   "rule": {
+    "category": "Pre-Packaged Fruit & Vegetables",
+    "exclude": "SAUCE|SOUP|DRIED|MARINATED|STUFFED|CANNED|PIZZA|SLICED|DICED|CHOPPED|HALVED|QUARTERED|BLEND|MIX|MEDLEY|SHIITAKE|OYSTER|ENOKI|MAITAKE|PORCINI|CHANTERELLE|MOREL|BEECH|KING|LION|WHITE|BUTTON|PORTOBELLO CAPS|CAPS|STEAM|MICROWAV|SEASONED|ROASTED|GARLIC|BUTTER|HERB|ONION|PEPPER|SPINACH|CHEESE|KIT|MEAL|BOWL|JERKY|CHIPS|BURGER|PATT",
+    "match": "\\bCREMINI\\b|\\bCRIMINI\\b|\\bBABY BELLA\\b|\\bBABY PORTOBELLO\\b|\\bBROWN MUSHROOMS\\b|\\bBELLA MUSHROOMS?\\b"
+   },
+   "sizes": [
+    [7.0, 4, 1],
+    [6.0, 2, 1],
+    [8.0, 2, 1],
+    [16.0, 2, 1],
+    [4.0, 1, 1],
+    [8.75, 1, 1],
+    [10.0, 1, 1],
+    [12.25, 1, 1]
+   ]
+  },
+  "Crushed pineapple (canned in juice)": {
+   "owners": 43,
+   "products": 59,
+   "rule": {
+    "category": "Canned Fruit",
+    "exclude": "SYRUP|HEAVY|LIGHT|MANGO|COCONUT|CHERRY|PEACH|MIX|TOPPING|PIE|FILLING",
+    "match": "\\bCRUSHED PINEAPPLE\\b|\\bPINEAPPLE,? CRUSHED\\b"
+   },
+   "sizes": [
+    [20.0, 40, 37],
+    [8.0, 12, 12],
+    [107.0, 4, 3],
+    [14.0, 1, 1],
+    [15.0, 1, 1],
+    [15.25, 1, 1]
+   ]
+  },
+  "Crushed tomatoes (canned)": {
+   "owners": 85,
+   "products": 138,
+   "rule": {
+    "category": "Tomatoes|Canned Vegetables",
+    "exclude": "SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\\bBAR\\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|BASIL|GARLIC|OREGANO|ITALIAN|HERB|FIRE|ROASTED|SPICY|PEPPER|ONION|PUREE|PASTE|DICED|STEWED|WHOLE",
+    "match": "\\bCRUSHED TOMATOES\\b|\\bTOMATOES,? CRUSHED\\b"
+   },
+   "sizes": [
+    [28.0, 89, 71],
+    [15.0, 17, 15],
+    [105.0, 7, 6],
+    [14.0, 5, 5],
+    [26.5, 5, 4],
+    [168.0, 2, 2],
+    [102.0, 2, 1],
+    [9.0, 1, 1]
+   ]
+  },
+  "Diced tomatoes (canned)": {
+   "owners": 110,
+   "products": 455,
+   "rule": {
+    "category": "Tomatoes|Canned Vegetables",
+    "exclude": "SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\\bBAR\\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|GREEN CHIL|CHILE|JALAPENO|PASTA|SALSA|MEXICAN|FIESTA|ZESTY|ROTEL|PEPPER|ONION|GARLIC|BASIL|OREGANO|ITALIAN|HERB|BURNT|FIRE|ROASTED|LIME|CILANTRO|SPICY|HOT|TACO|BALSAMIC|OLIVE|CELERY|CAJUN|MILD|SAUCE|PUREE|PASTE|CRUSHED|STEWED|WHOLE",
+    "match": "\\bDICED TOMATOES\\b|\\bTOMATOES,? DICED\\b"
+   },
+   "sizes": [
+    [14.5, 265, 82],
+    [28.0, 139, 74],
+    [102.0, 13, 7],
+    [14.0, 8, 7],
+    [10.0, 5, 5],
+    [58.0, 5, 4],
+    [116.0, 5, 4],
+    [13.5, 2, 2]
+   ]
+  },
+  "Dijon mustard": {
+   "owners": 76,
+   "products": 117,
+   "rule": {
+    "category": "Ketchup, Mustard",
+    "exclude": "HONEY|VINAIGRETTE|DRESSING|MAYO|CHICKEN|DIJONNAISE|SALMON|PORK|POTATO|PACKET|MAPLE|GARLIC|HERB|TARRAGON|HORSERADISH|BALSAMIC|WHISKEY|BOURBON|BEER|CHAMPAGNE|SPICY|HOT|JALAPENO|CHIPOTLE|SRIRACHA|TRUFFLE|LEMON|CRANBERRY|FIG|APPLE|GRAINY|COARSE|WHOLE GRAIN|STONE GROUND|COUNTRY|OLD STYLE|SPREAD|SAUCE|DIP|PORTION|PC\\b|\\bCT\\b|COUNT|SINGLE",
+    "match": "\\bDIJON\\b"
+   },
+   "sizes": [
+    [12.0, 55, 41],
+    [9.0, 18, 15],
+    [7.0, 10, 7],
+    [10.0, 7, 7],
+    [8.0, 6, 6],
+    [7.5, 3, 3],
+    [8.5, 2, 2],
+    [9.5, 2, 2]
+   ]
+  },
+  "Distilled white vinegar": {
+   "owners": 78,
+   "products": 184,
+   "rule": {
+    "category": "Other Cooking Sauces|Vinegar|Condiment",
+    "exclude": "CLEANING|CLEAN|HOUSEHOLD|MALT|APPLE|CIDER|WINE|RICE|BALSAMIC|COCONUT|CANE|DATE|SHERRY|CHAMPAGNE|GARLIC|HERB|PEPPER|PICKLING|FLAVOR|SPRAY|DRESSING|VINAIGRETTE|CONCENTRATE|EXTRA STRENGTH|30%|20%|10%|6%|ROBUST",
+    "match": "\\bDISTILLED\\b.*\\bVINEGAR\\b|\\bWHITE VINEGAR\\b|\\bVINEGAR\\b.*\\bDISTILLED\\b"
+   },
+   "sizes": [
+    [128.0, 63, 51],
+    [32.0, 50, 43],
+    [16.0, 35, 32],
+    [64.0, 31, 27],
+    [8.5, 2, 2],
+    [17.0, 1, 1],
+    [23.5, 1, 1],
+    [256.0, 1, 1]
+   ]
+  },
+  "Dried apricots": {
+   "owners": 145,
+   "products": 243,
+   "rule": {
+    "category": "Wholesome Snacks|Popcorn, Peanuts, Seeds|Fruit|Pre-Packaged|Baking",
+    "exclude": "MIX|TRAIL|CHOCOLATE|\\bNUTS?\\b|YOGURT|\\bBAR\\b|SALAD|ALMOND|WALNUT|PECAN|COATED|DIPPED|CEREAL|GRANOLA|CASHEW|PEANUT|BLEND|MEDLEY|\\bCT\\b|COUNT|SNACK|BOXES|MINI|PACKET|PORTION|SINGLE|PACK OF|LUNCHBOX|DICED|CHOPPED|SLICED|BITES|JAM|PRESERVE|NECTAR|JUICE|SYRUP|CANNED|HALVES IN|LIGHT SYRUP|HEAVY SYRUP|IN JUICE|PIE|FILLING|KERNEL|SEED|OIL|CHERRY|PEACH|PLUM|PRUNE|DATE|FIG|RAISIN|CRANBERR|BLUEBERR|MANGO|PINEAPPLE|PAPAYA|BANANA|COCONUT|GINGER|CALIFORNIA|BLENHEIM|SUN[- ]DRIED|UNSULFURED|UNSULPHURED|ORGANIC UNSULFURED|SULFUR|JUMBO|SMALL|FANCY|CHOICE|STANDARD|SLAB|CHUNKS|LEATHER|ROLL|STRIP",
+    "match": "\\bDRIED APRICOTS?\\b|\\bAPRICOTS?,? DRIED\\b|\\bTURKISH APRICOTS?\\b|\\bAPRICOTS?\\b"
+   },
+   "sizes": [
+    [10.0, 37, 30],
+    [6.0, 24, 22],
+    [12.0, 22, 20],
+    [16.0, 14, 14],
+    [8.0, 14, 13],
+    [11.0, 12, 10],
+    [9.0, 9, 9],
+    [15.0, 7, 7]
+   ]
+  },
+  "Dried basil": {
+   "owners": 15,
+   "products": 16,
+   "rule": {
+    "category": "Herbs & Spices",
+    "exclude": "BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|PASTE|PESTO|FRESH|TOMATO|GARLIC|FREEZE|OREGANO|THYME|ITALIAN|PARSLEY|ROSEMARY|LEMON|THAI|HOLY|SEED|PACKET|CUBES|FROZEN",
+    "match": "\\bBASIL\\b"
+   },
+   "sizes": [
+    [0.5, 3, 3],
+    [2.25, 3, 3],
+    [0.75, 2, 2],
+    [0.25, 1, 1],
+    [1.0, 1, 1],
+    [1.5, 1, 1],
+    [2.0, 1, 1],
+    [2.5, 1, 1]
+   ]
+  },
+  "Dried cranberries": {
+   "owners": 99,
+   "products": 208,
+   "rule": {
+    "category": "Wholesome Snacks|Popcorn, Peanuts, Seeds|Fruit|Pre-Packaged|Baking",
+    "exclude": "MIX|TRAIL|CHOCOLATE|\\bNUTS?\\b|YOGURT|\\bBAR\\b|SALAD|ALMOND|WALNUT|PECAN|COATED|DIPPED|CEREAL|GRANOLA|CASHEW|PEANUT|BLEND|MEDLEY|\\bCT\\b|COUNT|SNACK|BOXES|MINI|PACKET|PORTION|SINGLE|PACK OF|LUNCHBOX|REDUCED|LESS|LOW|NO SUGAR|UNSWEETENED|JUICE|ORANGE|CHERRY|POMEGRANATE|RASPBERRY|BLUEBERR|STRAWBERR|APPLE|MANGO|PINEAPPLE|RAISIN|APRICOT|DATE|FIG|PRUNE|COCONUT|GINGER|VANILLA|CINNAMON|MAPLE|HONEY|SLICED|DICED|CHOPPED|INFUSED|FLAVOR|SPICED|PROBIOTIC|FIBER|PROTEIN|BITES|CHEWS",
+    "match": "\\bDRIED CRANBERRIES\\b|\\bCRANBERRIES,? (SWEETENED )?DRIED\\b|\\bCRAISINS\\b|\\bSWEETENED DRIED CRANBERRIES\\b"
+   },
+   "sizes": [
+    [5.0, 30, 21],
+    [6.0, 24, 22],
+    [8.0, 16, 15],
+    [10.0, 16, 15],
+    [9.0, 14, 11],
+    [12.0, 13, 13],
+    [4.0, 9, 8],
+    [3.0, 9, 7]
+   ]
+  },
+  "Dried dill": {
+   "owners": 7,
+   "products": 10,
+   "rule": {
+    "category": "Herbs & Spices",
+    "exclude": "BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|PICKLE|SEED|CHIPS|SAUCE|DIP|FRESH|PASTE|GARLIC|LEMON|PARSLEY|ONION|RELISH|PACKET|WHOLE|SALMON|POTATO",
+    "match": "\\bDILL\\b"
+   },
+   "sizes": [
+    [0.5, 5, 2],
+    [0.75, 1, 1],
+    [2.25, 1, 1],
+    [2.5, 1, 1],
+    [2.75, 1, 1],
+    [3.0, 1, 1]
+   ]
+  },
+  "Dried oregano": {
+   "owners": 9,
+   "products": 11,
+   "rule": {
+    "category": "Herbs & Spices",
+    "exclude": "BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|BASIL|THYME|ROSEMARY|MARJORAM|GARLIC|ITALIAN|PARSLEY|OIL|FRESH|PASTE|PACKET|MEXICAN|GREEK|TURKISH|MEDITERRANEAN",
+    "match": "\\bOREGANO\\b"
+   },
+   "sizes": [
+    [0.5, 4, 2],
+    [2.0, 2, 2],
+    [0.75, 1, 1],
+    [1.0, 1, 1],
+    [1.25, 1, 1],
+    [2.75, 1, 1],
+    [5.5, 1, 1]
+   ]
+  },
+  "Dried thyme": {
+   "owners": 8,
+   "products": 12,
+   "rule": {
+    "category": "Herbs & Spices",
+    "exclude": "BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|OREGANO|ROSEMARY|BASIL|SAGE|ITALIAN|PARSLEY|GARLIC|LEMON|FRESH|PASTE|PACKET|POULTRY|HERBES|PROVENCE",
+    "match": "\\bTHYME\\b"
+   },
+   "sizes": [
+    [1.0, 5, 3],
+    [3.0, 3, 3],
+    [0.5, 1, 1],
+    [1.5, 1, 1],
+    [3.25, 1, 1],
+    [9.25, 1, 1]
+   ]
+  },
+  "Egg noodles (dry)": {
+   "owners": 86,
+   "products": 274,
+   "rule": {
+    "category": "Pasta|All Noodles",
+    "exclude": "SOUP|CHICKEN|BEEF|STROGANOFF|BUTTER|ALFREDO|CASSEROLE|MIX|DINNER|COOKED|FROZEN|\\bCUPS?\\b|BOWL|SAUCE|STIR|YOLK|GLUTEN|SPINACH|TOMATO|GARLIC|PARMESAN|CHEESE|HERB|SKILLET|MEAL|LO MEIN|CHOW|CHINESE|FRESH|RAMEN|INSTANT|FLAVOR|ASIAN|WONTON|UDON|RICE|PROTEIN|KETO|LOW CARB|WHOLE WHEAT|HOMESTYLE PASTA",
+    "match": "\\bEGG NOODLES?\\b|\\bNOODLES?,? EGG\\b"
+   },
+   "sizes": [
+    [12.0, 119, 43],
+    [16.0, 95, 39],
+    [17.5, 15, 6],
+    [8.75, 9, 6],
+    [10.0, 9, 4],
+    [8.0, 7, 2],
+    [40.0, 3, 3],
+    [24.0, 3, 2]
+   ]
+  },
+  "Evaporated milk (fat-free)": {
+   "owners": 13,
+   "products": 16,
+   "rule": {
+    "category": "Milk|Cream|Baking",
+    "exclude": "WHOLE|LOW ?FAT|\\b2%|CONDENSED|COCONUT|GOAT|ALMOND|OAT|FILLED|^((?!FAT FREE|FAT-FREE|SKIM|NONFAT).)*$",
+    "match": "EVAPORATED"
+   },
+   "sizes": [
+    [12.0, 15, 13],
+    [5.0, 1, 1]
+   ]
+  },
+  "Fat-free milk": {
+   "owners": 130,
+   "products": 465,
+   "rule": {
+    "category": "^Milk$",
+    "exclude": "CHOCOLATE|STRAWBERRY|VANILLA|COFFEE|BANANA|EGGNOG|CARAMEL|COOKIES|HONEY|MAPLE|CINNAMON|FLAVOR|LACTOSE|BUTTERMILK|EVAPORATED|CONDENSED|POWDER|\\bDRY\\b|GOAT|CHOC|KEFIR|PROTEIN|ULTRA",
+    "match": "\\b(FAT[ -]FREE|SKIM|NONFAT)\\b"
+   },
+   "sizes": [
+    [128.0, 170, 86],
+    [64.0, 158, 79],
+    [32.0, 82, 50],
+    [256.0, 21, 17],
+    [16.0, 10, 9],
+    [12.0, 4, 4],
+    [96.0, 4, 3],
+    [8.0, 4, 2]
+   ]
+  },
+  "Feta cheese": {
+   "owners": 93,
+   "products": 207,
+   "rule": {
+    "category": "Cheese",
+    "exclude": "SPINACH|OLIVE|TOMATO|HERB|GARLIC|PEPPER|BASIL|DIP|SPREAD|SAUCE|MEDITERRANEAN|LIGHT|REDUCED|FAT FREE|PLANT|VEGAN|DAIRY FREE|SALAD|CHICKEN|PIE|PHYLLO|PASTRY|SPANAKOPITA|BURGER|SAUSAGE|PIZZA|CRACKER|CHIPS|BLEND|TRUFFLE|LEMON|OREGANO|CRANBERR|FIG|HONEY|CHILI|MARINATED|BRINE|CUBE|STICK|BITES|DILL|PESTO",
+    "match": "\\bFETA\\b"
+   },
+   "sizes": [
+    [4.0, 50, 37],
+    [6.0, 42, 27],
+    [8.0, 39, 28],
+    [7.0, 23, 20],
+    [12.0, 13, 9],
+    [16.0, 11, 8],
+    [5.0, 9, 7],
+    [14.0, 3, 3]
+   ]
+  },
+  "Fingerling potatoes": {
+   "owners": 9,
+   "products": 10,
+   "rule": {
+    "category": "Pre-Packaged Fruit & Vegetables",
+    "exclude": "MASHED|FRIES|CHIPS|SALAD|FROZEN|SEASONED|ROASTED|BAKED|STEAM|MICROWAV|HERB|GARLIC|BUTTER|OIL|KIT|MEAL|BOWL|SKILLET|DICED|SLICED|CUT",
+    "match": "\\bFINGERLING\\b"
+   },
+   "sizes": [
+    [24.0, 9, 8],
+    [12.0, 1, 1]
+   ]
+  },
+  "Firm tofu": {
+   "owners": 23,
+   "products": 44,
+   "rule": {
+    "category": "Other Meats|Tofu|Soy|Vegetarian|Meat Substitute|Protein",
+    "exclude": "BAKED|SMOKED|SEASONED|MARINATED|TERIYAKI|SPICY|SOUP|SPROUTED|SUPER|HIGH PROTEIN|SILKEN|SOFT|MEDIUM|PRESSED|CUBED|CUBES|NUGGETS|BITES|STRIPS|SLICES|CUTLET|PATT|BURGER|SCRAMBLE|CRUMBLE|SAVORY|THAI|SESAME|GINGER|GARLIC|HERB|BBQ|CURRY|SRIRACHA|CHIPOTLE|FIVE SPICE|FRIED|PUFF|DRIED|SKIN|YUBA|NOODLE|SHIRATAKI|SKEWER|KIT|MEAL|BOWL|SALAD|DESSERT|PUDDING|SWEET|FLAVOR",
+    "match": "\\b(EXTRA[ -])?FIRM TOFU\\b|\\bTOFU,? (EXTRA[ -])?FIRM\\b|\\bTOFU\\b.*\\b(EXTRA[ -])?FIRM\\b"
+   },
+   "sizes": [
+    [14.0, 27, 17],
+    [16.0, 7, 6],
+    [15.5, 3, 3],
+    [10.0, 2, 2],
+    [7.5, 1, 1],
+    [12.0, 1, 1],
+    [13.0, 1, 1],
+    [15.0, 1, 1]
+   ]
+  },
+  "Fish sauce": {
+   "owners": 22,
+   "products": 23,
+   "rule": {
+    "category": "Oriental, Mexican & Ethnic Sauces|Sauce|Condiment|Season",
+    "exclude": "VEGAN|VEGETARIAN|PLANT|SEAWEED|MUSHROOM|CHILI|GARLIC|LIME|DIPPING|DRESSING|MARINADE|POWDER|SEASONING|SWEET|SPICY|PACKET|VEGETABLE",
+    "match": "\\bFISH SAUCE\\b"
+   },
+   "sizes": [
+    [7.0, 5, 5],
+    [6.75, 3, 3],
+    [24.0, 3, 3],
+    [5.0, 2, 2],
+    [8.5, 2, 2],
+    [22.75, 2, 2],
+    [3.5, 1, 1],
+    [8.0, 1, 1]
+   ]
+  },
+  "Frozen chopped spinach": {
+   "owners": 55,
+   "products": 136,
+   "rule": {
+    "category": "Frozen Vegetables",
+    "exclude": "CREAMED|SOUFFLE|DIP|ARTICHOKE|CHEESE|PIE|RAVIOLI|BREADED|BITES|MIX|BLEND|SAUCE|PASTA|BABY|STEAM|MICROWAV|BUTTER|GARLIC|SEASONED|MEDLEY|KALE|CHARD|COLLARD|MUSTARD|TURNIP|GREENS|BROCCOLI|PEA|CORN|CARROT|BEAN|CAULIFLOWER|SPANAKOPITA|QUICHE|FRITTATA|OMELET|PIZZA|CALZONE|STROMBOLI|EMPANADA|SAMOSA|BURGER|PATT|NUGGET|TOT",
+    "match": "\\bCHOPPED SPINACH\\b|\\bSPINACH,? CHOPPED\\b|\\bCUT LEAF SPINACH\\b|\\bLEAF SPINACH\\b|^(ORGANIC |FROZEN )*SPINACH$"
+   },
+   "sizes": [
+    [10.0, 47, 28],
+    [16.0, 46, 31],
+    [12.0, 21, 15],
+    [32.0, 6, 5],
+    [24.0, 4, 3],
+    [14.5, 2, 2],
+    [15.0, 2, 2],
+    [28.0, 2, 2]
+   ]
+  },
+  "Frozen corn kernels": {
+   "owners": 76,
+   "products": 174,
+   "rule": {
+    "category": "Frozen Vegetables",
+    "exclude": "COB|\\bEARS?\\b|MIX|BLEND|PEAS|CARROT|BEAN|CREAM|BUTTER|SOUFFLE|FIRE|DOG|BREAD|CHIP|PEPPER|ONION|EDAMAME|SUCCOTASH|FIESTA|MEXICAN|CASSEROLE|SAUCE|RICE|POPCORN|NUGGET|BITES|TORTILLA|PUDDING|SOUP|ROASTED|GRILLED|CHARRED|STREET|ELOTE|SEASONED|STEAM|MICROWAV|SAUTE|SKILLET|MEDLEY|SALSA|SOUTHWEST|BABY|SHOEPEG|WHITE|BI[- ]?COLOR|CUTTLE|CORNISH|CORN DOG|CORNBREAD|CORNMEAL|CORN FLAKE|BREADED|BATTER|FRITTER|DUMPLING|EMPANADA|TAMALE|BURRITO|ENCHILADA|TACO|QUESADILLA|PIZZA|BOWL|MEAL|KIT|ENTREE|DINNER|POTATO|SPINACH|BROCCOLI|CAULIFLOWER|SQUASH|ZUCCHINI|OKRA|TOMATO|KALE|GREENS|CHILI|JALAPENO|POBLANO|CHIPOTLE|LIME|CILANTRO|GARLIC|HERB|CHEESE|BACON|HAM|SAUSAGE|CHICKEN|BEEF|PORK|SHRIMP|CRAB|FISH|SALMON|TUNA|TOFU",
+    "match": "\\bCORN\\b"
+   },
+   "sizes": [
+    [16.0, 46, 39],
+    [12.0, 31, 25],
+    [32.0, 28, 26],
+    [10.0, 20, 15],
+    [24.0, 9, 8],
+    [64.0, 9, 7],
+    [80.0, 6, 5],
+    [40.0, 4, 4]
+   ]
+  },
+  "Frozen green peas": {
+   "owners": 76,
+   "products": 218,
+   "rule": {
+    "category": "Frozen Vegetables",
+    "exclude": "CARROT|CORN|MIX|BLEND|SNOW|SNAP|PODS|CHICK|RICE|ONION|BLACK[- ]?EYED|PIGEON|CROWDER|FIELD|SOUP|STEAM|MICROWAV|BUTTER|CREAM|SAUCE|SEASONED|MEDLEY|EDAMAME|BEAN|POTATO|MUSHROOM|PEARL|PASTA|SPLIT|LENTIL|SOUTHERN|PURPLE HULL|ZIPPER|LADY|CREAM PEAS|SAUTE|SKILLET|BOWL|MEAL|KIT|ENTREE|CURRY|PANEER|SAMOSA|DUMPLING|PIE|CASSEROLE|STIR|ASIAN|ORIENTAL|BROCCOLI|CAULIFLOWER|SPINACH|PEPPER|MINT|HERB|GARLIC|BACON|HAM|CHEESE|PROSCIUTTO",
+    "match": "\\b(GREEN |SWEET |GARDEN |PETITE |BABY |TENDER |EARLY |SWEET GARDEN )*PEAS\\b"
+   },
+   "sizes": [
+    [16.0, 61, 39],
+    [12.0, 37, 26],
+    [10.0, 32, 23],
+    [32.0, 28, 25],
+    [64.0, 11, 8],
+    [24.0, 10, 6],
+    [28.0, 10, 4],
+    [80.0, 6, 5]
+   ]
+  },
+  "Frozen stir-fry vegetables": {
+   "owners": 25,
+   "products": 38,
+   "rule": {
+    "category": "Frozen Vegetables",
+    "exclude": "CHICKEN|BEEF|SHRIMP|PORK|TOFU|RICE|NOODLE|MEAL|KIT|TERIYAKI|SAUCE|SEASON|LO MEIN|FRIED RICE|PAD THAI|ORANGE|SESAME|GENERAL|KUNG PAO|SZECHUAN|SICHUAN|SWEET AND SOUR|SWEET & SOUR|GARLIC|GINGER|HONEY|SPICY|BBQ|KOREAN|THAI|CURRY|PEANUT|CASHEW|MUSHROOM|BROCCOLI STIR|SUGAR SNAP|PEPPER STIR|PEPPER & ONION|PEPPERS AND ONION|FAJITA|ITALIAN|MEDITERRANEAN|SOUTHWEST|MEXICAN|CAULIFLOWER RICE|RICED|SPIRAL|ZOODLE|BOWL|ENTREE|DINNER|SKILLET",
+    "match": "\\bSTIR[ -]?FRY\\b"
+   },
+   "sizes": [
+    [16.0, 20, 15],
+    [12.0, 8, 6],
+    [14.5, 3, 2],
+    [72.0, 2, 2],
+    [20.0, 1, 1],
+    [24.0, 1, 1],
+    [32.0, 1, 1],
+    [48.0, 1, 1]
+   ]
+  },
+  "Garlic powder": {
+   "owners": 24,
+   "products": 33,
+   "rule": {
+    "category": "Herbs & Spices",
+    "exclude": "BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|PARSLEY|HERB|ONION|PEPPER|ROASTED|BLACK|PACKET|MINCED|CHOPPED|FLAKES|BREAD",
+    "match": "\\bGARLIC POWDER\\b|\\bGRANULATED GARLIC\\b|\\bGARLIC,? GRANULATED\\b"
+   },
+   "sizes": [
+    [3.0, 7, 4],
+    [2.0, 4, 4],
+    [1.25, 2, 2],
+    [4.25, 2, 2],
+    [6.0, 2, 2],
+    [10.25, 2, 2],
+    [4.0, 2, 1],
+    [11.0, 2, 1]
+   ]
+  },
+  "Golden raisins": {
+   "owners": 30,
+   "products": 40,
+   "rule": {
+    "category": "Wholesome Snacks|Popcorn, Peanuts, Seeds|Fruit|Pre-Packaged|Baking",
+    "exclude": "MIX|TRAIL|CHOCOLATE|\\bNUTS?\\b|YOGURT|\\bBAR\\b|SALAD|ALMOND|WALNUT|PECAN|COATED|DIPPED|CEREAL|GRANOLA|CASHEW|PEANUT|BLEND|MEDLEY|\\bCT\\b|COUNT|SNACK|BOXES|MINI|PACKET|PORTION|SINGLE|PACK OF|LUNCHBOX|YOGURT|CHOCOLATE|DARK|FLAME|THOMPSON|JUMBO|BLACK|RED|CRIMSON|SULTANA|CURRANT|CRANBERR|CHERRY|BLUEBERR|APRICOT|DATE|FIG|PRUNE|MANGO|PINEAPPLE|PAPAYA|BANANA|COCONUT|GINGER",
+    "match": "\\bGOLDEN RAISINS?\\b|\\bRAISINS?,? GOLDEN\\b"
+   },
+   "sizes": [
+    [12.0, 8, 8],
+    [15.0, 8, 8],
+    [10.0, 7, 6],
+    [16.0, 5, 5],
+    [6.0, 4, 2],
+    [11.0, 2, 2],
+    [1.0, 1, 1],
+    [4.0, 1, 1]
+   ]
+  },
+  "Granulated sugar": {
+   "owners": 87,
+   "products": 270,
+   "rule": {
+    "category": "Granulated, Brown & Powdered Sugar",
+    "exclude": "BROWN|POWDER|CONFECTION|COOKIE|CUBE|RAW|TURBINADO|DEMERARA|COCONUT|MAPLE|DATE|STEVIA|MONK|SPLENDA|TRUVIA|BLEND|SUBSTITUTE|ZERO|KETO|ALLULOSE|ERYTHRITOL|SWEETENER|LIGHT|SUPERFINE|BAKER|CASTER|COLORED|SANDING|DECORAT|CINNAMON|VANILLA|PACKET|STICK|SPRINKLE|PEARL|ROCK|CANDY|SYRUP|ORGANIC CANE SUGAR, UNREFINED|UNREFINED|EVAPORATED|FAIR TRADE|DARK|MUSCOVADO|PANELA|PILONCILLO|JAGGERY|LESS|REDUCED|FREE",
+    "match": "^(PURE |ORGANIC |PURE CANE |CANE |WHITE |EXTRA FINE |GRANULATED |FINE GRANULATED )*SUGAR$|\\bGRANULATED (CANE |WHITE )?SUGAR\\b|\\bPURE CANE SUGAR\\b|\\bCANE SUGAR,? GRANULATED\\b"
+   },
+   "sizes": [
+    [64.0, 94, 65],
+    [160.0, 49, 40],
+    [32.0, 45, 39],
+    [16.0, 15, 12],
+    [400.0, 15, 12],
+    [24.0, 9, 8],
+    [800.0, 6, 6],
+    [20.0, 6, 5]
+   ]
+  },
+  "Ground beef 85% lean (raw)": {
+   "owners": 23,
+   "products": 40,
+   "rule": {
+    "category": "Meat|Beef|Poultry|Other Meats|Unprepared",
+    "exclude": "PATT|BURGER|MEATBALL|CHILI|SAUSAGE|COOKED|TACO|CRUMBLE|SEASONED|MEATLOAF|SLIDER|FROZEN",
+    "match": "(?=.*\\bGROUND (BEEF|CHUCK)\\b)(?=.*\\b85\\b)"
+   },
+   "sizes": [
+    [16.0, 30, 21],
+    [48.0, 6, 5],
+    [32.0, 4, 4]
+   ]
+  },
+  "Ground cinnamon": {
+   "owners": 12,
+   "products": 18,
+   "rule": {
+    "category": "Herbs & Spices",
+    "exclude": "BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|STICK|SUGAR|ROLL|APPLE|CEREAL|RAISIN|WHOLE|CHIPS|HONEY|PUMPKIN|APPLE PIE|CHAI|NUTMEG|GINGER|CLOVE|ALLSPICE|CARDAMOM|VANILLA|COCOA|CHOCOLATE|COFFEE|PACKET|BARK|QUILL|CHIP",
+    "match": "\\bCINNAMON\\b"
+   },
+   "sizes": [
+    [1.75, 6, 3],
+    [2.0, 3, 3],
+    [7.0, 2, 2],
+    [2.25, 1, 1],
+    [2.75, 1, 1],
+    [3.0, 1, 1],
+    [5.5, 1, 1],
+    [10.75, 1, 1]
+   ]
+  },
+  "Ground coriander": {
+   "owners": 7,
+   "products": 8,
+   "rule": {
+    "category": "Herbs & Spices",
+    "exclude": "BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|SEED|WHOLE|CUMIN|CILANTRO|LEAF|LEAVES|PACKET",
+    "match": "\\bCORIANDER\\b"
+   },
+   "sizes": [
+    [7.0, 2, 2],
+    [2.0, 2, 1],
+    [1.25, 1, 1],
+    [1.5, 1, 1],
+    [3.0, 1, 1],
+    [14.0, 1, 1]
+   ]
+  },
+  "Ground cumin": {
+   "owners": 6,
+   "products": 12,
+   "rule": {
+    "category": "Herbs & Spices",
+    "exclude": "BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|WHOLE|SEED|CHILI|TACO|CORIANDER|TURMERIC|GARLIC|ONION|PAPRIKA|ROASTED|TOASTED|BLACK|PACKET",
+    "match": "\\bCUMIN\\b"
+   },
+   "sizes": [
+    [2.0, 8, 4],
+    [5.75, 1, 1],
+    [7.0, 1, 1],
+    [8.0, 1, 1],
+    [16.0, 1, 1]
+   ]
+  },
+  "Ground ginger": {
+   "owners": 18,
+   "products": 19,
+   "rule": {
+    "category": "Herbs & Spices",
+    "exclude": "BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|CRYSTALLIZED|CANDIED|PASTE|FRESH|SNAP|\\bALE\\b|ROOT|SLICED|PICKLED|GARLIC|TURMERIC|CINNAMON|PUMPKIN|CHAI|LEMON|HONEY|MINCED|CHOPPED|STIR|PACKET|WHOLE|CRYSTAL",
+    "match": "\\bGINGER\\b"
+   },
+   "sizes": [
+    [1.5, 2, 2],
+    [2.0, 2, 2],
+    [1.0, 1, 1],
+    [1.25, 1, 1],
+    [1.75, 1, 1],
+    [3.5, 1, 1],
+    [4.0, 1, 1],
+    [4.5, 1, 1]
+   ]
+  },
+  "Ground pork (raw)": {
+   "owners": 30,
+   "products": 43,
+   "rule": {
+    "category": "Meat|Pork|Other Meats|Unprepared|Sausages",
+    "exclude": "SAUSAGE|DUMPLING|COOKED|PATT|SEASONED|MEATBALL|BURGER|CHORIZO|ITALIAN|BREAKFAST|BRAT|POTSTICKER|BUN|WONTON|EGG ROLL",
+    "match": "\\bGROUND PORK\\b"
+   },
+   "sizes": [
+    [16.0, 36, 27],
+    [14.0, 2, 2],
+    [24.0, 2, 1],
+    [10.0, 1, 1],
+    [32.0, 1, 1],
+    [72.0, 1, 1]
+   ]
+  },
+  "Ground turkey 93% lean (raw)": {
+   "owners": 14,
+   "products": 32,
+   "rule": {
+    "category": "Meat|Poultry|Other Meats|Unprepared|Turkey",
+    "exclude": "PATT|BURGER|MEATBALL|SAUSAGE|COOKED|SEASONED|CHILI|TACO|MEATLOAF|SLIDER|FROZEN",
+    "match": "(?=.*\\bGROUND TURKEY\\b)(?=.*\\b93\\b)"
+   },
+   "sizes": [
+    [16.0, 21, 12],
+    [48.0, 7, 6],
+    [20.0, 2, 2],
+    [32.0, 1, 1],
+    [40.0, 1, 1]
+   ]
+  },
+  "Ham (cooked)": {
+   "owners": 138,
+   "products": 725,
+   "rule": {
+    "category": "Cold Cuts|Other Deli|Pepperoni",
+    "exclude": "STEAK|HOCK|SPIRAL|WHOLE|\\bBONE|SHANK|CHEESE|SANDWICH|SALAD|TURKEY|SOUP|BEAN|LOAF|CROISSANT|PIZZA|ROLL|SPREAD|HAMBURGER|DICED|CUBED|CHUNK|PROSCIUTTO|SERRANO|JAMON|SALAMI|CAPICOLA|COPPA|COMBO|VARIETY|TRAY|PLATTER|SNACK|KIT|LUNCH|STACK|WRAP|BISCUIT|DEVILED|SMOKED HOCK|COUNTRY|TASSO|PEPPERONI|BOLOGNA|PASTRAMI|CHICKEN|BEEF|KABOB|CANNED|GLAZE|CHOPPED|WATER PRODUCT|\\bBULK\\b",
+    "match": "\\bHAM\\b"
+   },
+   "sizes": [
+    [16.0, 132, 48],
+    [8.0, 100, 37],
+    [6.0, 67, 33],
+    [9.0, 65, 24],
+    [7.0, 61, 22],
+    [12.0, 56, 32],
+    [10.0, 30, 14],
+    [32.0, 27, 11]
+   ]
+  },
+  "Heavy cream": {
+   "owners": 113,
+   "products": 282,
+   "rule": {
+    "category": "^Cream$",
+    "exclude": "SOUR|\\bICE\\b|AEROSOL|WHIPPED|TOPPING|CHEESE|LIQUEUR|COFFEE|LIGHT|HALF",
+    "match": "HEAVY (WHIPPING )?CREAM|WHIPPING CREAM"
+   },
+   "sizes": [
+    [16.0, 104, 71],
+    [32.0, 91, 60],
+    [8.0, 50, 39],
+    [64.0, 26, 19],
+    [128.0, 3, 3],
+    [12.0, 2, 2],
+    [256.0, 2, 2],
+    [14.0, 1, 1]
+   ]
+  },
+  "Hoisin sauce": {
+   "owners": 21,
+   "products": 28,
+   "rule": {
+    "category": "Oriental, Mexican & Ethnic Sauces|Sauce|Condiment|Season|Other Cooking",
+    "exclude": "CHICKEN|PORK|BEEF|DUCK|TOFU|NOODLE|RICE|DUMPLING|BAO|BUN|WRAP|MEAL|BOWL|KIT|MIX|GLAZE|DRESSING|SRIRACHA|SPICY|GARLIC|PLUM|BBQ|ORANGE|GINGER|SESAME|HONEY|STIR|MARINADE|GLUTEN|LESS|LOW|REDUCED|PACKET",
+    "match": "\\bHOISIN\\b"
+   },
+   "sizes": [
+    [8.0, 8, 6],
+    [8.5, 2, 2],
+    [9.0, 2, 2],
+    [10.0, 2, 2],
+    [15.0, 2, 2],
+    [20.0, 2, 2],
+    [7.0, 1, 1],
+    [7.5, 1, 1]
+   ]
+  },
+  "Honey": {
+   "owners": 180,
+   "products": 518,
+   "rule": {
+    "category": "^Honey$|Syrups|Jam|Spread",
+    "exclude": "MUSTARD|BUTTER|ROASTED|\\bNUTS?\\b|BBQ|SAUCE|GRAHAM|OAT|CEREAL|\\bHAM\\b|TURKEY|CHICKEN|BAR\\b|SRIRACHA|\\bHOT\\b|GARLIC|CINNAMON|COMB|WHIPPED|CREAMED|CREAMY|SPUN|STICK|STRAW|PACKET|PORTION|SINGLE|\\bCT\\b|COUNT|MANUKA|BUCKWHEAT|ORANGE BLOSSOM|TUPELO|SAGE|ALFALFA|AVOCADO|BLUEBERRY|MESQUITE|ACACIA|EUCALYPTUS|GINGER|LEMON|VANILLA|LAVENDER|INFUSED|FLAVOR|CHILI|JALAPENO|HABANERO|PEPPER|SPICY|DIJON|WHEAT|ALMOND|PEANUT|CASHEW|PECAN|WALNUT|PISTACHIO|SUNFLOWER|SESAME|TAHINI|COCONUT|LIME|BERRY|CHERRY|APPLE|PEAR|PEACH|FIG|DATE|MAPLE|AGAVE|SYRUP|SPREAD|BEAR",
+    "match": "\\bHONEY$|^(PURE |RAW |CLOVER |WILDFLOWER |ORGANIC |LOCAL |FILTERED |UNFILTERED |NATURAL |US GRADE A |GRADE A |100% PURE |AMERICAN )*HONEY\\b"
+   },
+   "sizes": [
+    [16.0, 141, 81],
+    [12.0, 108, 65],
+    [24.0, 55, 40],
+    [32.0, 39, 33],
+    [40.0, 30, 24],
+    [80.0, 25, 20],
+    [48.0, 21, 19],
+    [8.0, 16, 16]
+   ]
+  },
+  "Hot sauce": {
+   "owners": 249,
+   "products": 404,
+   "rule": {
+    "category": "Ketchup, Mustard|Oriental, Mexican|Other Condiments|Sauce|Condiment",
+    "exclude": "WING|BBQ|CHIPS|BUFFALO|GARLIC|HONEY|MANGO|PINEAPPLE|PEACH|HABANERO|GHOST|REAPER|SCORPION|CHIPOTLE|JALAPENO|GREEN|VERDE|SRIRACHA|SWEET|SMOKED|SMOKEY|SMOKY|LIME|LEMON|CITRUS|MUSTARD|CRANBERRY|CHERRY|RASPBERRY|STRAWBERRY|BLUEBERRY|BLACKBERRY|APPLE|MAPLE|BOURBON|WHISKEY|TEQUILA|BEER|COFFEE|CHOCOLATE|VANILLA|CINNAMON|GINGER|TURMERIC|CURRY|SESAME|SOY|TERIYAKI|HOISIN|OYSTER|FISH|SHRIMP|CHICKEN|BEEF|PORK|BACON|SAUSAGE|CHEESE|CREAM|MAYO|RANCH|KETCHUP|DRESSING|DIP|SALSA|PICANTE|SEASONING|POWDER|SALT|PACKET|MILD|EXTRA|XXX|INSANE|SUICIDE|DEATH|HELL|DEVIL|DIABLO|FIRE|BLAZING|BURN|HEAT|HOT HOT|STEAK|CHILI SAUCE|CHILE SAUCE|SWEET CHILI|PIRI|PERI|HARISSA|GOCHUJANG|SAMBAL|YELLOW|SCOTCH BONNET|ROCOTO|AJI|CARIBBEAN|JAMAICAN|JERK|TROPICAL|FRUIT|TRUFFLE|KIMCHI|GOURMET|CRAFT|SMALL BATCH|ARTISAN|VARIETY|GIFT|SAMPLER|PACK OF|PASTA|TOMATO|ARRABBIATA|BLACK PEPPER|ITALIAN|MARINARA",
+    "match": "\\bHOT SAUCE\\b|\\bHOT PEPPER SAUCE\\b|\\bRED HOT\\b.*\\bSAUCE\\b|\\bLOUISIANA\\b.*\\bHOT\\b"
+   },
+   "sizes": [
+    [5.0, 118, 86],
+    [12.0, 66, 55],
+    [6.0, 45, 39],
+    [10.0, 16, 14],
+    [8.0, 13, 12],
+    [3.0, 12, 9],
+    [16.0, 10, 10],
+    [34.0, 9, 9]
+   ]
+  },
+  "Hummus": {
+   "owners": 190,
+   "products": 1009,
+   "rule": {
+    "category": "Dips|Deli",
+    "exclude": "CHIPS|CRACKER|SNACK|\\bCUPS?\\b|PRETZEL|SINGLES|\\bGO\\b|DESSERT|CHOCOLATE|BROWNIE|COOKIE|CAKE|CARROT|VEGGIE|PITA|TRAY|WRAP|SANDWICH|PLATTER|KIT|BOWL|MEAL|ENTREE|BURRITO|PIZZA|DIP CUP|PORTION|PACK OF|\\bCT\\b|COUNT|MINI|SNACK PACK|TO GO|GRAB|GO PACK|TUB OF 2|2 PACK|MULTIPACK|VARIETY|SAMPLER|PUFF|POP|CRISP|STICK|BAR\\b|MIX|SEASONING|POWDER|SPICE|FLAVOR PACK",
+    "match": "\\bHUMMUS\\b"
+   },
+   "sizes": [
+    [10.0, 385, 71],
+    [8.0, 317, 86],
+    [12.0, 63, 22],
+    [16.0, 46, 22],
+    [32.0, 28, 11],
+    [17.0, 24, 10],
+    [24.0, 15, 7],
+    [7.0, 15, 6]
+   ]
+  },
+  "Instant brown rice (dry)": {
+   "owners": 28,
+   "products": 35,
+   "rule": {
+    "category": "^Rice$",
+    "exclude": "\\bCUPS?\\b|MICROWAV|READY|BOWL|FLAVOR|SEASON|CHICKEN|BEEF|VEGETABLE|SPANISH|WILD|BLEND|QUINOA|GARLIC|HERB|MIX|POUCH|HEAT",
+    "match": "\\b(INSTANT|MINUTE|QUICK)\\b.*\\bBROWN\\b|\\bBROWN\\b.*\\b(INSTANT|QUICK)\\b"
+   },
+   "sizes": [
+    [14.0, 32, 27],
+    [28.0, 3, 3]
+   ]
+  },
+  "Italian chicken sausage (raw)": {
+   "owners": 40,
+   "products": 90,
+   "rule": {
+    "category": "Sausages",
+    "exclude": "MEATBALL|PIZZA|SAUCE|PASTA|SOUP|COOKED|FULLY|SMOKED|BOWL|MEAL|RAVIOLI|SANDWICH|BREAKFAST|BITES|PEPPERONI",
+    "match": "(?=.*\\bCHICKEN\\b)(?=.*\\bITALIAN\\b)(?=.*\\bSAUSAGES?\\b)"
+   },
+   "sizes": [
+    [12.0, 32, 19],
+    [16.0, 29, 14],
+    [14.0, 14, 5],
+    [10.0, 4, 4],
+    [32.0, 4, 4],
+    [11.0, 2, 2],
+    [20.0, 2, 2],
+    [9.0, 1, 1]
+   ]
+  },
+  "Italian seasoning": {
+   "owners": 30,
+   "products": 37,
+   "rule": {
+    "category": "Herbs & Spices|Seasoning Mixes",
+    "exclude": "GRINDER|SALT|DRESSING|BREAD|CRUMB|PANKO|MIX\\b|SAUCE|SAUSAGE|CHICKEN|BEEF|PORK|TOFU|MEATBALL|PASTA|PIZZA|SPAGHETTI|GARLIC|PARMESAN|CHEESE|SALT FREE|NO SALT|PACKET|PORTION|\\bCT\\b|COUNT|BLEND OF|PASTE|OIL|BUTTER|SPREAD|DIP|VINEGAR|VINAIGRETTE|CROUTON|STUFFING|RICE|ORZO|COUSCOUS|QUINOA|BEANS|TOMATO|SOUP|BROTH|STOCK|BOUILLON|GRAVY|RUB|MARINADE|FRESH|FROZEN|CUBES|TUBE",
+    "match": "\\bITALIAN SEASONING\\b|\\bITALIAN HERBS?\\b"
+   },
+   "sizes": [
+    [1.25, 5, 5],
+    [1.75, 4, 4],
+    [1.0, 4, 3],
+    [0.5, 3, 3],
+    [1.5, 3, 3],
+    [2.0, 3, 3],
+    [2.5, 3, 3],
+    [3.0, 3, 3]
+   ]
+  },
+  "Jasmine rice (dry)": {
+   "owners": 98,
+   "products": 213,
+   "rule": {
+    "category": "^Rice$",
+    "exclude": "READY|MICROWAV|COOKED|HEAT|STEAM|POUCH|\\bCUPS?\\b|BOWL|SEASON|FLAVOR|MIX|FRIED|PILAF|GARLIC|CILANTRO|LIME|CHICKEN|BEEF|VEGETABLE|CAKE|CRACKER|CHIPS|SNACK|PASTA|FLOUR|CRISP|BLEND|MEDLEY|SPANISH|MEXICAN|BUTTER|CHEESE|COCONUT|BEANS|QUINOA|SALAD|90 SEC|BURRITO|SUSHI|BROWN|BLACK|RED|PURPLE|WILD|BASMATI|HALF|SPROUTED",
+    "match": "\\bJASMINE\\b"
+   },
+   "sizes": [
+    [32.0, 57, 46],
+    [80.0, 43, 37],
+    [320.0, 20, 15],
+    [400.0, 14, 11],
+    [160.0, 13, 12],
+    [16.0, 13, 9],
+    [12.0, 6, 6],
+    [20.0, 6, 5]
+   ]
+  },
+  "Ketchup": {
+   "owners": 164,
+   "products": 502,
+   "rule": {
+    "category": "Ketchup, Mustard",
+    "exclude": "BBQ|MUSTARD|SRIRACHA|SPICY|HOT|CHIPS|PACKET|BANANA|CURRY|TRUFFLE|JALAPENO|CHIPOTLE|HABANERO|MAYO|RELISH|SAUCE|SEASONING|POWDER|GARLIC|ONION|BACON|HONEY|MAPLE|SMOKY|SMOKED|SWEET|CHILI|BLEND|MIX|PORTION|SINGLE|PACK OF|POUCH|PILLOW|DIP CUP|FANCY PACK|PC\\b|\\bCT\\b|COUNT|FOOD SERVICE|FOODSERVICE|BULK|#10|GAL",
+    "match": "\\bKETCHUP\\b|\\bCATSUP\\b"
+   },
+   "sizes": [
+    [20.0, 93, 66],
+    [24.0, 65, 57],
+    [38.0, 56, 45],
+    [32.0, 49, 37],
+    [64.0, 45, 42],
+    [14.0, 26, 19],
+    [19.5, 24, 23],
+    [12.0, 15, 13]
+   ]
+  },
+  "Kosher salt": {
+   "owners": 23,
+   "products": 33,
+   "rule": {
+    "category": "Seasoning Mixes, Salts|Herbs & Spices",
+    "exclude": "GARLIC|SEASON|PEPPER|SMOKED|FLAVOR|ONION|HERB|LEMON|LIME|TRUFFLE|CELERY|BLEND|MIX|RUB|GRINDER|MILL|PACKET|SEA SALT|PINK|HIMALAYAN|FLAKE|BLACK|RED|CHILI|HOT|SPICY|BACON|MAPLE|BOURBON|WINE|ROSEMARY|THYME",
+    "match": "\\bKOSHER SALT\\b|\\bSALT,? KOSHER\\b"
+   },
+   "sizes": [
+    [48.0, 12, 10],
+    [16.0, 9, 7],
+    [17.5, 2, 2],
+    [7.0, 1, 1],
+    [7.5, 1, 1],
+    [13.0, 1, 1],
+    [22.0, 1, 1],
+    [23.0, 1, 1]
+   ]
+  },
+  "Maple syrup": {
+   "owners": 101,
+   "products": 266,
+   "rule": {
+    "category": "Syrups",
+    "exclude": "PANCAKE|FLAVORED|FLAVOR|ARTIFICIAL|LITE|LIGHT|SUGAR FREE|BUTTER|BACON|BOURBON|CINNAMON|VANILLA|INFUSED|AGED|BLUEBERRY|PECAN|WALNUT|BLEND|TABLE|BREAKFAST|WAFFLE|BELGIAN|CORN|ZERO|KETO|LESS|REDUCED|COFFEE|ESPRESSO|WHISKEY|RUM|BARREL|CHILI|HOT|SPICY|SMOKED|SMOKY|MAPLE SUGAR|CANDY|CREAM|BUTTER|SPREAD|FLAKE|PACKET|PORTION|SINGLE|\\bCT\\b|COUNT|POUCH|DIP CUP",
+    "match": "\\bMAPLE SYRUP\\b"
+   },
+   "sizes": [
+    [32.0, 59, 43],
+    [12.0, 50, 32],
+    [8.0, 47, 33],
+    [8.5, 30, 20],
+    [16.0, 22, 19],
+    [12.5, 18, 14],
+    [6.75, 9, 4],
+    [64.0, 6, 4]
+   ]
+  },
+  "Mayonnaise": {
+   "owners": 101,
+   "products": 336,
+   "rule": {
+    "category": "Salad Dressing & Mayonnaise",
+    "exclude": "LIGHT|LITE|REDUCED|FAT FREE|LOW FAT|HALF|OLIVE OIL|AVOCADO|CHIPOTLE|SRIRACHA|GARLIC|VEGAN|PLANT|SPICY|DRESSING|PESTO|LEMON|TRUFFLE|WASABI|BACON|DIJONNAISE|MUSTARD|SALAD|HONEY|CHILI|JALAPENO|LIME|HERB|BASIL|DILL|HORSERADISH|KETCHUP|SAUCE|SPREAD|AIOLI|DIP|FLAVOR|EGG FREE|EGGLESS|SANDWICH SPREAD|MIRACLE|WHIPPED|KEWPIE|JAPANESE|SESAME|SOY|COCONUT|CANOLA|SAFFLOWER|SUNFLOWER|PACKET|PORTION|PC\\b|\\bCT\\b|COUNT|POUCH|DIP CUP|SINGLE|GAL\\b|GALLON|BULK|FOODSERVICE|FOOD SERVICE",
+    "match": "\\bMAYONNAISE\\b|^(REAL |ORGANIC |CLASSIC )*MAYO$|\\bREAL MAYO\\b"
+   },
+   "sizes": [
+    [30.0, 87, 56],
+    [15.0, 43, 33],
+    [22.0, 26, 25],
+    [12.0, 25, 19],
+    [16.0, 20, 16],
+    [128.0, 18, 14],
+    [18.0, 16, 14],
+    [8.0, 13, 11]
+   ]
+  },
+  "Mixed greens": {
+   "owners": 29,
+   "products": 55,
+   "rule": {
+    "category": "Pre-Packaged Fruit & Vegetables",
+    "exclude": "KIT|DRESSING|\\bWITH\\b|BOWL|MEAL|CHICKEN|EGG|CHEESE|BACON|CROUTON|NUT|SEED|FRUIT|BERRY|CRANBERR|SPINACH|ARUGULA|HERB|BUTTER|ROMAINE|ICEBERG|KALE|CHARD|POWER|SUPER|SWEET|BABY|MICRO|SPROUT|SHOOTS|CABBAGE|SLAW|CARROT|RADICCHIO",
+    "match": "\\bSPRING MIX\\b|\\bMIXED GREENS\\b|\\bSPRING BLEND\\b|\\bMESCLUN\\b"
+   },
+   "sizes": [
+    [5.0, 23, 19],
+    [16.0, 17, 13],
+    [11.0, 6, 6],
+    [10.0, 4, 4],
+    [4.5, 3, 3],
+    [4.0, 1, 1],
+    [7.0, 1, 1]
+   ]
+  },
+  "Monterey Jack": {
+   "owners": 97,
+   "products": 190,
+   "rule": {
+    "category": "Cheese",
+    "exclude": "PEPPER|CHEDDAR|COLBY|BLEND|SHRED|SLICE|STRING|STICK|SNACK|MEXICAN|TACO|DIP|SAUCE|JALAPENO|HABANERO|CUBE|BITES|CRACKER|CRISP|SPREAD|GARLIC|DILL|CHIPOTLE|RANCH|PESTO|HERB",
+    "match": "\\bMONTEREY JACK\\b"
+   },
+   "sizes": [
+    [8.0, 81, 62],
+    [16.0, 41, 37],
+    [32.0, 18, 17],
+    [7.0, 7, 7],
+    [10.0, 6, 6],
+    [80.0, 6, 5],
+    [12.0, 6, 4],
+    [6.0, 5, 5]
+   ]
+  },
+  "Mozzarella (low-moisture part-skim)": {
+   "owners": 103,
+   "products": 376,
+   "rule": {
+    "category": "Cheese",
+    "exclude": "STRING|STICK|SNACK|FRESH|BALL|PEARL|SLICE|PIZZA|BLEND|ITALIAN|CURD|PROVOLONE|PARMESAN|CHEDDAR|LIGHT|SMOKED|MARINATED|TWIST|SWIRL|STICKS|BITES|CUBES|PEPPER|TOMATO|PESTO|BASIL|ROLL|LOG|WRAP|MINI|HALF|CHUNK|MOZZ STICK|MOZZARELLA STICK",
+    "match": "(?=.*\\bMOZZARELLA\\b)(?=.*(PART[ -]SKIM|LOW[ -]MOISTURE))"
+   },
+   "sizes": [
+    [8.0, 138, 61],
+    [16.0, 102, 58],
+    [32.0, 57, 39],
+    [80.0, 22, 12],
+    [6.0, 20, 17],
+    [12.0, 12, 9],
+    [7.0, 10, 8],
+    [14.0, 3, 3]
+   ]
+  },
+  "Nonfat Greek yogurt": {
+   "owners": 57,
+   "products": 117,
+   "rule": {
+    "category": "Yogurt",
+    "exclude": "DRINK|SMOOTHIE|DIP|BAR\\b|FROZEN|PLANT|ALMOND|OAT|COCONUT|BLENDED|VANILLA|HONEY",
+    "match": "(?=.*\\bGREEK\\b)(?=.*\\bPLAIN\\b)(?=.*\\b(NONFAT|NON-FAT|FAT FREE|FAT-FREE|0%)\\b)"
+   },
+   "sizes": [
+    [32.0, 47, 39],
+    [5.25, 44, 33],
+    [6.0, 8, 8],
+    [21.25, 4, 4],
+    [16.0, 3, 3],
+    [24.0, 3, 3],
+    [40.0, 3, 3],
+    [8.0, 1, 1]
+   ]
+  },
+  "Nonfat plain yogurt": {
+   "owners": 35,
+   "products": 47,
+   "rule": {
+    "category": "Yogurt",
+    "exclude": "GREEK|SKYR|DRINK|KEFIR|ICELANDIC|AUSTRALIAN|PLANT|ALMOND|OAT|COCONUT|SOY|CASHEW",
+    "match": "(?=.*\\bPLAIN\\b)(?=.*\\b(NONFAT|NON-FAT|FAT FREE|FAT-FREE|0%)\\b)"
+   },
+   "sizes": [
+    [32.0, 39, 34],
+    [5.25, 3, 2],
+    [64.0, 3, 2],
+    [6.0, 2, 2]
+   ]
+  },
+  "Olive oil": {
+   "owners": 284,
+   "products": 1030,
+   "rule": {
+    "category": "Oil",
+    "exclude": "SPRAY|BLEND|CANOLA|SUNFLOWER|VEGETABLE|DRESSING|TUNA|SARDINE|ARTICHOKE|GARLIC|LEMON|BASIL|ROSEMARY|CHILI|TRUFFLE|ORANGE|LIME|HERB|PEPPER|CHIPOTLE|JALAPENO|BLOOD|INFUSED|FLAVOR|MIST|POMACE|LIGHT TASTING|PURE|\\bLIGHT\\b|EXTRA LIGHT|SPREAD|MAYO|BUTTER|MARGARINE|SOAP",
+    "match": "\\bOLIVE OIL\\b"
+   },
+   "sizes": [
+    [17.0, 439, 203],
+    [33.75, 149, 81],
+    [25.5, 125, 71],
+    [8.5, 93, 71],
+    [101.0, 57, 34],
+    [51.0, 44, 28],
+    [67.5, 29, 17],
+    [16.0, 10, 5]
+   ]
+  },
+  "Orzo (dry)": {
+   "owners": 33,
+   "products": 45,
+   "rule": {
+    "category": "Pasta",
+    "exclude": "SALAD|SOUP|RICE|PILAF|MIX|PREPARED|COOKED|GLUTEN|LENTIL|CHICKPEA|QUINOA|TRI[- ]COLOR|SPINACH|TOMATO|GARLIC|LEMON|PARMESAN|BUTTER|CHICKEN|BOWL|MEAL|FROZEN|BEAN|PESTO|HERB|MUSHROOM|VEGETABLE|CAULIFLOWER|PROTEIN|KETO|BRONZE|SAUCE",
+    "match": "\\bORZO\\b"
+   },
+   "sizes": [
+    [16.0, 31, 25],
+    [12.0, 8, 8],
+    [8.75, 2, 2],
+    [5.75, 1, 1],
+    [17.5, 1, 1],
+    [26.5, 1, 1],
+    [32.0, 1, 1]
+   ]
+  },
+  "Panko": {
+   "owners": 55,
+   "products": 77,
+   "rule": {
+    "category": "Bread & Muffin Mixes|Baking",
+    "exclude": "SHRIMP|CHICKEN|FISH|COD|SALMON|CRAB|TOFU|GARLIC|HERB|ITALIAN|PARMESAN|LEMON|SPICY|SEASONED|CAJUN|BBQ|CHEESE|GLUTEN|WHOLE WHEAT|ONION|PEPPER|BUFFALO|RANCH|SRIRACHA|CHIPOTLE|COCONUT|MIX|BLEND|KETO|PORK RIND|CORN|RICE|BUTTER|TOASTED",
+    "match": "\\bPANKO\\b"
+   },
+   "sizes": [
+    [8.0, 43, 36],
+    [7.0, 6, 6],
+    [6.0, 5, 5],
+    [9.0, 5, 4],
+    [10.5, 3, 3],
+    [12.0, 3, 3],
+    [13.0, 2, 2],
+    [16.0, 2, 1]
+   ]
+  },
+  "Paprika": {
+   "owners": 22,
+   "products": 31,
+   "rule": {
+    "category": "Herbs & Spices",
+    "exclude": "BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|SMOKED|HOT|SWEET HUNGARIAN|HUNGARIAN|SPANISH|PIMENTON|GARLIC|ONION|CHILI|PACKET|SMOKY",
+    "match": "\\bPAPRIKA\\b"
+   },
+   "sizes": [
+    [1.75, 4, 4],
+    [2.0, 4, 4],
+    [2.5, 4, 3],
+    [1.0, 2, 2],
+    [3.0, 2, 2],
+    [84.0, 2, 1],
+    [2.25, 1, 1],
+    [3.25, 1, 1]
+   ]
+  },
+  "Parmesan (grated)": {
+   "owners": 94,
+   "products": 195,
+   "rule": {
+    "category": "Cheese",
+    "exclude": "ROMANO|SHRED|BLEND|ASIAGO|CRISP|GARLIC|HERB|PEPPER|PLANT|VEGAN|PESTO|SAUCE|DIP|SPREAD|CRACKER|CHIPS|BREAD|CRUMB|PANKO|DRESSING|SALAD|SNACK|POPCORN|SEASON|TOPPING|ITALIAN|PECORINO|FONTINA|PROVOLONE|MOZZARELLA",
+    "match": "(?=.*\\bPARMESAN\\b)(?=.*\\bGRATED\\b)"
+   },
+   "sizes": [
+    [8.0, 71, 58],
+    [5.0, 30, 25],
+    [3.0, 24, 19],
+    [16.0, 23, 21],
+    [6.0, 9, 8],
+    [4.0, 6, 6],
+    [24.0, 5, 5],
+    [7.0, 4, 4]
+   ]
+  },
+  "Peanut butter (creamy)": {
+   "owners": 101,
+   "products": 314,
+   "rule": {
+    "category": "Nut & Seed Butters",
+    "exclude": "CUP|COOKIE|CRACKER|BAR\\b|CHOCOLATE|HONEY|PRETZEL|FILLED|POWDER|CANDY|SANDWICH|JELLY|CEREAL|NATURAL|NO STIR|REDUCED|LESS|LOW|PROTEIN|KETO|MAPLE|CINNAMON|VANILLA|BANANA|STRAWBERRY|RASPBERRY|GRAPE|MARSHMALLOW|CARAMEL|COCONUT|ALMOND|CASHEW|HAZELNUT|SUNFLOWER|SEED|SQUEEZE|POUCH|PACKET|PORTION|SINGLE|\\bCT\\b|COUNT|TO GO|DIP|SPREAD|BLEND|OMEGA|FLAX|CHIA|SALT|UNSALTED|NO SALT|ORGANIC|PALM|WHIPPED|DARK|WHITE|MILK|BLONDIE|BROWNIE|FUDGE|TOFFEE|SNICKERDOODLE|PUMPKIN|SPICED|SPICY|HOT|CHILI|SRIRACHA|BACON",
+    "match": "\\bCREAMY PEANUT BUTTER\\b|\\bPEANUT BUTTER,? CREAMY\\b|\\bSMOOTH PEANUT BUTTER\\b"
+   },
+   "sizes": [
+    [16.0, 79, 54],
+    [40.0, 50, 38],
+    [28.0, 45, 39],
+    [18.0, 32, 28],
+    [64.0, 26, 24],
+    [16.25, 14, 11],
+    [12.0, 12, 11],
+    [80.0, 11, 10]
+   ]
+  },
+  "Peanut butter (crunchy)": {
+   "owners": 85,
+   "products": 211,
+   "rule": {
+    "category": "Nut & Seed Butters",
+    "exclude": "CUP|COOKIE|CRACKER|BAR\\b|CHOCOLATE|HONEY|PRETZEL|FILLED|POWDER|CANDY|SANDWICH|JELLY|CEREAL|NATURAL|NO STIR|REDUCED|LESS|LOW|PROTEIN|KETO|MAPLE|CINNAMON|ALMOND|CASHEW|SUNFLOWER|SQUEEZE|POUCH|PACKET|PORTION|SINGLE|\\bCT\\b|COUNT|BLEND|OMEGA|FLAX|CHIA|SALT|UNSALTED|NO SALT|ORGANIC|PALM|DARK|WHITE",
+    "match": "\\b(CRUNCHY|CHUNKY|EXTRA CRUNCHY|SUPER CHUNK)\\b.*\\bPEANUT BUTTER\\b|\\bPEANUT BUTTER,? (CRUNCHY|CHUNKY)\\b"
+   },
+   "sizes": [
+    [16.0, 69, 49],
+    [40.0, 38, 31],
+    [28.0, 32, 30],
+    [18.0, 26, 23],
+    [16.25, 13, 10],
+    [64.0, 10, 10],
+    [144.0, 4, 1],
+    [12.0, 3, 2]
+   ]
+  },
+  "Peanut oil": {
+   "owners": 44,
+   "products": 65,
+   "rule": {
+    "category": "Oil",
+    "exclude": "SPRAY|BLEND|MIST|ROASTED|TOASTED|FLAVOR|CANOLA|SOY|VEGETABLE|SESAME|COTTONSEED",
+    "match": "\\bPEANUT OIL\\b"
+   },
+   "sizes": [
+    [128.0, 21, 20],
+    [24.0, 9, 9],
+    [32.0, 8, 8],
+    [560.0, 5, 3],
+    [48.0, 4, 4],
+    [384.0, 4, 4],
+    [16.0, 3, 2],
+    [64.0, 2, 2]
+   ]
+  },
+  "Pecans": {
+   "owners": 146,
+   "products": 390,
+   "rule": {
+    "category": "Popcorn, Peanuts, Seeds|Baking|Wholesome Snacks|Nuts",
+    "exclude": "CANDIED|GLAZED|PRALINE|HONEY|MAPLE|CINNAMON|CHOCOLATE|ROASTED|SALTED|PIE|COOKIE|\\bBAR\\b|TRAIL|MIX|CARAMEL|SPICED|SUGAR|BUTTER|TOFFEE|COATED|SMOKED|YOGURT|DIPPED|CLUSTER|BRITTLE|PRALINES|PECAN PIE|SANDIES|TURTLE|DATE|WALNUT|ALMOND|CASHEW|PISTACHIO|HAZELNUT|MACADAMIA|PEANUT|BRAZIL|CRANBERR|RAISIN|CHERRY|APRICOT|FIG|BLUEBERR|COCONUT|GRANOLA|CEREAL|SEASONED|SPICY|CAJUN|BBQ|RANCH|GARLIC|ONION|CHILI|LIME|SRIRACHA|BUFFALO|TRUFFLE|ROSEMARY|BOURBON|WHISKEY|RUM|COFFEE|ESPRESSO|VANILLA|PUMPKIN|SWEET|SPICE|FLOUR|MEAL|OIL|MILK",
+    "match": "\\bPECANS?\\b"
+   },
+   "sizes": [
+    [8.0, 69, 54],
+    [6.0, 48, 34],
+    [16.0, 39, 28],
+    [10.0, 33, 23],
+    [12.0, 28, 22],
+    [2.0, 26, 19],
+    [7.0, 25, 15],
+    [2.25, 17, 12]
+   ]
+  },
+  "Pork breakfast sausage (raw)": {
+   "owners": 109,
+   "products": 271,
+   "rule": {
+    "category": "Sausages",
+    "exclude": "LINK|PATT|COOKED|FULLY|TURKEY|CHICKEN|BISCUIT|SANDWICH|ITALIAN|BRAT|SMOKED|CHORIZO|GRAVY|PIZZA|CROISSANT|MUFFIN|BURRITO|BOWL|SCRAMBLE|BITES|CRUMBLE|STICK|PANCAKE|WAFFLE|MEATBALL|CHEESE|APPLE|BEEF|VENISON|ANDOUILLE|KIELBASA|POLISH|SUMMER|CANNED|VIENNA|CASING|DINNER|\\bDOG|BULK|ROPE|RING|BOLOGNA|LIVER|BLOOD|SALAMI|PEPPERONI|JERKY|SNACK|GREEN CHILE|JALAPENO|BRATWURST|HOT DOG|FRANK|WIENER|SPLIT",
+    "match": "(?=.*\\bSAUSAGE\\b)(?=.*\\b(ROLL|CHUB|BREAKFAST|COUNTRY|PORK)\\b)"
+   },
+   "sizes": [
+    [16.0, 130, 66],
+    [12.0, 61, 34],
+    [14.0, 10, 6],
+    [10.0, 9, 7],
+    [32.0, 8, 6],
+    [8.0, 7, 6],
+    [7.0, 7, 4],
+    [8.5, 5, 4]
+   ]
+  },
+  "Potatoes": {
+   "owners": 24,
+   "products": 50,
+   "rule": {
+    "category": "Pre-Packaged Fruit & Vegetables",
+    "exclude": "SWEET|FINGERLING|BABY|PETITE|MINI|CREAMER|MASHED|FRIES|TOTS|CHIPS|HASH|SALAD|FROZEN|DEHYDRATED|INSTANT|CANNED|SCALLOPED|AU GRATIN|WEDGE|SOUP|GNOCCHI|STEAM|MICROWAV|RED|GOLD|YELLOW|PURPLE|BLUE|MEDLEY|DICED|CUBED|SLICED|SHREDDED|CUT|PEELED|SEASONED|ROASTED|BAKED|STUFFED|TWICE|LOADED|CHEESE|BACON|ONION|GARLIC|HERB|BUTTER|SKILLET|BOWL|MEAL|KIT|SINGLE|EACH|WRAPPED|JUMBO",
+    "match": "\\bRUSSET POTATOES\\b|^(WHOLE |FRESH |ORGANIC |IDAHO |RUSSET |BAKING |WHITE )*POTATOES$|\\bRUSSETS\\b"
+   },
+   "sizes": [
+    [80.0, 21, 15],
+    [160.0, 14, 8],
+    [48.0, 7, 6],
+    [64.0, 2, 2],
+    [15.0, 1, 1],
+    [16.0, 1, 1],
+    [24.0, 1, 1],
+    [128.0, 1, 1]
+   ]
+  },
+  "Powdered sugar": {
+   "owners": 39,
+   "products": 75,
+   "rule": {
+    "category": "Granulated, Brown & Powdered Sugar",
+    "exclude": "STEVIA|SPLENDA|TRUVIA|SUBSTITUTE|ZERO|KETO|MONK|ALTERNATIVE|ALLULOSE|ERYTHRITOL|SWEETENER|COCONUT|BLEND|ORGANIC POWDERED|LESS|REDUCED|FREE|FROSTING|ICING|DONUT|COOKIE|CHOCOLATE|CINNAMON|VANILLA|STRAWBERRY|COLORED",
+    "match": "\\bPOWDERED SUGAR\\b|\\bCONFECTIONER.?S\\b|\\b10X\\b"
+   },
+   "sizes": [
+    [32.0, 40, 33],
+    [16.0, 23, 21],
+    [64.0, 5, 5],
+    [112.0, 4, 3],
+    [400.0, 3, 2]
+   ]
+  },
+  "Quinoa (dry)": {
+   "owners": 93,
+   "products": 158,
+   "rule": {
+    "category": "Other Grains|Rice|Grain",
+    "exclude": "READY|MICROWAV|COOKED|BLEND|MIX|PASTA|FLAVOR|CHIP|BAR\\b|CRISP|PUFF|FLOUR|FLAKE|BOWL|SALAD|SPINACH|KALE|RICE|GARLIC|HERB|LEMON|BURGER|PATT|CEREAL|GRANOLA|COOKIE|CRACKER|SNACK|BITES|POP|CHIA|FLAX|MEDLEY|PILAF|PROTEIN|SEASON|HEAT|POUCH|\\bCUPS?\\b|STEAM|SPROUTED|COUSCOUS|LENTIL|BEAN|AMARANTH|MILLET|FARRO|BARLEY|ANCIENT|SUPER|TRI[- ]COLOR|TRICOLOR|RED|BLACK|RAINBOW",
+    "match": "\\bQUINOA\\b"
+   },
+   "sizes": [
+    [16.0, 43, 35],
+    [12.0, 21, 17],
+    [32.0, 10, 8],
+    [14.0, 8, 8],
+    [4.0, 7, 5],
+    [8.0, 5, 5],
+    [13.0, 5, 5],
+    [6.0, 5, 1]
+   ]
+  },
+  "Red wine vinegar": {
+   "owners": 78,
+   "products": 106,
+   "rule": {
+    "category": "Other Cooking Sauces|Vinegar|Condiment|Salad Dressing",
+    "exclude": "GARLIC|HERB|DRESSING|VINAIGRETTE|OREGANO|SHALLOT|FLAVOR|INFUSED|BALSAMIC|CABERNET|MERLOT|CHIANTI|ZINFANDEL|PINOT|SHERRY|RIOJA",
+    "match": "\\bRED WINE VINEGAR\\b|\\bVINEGAR,? RED WINE\\b"
+   },
+   "sizes": [
+    [17.0, 45, 42],
+    [12.75, 16, 15],
+    [16.0, 13, 11],
+    [32.0, 10, 9],
+    [128.0, 8, 8],
+    [8.5, 4, 4],
+    [12.0, 4, 4],
+    [25.5, 2, 2]
+   ]
+  },
+  "Reduced-fat cheddar": {
+   "owners": 28,
+   "products": 58,
+   "rule": {
+    "category": "Cheese",
+    "exclude": "SLICE|STRING|STICK|SNACK|CRACKER|SPREAD|DIP|SAUCE|JACK|BLEND|MEXICAN|COLBY|CUBE|BITES|PEPPER|ONION|GARLIC|SMOKED|MINI|BAR\\b",
+    "match": "\\bCHEDDAR\\b.*\\b(REDUCED|2%|LIGHT|LOW[ -]FAT)\\b|\\b(REDUCED|2%|LIGHT|LOW[ -]FAT)\\b.*\\bCHEDDAR\\b"
+   },
+   "sizes": [
+    [8.0, 27, 16],
+    [7.0, 21, 10],
+    [12.0, 3, 3],
+    [2.25, 1, 1],
+    [6.0, 1, 1],
+    [6.5, 1, 1],
+    [6.75, 1, 1],
+    [9.0, 1, 1]
+   ]
+  },
+  "Rice noodles (dry)": {
+   "owners": 29,
+   "products": 46,
+   "rule": {
+    "category": "All Noodles|Pasta|Oriental",
+    "exclude": "KIT|SAUCE|SOUP|BOWL|\\bCUPS?\\b|SEASON|FLAVOR|INSTANT|CHICKEN|BEEF|SHRIMP|\\bPHO\\b|SPICY|SESAME|GARLIC|PEANUT|TERIYAKI|ORANGE|CURRY|TOFU|VEGETABLE|MEAL|DINNER|BROWN|BLACK|RED|PURPLE|SWEET POTATO|MUNG|KELP|SHIRATAKI|SOBA|BUCKWHEAT|PASTA|RAMEN|LO MEIN|STIR|THAI KITCHEN|FROZEN|FRESH|COOKED|NOODLE BOWL",
+    "match": "\\bRICE (NOODLES?|STICKS?|VERMICELLI)\\b|\\bPAD THAI NOODLES?\\b"
+   },
+   "sizes": [
+    [16.0, 9, 5],
+    [8.0, 8, 7],
+    [8.75, 5, 4],
+    [10.5, 5, 3],
+    [14.0, 5, 2],
+    [7.75, 4, 3],
+    [1.75, 1, 1],
+    [3.0, 1, 1]
+   ]
+  },
+  "Rice vinegar": {
+   "owners": 16,
+   "products": 34,
+   "rule": {
+    "category": "Other Cooking Sauces|Vinegar|Condiment|Oriental",
+    "exclude": "SEASONED|SUSHI|GARLIC|GINGER|HONEY|SPICY|DRESSING|VINAIGRETTE|BROWN|BLACK|RED|LIGHT|LOW|LESS|FLAVOR|SWEET",
+    "match": "\\bRICE (WINE )?VINEGAR\\b|\\bVINEGAR,? RICE\\b"
+   },
+   "sizes": [
+    [12.0, 10, 2],
+    [12.75, 8, 6],
+    [10.0, 7, 5],
+    [20.0, 5, 4],
+    [24.0, 3, 2],
+    [17.0, 1, 1]
+   ]
+  },
+  "Roasted red peppers (jarred)": {
+   "owners": 58,
+   "products": 86,
+   "rule": {
+    "category": "Pickles, Olives, Peppers|Canned Vegetables",
+    "exclude": "HUMMUS|DIP|SPREAD|SAUCE|SOUP|PESTO|DRESSING|CHEESE|TAPENADE|GARLIC|ONION|STRIPS|YELLOW|GREEN|MIXED|BLEND|MEDLEY|MARINATED|HERB|OIL|SPICY|HOT|ARTICHOKE|OLIVE|RELISH|BRUSCHETTA|CHIPS|CRACKER|SALSA|SALAD",
+    "match": "\\bROASTED (RED )?PEPPERS?\\b|\\bROASTED RED\\b"
+   },
+   "sizes": [
+    [12.0, 30, 25],
+    [24.0, 10, 10],
+    [16.0, 7, 7],
+    [10.0, 5, 5],
+    [7.0, 4, 4],
+    [11.25, 3, 3],
+    [15.5, 3, 3],
+    [7.5, 2, 2]
+   ]
+  },
+  "Rolled oats": {
+   "owners": 67,
+   "products": 145,
+   "rule": {
+    "category": "Cereal|Grain",
+    "exclude": "BAR\\b|COOKIE|GRANOLA|\\bCUPS?\\b|MAPLE|FLAVOR|APPLE|BERRY|SUGAR|HONEY|CHOCOLATE|CINNAMON|INSTANT|OVERNIGHT|QUICK|STEEL|PROTEIN|FLAX|CHIA|BLEND|MIX|PACKET|NUT|RAISIN|PEACH|BANANA|PUMPKIN|VANILLA|COCONUT|SPROUTED|GLUTEN|CRUNCH|MUESLI|BITES|CLUSTERS",
+    "match": "\\b(OLD[ -]FASHIONED|ROLLED) OATS\\b|\\bOATS,? (OLD[ -]FASHIONED|ROLLED)\\b"
+   },
+   "sizes": [
+    [42.0, 46, 38],
+    [18.0, 41, 33],
+    [32.0, 16, 1],
+    [16.0, 15, 8],
+    [24.0, 5, 4],
+    [160.0, 3, 2],
+    [8.0, 2, 2],
+    [14.0, 2, 2]
+   ]
+  },
+  "Salsa": {
+   "owners": 379,
+   "products": 811,
+   "rule": {
+    "category": "Dips & Salsa",
+    "exclude": "VERDE|CON QUESO|QUESO|CHEESE|\\bDIP\\b|PEACH|MANGO|PINEAPPLE|CORN|BLACK BEAN|CHIPS|CHIPOTLE|ROASTED|HABANERO|GARLIC|LIME|CILANTRO|FIRE|BEAN|STRAWBERRY|CHERRY|GREEN|TOMATILLO|AVOCADO|GUACAMOLE|SPICY|HOT|EXTRA|CHUNKY|THICK|RESTAURANT|CANTINA|STREET|PICO|SALSA DIP|SALSA CON|SALSA ROJA|SALSA RANCHERA|SALSA CASERA|SALSA BRAVA|SALSA MACHA|SALSA TAQUERA|SALSA PICANTE|SALSA VALENTINA|SALSA HUICHOL|SALSA LIZANO|SALSA INGLESA|SALSA DE|SALSA CHILE|SALSA ARBOL|SALSA CHIPOTLE|SALSA HABANERA|SALSA VERDE|SALSA ROJA|SALSA MEXICANA|SALSA TATEMADA|SALSA BORRACHA|SALSA ALAMBRE|PACKET|PORTION|SINGLE|\\bCT\\b|COUNT|CUP|SNACK|GO PACK|BOWL|KIT|SEASONING|MIX|POWDER|JALAPENO|SERRANO|POBLANO|ANCHO|GUAJILLO|CASCABEL|PASILLA|MORITA|CHILE DE ARBOL|PEPPER|ONION|TOMATO|BLEND",
+    "match": "\\bSALSA\\b"
+   },
+   "sizes": [
+    [16.0, 460, 248],
+    [12.0, 61, 40],
+    [24.0, 49, 26],
+    [15.5, 42, 26],
+    [15.0, 29, 22],
+    [13.0, 20, 11],
+    [14.0, 18, 14],
+    [32.0, 14, 10]
+   ]
+  },
+  "Semisweet chocolate chips": {
+   "owners": 60,
+   "products": 102,
+   "rule": {
+    "category": "Baking Decorations|Chocolate|Baking",
+    "exclude": "MINI|MILK|WHITE|DARK|BITTERSWEET|PEANUT|BUTTERSCOTCH|MINT|CARAMEL|TOFFEE|SEA SALT|DAIRY FREE|VEGAN|ALLERGY|SUGAR FREE|STEVIA|KETO|NO SUGAR|COOKIE|BAR\\b|BAKING BAR|SQUARES|MEGA|BIG|GIANT|CHUNKS|SWIRL|BLEND|MIX",
+    "match": "\\bSEMI[- ]?SWEET\\b.*\\b(CHIPS|MORSELS|CHUNKS)\\b|\\b(CHIPS|MORSELS)\\b.*\\bSEMI[- ]?SWEET\\b"
+   },
+   "sizes": [
+    [12.0, 38, 35],
+    [24.0, 19, 19],
+    [10.0, 19, 18],
+    [9.0, 7, 6],
+    [7.0, 3, 3],
+    [36.0, 3, 3],
+    [6.0, 2, 2],
+    [72.0, 2, 2]
+   ]
+  },
+  "Sesame oil": {
+   "owners": 49,
+   "products": 89,
+   "rule": {
+    "category": "Oil|Oriental",
+    "exclude": "SPRAY|BLEND|DRESSING|SAUCE|NOODLE|CHILI|HOT|GARLIC|GINGER|CANOLA|SOY|PEANUT|VEGETABLE|SUNFLOWER|MIST|LIGHT|COLD PRESSED|BLACK|WHITE",
+    "match": "\\bSESAME OIL\\b"
+   },
+   "sizes": [
+    [8.5, 16, 11],
+    [5.0, 13, 10],
+    [17.0, 7, 7],
+    [6.25, 5, 5],
+    [56.0, 5, 5],
+    [16.0, 5, 1],
+    [5.5, 4, 4],
+    [12.0, 4, 4]
+   ]
+  },
+  "Sesame seeds": {
+   "owners": 40,
+   "products": 58,
+   "rule": {
+    "category": "Herbs & Spices|Baking|Popcorn, Peanuts, Seeds|Other Grains|Oriental",
+    "exclude": "STICKS|CANDY|\\bBAR\\b|SNACK|BAGEL|\\bBUNS?\\b|CRACKER|\\bOIL\\b|DRESSING|SAUCE|HONEY|BRITTLE|CHIPS|SEAWEED|TAHINI|PASTE|SALT|SEASONING|FURIKAKE|GOMASIO|BLEND|MIX|EVERYTHING|BAGEL SEASONING|GARLIC|ONION|POPPY|FLAX|CHIA|SUNFLOWER|PUMPKIN|HEMP|NUT|ALMOND|PEANUT|CASHEW|CHICKEN|BEEF|TOFU|NOODLE|RICE|SUSHI|ROLL|WRAP|BOWL|KIT|CANDIED|GLAZED|COATED|SWEET|SPICY|WASABI|SOY|TERIYAKI|GINGER|SRIRACHA|CHILI|PACKET|GRINDER",
+    "match": "\\bSESAME SEEDS?\\b"
+   },
+   "sizes": [
+    [2.25, 10, 9],
+    [8.0, 6, 5],
+    [3.5, 5, 4],
+    [14.0, 5, 3],
+    [2.5, 4, 3],
+    [10.0, 4, 3],
+    [16.0, 4, 3],
+    [12.0, 3, 2]
+   ]
+  },
+  "Shredded coconut (sweetened)": {
+   "owners": 46,
+   "products": 74,
+   "rule": {
+    "category": "Baking",
+    "exclude": "UNSWEETENED|CHIPS|MILK|WATER|OIL|FLOUR|CREAM|CHOCOLATE|BAR\\b|CANDY|TOASTED|DESICCATED|FLAKES UNSWEETENED|SUGAR|NECTAR|AMINOS|BUTTER|EXTRACT|FLAVOR|PASTE|POWDER|PALM|DATE|PECAN|FROSTING|ICING|CUSTARD|PIE|CAKE|MACAROON|CRISP|CLUSTER|BITES|^((?!SHRED|FLAKE).)*$",
+    "match": "\\bCOCONUT\\b"
+   },
+   "sizes": [
+    [7.0, 27, 25],
+    [14.0, 26, 22],
+    [8.0, 5, 5],
+    [4.0, 3, 3],
+    [10.0, 3, 3],
+    [5.0, 2, 2],
+    [6.0, 2, 2],
+    [32.0, 2, 1]
+   ]
+  },
+  "Shrimp (raw)": {
+   "owners": 204,
+   "products": 802,
+   "rule": {
+    "category": "Frozen Fish|Fish & Seafood|Seafood",
+    "exclude": "COOKED|BREADED|TEMPURA|COCONUT|SCAMPI|POPCORN|CAKE|DUMPLING|EGG ROLL|PASTA|RICE|FRIED|STIR|GARLIC|SAUCE|COCKTAIL|SEASONED|PLATTER|RING|SKEWER|ALFREDO|\\bROLL|SHUMAI|SHU MAI|BOWL|WONTON|FLAVOR|CHIP|CRACKER|SOUP|GUMBO|ETOUFFEE|JAMBALAYA|SALAD|DIP|SPREAD|BOIL|CAJUN|LEMON|BUTTER|TERIYAKI|CRAB|SCALLOP|LOBSTER|FISH|SALMON|TILAPIA|MEAL|KIT|DINNER|ENTREE|BITES|POTSTICKER|PASTE|DRIED|BURGER|CANNED|TACO|LO MEIN|PAD THAI|FAJITA|PEPPER|SPICY|BBQ|GRILL|MARINATED|STUFFED|BACON|SAUSAGE|SURIMI|IMITATION|MIX|MEDLEY|SEAFOOD|SWEET|CURRY|SESAME|ORANGE|HONEY|GINGER|CHILI|BROCCOLI|NOODLE|VEGETABLE|BREADING|POPPER|CRISPY|PANKO",
+    "match": "\\bSHRIMP\\b"
+   },
+   "sizes": [
+    [32.0, 316, 109],
+    [16.0, 280, 103],
+    [12.0, 68, 35],
+    [24.0, 49, 24],
+    [8.0, 12, 10],
+    [48.0, 11, 8],
+    [4.0, 9, 5],
+    [6.0, 6, 5]
+   ]
+  },
+  "Sour cream": {
+   "owners": 133,
+   "products": 351,
+   "rule": {
+    "category": "Cream|Dips|Dairy",
+    "exclude": "SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\\bBAR\\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|ONION|CHIVE|LIGHT|LITE|FAT FREE|NONFAT|REDUCED|PLANT|VEGAN|DAIRY FREE|POTATO|TACO|BACON|JALAPENO|POWDER",
+    "match": "\\bSOUR CREAM\\b"
+   },
+   "sizes": [
+    [16.0, 144, 93],
+    [24.0, 56, 48],
+    [8.0, 56, 44],
+    [12.0, 20, 16],
+    [48.0, 19, 16],
+    [15.0, 17, 7],
+    [14.0, 14, 9],
+    [32.0, 7, 7]
+   ]
+  },
+  "Sour cream (fat-free)": {
+   "owners": 23,
+   "products": 28,
+   "rule": {
+    "category": "Cream|Dips|Dairy",
+    "exclude": "SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\\bBAR\\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|ONION|CHIVE",
+    "match": "\\bSOUR CREAM\\b.*\\b(FAT FREE|FAT-FREE|NONFAT)\\b|\\b(FAT FREE|FAT-FREE|NONFAT)\\b.*\\bSOUR CREAM\\b"
+   },
+   "sizes": [
+    [16.0, 24, 22],
+    [8.0, 4, 4]
+   ]
+  },
+  "Soy sauce": {
+   "owners": 80,
+   "products": 169,
+   "rule": {
+    "category": "Oriental, Mexican & Ethnic Sauces|Sauce|Condiment|Season",
+    "exclude": "LOW|LESS|REDUCED|LITE|LIGHT|PACKET|CHICKEN|NOODLE|RICE|DUMPLING|GINGER|GARLIC|SESAME|TERIYAKI|MUSHROOM|DARK|SWEET|SPICY|SUPERIOR|THICK|DOUBLE|SEASONED|SEASONING|CHILI|SRIRACHA|HONEY|STIR|MARINADE|DIP|DRESSING|GLAZE|WASABI|TAMARI|GLUTEN|ORGANIC TAMARI|COCONUT|AMINOS|POWDER|FLAKES|SUBSTITUTE|ALTERNATIVE|SOY FREE|CITRUS|PONZU|YUZU|LEMON|LIME|SUSHI|SASHIMI|KOREAN|FILIPINO|MEAT|TOFU|BROWN SUGAR|BBQ|BULGOGI|GALBI|BLACK BEAN|OYSTER|FISH|SAUCE MIX|SAUCE,? MIX",
+    "match": "\\bSOY SAUCE\\b|\\bSHOYU\\b"
+   },
+   "sizes": [
+    [10.0, 62, 46],
+    [5.0, 16, 7],
+    [15.0, 12, 8],
+    [17.0, 11, 8],
+    [12.0, 8, 5],
+    [33.75, 8, 5],
+    [20.0, 6, 5],
+    [128.0, 6, 3]
+   ]
+  },
+  "Soy sauce (low sodium)": {
+   "owners": 33,
+   "products": 46,
+   "rule": {
+    "category": "Oriental, Mexican & Ethnic Sauces|Sauce|Condiment|Season",
+    "exclude": "PACKET|CHICKEN|NOODLE|RICE|DUMPLING|GINGER|GARLIC|SESAME|TERIYAKI|MUSHROOM|DARK|SWEET|SPICY|SRIRACHA|HONEY|STIR|MARINADE|DIP|DRESSING|GLAZE|TAMARI|GLUTEN|COCONUT|AMINOS|PONZU|SUSHI|BBQ|OYSTER|FISH",
+    "match": "(?=.*\\b(SOY SAUCE|SHOYU)\\b)(?=.*\\b(LOW|LESS|REDUCED|LITE)\\b)"
+   },
+   "sizes": [
+    [10.0, 21, 20],
+    [5.0, 7, 4],
+    [17.0, 4, 4],
+    [15.0, 4, 3],
+    [20.0, 2, 2],
+    [40.0, 2, 2],
+    [9.75, 1, 1],
+    [11.5, 1, 1]
+   ]
+  },
+  "Sriracha": {
+   "owners": 77,
+   "products": 102,
+   "rule": {
+    "category": "Oriental, Mexican & Ethnic Sauces|Ketchup, Mustard|Sauce|Condiment|Season|Other Cooking",
+    "exclude": "MAYO|CHIPS|ALMOND|PEANUT|CASHEW|SEAWEED|NOODLE|BBQ|HONEY|RANCH|KETCHUP|CHICKEN|POPCORN|SEASONING|SALT|AIOLI|LIME|MUSTARD|BITES|JERKY|SAUSAGE|PRETZEL|SAUCE MIX|POWDER|STICK|PACKET|GARLIC|GREEN|GOLD|SWEET|SMOKED|TERIYAKI|SESAME|SOY|BUFFALO|WING|CREAM|CHEESE|DIP|DRESSING|SPREAD|HOT DOG|BURGER|TOFU|SHRIMP|RICE|CRACKER|NUT|SEED|POP|CORN|PICKLE|SAUERKRAUT|KIMCHI|HUMMUS|SALSA|BUTTER|JAM|JELLY|MAYONNAISE|BLEND|ZERO|NO SUGAR|LESS|REDUCED|LOW|EXTRA|MILD|HOT$|CHILI$|MINI|SQUEEZE PACK",
+    "match": "\\bSRIRACHA\\b"
+   },
+   "sizes": [
+    [16.0, 10, 10],
+    [18.0, 10, 10],
+    [12.0, 10, 8],
+    [17.0, 8, 8],
+    [9.0, 7, 6],
+    [8.0, 6, 6],
+    [5.0, 6, 5],
+    [10.0, 5, 4]
+   ]
+  },
+  "Swiss cheese": {
+   "owners": 123,
+   "products": 325,
+   "rule": {
+    "category": "Cheese",
+    "exclude": "CHARD|SHRED|SNACK|CRACKER|SPREAD|DIP|SAUCE|CUBE|BITES|STICK|STRING|BLEND|CHEDDAR|PROVOLONE|MUNSTER|HAM|TURKEY|ALMOND|CHIVE|ONION|GARLIC|JALAPENO|PEPPER|SMOKED|TRUFFLE|MUSHROOM|CRISP|CHOCOLATE|ROLL|CAKE|STACK|MINI|BABY|LACE|GRUYERE|EMMENTAL|RACLETTE|FONDUE|PLANT|VEGAN",
+    "match": "\\bSWISS\\b"
+   },
+   "sizes": [
+    [8.0, 89, 54],
+    [6.0, 44, 33],
+    [7.0, 37, 29],
+    [12.0, 36, 26],
+    [16.0, 32, 26],
+    [6.75, 25, 19],
+    [32.0, 11, 8],
+    [10.0, 7, 6]
+   ]
+  },
+  "Table salt": {
+   "owners": 58,
+   "products": 91,
+   "rule": {
+    "category": "Seasoning Mixes, Salts|Herbs & Spices",
+    "exclude": "SEA|KOSHER|PINK|HIMALAYAN|GARLIC|ONION|SEASON|CELERY|SMOKED|LITE|SUBSTITUTE|PEPPER|TRUFFLE|LEMON|LIME|BLACK|FLAKE|COARSE|ROCK|GRINDER|MILL|SHAKER|PACKET|PORTION|SINGLE|\\bCT\\b|COUNT|LOW SODIUM|LESS|REDUCED|POTASSIUM|NO SALT|SALT FREE|PICKLING|CANNING|POPCORN|SPICE|HERB|BLEND|MIX|RUB|BRINE|CURE|CURING|MORTON SALT SUBSTITUTE|MSG|ACCENT|SAZON|ADOBO|LAWRY|SEASONED",
+    "match": "\\bIODIZED\\b.*\\bSALT\\b|\\bTABLE SALT\\b|^(IODIZED )?SALT$|\\bSALT,? IODIZED\\b"
+   },
+   "sizes": [
+    [26.0, 73, 51],
+    [64.0, 4, 2],
+    [400.0, 3, 2],
+    [12.0, 2, 2],
+    [6.0, 1, 1],
+    [8.0, 1, 1],
+    [10.0, 1, 1],
+    [21.0, 1, 1]
+   ]
+  },
+  "Tomato paste": {
+   "owners": 101,
+   "products": 189,
+   "rule": {
+    "category": "Tomatoes|Canned Vegetables|Sauce",
+    "exclude": "SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\\bBAR\\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|GARLIC|BASIL|ITALIAN|HERB|ROASTED|SPICY|PEPPER|ONION|DOUBLE",
+    "match": "\\bTOMATO PASTE\\b"
+   },
+   "sizes": [
+    [6.0, 107, 78],
+    [12.0, 44, 42],
+    [111.0, 7, 6],
+    [4.5, 6, 5],
+    [72.0, 3, 3],
+    [6.5, 2, 2],
+    [28.0, 2, 2],
+    [29.0, 2, 2]
+   ]
+  },
+  "Tomato sauce (canned)": {
+   "owners": 135,
+   "products": 378,
+   "rule": {
+    "category": "Tomatoes|Canned Vegetables",
+    "exclude": "PASTA|PIZZA|MARINARA|BASIL|MEAT|CHILI|SPAGHETTI|GARLIC|ONION|HERB|ITALIAN|PEPPER|SPICY|HOT|MEXICAN|CHILE|JALAPENO|HABANERO|OREGANO|SEASONED|ROASTED|FIRE|ARRABBIATA|VODKA|PESTO|MUSHROOM|SAUSAGE|CHEESE|ALFREDO|DIP|SALSA|BBQ|CURRY|SPINACH|OLIVE|CAPER|PUTTANESCA|TACO|SLOPPY|ENCHILADA",
+    "match": "\\bTOMATO SAUCE\\b"
+   },
+   "sizes": [
+    [8.0, 134, 81],
+    [15.0, 121, 73],
+    [29.0, 49, 48],
+    [28.0, 16, 16],
+    [106.0, 14, 11],
+    [24.0, 9, 9],
+    [16.0, 3, 3],
+    [26.0, 3, 1]
+   ]
+  },
+  "Vanilla extract": {
+   "owners": 5,
+   "products": 9,
+   "rule": {
+    "category": "Baking Additives",
+    "exclude": "IMITATION|FLAVOR|ARTIFICIAL|BEAN PASTE|ALMOND|BLEND|COMPOUND|POWDER|SUGAR|BUTTER|CHOCOLATE|COCONUT|MEXICAN|BOURBON|TAHITIAN|MADAGASCAR|DOUBLE|NON-ALCOHOLIC|ALCOHOL FREE|GLYCERIN|CLEAR|WHITE",
+    "match": "\\bVANILLA EXTRACT\\b|\\bEXTRACT,? VANILLA\\b"
+   },
+   "sizes": [
+    [4.0, 3, 2],
+    [2.0, 2, 1],
+    [8.5, 1, 1],
+    [12.0, 1, 1],
+    [16.0, 1, 1],
+    [32.0, 1, 1]
+   ]
+  },
+  "Vegetable broth": {
+   "owners": 41,
+   "products": 70,
+   "rule": {
+    "category": "Soup",
+    "exclude": "NOODLE|RICE|BOUILLON|CUBE|POWDER|BASE|CONCENTRATE|CREAM|GRAVY|SOUP|GINGER|TURMERIC|GARLIC|HERB|ROASTED|LOW|LESS|REDUCED|NO SALT|UNSALTED|COOKING|SEASONED|PHO|RAMEN|MISO|SPICY|ONION|MUSHROOM|CHICKEN|BEEF|PACKET|CUP|STICK|ENVELOPE|SACHET|BEEF",
+    "match": "\\bVEGETABLE (BROTH|STOCK)\\b"
+   },
+   "sizes": [
+    [32.0, 59, 37],
+    [48.0, 3, 2],
+    [14.0, 2, 2],
+    [5.0, 1, 1],
+    [8.0, 1, 1],
+    [14.5, 1, 1],
+    [16.0, 1, 1],
+    [24.0, 1, 1]
+   ]
+  },
+  "Walnuts": {
+   "owners": 113,
+   "products": 309,
+   "rule": {
+    "category": "Popcorn, Peanuts, Seeds|Baking|Wholesome Snacks|Nuts",
+    "exclude": "CANDIED|GLAZED|PRALINE|HONEY|MAPLE|CINNAMON|CHOCOLATE|ROASTED|SALTED|PIE|COOKIE|\\bBAR\\b|TRAIL|MIX|CARAMEL|SPICED|SUGAR|BUTTER|TOFFEE|COATED|SMOKED|YOGURT|DIPPED|CLUSTER|BRITTLE|BLACK WALNUT|PECAN|ALMOND|CASHEW|PISTACHIO|HAZELNUT|MACADAMIA|PEANUT|BRAZIL|CRANBERR|RAISIN|CHERRY|APRICOT|FIG|DATE|BLUEBERR|COCONUT|GRANOLA|CEREAL|SEASONED|SPICY|BBQ|GARLIC|CHILI|ROSEMARY|BOURBON|COFFEE|VANILLA|PUMPKIN|SWEET|SPICE|FLOUR|MEAL|OIL|MILK|BUTTER|BROWNIE|BREAD|CAKE|FUDGE|IN SHELL|INSHELL|IN-SHELL|BAKLAVA",
+    "match": "\\bWALNUTS?\\b"
+   },
+   "sizes": [
+    [8.0, 49, 36],
+    [6.0, 36, 25],
+    [16.0, 35, 24],
+    [10.0, 21, 18],
+    [12.0, 20, 16],
+    [2.25, 18, 11],
+    [7.0, 15, 15],
+    [2.0, 15, 13]
+   ]
+  },
+  "White bread": {
+   "owners": 133,
+   "products": 491,
+   "rule": {
+    "category": "Breads & Buns|^Bread$",
+    "exclude": "\\bBUNS?\\b|ROLL|BAGEL|ENGLISH|PITA|TORTILLA|WRAP|THIN|MINI|STUFFING|CRUMB|CROUTON|FLATBREAD|NAAN|HOT DOG|HAMBURGER|SLIDER|SUB|HOAGIE|WHOLE|WHEAT|HONEY|OAT|SEED|GRAIN|RAISIN|CINNAMON|PROTEIN|KETO|LIGHT|MUFFIN|CRACKER|SWIRL|BREADSTICK|CRUST|PIZZA|GARLIC|CHEESE|POTATO|BUTTER|TEXAS|SMALL|HALF|SQUARE|CHIPS|SANDWICH THINS|FRENCH|ITALIAN|SOURDOUGH|CORN|RYE|BUTTERMILK|SPLIT TOP|CHOCOLATE|FRUIT|PUMPERNICKEL|MULTIGRAIN|FIBER|BRIOCHE|CHALLAH|HAWAIIAN|SWEET|DINNER|BAGUETTE|BATARD|CIABATTA|BOULE|PAN DE|PANE",
+    "match": "\\bWHITE\\b.*\\bBREAD\\b|\\bBREAD\\b.*\\bWHITE\\b|\\bENRICHED WHITE\\b"
+   },
+   "sizes": [
+    [20.0, 169, 57],
+    [24.0, 100, 39],
+    [16.0, 74, 42],
+    [22.0, 37, 26],
+    [18.0, 24, 17],
+    [14.0, 10, 9],
+    [22.5, 10, 5],
+    [32.0, 8, 7]
+   ]
+  },
+  "White wine vinegar": {
+   "owners": 47,
+   "products": 58,
+   "rule": {
+    "category": "Other Cooking Sauces|Vinegar|Condiment|Salad Dressing",
+    "exclude": "TARRAGON|HERB|GARLIC|DRESSING|VINAIGRETTE|CHAMPAGNE|SHALLOT|FLAVOR|INFUSED|LEMON|BALSAMIC",
+    "match": "\\bWHITE WINE VINEGAR\\b|\\bVINEGAR,? WHITE WINE\\b"
+   },
+   "sizes": [
+    [17.0, 34, 32],
+    [12.75, 11, 9],
+    [8.5, 5, 5],
+    [32.0, 2, 2],
+    [33.75, 2, 2],
+    [12.0, 1, 1],
+    [12.5, 1, 1],
+    [16.0, 1, 1]
+   ]
+  },
+  "Whole milk": {
+   "owners": 195,
+   "products": 575,
+   "rule": {
+    "category": "^Milk$",
+    "exclude": "CHOCOLATE|STRAWBERRY|VANILLA|COFFEE|BANANA|EGGNOG|CARAMEL|COOKIES|HONEY|MAPLE|CINNAMON|FLAVOR|LACTOSE|BUTTERMILK|EVAPORATED|CONDENSED|POWDER|\\bDRY\\b|GOAT|CHOC|KEFIR",
+    "match": "\\bWHOLE\\b.*\\bMILK\\b|\\bMILK\\b.*\\bWHOLE\\b|VITAMIN D MILK"
+   },
+   "sizes": [
+    [128.0, 188, 111],
+    [64.0, 171, 93],
+    [32.0, 92, 59],
+    [16.0, 40, 25],
+    [256.0, 29, 24],
+    [8.0, 12, 9],
+    [14.0, 9, 8],
+    [12.0, 7, 7]
+   ]
+  },
+  "Whole wheat bread": {
+   "owners": 84,
+   "products": 252,
+   "rule": {
+    "category": "Breads & Buns|^Bread$",
+    "exclude": "\\bBUNS?\\b|ROLL|BAGEL|ENGLISH|PITA|TORTILLA|WRAP|THIN|MINI|STUFFING|CRUMB|CROUTON|FLATBREAD|NAAN|SANDWICH THINS|HOT DOG|HAMBURGER|SLIDER|SUB|HOAGIE|HONEY|OAT|FLAX|SEED|GRAIN|NUT|RAISIN|CINNAMON|SPROUTED|PROTEIN|KETO|LOW CARB|LIGHT|DOUBLE FIBER|HIGH FIBER|LOAF CAKE|MUFFIN|CRACKER|SOFT|SWIRL|BREADSTICK|CRUST|PIZZA|GARLIC|CHEESE|VEGGIE|POTATO|BUTTER|HEARTY|SPLIT TOP|SMALL|HALF|SQUARE|CHIPS",
+    "match": "\\bWHOLE WHEAT\\b.*\\bBREAD\\b|\\b100% WHOLE WHEAT\\b"
+   },
+   "sizes": [
+    [24.0, 83, 40],
+    [16.0, 60, 31],
+    [20.0, 49, 30],
+    [22.0, 15, 12],
+    [18.0, 8, 7],
+    [12.0, 7, 6],
+    [26.0, 6, 4],
+    [30.0, 3, 3]
+   ]
+  },
+  "Whole wheat flour": {
+   "owners": 28,
+   "products": 37,
+   "rule": {
+    "category": "Flours",
+    "exclude": "MIX|BLEND|TORTILLA|PASTA|PASTRY|WHITE WHOLE|SPROUTED|GLUTEN|ALL[ -]PURPOSE|BREAD MIX|PANCAKE|GRAHAM|ATTA|DURUM|STONE[ -]GROUND|SELF[ -]RISING",
+    "match": "\\bWHOLE WHEAT FLOUR\\b|\\bFLOUR,? WHOLE WHEAT\\b|\\b100% WHOLE WHEAT\\b"
+   },
+   "sizes": [
+    [80.0, 29, 23],
+    [32.0, 3, 3],
+    [48.0, 2, 2],
+    [160.0, 1, 1],
+    [320.0, 1, 1],
+    [400.0, 1, 1]
+   ]
+  },
+  "Worcestershire sauce": {
+   "owners": 51,
+   "products": 74,
+   "rule": {
+    "category": "Sauce|Condiment|Season|Other Cooking|Marinades|Ketchup",
+    "exclude": "CHIPS|PRETZEL|NUT|ALMOND|PEANUT|CASHEW|POPCORN|SNACK|SEASONING|POWDER|SALT|PEPPER|BBQ|MARINADE|BURGER|STEAK|JERKY|BEEF|PORK|CHICKEN|MIX|BLEND|DIP|DRESSING|KETCHUP|MAYO|MUSTARD|BLOODY|COCKTAIL|VEGAN|VEGETARIAN|GLUTEN|LESS|LOW|REDUCED|WHITE WINE|CHIPOTLE|SPICY|HOT|BOLD|THICK|PACKET",
+    "match": "\\bWORCESTERSHIRE\\b"
+   },
+   "sizes": [
+    [10.0, 47, 36],
+    [15.0, 7, 6],
+    [5.0, 5, 5],
+    [12.0, 3, 3],
+    [17.0, 3, 3],
+    [8.0, 2, 2],
+    [127.75, 2, 2],
+    [4.0, 1, 1]
+   ]
+  }
+ },
+ "source": {
+  "citation": "U.S. Department of Agriculture, Agricultural Research Service. FoodData Central: Branded Foods. fdc.nal.usda.gov. Public domain (CC0 1.0).",
+  "dataset": "FoodData Central Branded Foods",
+  "file": "FoodData_Central_branded_food_csv_2026-10-29.zip",
+  "release": "2026-10-29"
+ }
+}

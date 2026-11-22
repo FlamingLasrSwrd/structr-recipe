@@ -8,7 +8,8 @@ are sold in." A package size is a DefaultSpecification of the kind the model has
 package is sold in (14.5 oz, 32 fl_oz, 12 each), converted to grams where it is read, with the
 food's density or weight per item. The levels, each a child of the one before:
 
-  US supermarket                  common U.S. supermarket sizes (data/packages.toml), estimated
+  US supermarket                  common U.S. supermarket sizes (data/packages.toml): counted from FDC
+                                  Branded Foods where a food has a rule (apply_pin), else estimated
     Home packages                 the owner's own (private/packages.toml, instantiate_packages)
 
 A food may be sold in several sizes (a 14.5 oz and a 28 oz can of tomatoes), so a level holds one
@@ -26,10 +27,13 @@ planner weighing it as waste is the owner's decision (docs/todo.md).
 
 from __future__ import annotations
 
+import json
 import math
 import os
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+
+from mealplanner import fdc_packages
 
 from mealplanner.profiles import ProfileError, Report, _name_ok, _one_id, food_types
 from mealplanner.typetree import ancestors_or_self
@@ -51,6 +55,7 @@ class Size:
     amount: float
     unit: str
     label: str
+    source: str = ""                # where this size comes from, when not the level's own source
 
 
 @dataclass(frozen=True)
@@ -58,6 +63,8 @@ class Entry:
     food: str
     sizes: tuple[Size, ...]
     note: str = ""
+    fdc: dict | None = None         # the rule that counts this food's sizes in FDC Branded Foods
+    provenance: str = ""            # when not the level's own: "sourced" for sizes counted from FDC
 
 
 def size_label(amount: float, unit: str) -> str:
@@ -95,13 +102,17 @@ def parse_packages(data: dict) -> tuple[Entry, ...]:
         if not _name_ok(where, raw.get("food"), problems):
             continue
         where = f"package {i} ({raw['food']!r})"
-        unknown = set(raw) - {"food", "sizes", "note"}
+        unknown = set(raw) - {"food", "sizes", "note", "fdc"}
         if unknown:
             problems.append(f"{where}: unknown key(s) {sorted(unknown)}")
         if raw["food"] in seen:
             problems.append(f"{where}: listed twice")
         seen.add(raw["food"])
-        entries.append(Entry(raw["food"], _sizes(where, raw.get("sizes"), problems), raw.get("note", "")))
+        sizes = _sizes(where, raw.get("sizes"), problems)
+        rule = fdc_packages.parse_rule(where, raw["fdc"], problems) if "fdc" in raw else None
+        if rule and sizes and UNIT_TABLE[sizes[0].unit][0] == "count":
+            problems.append(f"{where}: a food sold by count has no FDC rule (labels give weights, not counts)")
+        entries.append(Entry(raw["food"], sizes, raw.get("note", ""), rule))
     if problems:
         raise ProfileError(problems)
     return tuple(entries)
@@ -110,6 +121,73 @@ def parse_packages(data: dict) -> tuple[Entry, ...]:
 def read_packages(root: str) -> tuple[Entry, ...]:
     with open(os.path.join(root, PACKAGES), "rb") as fh:
         return parse_packages(tomllib.load(fh))
+
+
+def read_pin(root: str) -> dict:
+    """data/packages/fdc.json (tools/package_extract.py), or an empty pin if there is none yet."""
+    path = os.path.join(root, fdc_packages.PIN)
+    if not os.path.exists(path):
+        return {"source": {}, "foods": {}}
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def _ounces(size: Size) -> float:
+    kind, factor = UNIT_TABLE[size.unit]
+    return size.amount * factor / (fdc_packages.OZ_G if kind == "mass" else fdc_packages.FLOZ_ML)
+
+
+def apply_pin(entries: tuple[Entry, ...], pin: dict) -> tuple[Entry, ...]:
+    """Each food with an FDC rule takes its common sizes from the pin, `sourced`, in the kind of unit
+    its estimate is in (oz, or lb for whole pounds from 2 lb; fl_oz for a food sold by volume). A
+    size within 2% of an estimated one is that size, with its figure and label ("500 mL bottle",
+    16.9 fl_oz, where the count's quarter ounce says 17). A food whose count does
+    not stand (fdc_packages.common_sizes) keeps its estimate. ProfileError if a food's rule is not
+    the one its count was made with: run tools/package_extract.py again."""
+    problems, out = [], []
+    release = pin.get("source", {}).get("release", "")
+    for e in entries:
+        if not e.fdc:
+            out.append(e)
+            continue
+        count = pin.get("foods", {}).get(e.food)
+        if count is None or count.get("rule") != e.fdc:
+            problems.append(f"{e.food!r}: its FDC rule is not the one {fdc_packages.PIN} was counted with "
+                            "(run tools/package_extract.py)")
+            continue
+        common = fdc_packages.common_sizes(count)
+        if not common:
+            out.append(replace(e, note=(f"{e.note}; " if e.note else "") + f"{fdc_packages.DATASET} has too few "
+                               f"products to count ({count['products']} from {count['owners']} brand owners)"))
+            continue
+        volume = UNIT_TABLE[e.sizes[0].unit][0] == "volume"
+        nearest: dict[float, Size] = {}         # an FDC size -> the estimated size nearest it, within 2%
+        for est in e.sizes:
+            close = [c[0] for c in common if abs(c[0] - _ounces(est)) <= 0.02 * _ounces(est)]
+            if close:
+                ounces = min(close, key=lambda oz: abs(oz - _ounces(est)))
+                if ounces not in nearest or abs(_ounces(est) - ounces) < abs(_ounces(nearest[ounces]) - ounces):
+                    nearest[ounces] = est
+        sizes, labels = [], set()
+        for ounces, share, products, owners in common:
+            if ounces in nearest:               # the same size, as the estimate printed it: "500 mL bottle", 16.9 fl_oz
+                amount, unit, label = nearest[ounces].amount, nearest[ounces].unit, nearest[ounces].label
+            else:
+                if volume:
+                    amount, unit = ounces, "fl_oz"
+                elif ounces >= 32 and ounces % 16 == 0:
+                    amount, unit = ounces / 16, "lb"
+                else:
+                    amount, unit = ounces, "oz"
+                label = size_label(amount, unit)
+            if label in labels:
+                continue
+            labels.add(label)
+            sizes.append(Size(amount, unit, label, fdc_packages.describe_share(release, count, share, products, owners)))
+        out.append(replace(e, sizes=tuple(sizes), provenance="sourced"))
+    if problems:
+        raise ProfileError(problems)
+    return tuple(out)
 
 
 def check_against_vocabulary(entries: tuple[Entry, ...], vocabulary: dict) -> list[str]:
@@ -153,7 +231,8 @@ def _write_level(client, sync: Sync, level: str, level_id: str, kind: str, rows:
             grams = convert_to_grams(client, foods[e.food], s.amount, s.unit)
             sync.ensure("DefaultSpecification", label, {
                 "forType": level_id, "hasKind": kind, "hasValue": qty, "keyedBy": [foods[e.food]],
-                "provenance": provenance, "source": f"{source}: {s.amount:g} {s.unit} = {grams:g} g" + (f"; {note}" if note else "")})
+                "provenance": e.provenance or provenance,
+                "source": f"{s.source or source}: {s.amount:g} {s.unit} = {grams:g} g" + (f"; {note}" if note else "")})
             written.append(label)
     return written
 
