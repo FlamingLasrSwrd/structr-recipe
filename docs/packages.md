@@ -121,8 +121,9 @@ foods to buy but not out of what the pantry covers, where the page, applying no 
 - **Stage 4, the planner weighing what is left over**: choosing recipes that share what a purchase
   leaves before it keeps no longer, and counting what they do not as waste. That changes the objective
   (optimizer-design.md §4.5), which is the owner's decision: proposed in `docs/todo.md`.
-- **Products** (barcode scanning, step 1, not yet merged): a product carries its own PurchaseQuantity on
-  its own Type. The list is by food, so a product's package is not read yet; once products are in, the
-  list could buy the product a household chose for the food in that product's package.
+- **Products** (barcode scanning, step 1, `docs/pantry.md` "Products and barcodes"): a product carries
+  its own PurchaseQuantity on its own Type, unkeyed, which `package_table` does not read: the list is by
+  food. Once a household can choose a product for a food, the list could buy that product in its
+  package.
 - **Ticking an item books a purchase**: the amount it books would be the packages bought, not what the
   recipes use (`docs/todo.md`, "A grocery item checked off goes into the pantry").

@@ -67,6 +67,80 @@ than leave a crumb. Half a gram left (100 g of 100.5 g) is still left, as it sti
 gram over is refused, and so is a Use of what is used up. The same rule is in `pantry.use` and the pages'
 `PANTRY_ACTIONS.use` (`pages/lib/50_pantry.js`), and `tools/check_bookings.py` books one both ways.
 
+## Products and barcodes
+
+The owner asked (2026-11-13) for barcode scanning to stock the pantry, as Grocy has, with scanning
+optional: "A user should be able to set the specific brand/barcode if they want or default use a
+generic version." This is its first step, the data: what a barcode means here. Nothing scans yet
+(`docs/todo.md`, "Barcode scanning for the pantry").
+
+**A product is a packaged food**, written with what the schema has had since `scripts/29a`, so no
+instance needs a migration (data-model.md §3, §6, §10: "a GTIN denotes a packaged-offering Type";
+J38):
+
+| What | Written as |
+|---|---|
+| the product ("Brand X chickpeas 400 g") | a `DomainType` in the Food Identity hierarchy, directly below the food it is a kind of |
+| each of its barcodes | an `Identifier` in the scheme *GTIN* that `denotesType` it, its value the GTIN as 14 digits |
+| what one package holds | a `DefaultSpecification` of kind *PurchaseQuantity* on it (§8) |
+
+Sitting below its food, a product is that food to everything that already walks the hierarchy: a
+portion of it counts as stock of the food (the pantry, the shopping list, a cook's draws, the planner),
+and it takes the food's density, weight per item, shelf life and price, having none of its own. A
+recipe goes on naming the food, never a product: nutrition reads a food's own figures and does not
+look above it, so a product has none. A product is optional. The food itself is bought as before, and the pantry page's Buy offers both: it
+used to offer every food nothing sits under (a food others sit under is a group, "Eggs" or "Poultry"),
+and now offers every food nothing but products sits under, and each product
+(`products.buyable`; `tools/check_pages.py` compares the page with it).
+
+**What marks a Type as a product is that a GTIN denotes it**, so a product needs at least one barcode.
+A brand with no barcode (a butcher's sausages) is bought as its food for now.
+
+**A barcode is read as a GTIN** whatever length is printed (`products.normalize`): a UPC-A (12
+digits), an EAN-13, a GTIN-14, an EAN-8, and the short UPC-E on small packages (8 digits starting 0
+or 1), which is spelled out to its UPC-A. So the same package scans to the same product from any
+scanner. A wrong check digit is refused as misread. So is a number a shop gives its own packs (a UPC-A
+starting 2 or 4): it is no product's, and on meat, cheese or produce weighed in the shop it holds
+that pack's weight or price.
+
+Products come from a file. Which products a household buys is its own data, so the owner's is
+`private/products.toml`, which git ignores:
+
+```toml
+[[product]]
+name = "Brand X chickpeas 400 g"      # how it is named in the pantry
+food = "Chickpeas (canned)"           # the food it is a kind of
+barcodes = ["0 36000 29145 2"]        # one or more; spaces and hyphens are ignored
+amount = 400                          # what one package holds
+unit = "g"
+```
+
+```bash
+python3 tools/import_products.py private/products.toml --check   # read the file; write nothing
+python3 tools/import_products.py private/products.toml           # load; idempotent
+python3 tools/import_products.py --find "0 36000 29145 2"        # the product a barcode names
+python3 tools/pantry.py scan 036000291452 2 --storage Pantry     # buy two packages of it
+```
+
+Loading refuses, before writing anything, a food the instance does not have, a group of foods, a
+product below a product, a name that is already a food, a barcode that belongs to a product the file
+does not name, and a package size that does not convert to grams (twelve of a food with no weight per
+item). A barcode a product no longer lists is removed; a product the file no longer names is left,
+since stock may be of it. `scan` books a Purchase of the product, so many packages of what one holds,
+through `pantry.buy`.
+
+Tried on a throwaway instance holding the whole vocabulary (2026-11-13): two products loaded, and
+again with nothing written; two dozen eggs scanned were 1,200 g of Egg on hand, with Egg's shelf life;
+`check_pages.py` found Buy offering the 297 foods and products `products.buyable` gives, and, with the
+page's old rule put back on purpose, named the two foods it then dropped; `check_bookings.py` found the
+pages' bookings unchanged.
+
+What this step leaves, each in `docs/todo.md`: a scan box on the pantry page and a phone's camera; an
+unknown barcode looked up (Open Food Facts) and matched to a food by the user; a product's own label
+nutrition (FDC's branded foods carry the same GTINs); where a product is kept by default (a scan
+books to the fridge unless `--storage` says otherwise, as Buy does); a product added from the page
+rather than a file; and a shop's own weighed packs.
+
 ## What does not fit yet
 
 These are findings, recorded rather than worked around (CLAUDE.md, "When something doesn't fit").
@@ -95,8 +169,9 @@ These are findings, recorded rather than worked around (CLAUDE.md, "When somethi
    leftover portion; leftovers stay where the planner keeps them, as leftover entries of the week.
 6. **Not built yet:** undoing a booking (Grocy's journal), a journal on the page, prices paid
    (`PriceObservation` exists in the schema but nothing writes one: J27), minimum stock on the page
-   (StockPolicy target levels are applied by `tools/shopping_list.py` only), and products counted by
-   barcode.
+   (StockPolicy target levels are applied by `tools/shopping_list.py` only), and scanning: a product
+   and its barcodes can be recorded and bought by barcode from the terminal ("Products and barcodes",
+   above), but no page scans one yet.
 
 An Allocation's amount is an `observed` Measurement about no Quality, as in data-model.md §10 and
 `scripts/15e`: about the portion's mass Quality it would be read as a new weighing. Invariant 2
