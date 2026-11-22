@@ -82,10 +82,21 @@ python3 tools/create_login.py
 Then sign in at `/structr/html/login`; it goes on to the week. **From another device, use HTTPS**
 (next section). Structr marks the session cookie `Secure`, and a browser drops such a cookie from a
 plain-HTTP address other than localhost: the sign-in answers 200, then every page 404 (found 2026-11-22,
-when the owner first signed in from the network). A session idle for 30 minutes
-(`application.session.timeout`) ends, and the pages then answer 404 until the next sign-in.
+when the owner first signed in from the network). The sign-in page says so when it is opened at such an
+address. A session idle for 30 minutes (`application.session.timeout`) ends.
 
-## HTTPS (built 2026-11-22, run on a throwaway Structr)
+**Signed out, a page sends the browser to sign in, and back to that page afterwards** (2026-11-22, the
+owner's request; installed by `--login`). The pages stay private and still answer 404: Structr shows a
+public page in their place, `signed-out` (`showOnErrorCodes`), with that status, so the tools that read
+a page's 404 as an ended session (`StructrClient.request`) see no change. That page has none of the
+pages' code, reads nothing and books nothing (`pages/signed-out.js`). Only the path is carried through
+signing in, never the query: a form sent after the session ended books nothing, and the sign-in page
+says that the change was not saved and to make it again. A signed-in visitor to a page that is not
+there reads "Page not found". Verified offline, in Chrome against a stand-in server, and from 7.1.0's own
+code that an error page renders
+with the 404; not run on Structr.
+
+## HTTPS (built 2026-11-22, in use on the owner's instance)
 
 Structr serves HTTPS itself, so nothing new is installed. On the computer that runs the owner's stack:
 
@@ -130,7 +141,8 @@ host and a client not trusting it were refused; HTTP stayed up for the tools; th
 was replaced. A replacement cut short is tested offline only. Verified besides: the settings, their defaults and that HTTP stays beside HTTPS,
 read from the installed 7.1.0 image's own code and start script; the keystore read by Java's keytool; a
 TLS 1.2 handshake in memory by a client trusting the authority (`tests/test_https.py`); the merged compose
-configuration. Not seen: any browser or phone trusting it.
+configuration. **On the owner's instance the same day** the owner signed in and read the pages over HTTPS
+in a browser. Which browsers and phones trust it has not been checked one by one.
 
 ## Checked at scale (2026-10-23, throwaway instance)
 
@@ -152,7 +164,7 @@ figures in one query matched to their recipe by name, falling back to the recipe
 
 A test user (with a generated password, deleted afterwards) signed in through `/structr/rest/login`
 with the grant `--login` installs, and read every page with its session. Signed out, a page answers
-404; the sign-in page answers to anyone.
+404 (since 2026-11-22 with the body that sends a browser to sign in); the sign-in page answers to anyone.
 
 ## Verified mechanics (structr-cheatsheet.md has the details)
 

@@ -1,7 +1,7 @@
 """Install the meal planner's pages into Structr (pages/; docs/pages.md).
 
     python3 tools/install_pages.py            # install, or replace, every page
-    python3 tools/install_pages.py --login    # also the sign-in page and the grant that lets it sign in
+    python3 tools/install_pages.py --login    # also signing in: its page, its grant, and the page that sends the signed-out there
     python3 tools/install_pages.py --remove   # remove every page this installs, and the grant
 
 The pages, at /structr/html/<name>: week, shopping, recipes, recipe/<id>, nutrition and pantry. Each
@@ -9,7 +9,9 @@ is one server-side script (the engine code in pages/lib/, in name order, then pa
 pages/<name>.js) that reads the graph as the signed-in
 user and prints the page. They hold no data; the pantry and week pages' forms book pantry changes
 (docs/pantry.md), so they are meant for the owner's instance as well as any other. Every element is
-visible to signed-in users only, the sign-in page to anyone.
+visible to signed-in users only. Two pages are for anyone, and neither holds data or books: the
+sign-in page, and the one Structr shows as its 404 page, which sends a signed-out visitor to sign in
+(pages/signed-out.js).
 
 Before the pages, it makes the one node their bookings lock so that they run one at a time
 (ensure_booking_lock; pages/lib/40_bookings.js). Pages are code: each run replaces each page whole. Its elements are deleted first, since deleting a
@@ -44,6 +46,7 @@ $.cypher("MATCH (l:MealPlannerBookingLock) WITH l ORDER BY elementId(l) SKIP 1 D
 $.print("booking locks: " + $.cypher("MERGE (l:MealPlannerBookingLock {name: 'bookings'}) RETURN count(l) AS n")[0].n);
 }}"""
 LOGIN = "login"
+SIGNED_OUT = "signed-out"      # shown for a 404, and still a 404 (showOnErrorCodes); public, so no engine and no booking
 LOGIN_GRANT = {"signature": "_login", "flags": 64}     # an anonymous POST to /structr/rest/login (cheatsheet)
 PRIVATE = {"visibleToAuthenticatedUsers": True, "visibleToPublicUsers": False}
 PUBLIC = {"visibleToAuthenticatedUsers": True, "visibleToPublicUsers": True}
@@ -77,14 +80,15 @@ def remove_page(client, name: str) -> int:
     return gone
 
 
-def build_page(client, name: str, title: str, body: str, *, body_type: str = "text/html", public: bool = False) -> str:
+def build_page(client, name: str, title: str, body: str, *, body_type: str = "text/html", public: bool = False,
+               **page_fields) -> str:
     """A Page: html > head > (title, style), body > content. Returns the Page's id."""
     seen = PUBLIC if public else PRIVATE
 
     def add(type_name: str, parent: str, page: str, **fields) -> str:
         return client.post(f"/structr/rest/{type_name}", {"pageId": page, "parent": parent, **seen, **fields})["result"][0]
 
-    page = client.post("/structr/rest/Page", {"name": name, "contentType": "text/html", **seen})["result"][0]
+    page = client.post("/structr/rest/Page", {"name": name, "contentType": "text/html", **seen, **page_fields})["result"][0]
     html = add("Html", page, page, tag="html")
     head = add("Head", html, page, tag="head")
     add("Meta", head, page, tag="meta", _html_charset="utf-8")
@@ -117,13 +121,13 @@ def login_grants(client) -> list[dict]:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--login", action="store_true", help="also the sign-in page and the anonymous login grant")
+    parser.add_argument("--login", action="store_true", help="also the sign-in page, the redirect to it when signed out, and the anonymous login grant")
     parser.add_argument("--remove", action="store_true", help="remove the pages and the grant")
     args = parser.parse_args(argv)
     client = connect(owner_data_ok=True)     # pages hold no data; their bookings are the owner's to make
     client.wait_until_ready()
     if args.remove:
-        for name in [*PAGES, LOGIN]:
+        for name in [*PAGES, LOGIN, SIGNED_OUT]:
             print(f"{name}: removed {remove_page(client, name)} node(s)")
         for grant in login_grants(client):
             client.delete(f"/structr/rest/ResourceAccess/{grant['id']}")
@@ -142,6 +146,10 @@ def main(argv=None) -> int:
             client.post("/structr/rest/ResourceAccess", {**LOGIN_GRANT, **PUBLIC})
             print("granted anonymous sign-in at /structr/rest/login")
         print(f"{LOGIN}: installed at /structr/html/{LOGIN}")
+        remove_page(client, SIGNED_OUT)     # after the page it sends people to
+        build_page(client, SIGNED_OUT, "Not available", "${{\n" + read("signed-out.js") + "\n}}", public=True,
+                   showOnErrorCodes="404", dontCache=True)
+        print(f"{SIGNED_OUT}: installed; a signed-out visitor to a page is sent to sign in")
     return 0
 
 
