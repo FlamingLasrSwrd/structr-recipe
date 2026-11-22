@@ -35,7 +35,7 @@ from dataclasses import dataclass, replace
 
 from mealplanner import fdc_packages
 
-from mealplanner.profiles import ProfileError, Report, _name_ok, _one_id, food_types
+from mealplanner.profiles import ProfileError, Report, _name_ok, _one_id, check_level, food_types
 from mealplanner.typetree import ancestors_or_self
 from mealplanner.unit_conversion import UNIT_TABLE, convert_to_grams
 from mealplanner.vocabulary_import import Sync
@@ -79,7 +79,7 @@ def _sizes(where: str, raw, problems: list[str]) -> tuple[Size, ...]:
     out, labels = [], set()
     for size in raw:
         if not isinstance(size, list) or len(size) not in (2, 3) or not isinstance(size[0], (int, float)) \
-                or isinstance(size[0], bool) or size[0] <= 0 or not isinstance(size[1], str) \
+                or isinstance(size[0], bool) or not math.isfinite(size[0]) or size[0] <= 0 or not isinstance(size[1], str) \
                 or size[1].strip().lower() not in UNIT_TABLE or (len(size) == 3 and not _name_ok(f"{where} label", size[2], [])):
             problems.append(f"{where}: {size!r} is not [amount above 0, a unit the unit table knows] with an optional "
                             "label (no comma or semicolon)")
@@ -97,7 +97,11 @@ def parse_packages(data: dict) -> tuple[Entry, ...]:
     """data/packages.toml, or ProfileError naming every problem."""
     problems: list[str] = []
     entries, seen = [], set()
-    for i, raw in enumerate(data.get("package", []), 1):
+    rows = data.get("package")
+    if set(data) != {"package"} or not isinstance(rows, list) or not rows or not all(isinstance(r, dict) for r in rows):
+        # loading removes what the file does not name, so a file read as empty empties the whole level
+        raise ProfileError([f"{PACKAGES} is [[package]] tables and nothing else, at least one"])
+    for i, raw in enumerate(rows, 1):
         where = f"package {i}"
         if not _name_ok(where, raw.get("food"), problems):
             continue
@@ -306,6 +310,7 @@ def instantiate_packages(client, selection: dict) -> Report:
     if parent is None or kind is None or hierarchy is None:
         raise ProfileError([f"no package level {selection.get('profile', PUBLIC_LEVEL)!r} (load the public sizes with "
                             "tools/import_packages.py)"])
+    check_level(client, selection, PACKAGE_HIERARCHY, name, parent)
     own = []
     for food, raw in selection.get("own", {}).items():
         where = f"own {food!r}"
@@ -348,7 +353,8 @@ def default_level(client) -> str | None:
 
 def package_table(client, level_name: str) -> dict[str, tuple[Package, ...]]:
     """Food Type id -> the sizes it is sold in, seen from a level: the nearest level that gives the
-    food any size gives all of them, in the order the file listed them (by name, which is stable)."""
+    food any size gives all of them, ordered by the default's name: stable, and not the file's order,
+    which the graph does not keep."""
     level = _one_id(client, "DomainType", level_name)
     kind = _one_id(client, "DomainType", PACKAGE_KIND)
     if level is None or kind is None:

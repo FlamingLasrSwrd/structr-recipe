@@ -271,7 +271,9 @@ def check_shopping(client, week: dict, problems: list[str], shown=None, who: str
     # a food a policy tops up may be covered on the page, which applies no policy, and bought in Python
     if sorted(r["food"] for r in shown["covered"] if r["food"] not in topped) != [line.food for line in want.covered]:
         problems.append(f"shopping {week['name']!r}: the pantry covers differ ({who})")
-    if shown["unquantified"] != want.unquantified or sorted(shown["not_bought"]) != want.not_bought:
+    # the page walks the week in time order and Python as Structr lists it: which recipes, not their order
+    by_food = lambda found: {food: sorted(recipes) for food, recipes in found.items()}
+    if by_food(shown["unquantified"]) != by_food(want.unquantified) or sorted(shown["not_bought"]) != want.not_bought:
         problems.append(f"shopping {week['name']!r}: what has no amount, or is not bought, differs ({who})")
     return len(want.to_buy)
 

@@ -8,7 +8,7 @@
 // by the name tools/calculate_recipe_nutrition.py gives them ("<recipe> -- <nutrient> per serving").
 
 const PAGE_SIZE = 100;
-const SHOWN = ["Energy", "Protein", "Fiber, total dietary", "Sodium, Na"];
+const SHOWN = ["Energy", "Protein", "Fiber - total dietary", "Sodium - Na"];      // as vocabulary_import.nutrient_name writes them
 
 // recipe_nutrition.targeted_nutrients: {nutrient id: [nutrient, unit]}, the unit of the first target by name
 function targeted() {

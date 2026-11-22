@@ -97,6 +97,7 @@ from mealplanner.planning.extract import ReadChangedError, RequestError, SlotSpe
 from mealplanner.planning.model import PrepSession
 from mealplanner.planning.nutrients import describe_nutrients
 from mealplanner.planning.plan import plan_week
+from mealplanner.planning.commit import OtherWeeksMealError
 from mealplanner.planning.contract import problem_to_json
 from mealplanner.planning.proposal import ProposalError, to_data
 from mealplanner.prices import describe_cost
@@ -382,7 +383,7 @@ def main(argv=None) -> int:
                            repeat_tolerance=week.get("repeat_tolerance"),
                            repeat_weight=float(week.get("weights", {}).get("repeats", 1)),
                            **limits, **({"shortlist_above": week["shortlist_above"]} if "shortlist_above" in week else {}))
-    except (RequestError, ReadChangedError) as exc:
+    except (RequestError, ReadChangedError, OtherWeeksMealError) as exc:
         print(f"problem: {exc}")
         return 1
     except ProposalError as exc:

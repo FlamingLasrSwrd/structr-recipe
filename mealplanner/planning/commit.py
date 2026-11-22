@@ -27,6 +27,38 @@ from mealplanner.planning.model import PlanningProblem
 
 FMT = "%Y-%m-%dT%H:%M:%S+0000"
 DEFAULT_COOK_MINUTES = 60.0
+# what one kind of meal states and another must not, when an entry is written again (a skipped meal replanned)
+RESTATED = ("references", "hasPlannedServings", "consumesLeftoverFrom", "hasPlannedConsumption", "eatenInstead")
+
+
+class OtherWeeksMealError(ValueError):
+    """A meal to commit has the name of another week's meal. Nothing was written."""
+
+
+def _entries_to_replace(client, meal_plan_id: str, names) -> dict[str, dict]:
+    """The entries these names are already, or OtherWeeksMealError, before anything is written, if one is another
+    MealPlan's: a name says the day, meal and recipe only, so an overlapping week would take its meal."""
+    found = {}
+    for name in names:
+        for row in client.get("/structr/rest/MealPlanEntry", params={"name": name})["result"]:
+            entry = client.get_all("MealPlanEntry", row["id"])["result"]
+            week = entry.get("memberOf")
+            if week and week["id"] != meal_plan_id:
+                raise OtherWeeksMealError(f"refusing to commit: {name!r} is already a meal of {week.get('name') or week['id']!r}, "
+                                 f"another week, which would lose it")
+            found[name] = entry
+    return found
+
+
+def _write_entry(client, existing: dict[str, dict], name: str, fields: dict) -> str:
+    """Create the entry, or make the one there wholly what `fields` say: what it stated and they do not is
+    cleared (client.upsert leaves out a None, so it cannot). The model's check of a cook against a
+    leftover (invariant 7) runs only when an entry is created."""
+    if name not in existing:
+        return client.upsert("MealPlanEntry", "name", name, fields)
+    entry_id = existing[name]["id"]
+    client.patch(f"/structr/rest/MealPlanEntry/{entry_id}", {**dict.fromkeys(RESTATED), **fields})
+    return entry_id
 
 
 def commit_plan(client, meal_plan_id: str, problem: PlanningProblem, evaluation: Evaluation, *, name_prefix: str = "",
@@ -42,6 +74,14 @@ def commit_plan(client, meal_plan_id: str, problem: PlanningProblem, evaluation:
     entry_ids = {i: slot.fixed.entry_id for i, slot in enumerate(problem.slots) if slot.fixed and slot.fixed.entry_id}
     cooked_by = dict(entry_ids)      # slot -> the entry its leftovers come from: a prep session's, for a dish made there
     created = []
+    names = []
+    for i, slot in enumerate(problem.slots):
+        if slot.fixed is None:
+            r, label = resolved[i], problem.candidates[resolved[i].candidate].name
+            names.append(f"{name_prefix}{slot.key} -- {label}")
+            if r.kind == "cook" and r.prep is not None:
+                names.append(f"{name_prefix}{problem.preps[r.prep].key} -- {label} ({slot.key})")
+    existing = _entries_to_replace(client, meal_plan_id, names)
     for i, slot in enumerate(problem.slots):
         if slot.fixed is not None:
             continue
@@ -63,7 +103,7 @@ def commit_plan(client, meal_plan_id: str, problem: PlanningProblem, evaluation:
             })
             nobody = client.upsert("QuantitySpecification", "name", f"{prep_name} servings eaten", {
                 "value": 0.0, "unit": "servings", "status": "specified"})
-            cooked_by[i] = client.upsert("MealPlanEntry", "name", prep_name, {
+            cooked_by[i] = _write_entry(client, existing, prep_name, {
                 "memberOf": meal_plan_id, "isAbout": prep_region, "isSkipped": False, "references": r.candidate,
                 "hasPlannedServings": cooked[i], "hasPlannedConsumption": nobody})
             created.append(cooked_by[i])
@@ -78,7 +118,12 @@ def commit_plan(client, meal_plan_id: str, problem: PlanningProblem, evaluation:
         if abs(r.eaten - DEFAULT_SERVINGS_EATEN) > 1e-9:
             fields["hasPlannedConsumption"] = client.upsert("QuantitySpecification", "name", f"{name} servings eaten", {
                 "value": r.eaten, "unit": "servings", "status": "specified"})
-        entry_ids[i] = client.upsert("MealPlanEntry", "name", name, fields)
+        entry_ids[i] = _write_entry(client, existing, name, fields)
+        if name in existing:                       # whoever ate it as it was planned before and does not now
+            eating = {f"{name} -- {problem.eater_label(e)}" for e, _ in r.shares} if problem.eaters else set()
+            for share in existing[name].get("hasShare") or []:
+                if share.get("name") not in eating:
+                    client.delete(f"/structr/rest/MealShare/{share['id']}")
         cooked_by.setdefault(i, entry_ids[i])
         created.append(entry_ids[i])
         if problem.eaters:

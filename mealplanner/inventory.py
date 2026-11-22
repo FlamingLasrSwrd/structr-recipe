@@ -371,10 +371,15 @@ def own_sealed_shelf_lives(client, food_type_id: str) -> dict[str, float]:
 
 def assumed_storage(client, portion: dict) -> str:
     """Where a portion in no container is taken to be kept: of the fridge and the pantry, where its food
-    keeps longest unopened by its own shelf lives, the fridge on a tie or when it has neither (J31).
+    keeps longest unopened by its own shelf lives (a food with none, as a product has none, by the
+    nearest above it that has any), the fridge on a tie or when it has neither (J31).
     Flour, rice and garlic bought without saying where are in the pantry; chicken and eggs, in the fridge."""
     food = (portion.get("instanceOf") or {}).get("id")
-    own = own_sealed_shelf_lives(client, food) if food else {}
+    own: dict[str, float] = {}
+    for type_id in ancestors_or_self(client, food) if food else ():
+        own = own_sealed_shelf_lives(client, type_id)
+        if own:
+            break                  # the nearest that has any, as resolve_default: a product has its food's (J38)
     return max(("Fridge", "Pantry"), key=lambda storage: own.get(storage, -1.0))
 
 

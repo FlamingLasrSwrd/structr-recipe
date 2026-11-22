@@ -33,6 +33,7 @@ from mealplanner.profiles import (
 )
 from mealplanner.packages import instantiate_packages, package_table
 from mealplanner.prices import instantiate_prices, price_table
+from mealplanner.products import product_ids
 from mealplanner.vocabulary_import import FOOD_HIERARCHY
 
 
@@ -79,14 +80,19 @@ def list_types(client, what: str, profile: str | None) -> None:
         included = {name for name, _ in kitchen_items(client, profile).values()} if profile else set()
     rows = [r for r in client.get_all("DomainType")["result"]
             if (r.get("hierarchy") or {}).get("name") == hierarchy]
+    branded = product_ids(client) if what == "pantry" else set()
     children: dict[str | None, list[str]] = {}
+    groups = set()                                 # a food with only products below it is still one to choose
     for r in rows:
-        children.setdefault((r.get("parent") or {}).get("name"), []).append(r["name"])
+        above = (r.get("parent") or {}).get("name")
+        children.setdefault(above, []).append(r["name"])
+        if r["id"] not in branded:
+            groups.add(above)
 
     def walk(parent, depth):
         for name in sorted(children.get(parent, [])):
             mark = "[x]" if name in included else "[ ]"
-            print(f"  {'  ' * depth}{mark if name not in children else '   '} {name}")
+            print(f"  {'  ' * depth}{mark if name not in groups else '   '} {name}")
             walk(name, depth + 1)
     walk(None, 0)
 

@@ -89,7 +89,8 @@ def _ensure(client, change: Change, type_name: str, name: str, fields: dict) -> 
         client.patch(f"/structr/rest/{type_name}/{found[0]['id']}", fields)
         return found[0]["id"]
     change.created.append(name)
-    return client.post(f"/structr/rest/{type_name}", {"name": name, **fields, **SEEN})["result"][0]
+    said = {key: value for key, value in fields.items() if value is not None}
+    return client.post(f"/structr/rest/{type_name}", {"name": name, **said, **SEEN})["result"][0]
 
 
 def _held(client, entry: dict, start: str | None) -> str | None:
@@ -112,10 +113,16 @@ def _replacement(client, change: Change, entry: dict, plan: dict) -> None:
     name = f"{slot} -- {plan['name']}"
     if name == entry["name"]:
         raise MenuError(f"{plan['name']} is the meal skipped")
+    for row in client.get("/structr/rest/MealPlanEntry", params={"name": name})["result"]:
+        week = client.get_all("MealPlanEntry", row["id"])["result"].get("memberOf")
+        if week and week["id"] != entry["memberOf"]["id"]:
+            raise MenuError(f"{name} is a meal of {week.get('name')}, another week")
     region = client.get_all("TemporalRegion", entry["isAbout"]["id"])["result"]
     shares = [client.get_all("MealShare", s["id"])["result"] for s in entry.get("hasShare") or []]
     eaten = sum(_servings(client, s) for s in shares) if shares else _servings(client, entry)
+    # an entry of this name may be this meal skipped earlier: what it was then is cleared
     fields = {"memberOf": entry["memberOf"]["id"], "isSkipped": False, "references": plan["id"], "hasPlannedServings": eaten,
+              "consumesLeftoverFrom": None, "eatenInstead": None, "hasPlannedConsumption": None,
               "isAbout": _ensure(client, change, "TemporalRegion", f"{name} region",
                                  {"hasBeginning": region.get("hasBeginning"), "hasEnd": region.get("hasEnd")})}
     if abs(eaten - 1.0) > 1e-9:
