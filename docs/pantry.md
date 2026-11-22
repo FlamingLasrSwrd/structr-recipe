@@ -96,6 +96,13 @@ used to offer every food nothing sits under (a food others sit under is a group,
 and now offers every food nothing but products sits under, and each product
 (`products.buyable`; `tools/check_pages.py` compares the page with it).
 
+Choosing a food in Buy picks its unit (the owner's request, 2026-11-22; `products.buy_unit`): a
+product's own, what one package holds; else that of the first size the food, or its nearest ancestor
+food, is sold in at the default package level (`docs/packages.md`), so pounds for flour sold in a 5 lb
+bag; else grams. A unit Buy does not offer, or one that does not convert to grams for the
+food (fluid ounces of a food with no density), is passed over. The unit can still be changed by hand
+before adding; typing part of a name changes nothing, and choosing another food picks again.
+
 **What marks a Type as a product is that a GTIN denotes it**, so a product needs at least one barcode.
 A brand with no barcode (a butcher's sausages) is bought as its food for now.
 

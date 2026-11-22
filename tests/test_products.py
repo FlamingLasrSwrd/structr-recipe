@@ -29,7 +29,7 @@ from mealplanner.identifier_schema import GTIN, SCHEME_CONCEPTS
 from mealplanner.inventory import instance_expiration, physical_on_hand
 from mealplanner.pantry import PantryError, buy
 from mealplanner.products import (
-    Product, ProductError, buyable, check_digit, find, import_products, normalize, parse_products, product_ids,
+    Product, ProductError, buy_units, buyable, check_digit, find, import_products, normalize, parse_products, product_ids,
 )
 from tests.fakegraph import Ref, when
 from tests.planning_graph import add_type
@@ -335,18 +335,27 @@ class InThePantry(unittest.TestCase):
     def test_before_any_product_it_is_the_foods_nothing_sits_under(self):
         self.assertEqual(buyable(kitchen()), ["Black beans", "Chickpeas", "Eggs", "Milk", "Noodles"])
 
+    def test_buy_picks_a_products_own_unit_and_grams_where_no_package_is_known(self):
+        # no package level here: the two products' own sizes (12 each, 1 l), and grams for every food
+        self.assertEqual(buy_units(self.g), {"Black beans": "g", "Chickpeas": "g", "Dairy milk 1 L": "l", "Eggs": "g",
+                                             "Farm eggs dozen": "each", "Milk": "g", "Noodles": "g"})
+
     def test_the_page_is_checked_against_it(self):
         offered = ["Black beans", "Chickpeas", "Dairy milk 1 L", "Farm eggs dozen", "Milk", "Noodles", "Beans"]
+        units = {"Dairy milk 1 L": "l", "Farm eggs dozen": "oz", "Beans": "kg"}
         problems = []
-        with mock.patch.object(check_pages, "buy_data", return_value=offered):
+        with mock.patch.object(check_pages, "buy_data", return_value=(offered, units)):
             self.assertEqual(check_pages.check_buyable(self.g, self.g, problems), 7)
         self.assertEqual(problems, ["pantry: Eggs can be bought, but Buy does not offer it",
-                                    "pantry: Buy offers Beans, which is a group of foods or no food"])
+                                    "pantry: Buy offers Beans, which is a group of foods or no food",
+                                    "pantry: Buy picks oz for Farm eggs dozen, buy_unit each",
+                                    "pantry: Buy picks a unit for Beans, which it does not offer"])
 
     def test_the_page_reads_the_same_scheme(self):
         page = (pathlib.Path(__file__).resolve().parents[1] / "pages" / "pantry.js").read_text()
         self.assertIn(f'$.find("Concept", {{name: "{GTIN}"}})', page)
         self.assertIn('id=\\"buy-data\\"', page)
+        self.assertIn('id=\\"buy-units\\"', page)
 
 
 class TheTool(unittest.TestCase):
