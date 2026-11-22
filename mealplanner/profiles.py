@@ -31,6 +31,7 @@ from datetime import datetime, timezone
 
 from mealplanner.defaults import resolve_all
 from mealplanner.nutrition_scope import convert_nutrient, day_zone, nutrient_unit
+from mealplanner.typetree import ancestors_or_self
 from mealplanner.unit_conversion import UNIT_TABLE, convert_to_grams
 from mealplanner.vocabulary_import import FOOD_HIERARCHY, Sync
 from structr_client.client import UNSAFE_EXACT_MATCH_CHARS
@@ -226,6 +227,33 @@ def nutrient_types(client) -> dict[str, tuple[str, str]]:
         if target and (ident.get("identifierScheme") or {}).get("name") == "FDC nutrient id":
             out[str(ident.get("identifierValue"))] = (target["id"], target["name"])
     return out
+
+
+def check_level(client, selection: dict, hierarchy_name: str, name: str, parent_id: str) -> None:
+    """Before an owner's level of prices or package sizes is written: ProfileError for a key the file does
+    not use (a misspelt [own] read as an empty one removed everything on the level), for a name some other
+    Type has (the write moved a food out of the vocabulary, to be the level), and for a fallback that is no
+    level of that hierarchy, or is the level itself or one below it."""
+    problems = []
+    unknown = set(selection) - {"name", "profile", "own"}
+    if unknown:
+        problems.append(f"the file has keys it does not use: {', '.join(sorted(unknown))} (name, profile and [own] are used)")
+    if not isinstance(selection.get("own", {}), dict):
+        problems.append("own is a table, headed [own]")
+
+    def outside(type_id: str) -> bool:
+        node = client.get_all("DomainType", type_id)["result"]
+        return (node.get("hierarchy") or {}).get("name") != hierarchy_name
+    if outside(parent_id):
+        problems.append(f"profile: {selection.get('profile')!r} is not a level in {hierarchy_name!r}")
+    level = _one_id(client, "DomainType", name)
+    if level is not None:
+        if outside(level):
+            problems.append(f"name: {name!r} is already something else on this instance; give the level its own name")
+        elif level in ancestors_or_self(client, parent_id):
+            problems.append(f"profile: {selection.get('profile')!r} is {name!r} or falls back on it; name the level above")
+    if problems:
+        raise ProfileError(problems)
 
 
 def food_types(client) -> dict[str, str]:

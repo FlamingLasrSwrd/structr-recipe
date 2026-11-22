@@ -11,7 +11,7 @@ const said = runBooking(PANTRY_ACTIONS);
 const options = (values, chosen) => values.map((v) => "<option" + (v === chosen ? " selected" : "") + ">" + esc(v) + "</option>").join("");
 const hidden = (fields) => Object.keys(fields).map((k) => "<input type=\"hidden\" name=\"" + k + "\" value=\"" + esc(fields[k]) + "\">").join("");
 function form(action, fields, inner, label, confirmText) {
-  return "<form class=\"inline\" action=\"/structr/html/pantry\"" + (confirmText ? " onsubmit=\"return confirm('" + esc(confirmText) + "')\"" : "") + ">"
+  return "<form class=\"inline\" action=\"/structr/html/pantry\"" + (confirmText ? " onsubmit=\"" + esc("return confirm(" + JSON.stringify(confirmText) + ")") + "\"" : "") + ">"
     + hidden(Object.assign({do: action, token: newToken()}, fields)) + inner + "<button>" + esc(label) + "</button></form>";
 }
 const amountInputs = (unit) => "<input name=\"amount\" type=\"number\" step=\"any\" min=\"0\" required size=\"5\" placeholder=\"amount\">"

@@ -67,6 +67,9 @@ than leave a crumb. Half a gram left (100 g of 100.5 g) is still left, as it sti
 gram over is refused, and so is a Use of what is used up. The same rule is in `pantry.use` and the pages'
 `PANTRY_ACTIONS.use` (`pages/lib/50_pantry.js`), and `tools/check_bookings.py` books one both ways.
 
+A recipe that uses one food in two places draws it twice: the second Allocation from one portion is
+named with " #2", the next " #3" (2026-11-22; before that only the first was written).
+
 ## Products and barcodes
 
 The owner asked (2026-11-13) for barcode scanning to stock the pantry, as Grocy has, with scanning

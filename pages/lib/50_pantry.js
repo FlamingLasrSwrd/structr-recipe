@@ -5,7 +5,7 @@ const UNITS = ["g", "kg", "oz", "lb", "ml", "l", "cup", "tbsp", "tsp", "fl_oz", 
 
 // pantry._grams
 function bookingGrams(food, amount, unit) {
-  if (!(amount > 0)) throw new BookingError(food.name + ": an amount must be more than 0");
+  if (!(amount > 0) || !isFinite(amount)) throw new BookingError(food.name + ": an amount must be a number more than 0");
   const grams = toGrams(food, amount, unit);
   if (grams == null) throw new BookingError(food.name + ": " + amount + " " + unit + " does not convert to grams (no density or weight per item for it)");
   return grams;
@@ -26,7 +26,7 @@ function portionFrom(request, booking) {
 
 function amountFrom(request) {
   const amount = Number(request.amount);
-  if (request.amount == null || request.amount === "" || isNaN(amount)) throw new BookingError("an amount is a number");
+  if (request.amount == null || request.amount === "" || !isFinite(amount)) throw new BookingError("an amount is a number");
   return amount;
 }
 

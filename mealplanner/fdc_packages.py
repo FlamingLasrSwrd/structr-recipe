@@ -60,6 +60,13 @@ _UNITS = {
     "ltr": (1000 / FLOZ_ML, "metric"),
 }
 _PART = re.compile(r"([0-9]*\.?[0-9]+)\s*([a-z][a-z ]*?)\.?")
+# "1/2 gal", "1 1/2 lb": the slash of a fraction, where elsewhere one separates figures ("15 oz/425 g")
+_FRACTION = re.compile(r"(^|/)\s*(?:(\d+)[ -]+)?(1/2|1/3|2/3|1/4|3/4|1/8|3/8|5/8|7/8)(?=\s*[a-z])")
+
+
+def _decimal(match: re.Match) -> str:
+    over, under = match.group(3).split("/")
+    return f"{match.group(1)}{int(match.group(2) or 0) + int(over) / int(under)}"
 
 
 def package_ounces(text: str) -> float | None:
@@ -67,7 +74,7 @@ def package_ounces(text: str) -> float | None:
     volume ("1 EA", "12 CT", blank). The first U.S. figure wins ("16 oz/1 lb/454 g" is 16); a label
     with only a metric figure is converted ("500 mL" is 16.9)."""
     us = metric = None
-    for part in (text or "").lower().split("/"):
+    for part in _FRACTION.sub(_decimal, (text or "").lower()).split("/"):
         m = _PART.fullmatch(part.strip())
         if not m or m.group(2).strip() not in _UNITS:
             continue

@@ -38,6 +38,7 @@ from structr_client import ReadCache
 GRAMS_PER_LB = 453.592
 GRAMS_PER_OZ = 28.3495
 LEFT_G = 0.5                    # less than this left over is nothing left (pantry.USED_UP_G)
+SHORT_G = 1e-3                  # less than this short is rounding (a draw is stored to a millionth of a gram), not a purchase
 
 
 def _grams_text(grams: float) -> str:
@@ -198,7 +199,8 @@ def shopping_list(client, meal_plan_id: str, now: datetime, prices: dict | None 
         d = details.get(root, {"recipes": [], "first": None, "optional": False, "counted": False})
         name = client.get_all("DomainType", root)["result"].get("name") or root
         each = convert_to_grams(client, root, 1, "each") if d["counted"] else None
-        line = Line(name, need.net, need.demand, need.eligible, need.target, d["first"], d["recipes"], d["optional"], each)
+        buy = need.net if need.net >= SHORT_G else 0.0
+        line = Line(name, buy, need.demand, need.eligible, need.target, d["first"], d["recipes"], d["optional"], each)
         if line.buy > 0:
             price = food_price(client, prices, root) if prices is not None else None
             if price is not None and price.quantity.get("value") == 0:
