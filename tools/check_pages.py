@@ -15,9 +15,11 @@ session) and compares the data block each prints (#page-data) with Python's answ
               recipe's instructions, written from its steps' facts, against mealplanner/instructions.py
               for the same Plan as recipe_import.export_plan reads it (J35)
   pantry      inventory.current_magnitude and instance_expiration for every portion on hand
-  shopping    shopping.shopping_list: each food to buy, what is needed and on hand, the cost at
-              "Home prices" where it exists, and what the pantry covers; a food a StockPolicy
-              tops up is left out, since the page applies no policy (and says so)
+  shopping    shopping.shopping_list: each food to buy, what is needed and on hand, the packages it is
+              bought in at the default package level (packages.default_level), what is left of them,
+              its cost and until when it keeps, the cost at "Home prices" where it exists, and what
+              the pantry covers; a food a StockPolicy tops up is left out, since the page applies no
+              policy (and says so)
 
 for every week with entries. Where the Structr methods are installed (tools/install_methods.py), it
 compares nutritionReport's and shoppingList's answers with Python's the same way, called as the
@@ -37,6 +39,7 @@ from mealplanner.instructions import instructions
 from mealplanner.pantry import USED_UP_G
 from mealplanner.recipe_import import capability_bearers, export_plan
 from mealplanner.inventory import current_magnitude, instance_expiration, mass_quality
+from mealplanner.packages import default_level, package_table
 from mealplanner.prices import price_table
 from mealplanner.profiles import ProfileError
 from mealplanner.shopping import shopping_list
@@ -217,7 +220,8 @@ def check_shopping(client, week: dict, problems: list[str], shown=None, who: str
         prices = price_table(client, "Home prices")
     except ProfileError:
         prices = None
-    want = shopping_list(client, week["id"], datetime.now(timezone.utc), prices)
+    level = default_level(client)
+    want = shopping_list(client, week["id"], datetime.now(timezone.utc), prices, package_table(client, level) if level else None)
     # the page applies no StockPolicy level, and says so: a food a policy tops up is Python's alone
     topped = {line.food for line in want.to_buy if line.target > 0}
     got = {row["food"]: row for row in shown["to_buy"] if row["food"] not in topped}
@@ -228,12 +232,21 @@ def check_shopping(client, week: dict, problems: list[str], shown=None, who: str
         row = got.get(line.food)
         if row is None:
             continue
-        for key, value in (("buy", line.buy), ("need", line.need), ("have", line.have), ("cost", line.cost)):
+        for key, value in (("buy", line.buy), ("need", line.need), ("have", line.have), ("cost", line.cost),
+                           ("bought", line.bought), ("left", line.left), ("left_cost", line.left_cost)):
             if not close(row[key], value):
                 problems.append(f"shopping {week['name']!r}, {line.food}: {key} by {who} {row[key]!r}, is {value!r}")
+        if [(p["count"], p["label"]) for p in row["packages"]] != line.packages or row["keeps_opened"] != line.keeps_opened:
+            problems.append(f"shopping {week['name']!r}, {line.food}: packages by {who} {row['packages']!r} "
+                            f"(opened {row['keeps_opened']!r}), are {line.packages!r} (opened {line.keeps_opened!r})")
+        # with no day set, what is left keeps from now, which the page read a moment before this did
+        shown_until, until = utc(row["keeps_until"]), line.keeps_until
+        if (shown_until is None) != (until is None) or (until is not None and abs((shown_until - until).total_seconds()) > 60):
+            problems.append(f"shopping {week['name']!r}, {line.food}: keeps until by {who} {row['keeps_until']!r}, is {until!r}")
         if utc(row["first"]) != line.first_needed:
             problems.append(f"shopping {week['name']!r}, {line.food}: first needed by {who} {row['first']!r}, is {line.first_needed!r}")
-    if sorted(r["food"] for r in shown["covered"]) != [line.food for line in want.covered]:
+    # a food a policy tops up may be covered on the page, which applies no policy, and bought in Python
+    if sorted(r["food"] for r in shown["covered"] if r["food"] not in topped) != [line.food for line in want.covered]:
         problems.append(f"shopping {week['name']!r}: the pantry covers differ ({who})")
     if shown["unquantified"] != want.unquantified or sorted(shown["not_bought"]) != want.not_bought:
         problems.append(f"shopping {week['name']!r}: what has no amount, or is not bought, differs ({who})")

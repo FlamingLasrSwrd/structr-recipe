@@ -102,6 +102,7 @@ STRUCTR_URL=http://localhost:8085 python3 tools/instantiate_profile.py kitchen -
 STRUCTR_URL=http://localhost:8085 python3 tools/import_recipe.py private/baseline.toml    # the daily baseline (supplements)
 STRUCTR_URL=http://localhost:8085 python3 tools/instantiate_household.py private/household.toml   # the household's people, their targets and baselines
 STRUCTR_URL=http://localhost:8085 python3 tools/import_prices.py      # data/prices.toml; then instantiate_profile.py prices private/prices.toml (docs/prices.md)
+STRUCTR_URL=http://localhost:8085 python3 tools/import_packages.py    # data/packages.toml (--check offline); then instantiate_profile.py packages private/packages.toml (docs/packages.md)
 STRUCTR_URL=http://localhost:8085 python3 tools/plan_week.py private/week.toml            # propose a week, report nutrients and cost; --commit writes it
 python3 tools/plan_problem.py private/week.problem.json   # the planner as a worker: a problem file (plan_week.py --export-problem) in, a plan file out; no Structr
 python3 tools/import_grocy.py private/grocy/ --map private/grocy-map.toml --check   # a Grocy export: what it would book (docs/imports.md)

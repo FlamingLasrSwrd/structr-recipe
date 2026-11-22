@@ -9,19 +9,27 @@ food has a weight per item, an estimated cost at a price level (mealplanner/pric
 pantry already covers, and the ingredients a recipe gives no amount for ("salt to taste"), which
 no arithmetic can put on a list.
 
-Known limits, as the model's: amounts are what recipes use, not package sizes (data-model.md J24
-(5)), and in the form the recipe needs them (net_requirements' note on trimming). Leftover meals
-add nothing: they eat what an earlier cook made.
+With a package level (mealplanner/packages.py), what to buy is rounded up to what the food is sold
+in: the packages that leave least over, and what will be left of them beyond what the week uses, its
+cost, and until when it keeps (left_over). A food the recipes count and no level gives a size is
+bought in whole items; anything else is bought as much as is needed. The cost is of what is bought.
+
+Known limits, as the model's: amounts are in the form the recipe needs them, not the form bought
+(net_requirements' note on trimming; docs/todo.md, "What ingredients are sold in", stage 3). Leftover
+meals add nothing: they eat what an earlier cook made.
 """
 
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 
+from mealplanner.defaults import resolve_default
+from mealplanner.inventory import _type_or_none, assumed_storage, shelf_life_days
 from mealplanner.material_accounting import plan_specifications
 from mealplanner.nutrition_scope import entry_start
+from mealplanner.packages import choose, food_packages
 from mealplanner.prices import food_price
 from mealplanner.reservation import acquisition, resolve_stock_policy
 from mealplanner.unit_conversion import UNIT_TABLE, convert_to_grams
@@ -29,6 +37,15 @@ from structr_client import ReadCache
 
 GRAMS_PER_LB = 453.592
 GRAMS_PER_OZ = 28.3495
+LEFT_G = 0.5                    # less than this left over is nothing left (pantry.USED_UP_G)
+
+
+def _grams_text(grams: float) -> str:
+    if grams >= GRAMS_PER_LB / 2:
+        return f"{grams:,.0f} g ({grams / GRAMS_PER_LB:.1f} lb)"
+    if grams >= GRAMS_PER_OZ:
+        return f"{grams:,.0f} g ({grams / GRAMS_PER_OZ:.1f} oz)"
+    return f"{grams:,.0f} g"
 
 
 @dataclass
@@ -42,19 +59,25 @@ class Line:
     recipes: list[str] = field(default_factory=list)
     optional: bool = False          # every use of it is optional
     each: float | None = None       # grams per item, where the recipes count the food (eggs, tortillas)
-    cost: float | None = None       # dollars for `buy`, at the price level
+    cost: float | None = None       # dollars for what is bought (`bought`), at the price level
     estimated_price: bool = False
+    packages: list[tuple[int, str]] = field(default_factory=list)   # (how many, of which size), what is bought
+    estimated_size: bool = False    # a package size rests on an estimate (the public level's)
+    bought: float | None = None     # grams bought: whole packages or items; None until worked out
+    left: float = 0.0               # grams of it left over beyond what the week uses (and a policy keeps)
+    left_cost: float | None = None  # dollars of what is left over
+    keeps_until: datetime | None = None   # when what is left over is past its shelf life
+    keeps_opened: bool = False      # ...as an opened package (else unopened); both from its first use
 
     def amount(self) -> str:
+        if self.packages:
+            sizes = " + ".join(f"{n} x {label}" for n, label in self.packages)
+            return f"{sizes} (about {self.bought:,.0f} g)"
         grams = self.buy if self.buy > 0 else self.need
         if self.each:
             count = math.ceil(grams / self.each - 1e-9)
-            return f"{count} (about {grams:,.0f} g)"
-        if grams >= GRAMS_PER_LB / 2:
-            return f"{grams:,.0f} g ({grams / GRAMS_PER_LB:.1f} lb)"
-        if grams >= GRAMS_PER_OZ:
-            return f"{grams:,.0f} g ({grams / GRAMS_PER_OZ:.1f} oz)"
-        return f"{grams:,.0f} g"
+            return f"{count} (about {self.bought or grams:,.0f} g)"
+        return _grams_text(grams)
 
 
 @dataclass
@@ -72,14 +95,64 @@ class ShoppingList:
     def total(self) -> float:
         return sum(line.cost or 0.0 for line in self.to_buy)
 
+    @property
+    def left_total(self) -> float:
+        return sum(line.left_cost or 0.0 for line in self.to_buy)
+
 
 def _pool_root(client, type_id: str) -> str:
     resolution = resolve_stock_policy(client, type_id)
     return resolution.root_type_id if resolution else type_id
 
 
-def shopping_list(client, meal_plan_id: str, now: datetime, prices: dict | None = None) -> ShoppingList:
-    """The list for a MealPlan's committed meals as of `now`; `prices` is prices.price_table()."""
+def left_over_keeps(client, food_id: str, first_use: datetime) -> tuple[datetime | None, bool]:
+    """(until when what is left of a food keeps, whether that is as opened). The leftover is taken to
+    be in a package opened at its first use: of the fridge and the pantry, the longest a FoodKeeper
+    figure for it opened gives. A food with no opened figure keeps as it does unopened, where the
+    pantry assumes it is kept (inventory.assumed_storage); neither, None. Both count from the first
+    use, as if bought then, which a list grouped by the day each food is first needed allows: bought
+    earlier, it keeps less long. An opened can of beans keeps days in the fridge, not its unopened
+    years in the pantry."""
+    kind, opened = _type_or_none(client, "ShelfLife"), _type_or_none(client, "Opened")
+    if kind is None or opened is None:
+        return None, False
+    best = None
+    for storage in ("Fridge", "Pantry"):
+        where = _type_or_none(client, storage)
+        found = resolve_default(client, food_id, kind, {where, opened}) if where else None
+        if found is not None and opened in found.keyed_by and found.quantity.get("value") is not None \
+                and (best is None or found.quantity["value"] > best):
+            best = found.quantity["value"]
+    if best is not None:
+        return first_use + timedelta(days=best), True
+    days = shelf_life_days(client, food_id, "Sealed", assumed_storage(client, {"instanceOf": {"id": food_id}}))
+    return (first_use + timedelta(days=days), False) if days is not None else (None, False)
+
+
+def _round_up(client, line: Line, root: str, packages: dict | None) -> None:
+    """Set what is bought of a line to buy: whole packages of the sizes its food is sold in (choose),
+    or whole items for a food the recipes count, or as much as is needed."""
+    sizes = []
+    for p in (food_packages(client, packages, root) if packages is not None else ()):
+        grams = convert_to_grams(client, root, p.amount, p.unit)
+        if grams:
+            sizes.append((grams, p))
+    if sizes:
+        counts = choose([g for g, _ in sizes], line.buy)
+        line.packages = [(n, p.label) for n, (_, p) in zip(counts, sizes) if n]
+        line.estimated_size = any(p.estimated for n, (_, p) in zip(counts, sizes) if n)
+        line.bought = sum(n * g for n, (g, _) in zip(counts, sizes))
+    elif line.each:
+        line.bought = math.ceil(line.buy / line.each - 1e-9) * line.each
+    else:
+        line.bought = line.buy
+    line.left = max(0.0, line.bought - line.buy)
+
+
+def shopping_list(client, meal_plan_id: str, now: datetime, prices: dict | None = None,
+                  packages: dict | None = None) -> ShoppingList:
+    """The list for a MealPlan's committed meals as of `now`; `prices` is prices.price_table(),
+    `packages` packages.package_table()."""
     client = ReadCache(client)
     meal_plan = client.get_all("MealPlan", meal_plan_id)["result"]
     details: dict[str, dict] = {}
@@ -131,8 +204,12 @@ def shopping_list(client, meal_plan_id: str, now: datetime, prices: dict | None 
             if price is not None and price.quantity.get("value") == 0:
                 not_bought.append(name)                # a price of nothing: not something to shop for
                 continue
+            _round_up(client, line, root, packages)
+            if line.left >= LEFT_G:
+                line.keeps_until, line.keeps_opened = left_over_keeps(client, root, d["first"] or now)
             if price is not None and price.quantity.get("value") is not None:
-                line.cost = line.buy * price.quantity["value"] / 100.0
+                line.cost = line.bought * price.quantity["value"] / 100.0
+                line.left_cost = line.left * price.quantity["value"] / 100.0
                 line.estimated_price = (price.spec or {}).get("provenance") == "estimated"
             elif prices is not None:
                 unpriced.append(name)
@@ -147,11 +224,25 @@ def shopping_list(client, meal_plan_id: str, now: datetime, prices: dict | None 
                         sorted(unpriced), sorted(not_bought))
 
 
-def describe(shopping: ShoppingList, zone, level: str | None = None) -> str:
+def left_over_text(line: Line, zone) -> str:
+    """What will be left of a line's purchase, in words, or "" when nothing is."""
+    if line.left < LEFT_G:
+        return ""
+    cost = "" if line.left_cost is None else f" (${line.left_cost:,.2f})"
+    if line.keeps_until is None:
+        keeps = "; no shelf life known"
+    else:
+        keeps = f"; keeps to {line.keeps_until.astimezone(zone).strftime('%a %d %b %Y')}" + (" once opened" if line.keeps_opened else " unopened")
+    return f"{_grams_text(line.left)} left over{cost}{keeps}"
+
+
+def describe(shopping: ShoppingList, zone, level: str | None = None, package_level: str | None = None) -> str:
     """The list in words, grouped by the day each food is first needed (in `zone`)."""
+    sizes = (f"rounded up to what is sold, at {package_level!r} (+ a size rests on an estimate)" if package_level
+             else "amounts are what the recipes use, not package sizes")
     lines = [f"Shopping list for {shopping.week}: {shopping.cooks} meals to cook, {shopping.leftovers} of leftovers "
              f"(which need nothing more).",
-             "What the meals call for, less what the pantry holds; amounts are what the recipes use, not package sizes."]
+             f"What the meals call for, less what the pantry holds; {sizes}."]
     day = None
     width = max((len(line.food) for line in shopping.to_buy), default=0)
     by_day = sorted(shopping.to_buy, key=lambda line: (line.first_needed is None,
@@ -171,9 +262,14 @@ def describe(shopping: ShoppingList, zone, level: str | None = None) -> str:
         if line.optional:
             extra.append("optional")
         extra.append(", ".join(line.recipes) if line.recipes else "the pantry's level")
-        lines.append(f"  {line.food:<{width}}  {line.amount():<24} {cost:>8}   {'; '.join(extra)}")
+        amount = line.amount() + ("+" if line.estimated_size else "")
+        lines.append(f"  {line.food:<{width}}  {amount:<24} {cost:>8}   {'; '.join(extra)}")
+        left = left_over_text(line, zone)
+        if left:
+            lines.append(f"  {'':<{width}}  {left}")
     if level:
-        lines.append(f"\nAbout ${shopping.total:,.2f} at {level!r}" + (" (* priced from an estimate)" if any(
+        left = f", of which ${shopping.left_total:,.2f} is left over" if shopping.left_total >= 0.005 else ""
+        lines.append(f"\nAbout ${shopping.total:,.2f} at {level!r}{left}" + (" (* priced from an estimate)" if any(
             line.estimated_price for line in shopping.to_buy) else "")
                      + (f"; not priced: {', '.join(shopping.unpriced)}" if shopping.unpriced else ""))
     if shopping.not_bought:

@@ -47,7 +47,7 @@ script. So a method runs the engine code the pages run, not a copy of it.
 | `bookRequest` | `do` (ask, withdraw), `token`, `recipe` (a RecipeIdentity), `week` (its first day) | the same; a week not planned yet is made as the household's MealPlan, `forHousehold` |
 | `writeInstructions` | `steps` (plain data, `instructions.as_data`), `bearers` (for each capability the steps name, the tools that can give it) | the sentences the recipe page writes for them; reads nothing (`tools/check_instructions.py` compares it with Python's) |
 | `nutritionReport` | `week` (a MealPlan's id) | `{week, rows}`: every target judged at its scope, per person, then each daily target's days added up, as the nutrition page shows them |
-| `shoppingList` | `week`, `prices` (a price level, default "Home prices") | `{week, priced, cooks, leftovers, buy, covered, unquantified, not_bought, unpriced, total}`, as the shopping page lists them; for a household's member, only the household's own stock counts against the need |
+| `shoppingList` | `week`, `prices` (a price level, default "Home prices"), `packages` (a package level, default "Home packages", else "US supermarket") | `{week, priced, packages, cooks, leftovers, buy, covered, unquantified, not_bought, unpriced, total, left_total}`, as the shopping page lists them, a line with the packages bought, what is left and until when it keeps; for a household's member, only the household's own stock counts against the need |
 
 A method that takes a `week` answers a member of a household for their household's own week only
 (`callerWeek`): another household's is "no such week", one every signed-in user sees "not your
