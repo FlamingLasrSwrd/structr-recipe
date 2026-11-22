@@ -1,0 +1,17 @@
+# HTTPS for the owner's stack, by Structr itself (docs/pages.md, "HTTPS"). tools/owner_stack.sh up
+# layers this over docker-compose.yml when tools/make_https_cert.py has made private/https/; no other
+# stack uses it, so none needs the certificate or takes the port. HTTP stays, for the tools.
+services:
+  structr:
+    env_file:
+      - ./private/https/structr.env      # the keystore's password
+    environment:
+      - STRUCTR_application_https_enabled=true
+      - STRUCTR_application_https_port=8443
+      - STRUCTR_application_keystore_path=/var/lib/structr/https/keystore.p12
+      # Structr 7.1's default, stated: with HTTPS there is no reason to send a session in the clear
+      - STRUCTR_httpservice_cookies_secure=true
+    ports:
+      - "${STRUCTR_HTTPS_PORT:-8443}:8443"
+    volumes:
+      - ./private/https/keystore.p12:/var/lib/structr/https/keystore.p12:ro

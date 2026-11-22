@@ -79,7 +79,54 @@ python3 tools/install_pages.py --login
 python3 tools/create_login.py
 ```
 
-Then sign in at `/structr/html/login`; it goes on to the week.
+Then sign in at `/structr/html/login`; it goes on to the week. **From another device, use HTTPS**
+(next section). Structr marks the session cookie `Secure`, and a browser drops such a cookie from a
+plain-HTTP address other than localhost: the sign-in answers 200, then every page 404 (found 2026-11-22,
+when the owner first signed in from the network). A session idle for 30 minutes
+(`application.session.timeout`) ends, and the pages then answer 404 until the next sign-in.
+
+## HTTPS (built 2026-11-22, not yet run on a live Structr)
+
+Structr serves HTTPS itself, so nothing new is installed. On the computer that runs the owner's stack:
+
+```bash
+python3 tools/make_https_cert.py --host <its IPv4 address>    # writes private/https/; needs only openssl
+bash tools/owner_stack.sh stop                                # backs up
+bash tools/owner_stack.sh up                                  # HTTP on 8085 as before, HTTPS on 8443
+curl --cacert private/https/ca.crt -o /dev/null -w '%{http_code}\n' https://<address>:8443/structr/html/login    # 200
+```
+
+Then each device is told to trust `private/https/ca.crt`, that file alone, never the folder. Compare its
+fingerprint (the tool prints it; `openssl x509 -in ca.crt -noout -fingerprint -sha256`) before trusting it.
+
+| Device | Where (from the vendors' usual menus, none tried here) |
+|---|---|
+| Chrome, Chromium on Linux | `chrome://certificate-manager`, custom certificates installed by you, trusted certificates, Import |
+| Firefox | Settings, search "certificates", View Certificates, Authorities, Import, "trust this CA to identify websites" |
+| Android | Settings, search "CA certificate", Install |
+| iPhone, iPad | open the file, install the profile, then General, About, Certificate Trust Settings, turn it on |
+
+Sign in at `https://<address>:8443/structr/html/login`. The tools keep `http://localhost:8085`.
+
+- **Trusting it is narrow.** The authority may vouch only for the hosts given (critical name constraints),
+  and its key was deleted once it had signed. `keystore.p12` and `structr.env` are secrets, and a backup
+  holds them with the rest of `private/`.
+- **It lasts 820 days, and for that address only.** Reserve the address in the router. After either ends:
+  `make_https_cert.py --force`, stop and up, and trust the new file on each device. `up` warns a month ahead.
+- **Start it with `tools/owner_stack.sh up`, from the folder that holds `private/https/`.** A plain
+  `docker compose up`, or another checkout, recreates the container without HTTPS. With HTTPS, `up` names
+  its compose files, so a `docker-compose.override.yml` is not read.
+- **Prefer the address to a name.** Structr sends `Strict-Transport-Security: max-age=60`, which browsers
+  apply to names and not to addresses: `http://<name>:8085` would fail for a minute after each HTTPS visit.
+- **Back to HTTP only:** move `private/https/` away, then up. Sign-in then works at localhost alone.
+- **What it does not fix:** port 8085 still takes passwords and API requests unencrypted, the admin
+  interface is on both ports, and a booking is still a link another site could send a signed-in browser
+  to (`docs/self-hosting.md`), which now reaches every device that can sign in.
+
+Verified 2026-11-22 without a live Structr: the settings, their defaults and that HTTP stays beside HTTPS,
+read from the installed 7.1.0 image's own code and start script; the keystore read by Java's keytool; a
+TLS 1.2 handshake in memory by a client trusting the authority (`tests/test_https.py`); the merged compose
+configuration. Not seen: Structr serving it, or any browser or phone trusting it.
 
 ## Checked at scale (2026-10-23, throwaway instance)
 
