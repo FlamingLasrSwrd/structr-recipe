@@ -92,9 +92,10 @@ a page's 404 as an ended session (`StructrClient.request`) see no change. That p
 pages' code, reads nothing and books nothing (`pages/signed-out.js`). Only the path is carried through
 signing in, never the query: a form sent after the session ended books nothing, and the sign-in page
 says that the change was not saved and to make it again. A signed-in visitor to a page that is not
-there reads "Page not found". Verified offline, in Chrome against a stand-in server, and from 7.1.0's own
-code that an error page renders
-with the 404; not run on Structr.
+there reads "Page not found". **Run on the owner's instance (Structr 7.1) the same day:** asked for signed
+out, the pantry answered 404 with the redirect in it, and the owner confirmed the round trip through
+signing in works in a browser. A change sent after a session ended and a signed-in visitor's "Page not
+found" are tested offline only (the first also in Chrome against a stand-in server).
 
 ## HTTPS (built 2026-11-22, in use on the owner's instance)
 
