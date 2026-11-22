@@ -3,7 +3,9 @@
     python3 tools/shopping_list.py private/week.toml
 
 What the week's committed, not yet cooked meals need, less what the pantry holds, grouped by the
-day each food is first needed, with an estimated cost at the week file's price level (`prices`).
+day each food is first needed, with an estimated cost at the week file's price level (`prices`),
+rounded up to what each food is sold in at its package level (`packages`; by default "Home
+packages" where the owner has one, else "US supermarket", docs/packages.md), with what will be left.
 Read-only: a shopping list is computed, never stored (data-model.md Sec 7, AcquisitionList).
 Needs STRUCTR_TOOLS_PASSWORD and STRUCTR_URL.
 """
@@ -18,6 +20,7 @@ from zoneinfo import ZoneInfo
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner.connection import connect
+from mealplanner.packages import default_level, package_table
 from mealplanner.prices import price_table
 from mealplanner.profiles import ProfileError
 from mealplanner.shopping import describe, shopping_list
@@ -44,11 +47,17 @@ def main(argv=None) -> int:
         except ProfileError as exc:
             print(f"problem: {'; '.join(exc.problems)}")
             return 1
-    shopping = shopping_list(client, plans[0]["id"], datetime.now(timezone.utc), prices)
+    level = week.get("packages") or default_level(client)
+    try:
+        packages = package_table(client, level) if level else None
+    except ProfileError as exc:
+        print(f"problem: {'; '.join(exc.problems)}")
+        return 1
+    shopping = shopping_list(client, plans[0]["id"], datetime.now(timezone.utc), prices, packages)
     if not shopping.cooks:
         print(f"{name} has no meals to cook yet: commit the week first (tools/plan_week.py --commit)")
         return 1
-    print(describe(shopping, zone, week.get("prices")))
+    print(describe(shopping, zone, week.get("prices"), level))
     return 0
 
 

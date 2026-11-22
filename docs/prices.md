@@ -93,6 +93,8 @@ on an estimate. Cost does not affect which meals are chosen: it is not in the ob
 - National and regional averages, not a store's shelf price. Brand, size and store matter more than
   region.
 - A price is per 100 g of what a recipe uses, so buying a whole package for one recipe costs more
-  than its cost says. Waste of that kind is the planner's waste term, not the price's.
+  than its cost says. The shopping list prices whole packages and says what is left over
+  (`docs/packages.md`); a recipe's and a week's cost (`plan_week.py`) stay what the recipes use, and
+  the planner does not weigh what is left (an objective change, the owner's call).
 - Purchase to Plate is from 2017-18: relative prices have moved since, and one CPI factor for all
   foods does not follow them (eggs and beef rose more than most).

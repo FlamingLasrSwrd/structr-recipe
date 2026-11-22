@@ -32,6 +32,8 @@ private/week.toml:
     shortlist_above = 60                # optional: a larger recipe book is searched through a shortlist
                                         # of the best fits to the week (mealplanner/planning/shortlist.py)
     prices = "Home prices"              # optional: report the week's cost at this price level
+    packages = "Home packages"          # optional, for tools/shopping_list.py: the package level it rounds up to
+                                        # (default "Home packages" where there is one, else "US supermarket")
     cook = ["Adobo loco steak", { recipe = "Balsamic fig chicken", on = "Wed Dinner" }]
                                         # optional: recipes to cook this week, each at least once (twice if
                                         # listed twice); the planner picks the meal, portions and leftovers,

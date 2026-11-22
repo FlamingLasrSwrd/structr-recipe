@@ -1,0 +1,546 @@
+# What the vocabulary's foods are sold in: common U.S. supermarket package sizes (docs/packages.md,
+# mealplanner/packages.py, data-model.md J39). Loaded by tools/import_packages.py as the level
+# "US supermarket" in the Package Reference hierarchy; the owner's own sizes are a level below it,
+# from private/packages.toml (tools/instantiate_profile.py packages).
+#
+# Every size here is `estimated`: a size commonly seen on U.S. supermarket shelves, written down by
+# Claude from general knowledge (2026-11-22) and NOT checked against a store or a dataset. Brands and
+# stores differ; the owner's own file replaces a food's sizes wherever they differ. No public dataset
+# of package sizes was found to pin, as data/prices/ pins prices.
+#
+# A [[package]] names a food and the sizes it is sold in, each [amount, unit] or [amount, unit, label]:
+#   - a unit the unit table knows (g, oz, lb, fl_oz, l, cup, each, ...). A volume needs the food's
+#     density, a count its weight per item (both from data/vocabulary.toml); a mass always converts,
+#     so net weights are given as printed where there is one;
+#   - up to four sizes; the shopping list buys the mix that leaves least over, then the fewest packages.
+#
+# Left out on purpose:
+#   - what is bought loose or by weight at a counter: most fresh produce (onions, apples, peppers,
+#     tomatoes, ginger), meat and fish cut to order (chicken breasts, steaks, salmon, drumsticks).
+#     The list buys what is needed, in whole items where the recipes count them;
+#   - what is bought in one form and used in another, stage 3 of docs/todo.md's "What ingredients are
+#     sold in": juice squeezed from a lemon, whites separated from eggs, a whole pineapple cut up, the
+#     drained weight of a can whose recipe weighs it drained (water chestnuts), a rotisserie chicken;
+#   - what a recipe makes (fillings, batters, sauces), and tap water.
+
+# -- dairy and eggs --------------------------------------------------------------------------------
+[[package]]
+food = "Egg"
+sizes = [[12, "each", "dozen"], [18, "each", "18 count"]]
+[[package]]
+food = "Whole milk"
+sizes = [[64, "fl_oz", "half gallon"], [128, "fl_oz", "gallon"]]
+[[package]]
+food = "Fat-free milk"
+sizes = [[64, "fl_oz", "half gallon"], [128, "fl_oz", "gallon"]]
+[[package]]
+food = "Buttermilk"
+sizes = [[32, "fl_oz", "quart"]]
+[[package]]
+food = "Heavy cream"
+sizes = [[8, "fl_oz", "half pint"], [16, "fl_oz", "pint"]]
+[[package]]
+food = "Evaporated milk (fat-free)"
+sizes = [[12, "fl_oz", "can (12 fl oz)"]]
+[[package]]
+food = "Butter (salted)"
+sizes = [[16, "oz", "1 lb (4 sticks)"]]
+[[package]]
+food = "Butter (unsalted)"
+sizes = [[16, "oz", "1 lb (4 sticks)"]]
+[[package]]
+food = "Sour cream"
+sizes = [[8, "oz", "8 oz tub"], [16, "oz", "16 oz tub"]]
+[[package]]
+food = "Sour cream (fat-free)"
+sizes = [[16, "oz", "16 oz tub"]]
+[[package]]
+food = "Cream cheese"
+sizes = [[8, "oz", "8 oz block"]]
+[[package]]
+food = "Cottage cheese"
+sizes = [[16, "oz", "16 oz tub"], [24, "oz", "24 oz tub"]]
+[[package]]
+food = "Nonfat plain yogurt"
+sizes = [[32, "oz", "32 oz tub"]]
+[[package]]
+food = "Nonfat Greek yogurt"
+sizes = [[5.3, "oz", "single cup (5.3 oz)"], [32, "oz", "32 oz tub"]]
+[[package]]
+food = "Cheddar cheese"
+sizes = [[8, "oz", "8 oz block"]]
+[[package]]
+food = "Reduced-fat cheddar"
+sizes = [[8, "oz", "8 oz block"]]
+[[package]]
+food = "Mozzarella (low-moisture part-skim)"
+sizes = [[8, "oz", "8 oz bag"], [16, "oz", "16 oz bag"]]
+[[package]]
+food = "Monterey Jack"
+sizes = [[8, "oz", "8 oz block"]]
+[[package]]
+food = "Swiss cheese"
+sizes = [[8, "oz", "8 oz pack"]]
+[[package]]
+food = "Parmesan (grated)"
+sizes = [[8, "oz", "8 oz shaker"]]
+[[package]]
+food = "Feta cheese"
+sizes = [[6, "oz", "6 oz tub"]]
+
+# -- meat and fish sold in set packs -----------------------------------------------------------------
+[[package]]
+food = "Ground beef 85% lean (raw)"
+sizes = [[1, "lb", "1 lb pack"]]
+[[package]]
+food = "Ground turkey 93% lean (raw)"
+sizes = [[1, "lb", "1 lb pack"]]
+[[package]]
+food = "Ground pork (raw)"
+sizes = [[1, "lb", "1 lb pack"]]
+[[package]]
+food = "Pork breakfast sausage (raw)"
+sizes = [[1, "lb", "1 lb roll"]]
+[[package]]
+food = "Italian chicken sausage (raw)"
+sizes = [[12, "oz", "12 oz pack"]]
+[[package]]
+food = "Bacon (raw)"
+sizes = [[12, "oz", "12 oz pack"], [16, "oz", "1 lb pack"]]
+[[package]]
+food = "Ham (cooked)"
+sizes = [[8, "oz", "8 oz deli pack"]]
+[[package]]
+food = "Shrimp (raw)"
+sizes = [[1, "lb", "1 lb bag (frozen)"], [2, "lb", "2 lb bag (frozen)"]]
+[[package]]
+food = "Canned tuna (in water)"
+sizes = [[1, "each", "can (5 oz)"]]
+
+# -- canned and jarred ---------------------------------------------------------------------------------
+[[package]]
+food = "Black beans (canned)"
+sizes = [[15, "oz", "15 oz can"]]
+[[package]]
+food = "Black beans (canned drained)"
+sizes = [[1, "each", "15 oz can drained"]]
+note = "the vocabulary weighs one can drained (each)"
+[[package]]
+food = "Kidney beans (canned drained)"
+sizes = [[1, "each", "15 oz can drained"]]
+note = "the vocabulary weighs one can drained (each)"
+[[package]]
+food = "Pinto beans (canned drained)"
+sizes = [[1, "each", "15 oz can drained"]]
+note = "the vocabulary weighs one can drained (each)"
+[[package]]
+food = "Cannellini beans (canned)"
+sizes = [[15, "oz", "15 oz can"]]
+[[package]]
+food = "Canned cannellini beans (drained)"
+sizes = [[1, "each", "15 oz can drained"]]
+note = "the vocabulary weighs one can drained (each)"
+[[package]]
+food = "Chickpeas (canned)"
+sizes = [[15, "oz", "15 oz can"]]
+[[package]]
+food = "Chickpeas (canned drained)"
+sizes = [[1.5, "cup", "15 oz can drained (about 1.5 cups)"]]
+[[package]]
+food = "Diced tomatoes (canned)"
+sizes = [[14.5, "oz", "14.5 oz can"], [28, "oz", "28 oz can"]]
+[[package]]
+food = "Crushed tomatoes (canned)"
+sizes = [[28, "oz", "28 oz can"]]
+[[package]]
+food = "Tomato sauce (canned)"
+sizes = [[8, "oz", "8 oz can"], [15, "oz", "15 oz can"]]
+[[package]]
+food = "Tomato paste"
+sizes = [[6, "oz", "6 oz can"]]
+[[package]]
+food = "Coconut milk (canned)"
+sizes = [[13.5, "fl_oz", "13.5 fl oz can"]]
+[[package]]
+food = "Canned green chiles"
+sizes = [[4, "oz", "4 oz can"]]
+[[package]]
+food = "Black olives (canned)"
+sizes = [[6, "oz", "can (6 oz drained)"]]
+[[package]]
+food = "Crushed pineapple (canned in juice)"
+sizes = [[8, "oz", "8 oz can"], [20, "oz", "20 oz can"]]
+[[package]]
+food = "Roasted red peppers (jarred)"
+sizes = [[12, "oz", "12 oz jar"]]
+[[package]]
+food = "Chicken broth"
+sizes = [[32, "fl_oz", "carton (32 fl oz)"], [14.5, "oz", "can (14.5 oz)"]]
+[[package]]
+food = "Beef broth (low sodium)"
+sizes = [[32, "fl_oz", "carton (32 fl oz)"]]
+[[package]]
+food = "Vegetable broth"
+sizes = [[32, "fl_oz", "carton (32 fl oz)"]]
+
+# -- grains, pasta, bread ---------------------------------------------------------------------------------
+[[package]]
+food = "AP Flour"
+sizes = [[5, "lb", "5 lb bag"]]
+[[package]]
+food = "Whole wheat flour"
+sizes = [[5, "lb", "5 lb bag"]]
+[[package]]
+food = "Jasmine rice (dry)"
+sizes = [[2, "lb", "2 lb bag"]]
+[[package]]
+food = "Brown rice (dry)"
+sizes = [[2, "lb", "2 lb bag"]]
+[[package]]
+food = "Instant brown rice (dry)"
+sizes = [[14, "oz", "14 oz box"]]
+[[package]]
+food = "Quinoa (dry)"
+sizes = [[16, "oz", "16 oz bag"]]
+[[package]]
+food = "Rolled oats"
+sizes = [[18, "oz", "18 oz canister"], [42, "oz", "42 oz canister"]]
+[[package]]
+food = "Couscous (dry)"
+sizes = [[10, "oz", "10 oz box"]]
+[[package]]
+food = "Orzo (dry)"
+sizes = [[16, "oz", "1 lb box"]]
+[[package]]
+food = "Egg noodles (dry)"
+sizes = [[12, "oz", "12 oz bag"]]
+[[package]]
+food = "Rice noodles (dry)"
+sizes = [[14, "oz", "14 oz package"]]
+[[package]]
+food = "Brown lentils (dry)"
+sizes = [[16, "oz", "1 lb bag"]]
+[[package]]
+food = "Panko"
+sizes = [[8, "oz", "8 oz box"]]
+[[package]]
+food = "Bread crumbs (plain)"
+sizes = [[15, "oz", "15 oz canister"]]
+[[package]]
+food = "Whole wheat bread"
+sizes = [[20, "oz", "20 oz loaf"]]
+[[package]]
+food = "White bread"
+sizes = [[20, "oz", "20 oz loaf"]]
+[[package]]
+food = "Whole wheat tortilla"
+sizes = [[8, "each", "pack of 8"]]
+[[package]]
+food = "Flour tortilla (6 inch)"
+sizes = [[10, "each", "pack of 10"]]
+[[package]]
+food = "Flour tortilla (8 inch)"
+sizes = [[10, "each", "pack of 10"]]
+[[package]]
+food = "Flour tortilla (10 inch)"
+sizes = [[8, "each", "pack of 8"]]
+[[package]]
+food = "Whole wheat pita"
+sizes = [[6, "each", "pack of 6"]]
+[[package]]
+food = "Brioche bun"
+sizes = [[8, "each", "pack of 8"]]
+[[package]]
+food = "Potato bun"
+sizes = [[8, "each", "pack of 8"]]
+
+# -- baking -------------------------------------------------------------------------------------------------
+[[package]]
+food = "Granulated sugar"
+sizes = [[4, "lb", "4 lb bag"]]
+[[package]]
+food = "Brown sugar"
+sizes = [[2, "lb", "2 lb bag"]]
+[[package]]
+food = "Powdered sugar"
+sizes = [[2, "lb", "2 lb bag"]]
+[[package]]
+food = "Cornstarch"
+sizes = [[16, "oz", "16 oz box"]]
+[[package]]
+food = "Baking powder"
+sizes = [[8, "oz", "8 oz can"]]
+[[package]]
+food = "Baking soda"
+sizes = [[1, "lb", "1 lb box"]]
+[[package]]
+food = "Active dry yeast"
+sizes = [[0.75, "oz", "strip of 3 packets"], [4, "oz", "4 oz jar"]]
+[[package]]
+food = "Vanilla extract"
+sizes = [[2, "fl_oz", "2 fl oz bottle"]]
+[[package]]
+food = "Semisweet chocolate chips"
+sizes = [[12, "oz", "12 oz bag"]]
+[[package]]
+food = "Shredded coconut (sweetened)"
+sizes = [[7, "oz", "7 oz bag"]]
+[[package]]
+food = "Cocoa powder (unsweetened)"
+sizes = [[8, "oz", "8 oz canister"]]
+
+# -- oils, vinegars, sauces, condiments ----------------------------------------------------------------------
+[[package]]
+food = "Olive oil"
+sizes = [[16.9, "fl_oz", "500 mL bottle"], [33.8, "fl_oz", "1 L bottle"]]
+[[package]]
+food = "Canola oil"
+sizes = [[48, "fl_oz", "48 fl oz bottle"]]
+[[package]]
+food = "Peanut oil"
+sizes = [[24, "fl_oz", "24 fl oz bottle"]]
+[[package]]
+food = "Sesame oil"
+sizes = [[5, "fl_oz", "5 fl oz bottle"]]
+[[package]]
+food = "Cooking spray"
+sizes = [[6, "oz", "6 oz can"]]
+[[package]]
+food = "Apple cider vinegar"
+sizes = [[16, "fl_oz", "16 fl oz bottle"]]
+[[package]]
+food = "Balsamic vinegar"
+sizes = [[16.9, "fl_oz", "500 mL bottle"]]
+[[package]]
+food = "Rice vinegar"
+sizes = [[12, "fl_oz", "12 fl oz bottle"]]
+[[package]]
+food = "White wine vinegar"
+sizes = [[12.7, "fl_oz", "375 mL bottle"]]
+[[package]]
+food = "Red wine vinegar"
+sizes = [[12.7, "fl_oz", "375 mL bottle"]]
+[[package]]
+food = "Distilled white vinegar"
+sizes = [[32, "fl_oz", "32 fl oz bottle"]]
+[[package]]
+food = "Soy sauce"
+sizes = [[15, "fl_oz", "15 fl oz bottle"]]
+[[package]]
+food = "Soy sauce (low sodium)"
+sizes = [[15, "fl_oz", "15 fl oz bottle"]]
+[[package]]
+food = "Fish sauce"
+sizes = [[8.45, "fl_oz", "250 mL bottle"]]
+[[package]]
+food = "Hoisin sauce"
+sizes = [[8.5, "oz", "8.5 oz jar"]]
+[[package]]
+food = "Sriracha"
+sizes = [[17, "oz", "17 oz bottle"]]
+[[package]]
+food = "Teriyaki sauce (reduced sodium)"
+sizes = [[10, "fl_oz", "10 fl oz bottle"]]
+[[package]]
+food = "Worcestershire sauce"
+sizes = [[10, "fl_oz", "10 fl oz bottle"]]
+[[package]]
+food = "Hot sauce"
+sizes = [[5, "fl_oz", "5 fl oz bottle"]]
+[[package]]
+food = "Ketchup"
+sizes = [[20, "oz", "20 oz bottle"], [32, "oz", "32 oz bottle"]]
+[[package]]
+food = "Mayonnaise"
+sizes = [[30, "fl_oz", "30 fl oz jar"]]
+[[package]]
+food = "Dijon mustard"
+sizes = [[8, "oz", "8 oz jar"]]
+[[package]]
+food = "Honey"
+sizes = [[12, "oz", "12 oz bottle"]]
+[[package]]
+food = "Maple syrup"
+sizes = [[12.5, "fl_oz", "12.5 fl oz bottle"]]
+[[package]]
+food = "Salsa"
+sizes = [[16, "oz", "16 oz jar"]]
+[[package]]
+food = "Peanut butter (creamy)"
+sizes = [[16, "oz", "16 oz jar"], [40, "oz", "40 oz jar"]]
+[[package]]
+food = "Peanut butter (crunchy)"
+sizes = [[16, "oz", "16 oz jar"]]
+[[package]]
+food = "Hummus"
+sizes = [[10, "oz", "10 oz tub"]]
+[[package]]
+food = "Dry white wine"
+sizes = [[25.4, "fl_oz", "750 mL bottle"]]
+[[package]]
+food = "Dry red wine"
+sizes = [[25.4, "fl_oz", "750 mL bottle"]]
+
+# -- salt and spices: a typical jar; most of one is left over, and keeps a long time --------------------------------
+[[package]]
+food = "Table salt"
+sizes = [[26, "oz", "26 oz canister"]]
+[[package]]
+food = "Kosher salt"
+sizes = [[3, "lb", "3 lb box"]]
+[[package]]
+food = "Black pepper"
+sizes = [[3, "oz", "3 oz tin"]]
+[[package]]
+food = "Ground cumin"
+sizes = [[1.5, "oz", "spice jar"]]
+[[package]]
+food = "Chili powder"
+sizes = [[2.5, "oz", "spice jar"]]
+[[package]]
+food = "Paprika"
+sizes = [[2, "oz", "spice jar"]]
+[[package]]
+food = "Garlic powder"
+sizes = [[3, "oz", "spice jar"]]
+[[package]]
+food = "Ground cinnamon"
+sizes = [[2.4, "oz", "spice jar"]]
+[[package]]
+food = "Ground ginger"
+sizes = [[0.8, "oz", "spice jar"]]
+[[package]]
+food = "Ground coriander"
+sizes = [[1.25, "oz", "spice jar"]]
+[[package]]
+food = "Cayenne pepper"
+sizes = [[1.75, "oz", "spice jar"]]
+[[package]]
+food = "Dried oregano"
+sizes = [[0.75, "oz", "spice jar"]]
+[[package]]
+food = "Dried basil"
+sizes = [[0.6, "oz", "spice jar"]]
+[[package]]
+food = "Dried thyme"
+sizes = [[0.75, "oz", "spice jar"]]
+[[package]]
+food = "Dried dill"
+sizes = [[0.6, "oz", "spice jar"]]
+[[package]]
+food = "Mustard powder"
+sizes = [[1.75, "oz", "spice jar"]]
+[[package]]
+food = "Italian seasoning"
+sizes = [[0.75, "oz", "spice jar"]]
+[[package]]
+food = "Red chili flakes"
+sizes = [[1.5, "oz", "spice jar"]]
+
+# -- nuts, seeds, dried fruit ------------------------------------------------------------------------------------
+[[package]]
+food = "Pecans"
+sizes = [[6, "oz", "6 oz bag"]]
+[[package]]
+food = "Walnuts"
+sizes = [[8, "oz", "8 oz bag"]]
+[[package]]
+food = "Sesame seeds"
+sizes = [[2, "oz", "2 oz jar"]]
+[[package]]
+food = "Chia seeds"
+sizes = [[12, "oz", "12 oz bag"]]
+[[package]]
+food = "Golden raisins"
+sizes = [[12, "oz", "12 oz box"]]
+[[package]]
+food = "Dried cranberries"
+sizes = [[6, "oz", "6 oz bag"]]
+[[package]]
+food = "Dried apricots"
+sizes = [[6, "oz", "6 oz bag"]]
+
+# -- produce sold in set packs ------------------------------------------------------------------------------------
+[[package]]
+food = "Carrot"
+sizes = [[1, "lb", "1 lb bag"], [2, "lb", "2 lb bag"]]
+[[package]]
+food = "Potatoes"
+sizes = [[5, "lb", "5 lb bag"]]
+[[package]]
+food = "Fingerling potatoes"
+sizes = [[24, "oz", "24 oz bag"]]
+[[package]]
+food = "Garlic"
+sizes = [[10, "each", "head (about 10 cloves)"]]
+[[package]]
+food = "Celery"
+sizes = [[1, "lb", "celery hearts (1 lb)"]]
+[[package]]
+food = "Scallions"
+sizes = [[6, "each", "bunch (about 6)"]]
+[[package]]
+food = "Basil"
+sizes = [[0.75, "oz", "0.75 oz clamshell"]]
+[[package]]
+food = "Cilantro"
+sizes = [[2, "oz", "bunch (about 2 oz)"]]
+[[package]]
+food = "Parsley"
+sizes = [[2, "oz", "bunch (about 2 oz)"]]
+[[package]]
+food = "Mint"
+sizes = [[0.75, "oz", "0.75 oz clamshell"]]
+[[package]]
+food = "Kale"
+sizes = [[8, "oz", "bunch (about 8 oz)"]]
+[[package]]
+food = "Baby spinach"
+sizes = [[5, "oz", "5 oz clamshell"]]
+[[package]]
+food = "Mixed greens"
+sizes = [[5, "oz", "5 oz clamshell"]]
+[[package]]
+food = "Arugula"
+sizes = [[5, "oz", "5 oz clamshell"]]
+[[package]]
+food = "Coleslaw mix"
+sizes = [[14, "oz", "14 oz bag"]]
+[[package]]
+food = "Broccoli florets"
+sizes = [[12, "oz", "12 oz bag"]]
+[[package]]
+food = "Cremini mushrooms"
+sizes = [[8, "oz", "8 oz pack"]]
+[[package]]
+food = "Grape tomatoes"
+sizes = [[10, "oz", "10 oz pint"]]
+[[package]]
+food = "Strawberries"
+sizes = [[1, "lb", "1 lb clamshell"]]
+[[package]]
+food = "Blueberries"
+sizes = [[6, "oz", "6 oz clamshell"], [18, "oz", "18 oz clamshell"]]
+[[package]]
+food = "Blackberries"
+sizes = [[6, "oz", "6 oz clamshell"]]
+[[package]]
+food = "Raspberries"
+sizes = [[6, "oz", "6 oz clamshell"]]
+[[package]]
+food = "Firm tofu"
+sizes = [[14, "oz", "14 oz block"]]
+
+# -- frozen ------------------------------------------------------------------------------------------------------------
+[[package]]
+food = "Frozen chopped spinach"
+sizes = [[10, "oz", "10 oz box"]]
+[[package]]
+food = "Frozen corn kernels"
+sizes = [[12, "oz", "12 oz bag"]]
+[[package]]
+food = "Frozen green peas"
+sizes = [[12, "oz", "12 oz bag"]]
+[[package]]
+food = "Frozen stir-fry vegetables"
+sizes = [[16, "oz", "16 oz bag"]]
