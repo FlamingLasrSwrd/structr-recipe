@@ -36,8 +36,9 @@ planner's search and the batch work.
     The browser is inside the firewall, so the firewall does not help. A purchase needs no node id to
     forge; the other bookings need one.
 
-  Passwords cross the network unencrypted (HTTP), and backups are plain archives that include
-  `private/`.
+  Passwords cross the network unencrypted on the HTTP port (HTTPS was built 2026-11-22 as an opt-in
+  beside it, `docs/pages.md`), and backups are plain archives that include `private/`, the HTTPS key
+  with it.
 - **Backup:** `tools/backup.py` (2026-10-26, `docs/backups.md`): a dump at every stop of the owner's
   stack, checked by restoring it into a throwaway stack; built for this machine's stack names and paths.
 - **Tests:** offline, run locally; GitHub runs nothing (the owner's choice, 2026-10-24).
@@ -83,8 +84,8 @@ Each step says what is done when it is done.
 4. **Security.** In order of cost:
    - *Cheap, and worth it even behind a firewall:* Structr's port bound to the machine
      (`127.0.0.1:`) unless other devices are meant to reach it; bookings as form posts carrying a
-     token tied to the session and checked, in place of links with any token; HTTPS (a reverse proxy)
-     once phones connect.
+     token tied to the session and checked, in place of links with any token; HTTPS (built 2026-11-22
+     for a home network, by Structr itself: `docs/pages.md`; a hosted one needs a public certificate).
    - *With a planner or backend service (step 3; the next section):* the service not published,
      reachable only from Structr on the stack's own network; calls to it proven to come from Structr
      (a shared secret); its own Structr account with only the grants it needs, never the superuser;

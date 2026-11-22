@@ -976,7 +976,9 @@ certificates and scripts, taken with both stopped (or a VM snapshot). An applica
 instances apart), `application.timezone`, `application.heap.min_size`/`max_size`,
 `application.session.timeout`, `application.root.path` (behind a path-prefixing proxy),
 `httpservice.gzip.enabled`, `httpservice.force.https`, `application.https.enabled` with a
-keystore (Structr terminates TLS itself; the `letsencrypt` command fills the keystore),
+keystore (Structr terminates TLS itself; the `letsencrypt` command fills the keystore; in 7.1.0's code,
+read 2026-11-22, and HTTPS by a keystore run that day: `application.https.port` 8083, `application.keystore.path` (PKCS12 or JKS)
+and `application.keystore.password`, also the key's; TLS 1.2 only by default; no SNI check; HTTP stays),
 `httpservice.ratelimiting.*` (off by default), `security.passwordpolicy.*`,
 `htmlservlet.customresponseheaders` (HSTS), `uploadservlet.maxfilesize`,
 `application.filesystem.enabled`.

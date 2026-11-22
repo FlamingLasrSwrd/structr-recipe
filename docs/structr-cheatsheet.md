@@ -186,6 +186,10 @@ fresh 7.1.0 development stack; `tools/create_tools_user.py` is the result):
   `X-StructrSessionToken` answered 200 and left the session open (still in `sessionIds`,
   still accepted); with `Cookie: JSESSIONID=<id>` it removed the session. A request made
   with the session after a `docker restart` of Structr still succeeded.
+- **Browsers drop that `Secure` cookie from a plain-HTTP origin other than localhost** (2026-11-22,
+  Chrome 158 against a stand-in server sending the same cookie): the login answers 200 and the next
+  page 404, looking like a wrong address or an uninstalled page. Serve HTTPS (docs/pages.md), or turn
+  `httpservice.cookies.secure` off. Scripts that send the token as a header never show it.
 - **A page answers an ended session 404, not 401** (2026-10-31, 7.1.0). REST answers the same token 401,
   so a retry on 401 recovers a REST call and never a page; on a page's 404, ask `/structr/rest/me`
   (`StructrClient.request`).

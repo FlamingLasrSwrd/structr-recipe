@@ -14,7 +14,10 @@
 # data, and nothing in the repository can rebuild it. On an 8 GB laptop run one stack at a time;
 # `build` refuses while another Structr stack is running.
 #
-# Optional: OWNER_PORT (default 8085).
+# `up` also serves HTTPS on port 8443 once tools/make_https_cert.py has made private/https/
+# (docs/pages.md, "HTTPS"). It then names its compose files, so a docker-compose.override.yml is not read.
+#
+# Optional: OWNER_PORT (default 8085), STRUCTR_HTTPS_PORT (default 8443).
 set -eu
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$here"
@@ -22,7 +25,20 @@ project=mealplanner-owner
 port="${OWNER_PORT:-8085}"
 url="http://localhost:$port"
 
-compose() { STRUCTR_PORT="$port" docker compose -p "$project" "$@"; }
+https_files=()
+compose() { STRUCTR_PORT="$port" docker compose -p "$project" ${https_files[@]+"${https_files[@]}"} "$@"; }
+use_https() {
+  [ -e private/https ] || return 0
+  # Structr told to serve HTTPS from a keystore it cannot read may not start at all, HTTP included
+  if [ ! -f private/https/keystore.p12 ] || [ ! -f private/https/structr.env ] || [ -e private/https/.replacing ]; then
+    echo "private/https is incomplete: run tools/make_https_cert.py again with --force, or move that folder away to serve HTTP only." >&2
+    exit 1
+  fi
+  https_files=(-f docker-compose.yml -f docker-compose.https.yml)
+  if [ -f private/https/ca.crt ] && command -v openssl >/dev/null 2>&1 && ! openssl x509 -in private/https/ca.crt -noout -checkend $((35 * 86400)) >/dev/null 2>&1; then
+    echo "warning: the HTTPS certificate expires within a month; tools/make_https_cert.py --force makes another (docs/pages.md)." >&2
+  fi
+}
 load_env() {
   if { [ -z "${STRUCTR_SUPERUSER_PASSWORD:-}" ] || [ -z "${STRUCTR_TOOLS_PASSWORD:-}" ]; } && [ -f .env ]; then
     set -a; . ./.env; set +a
@@ -46,10 +62,14 @@ case "${1:-}" in
     ;;
   up)
     load_env
+    use_https
     bash tools/image_guard.sh "$project-structr-1"    # a changed Structr image upgrades the data: only when asked
     compose up -d
     bash tools/wait_for_structr.sh "${WAIT_S:-300}"
     echo "export STRUCTR_URL=$url"
+    if [ "${#https_files[@]}" -gt 0 ]; then
+      echo "other devices: https://<this computer's address>:${STRUCTR_HTTPS_PORT:-8443}/structr/html/login"
+    fi
     ;;
   stop)
     if [ -n "${NO_BACKUP:-}" ]; then
@@ -64,7 +84,7 @@ case "${1:-}" in
     echo "$url"
     ;;
   *)
-    sed -n '2,17p' "$0"
+    sed -n '2,20p' "$0"
     exit 2
     ;;
 esac
