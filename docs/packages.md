@@ -30,22 +30,67 @@ takes its nearest ancestor food's sizes (Butter (salted) takes Butter's), as a p
 defaults of one kind with one key on one Type are what `defaults.resolve_all` refuses as ambiguous,
 which is why sizes are resolved by `packages.package_table`, not by `resolve_all`.
 
-**The public sizes are estimates.** `data/packages.toml` holds 166 foods and 187 sizes, written down
-from general knowledge of U.S. supermarket shelves on 2026-11-22 and not checked against a store or a
-dataset: no public dataset of package sizes was found to pin, as `data/prices/` pins prices. Every one
-is loaded `estimated`, and the shopping list marks a size that rests on one. Left out on purpose: what
-is sold loose or cut to order (most fresh produce, meat and fish from a counter), what is bought in one
-form and used in another (stage 3), what a recipe makes, and tap water.
+**The public sizes are counted from labels where they can be, and estimated where they cannot.**
+`data/packages.toml` holds 166 foods, each with an estimate written down from general knowledge of U.S.
+supermarket shelves (2026-11-22). The owner then asked for a real source. USDA FoodData Central's
+Branded Foods dataset (public domain) records the net weight printed on each product's package
+(`package_weight`, "15 oz/425 g") for about 875,000 of its 2.0 million records; no other open dataset
+was found that does. (Open Food Facts has a crowd-sourced quantity field, under the share-alike ODbL,
+which would bind a pinned extract; its site could not be reached from the session that built this, so
+it was not compared.) So 133 foods carry a rule, `[package.fdc]`, that picks their products out of
+it, and `tools/package_extract.py` counts the sizes those products come in and pins the count in
+`data/packages/fdc.json`, as `data/prices/` pins prices. 114 foods have a count that stands; their
+sizes are loaded `sourced`, each with its share in `source`:
+
+```
+FoodData Central Branded Foods (2026-10-29): 265 of 455 U.S. products (58%), from 82 of 110 brand owners,
+come in this size; public domain: 14.5 oz = 411.068 g
+```
+
+The other 52 keep their estimate, loaded `estimated` and marked on the shopping list: 33 have no rule
+(sold by count, loose or by the bunch, or not in the dataset, such as wine), and 19 matched too few
+products (spices, most often, whose jars differ by brand; coconut milk does stand, with 27).
+
+How a count is made (`mealplanner/fdc_packages.py`; each threshold a proposal for the owner to retune):
+
+- **Which products.** A rule is three regular expressions, case ignored: `category` on the record's
+  `branded_food_category`, `match` and `exclude` on its description. The exclusions carry most of the
+  work: flavours, mixes, prepared dishes, snack packs, reduced-fat versions, other foods named alongside.
+  One record per product (GTIN), its latest; U.S. market; not discontinued; not sold to food service
+  only.
+- **What size.** As the label prints it in ounces, to the nearest quarter ounce: U.S. labels are designed
+  in ounces and pounds, and the metric figure beside them is a rounded conversion. Weight and fluid
+  ounces count together (a carton of broth is "32 oz" on one record and "32 fl oz" on the next). A size
+  within 1.5% of a more common one is that size ("1.81 kg" is the 4 lb bag; a 15.25 oz can is not a
+  15 oz one).
+- **Which sizes are common.** At least 10% of the food's products, from at least 5 brand owners; at most
+  four, the most common first. A food needs 20 products from 5 owners in all, or its estimate stands.
+- **How it is written.** In the kind of unit the estimate uses (fl_oz for a food sold by volume; oz,
+  or lb for whole pounds from 2 lb). A counted size within 2% of an estimated one is that size, with its
+  figure and label ("500 mL bottle", 16.9 fl oz, where the count says 17).
+
+A count is of products on the market, not of sales: a store brand's can counts once, as a national
+brand's does. That says what a shopper commonly finds, which is what the list needs. What the count
+changed, against the estimates: soy sauce is commonly 10 fl oz (the estimate said 15), honey 16 oz before
+12, sour cream 16 oz before 8, frozen peas and corn 16 oz before 12, Dijon 12 oz before 8; and it added
+sizes the estimates lacked (a quart of milk, 10 lb of flour and sugar, a 28 oz jar of peanut butter).
+
+Left out on purpose: what is sold loose or cut to order (most fresh produce, meat and fish from a
+counter), what is bought in one form and used in another (stage 3), what a recipe makes, and tap water.
 
 ```bash
-python3 tools/import_packages.py --check            # the file against data/vocabulary.toml; writes nothing
+python3 tools/package_extract.py --fetch 2026-10-29 # download a release of the FDC branded CSV zip (~450 MB, once)
+python3 tools/package_extract.py --report           # count again after changing a rule: re-pins data/packages/fdc.json
+python3 tools/import_packages.py --check            # the file and the pin against data/vocabulary.toml; writes nothing
 python3 tools/import_packages.py                    # the public level (after import_vocabulary.py); idempotent
 python3 tools/instantiate_profile.py packages private/packages.toml        # the owner's level
 python3 tools/instantiate_profile.py packages --show "Home packages"       # every size, as the owner sees it
 ```
 
-`--check` refuses, offline, a food the vocabulary does not have and a size by volume or count for a food
-with no density or weight per item (a test runs the same check on the shipped file). Loading refuses
+`--check` refuses, offline, a food the vocabulary does not have, a size by volume or count for a food
+with no density or weight per item, and a rule the pin was not counted with (run `package_extract.py`
+again); a test runs the same checks on the shipped files. Counting reads the 1.3 GB of CSV straight from
+the zip, keeps only the products in a rule's category, and takes about a minute and 320 MB of memory. Loading refuses
 the same against the instance. A size the file no longer names is removed.
 
 ## The owner's own sizes

@@ -3,10 +3,19 @@
 # "US supermarket" in the Package Reference hierarchy; the owner's own sizes are a level below it,
 # from private/packages.toml (tools/instantiate_profile.py packages).
 #
-# Every size here is `estimated`: a size commonly seen on U.S. supermarket shelves, written down by
-# Claude from general knowledge (2026-11-22) and NOT checked against a store or a dataset. Brands and
-# stores differ; the owner's own file replaces a food's sizes wherever they differ. No public dataset
-# of package sizes was found to pin, as data/prices/ pins prices.
+# Each food's `sizes` are an estimate: a size commonly seen on U.S. supermarket shelves, written down
+# by Claude from general knowledge (2026-11-22), not checked against a store. A food with a
+# [package.fdc] rule takes its sizes instead from FoodData Central's Branded Foods (public domain):
+# the sizes its matching products most often come in, counted by tools/package_extract.py and pinned
+# in data/packages/fdc.json (mealplanner/fdc_packages.py says how). Its estimate stands only where the
+# count is too small to (and its estimated label is kept for a counted size within 2% of it). Brands
+# and stores differ; the owner's own file replaces a food's sizes wherever they differ.
+#
+# A rule is three regular expressions, case ignored, written as TOML literal strings ('...', no
+# escaping): `category` on the record's branded_food_category, `match` on its description, and
+# `exclude` on its description (flavours, mixes, prepared dishes, snack packs: what is not this food).
+# Change a rule, then run tools/package_extract.py again; the loader refuses a pin counted with a
+# different rule. Foods sold by count (eggs, tortillas), loose, or by the bunch have no rule.
 #
 # A [[package]] names a food and the sizes it is sold in, each [amount, unit] or [amount, unit, label]:
 #   - a unit the unit table knows (g, oz, lb, fl_oz, l, cup, each, ...). A volume needs the food's
@@ -30,89 +39,201 @@ sizes = [[12, "each", "dozen"], [18, "each", "18 count"]]
 [[package]]
 food = "Whole milk"
 sizes = [[64, "fl_oz", "half gallon"], [128, "fl_oz", "gallon"]]
+[package.fdc]
+category = '^Milk$'
+match = '\bWHOLE\b.*\bMILK\b|\bMILK\b.*\bWHOLE\b|VITAMIN D MILK'
+exclude = 'CHOCOLATE|STRAWBERRY|VANILLA|COFFEE|BANANA|EGGNOG|CARAMEL|COOKIES|HONEY|MAPLE|CINNAMON|FLAVOR|LACTOSE|BUTTERMILK|EVAPORATED|CONDENSED|POWDER|\bDRY\b|GOAT|CHOC|KEFIR'
 [[package]]
 food = "Fat-free milk"
 sizes = [[64, "fl_oz", "half gallon"], [128, "fl_oz", "gallon"]]
+[package.fdc]
+category = '^Milk$'
+match = '\b(FAT[ -]FREE|SKIM|NONFAT)\b'
+exclude = 'CHOCOLATE|STRAWBERRY|VANILLA|COFFEE|BANANA|EGGNOG|CARAMEL|COOKIES|HONEY|MAPLE|CINNAMON|FLAVOR|LACTOSE|BUTTERMILK|EVAPORATED|CONDENSED|POWDER|\bDRY\b|GOAT|CHOC|KEFIR|PROTEIN|ULTRA'
 [[package]]
 food = "Buttermilk"
 sizes = [[32, "fl_oz", "quart"]]
+[package.fdc]
+category = 'Milk|Cream'
+match = 'BUTTERMILK'
+exclude = 'PANCAKE|BISCUIT|RANCH|DRESSING|POWDER|MIX|BREAD|CHICKEN|\bDRY\b'
 [[package]]
 food = "Heavy cream"
 sizes = [[8, "fl_oz", "half pint"], [16, "fl_oz", "pint"]]
+[package.fdc]
+category = '^Cream$'
+match = 'HEAVY (WHIPPING )?CREAM|WHIPPING CREAM'
+exclude = 'SOUR|\bICE\b|AEROSOL|WHIPPED|TOPPING|CHEESE|LIQUEUR|COFFEE|LIGHT|HALF'
 [[package]]
 food = "Evaporated milk (fat-free)"
 sizes = [[12, "fl_oz", "can (12 fl oz)"]]
+[package.fdc]
+category = 'Milk|Cream|Baking'
+match = 'EVAPORATED'
+exclude = 'WHOLE|LOW ?FAT|\b2%|CONDENSED|COCONUT|GOAT|ALMOND|OAT|FILLED|^((?!FAT FREE|FAT-FREE|SKIM|NONFAT).)*$'
 [[package]]
 food = "Butter (salted)"
 sizes = [[16, "oz", "1 lb (4 sticks)"]]
+[package.fdc]
+category = 'Butter'
+match = '\bBUTTER\b'
+exclude = 'UNSALTED|PEANUT|ALMOND|CASHEW|SPREAD|WHIPPED|GARLIC|HONEY|CINNAMON|PLANT|VEGAN|BLEND|\bOIL\b|LIGHT|GHEE|MARGARINE|SPRAY|FLAVOR|HERB|MAPLE|SHEA|COCOA|NUT|SEED|APPLE|PUMPKIN|SUNFLOWER|SOY|BISCOFF|COOKIE|TRUFFLE|SPICE|MOLASSES|STEAK|SAUCE|LOWER|REDUCED|OLIVE|AVOCADO|CANOLA|DAIRY FREE|BROWNED'
 [[package]]
 food = "Butter (unsalted)"
 sizes = [[16, "oz", "1 lb (4 sticks)"]]
+[package.fdc]
+category = 'Butter'
+match = '\bUNSALTED\b.*\bBUTTER\b|\bBUTTER\b.*\bUNSALTED\b'
+exclude = 'PEANUT|ALMOND|CASHEW|SPREAD|WHIPPED|PLANT|VEGAN|BLEND|\bOIL\b|GHEE|MARGARINE|NUT|SEED|SUNFLOWER|SOY|OLIVE|AVOCADO'
 [[package]]
 food = "Sour cream"
 sizes = [[8, "oz", "8 oz tub"], [16, "oz", "16 oz tub"]]
+[package.fdc]
+category = 'Cream|Dips|Dairy'
+match = '\bSOUR CREAM\b'
+exclude = 'SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\bBAR\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|ONION|CHIVE|LIGHT|LITE|FAT FREE|NONFAT|REDUCED|PLANT|VEGAN|DAIRY FREE|POTATO|TACO|BACON|JALAPENO|POWDER'
 [[package]]
 food = "Sour cream (fat-free)"
 sizes = [[16, "oz", "16 oz tub"]]
+[package.fdc]
+category = 'Cream|Dips|Dairy'
+match = '\bSOUR CREAM\b.*\b(FAT FREE|FAT-FREE|NONFAT)\b|\b(FAT FREE|FAT-FREE|NONFAT)\b.*\bSOUR CREAM\b'
+exclude = 'SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\bBAR\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|ONION|CHIVE'
 [[package]]
 food = "Cream cheese"
 sizes = [[8, "oz", "8 oz block"]]
+[package.fdc]
+category = 'Cheese|Cream|Spread'
+match = '\bCREAM CHEESE\b'
+exclude = 'SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\bBAR\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|STRAWBERRY|CHIVE|ONION|HONEY|GARLIC|VEGGIE|SALMON|WHIPPED|DANISH|FROSTING|BAGEL|CHEESECAKE|JALAPENO|BROWNIE|BERRY|PUMPKIN|CINNAMON|HERB|BACON|SPREAD|LIGHT|LITE|REDUCED|FAT FREE|NEUFCHATEL|PLANT|VEGAN|DAIRY FREE|ALMOND|CHOCOLATE|CRAB|SHRIMP|CHICKEN|PEPPER|TOMATO|CRANBERRY|PINEAPPLE|PEACH|MAPLE|CARAMEL|FILLED|STUFFED|WONTON|CRAB|SNACK'
 [[package]]
 food = "Cottage cheese"
 sizes = [[16, "oz", "16 oz tub"], [24, "oz", "24 oz tub"]]
+[package.fdc]
+category = 'Cheese|Cottage'
+match = '\bCOTTAGE CHEESE\b'
+exclude = 'PINEAPPLE|FRUIT|PEACH|STRAWBERR|BLUEBERR|CHIVE|MANGO|SNACK|DIP|CHERRY|BERRY|PEAR|HONEY|CINNAMON|RASPBERR|TOMATO|PEPPER|RANCH|\bAND\b|&'
 [[package]]
 food = "Nonfat plain yogurt"
 sizes = [[32, "oz", "32 oz tub"]]
+[package.fdc]
+category = 'Yogurt'
+match = '(?=.*\bPLAIN\b)(?=.*\b(NONFAT|NON-FAT|FAT FREE|FAT-FREE|0%)\b)'
+exclude = 'GREEK|SKYR|DRINK|KEFIR|ICELANDIC|AUSTRALIAN|PLANT|ALMOND|OAT|COCONUT|SOY|CASHEW'
 [[package]]
 food = "Nonfat Greek yogurt"
 sizes = [[5.3, "oz", "single cup (5.3 oz)"], [32, "oz", "32 oz tub"]]
+[package.fdc]
+category = 'Yogurt'
+match = '(?=.*\bGREEK\b)(?=.*\bPLAIN\b)(?=.*\b(NONFAT|NON-FAT|FAT FREE|FAT-FREE|0%)\b)'
+exclude = 'DRINK|SMOOTHIE|DIP|BAR\b|FROZEN|PLANT|ALMOND|OAT|COCONUT|BLENDED|VANILLA|HONEY'
 [[package]]
 food = "Cheddar cheese"
 sizes = [[8, "oz", "8 oz block"]]
+[package.fdc]
+category = 'Cheese'
+match = '\bCHEDDAR\b'
+exclude = 'SHRED|SLICE|STRING|STICK|SNACK|CRACKER|SPREAD|DIP|SAUCE|POPCORN|JACK|BLEND|MEXICAN|REDUCED|FAT\b|LIGHT|CUBE|BITES|CHIPS|PUFF|POWDER|CURD|SALSA|PIMENTO|BACON|JALAPENO|COLBY|HORSERADISH|PORT WINE|BALL|LOG|WINE|CRISP|SPRAY|PIZZA|PEPPER|ONION|GARLIC|CRANBERR|TRUFFLE|SMOKED|HABANERO|CHIPOTLE|BEER|WHISKEY|BOURBON|RANCH|HERB|SAUSAGE|PLANT|VEGAN|DAIRY FREE|FIG|APPLE|CHUNKS|BAR\b|MINI|STACKS|CRUMBLE|GRATED|PACK|WRAP|ROLL|BAKED|CUP|NUT'
 [[package]]
 food = "Reduced-fat cheddar"
 sizes = [[8, "oz", "8 oz block"]]
+[package.fdc]
+category = 'Cheese'
+match = '\bCHEDDAR\b.*\b(REDUCED|2%|LIGHT|LOW[ -]FAT)\b|\b(REDUCED|2%|LIGHT|LOW[ -]FAT)\b.*\bCHEDDAR\b'
+exclude = 'SLICE|STRING|STICK|SNACK|CRACKER|SPREAD|DIP|SAUCE|JACK|BLEND|MEXICAN|COLBY|CUBE|BITES|PEPPER|ONION|GARLIC|SMOKED|MINI|BAR\b'
 [[package]]
 food = "Mozzarella (low-moisture part-skim)"
 sizes = [[8, "oz", "8 oz bag"], [16, "oz", "16 oz bag"]]
+[package.fdc]
+category = 'Cheese'
+match = '(?=.*\bMOZZARELLA\b)(?=.*(PART[ -]SKIM|LOW[ -]MOISTURE))'
+exclude = 'STRING|STICK|SNACK|FRESH|BALL|PEARL|SLICE|PIZZA|BLEND|ITALIAN|CURD|PROVOLONE|PARMESAN|CHEDDAR|LIGHT|SMOKED|MARINATED|TWIST|SWIRL|STICKS|BITES|CUBES|PEPPER|TOMATO|PESTO|BASIL|ROLL|LOG|WRAP|MINI|HALF|CHUNK|MOZZ STICK|MOZZARELLA STICK'
 [[package]]
 food = "Monterey Jack"
 sizes = [[8, "oz", "8 oz block"]]
+[package.fdc]
+category = 'Cheese'
+match = '\bMONTEREY JACK\b'
+exclude = 'PEPPER|CHEDDAR|COLBY|BLEND|SHRED|SLICE|STRING|STICK|SNACK|MEXICAN|TACO|DIP|SAUCE|JALAPENO|HABANERO|CUBE|BITES|CRACKER|CRISP|SPREAD|GARLIC|DILL|CHIPOTLE|RANCH|PESTO|HERB'
 [[package]]
 food = "Swiss cheese"
 sizes = [[8, "oz", "8 oz pack"]]
+[package.fdc]
+category = 'Cheese'
+match = '\bSWISS\b'
+exclude = 'CHARD|SHRED|SNACK|CRACKER|SPREAD|DIP|SAUCE|CUBE|BITES|STICK|STRING|BLEND|CHEDDAR|PROVOLONE|MUNSTER|HAM|TURKEY|ALMOND|CHIVE|ONION|GARLIC|JALAPENO|PEPPER|SMOKED|TRUFFLE|MUSHROOM|CRISP|CHOCOLATE|ROLL|CAKE|STACK|MINI|BABY|LACE|GRUYERE|EMMENTAL|RACLETTE|FONDUE|PLANT|VEGAN'
 [[package]]
 food = "Parmesan (grated)"
 sizes = [[8, "oz", "8 oz shaker"]]
+[package.fdc]
+category = 'Cheese'
+match = '(?=.*\bPARMESAN\b)(?=.*\bGRATED\b)'
+exclude = 'ROMANO|SHRED|BLEND|ASIAGO|CRISP|GARLIC|HERB|PEPPER|PLANT|VEGAN|PESTO|SAUCE|DIP|SPREAD|CRACKER|CHIPS|BREAD|CRUMB|PANKO|DRESSING|SALAD|SNACK|POPCORN|SEASON|TOPPING|ITALIAN|PECORINO|FONTINA|PROVOLONE|MOZZARELLA'
 [[package]]
 food = "Feta cheese"
 sizes = [[6, "oz", "6 oz tub"]]
+[package.fdc]
+category = 'Cheese'
+match = '\bFETA\b'
+exclude = 'SPINACH|OLIVE|TOMATO|HERB|GARLIC|PEPPER|BASIL|DIP|SPREAD|SAUCE|MEDITERRANEAN|LIGHT|REDUCED|FAT FREE|PLANT|VEGAN|DAIRY FREE|SALAD|CHICKEN|PIE|PHYLLO|PASTRY|SPANAKOPITA|BURGER|SAUSAGE|PIZZA|CRACKER|CHIPS|BLEND|TRUFFLE|LEMON|OREGANO|CRANBERR|FIG|HONEY|CHILI|MARINATED|BRINE|CUBE|STICK|BITES|DILL|PESTO'
 
 # -- meat and fish sold in set packs -----------------------------------------------------------------
 [[package]]
 food = "Ground beef 85% lean (raw)"
 sizes = [[1, "lb", "1 lb pack"]]
+[package.fdc]
+category = 'Meat|Beef|Poultry|Other Meats|Unprepared'
+match = '(?=.*\bGROUND (BEEF|CHUCK)\b)(?=.*\b85\b)'
+exclude = 'PATT|BURGER|MEATBALL|CHILI|SAUSAGE|COOKED|TACO|CRUMBLE|SEASONED|MEATLOAF|SLIDER|FROZEN'
 [[package]]
 food = "Ground turkey 93% lean (raw)"
 sizes = [[1, "lb", "1 lb pack"]]
+[package.fdc]
+category = 'Meat|Poultry|Other Meats|Unprepared|Turkey'
+match = '(?=.*\bGROUND TURKEY\b)(?=.*\b93\b)'
+exclude = 'PATT|BURGER|MEATBALL|SAUSAGE|COOKED|SEASONED|CHILI|TACO|MEATLOAF|SLIDER|FROZEN'
 [[package]]
 food = "Ground pork (raw)"
 sizes = [[1, "lb", "1 lb pack"]]
+[package.fdc]
+category = 'Meat|Pork|Other Meats|Unprepared|Sausages'
+match = '\bGROUND PORK\b'
+exclude = 'SAUSAGE|DUMPLING|COOKED|PATT|SEASONED|MEATBALL|BURGER|CHORIZO|ITALIAN|BREAKFAST|BRAT|POTSTICKER|BUN|WONTON|EGG ROLL'
 [[package]]
 food = "Pork breakfast sausage (raw)"
 sizes = [[1, "lb", "1 lb roll"]]
+[package.fdc]
+category = 'Sausages'
+match = '(?=.*\bSAUSAGE\b)(?=.*\b(ROLL|CHUB|BREAKFAST|COUNTRY|PORK)\b)'
+exclude = 'LINK|PATT|COOKED|FULLY|TURKEY|CHICKEN|BISCUIT|SANDWICH|ITALIAN|BRAT|SMOKED|CHORIZO|GRAVY|PIZZA|CROISSANT|MUFFIN|BURRITO|BOWL|SCRAMBLE|BITES|CRUMBLE|STICK|PANCAKE|WAFFLE|MEATBALL|CHEESE|APPLE|BEEF|VENISON|ANDOUILLE|KIELBASA|POLISH|SUMMER|CANNED|VIENNA|CASING|DINNER|\bDOG|BULK|ROPE|RING|BOLOGNA|LIVER|BLOOD|SALAMI|PEPPERONI|JERKY|SNACK|GREEN CHILE|JALAPENO|BRATWURST|HOT DOG|FRANK|WIENER|SPLIT'
 [[package]]
 food = "Italian chicken sausage (raw)"
 sizes = [[12, "oz", "12 oz pack"]]
+[package.fdc]
+category = 'Sausages'
+match = '(?=.*\bCHICKEN\b)(?=.*\bITALIAN\b)(?=.*\bSAUSAGES?\b)'
+exclude = 'MEATBALL|PIZZA|SAUCE|PASTA|SOUP|COOKED|FULLY|SMOKED|BOWL|MEAL|RAVIOLI|SANDWICH|BREAKFAST|BITES|PEPPERONI'
 [[package]]
 food = "Bacon (raw)"
 sizes = [[12, "oz", "12 oz pack"], [16, "oz", "1 lb pack"]]
+[package.fdc]
+category = 'Bacon'
+match = '\bBACON\b'
+exclude = 'TURKEY|COOKED|PRECOOKED|PRE-COOKED|READY|MICROWAV|BITS|PIECES|BITE|BREAKFAST|BURGER|BEEF|CANADIAN|CHICKEN|BALL|JERKY|WRAPP|JALAPENO|CHEESE|SAUSAGE|\bRIBS?\b|BELLY|SALT PORK|CRUMBLE|TOPPING|SALAD|DIP|SPREAD|JAM|SEASON|FLAVOR|ONION|BEAN|MAPLE|BROWN SUGAR|HONEY|PEPPER|BOURBON|BBQ|PLANT|VEGAN|VEGETARIAN|DUCK|LAMB|BUFFALO|BISON|ELK|VENISON|WILD|FULLY|SLAB|ENDS|CHOP|STEAK|LOIN|HAM|PORK CHOP|SHOULDER|ROLL|KIT'
 [[package]]
 food = "Ham (cooked)"
 sizes = [[8, "oz", "8 oz deli pack"]]
+[package.fdc]
+category = 'Cold Cuts|Other Deli|Pepperoni'
+match = '\bHAM\b'
+exclude = 'STEAK|HOCK|SPIRAL|WHOLE|\bBONE|SHANK|CHEESE|SANDWICH|SALAD|TURKEY|SOUP|BEAN|LOAF|CROISSANT|PIZZA|ROLL|SPREAD|HAMBURGER|DICED|CUBED|CHUNK|PROSCIUTTO|SERRANO|JAMON|SALAMI|CAPICOLA|COPPA|COMBO|VARIETY|TRAY|PLATTER|SNACK|KIT|LUNCH|STACK|WRAP|BISCUIT|DEVILED|SMOKED HOCK|COUNTRY|TASSO|PEPPERONI|BOLOGNA|PASTRAMI|CHICKEN|BEEF|KABOB|CANNED|GLAZE|CHOPPED|WATER PRODUCT|\bBULK\b'
 [[package]]
 food = "Shrimp (raw)"
 sizes = [[1, "lb", "1 lb bag (frozen)"], [2, "lb", "2 lb bag (frozen)"]]
+[package.fdc]
+category = 'Frozen Fish|Fish & Seafood|Seafood'
+match = '\bSHRIMP\b'
+exclude = 'COOKED|BREADED|TEMPURA|COCONUT|SCAMPI|POPCORN|CAKE|DUMPLING|EGG ROLL|PASTA|RICE|FRIED|STIR|GARLIC|SAUCE|COCKTAIL|SEASONED|PLATTER|RING|SKEWER|ALFREDO|\bROLL|SHUMAI|SHU MAI|BOWL|WONTON|FLAVOR|CHIP|CRACKER|SOUP|GUMBO|ETOUFFEE|JAMBALAYA|SALAD|DIP|SPREAD|BOIL|CAJUN|LEMON|BUTTER|TERIYAKI|CRAB|SCALLOP|LOBSTER|FISH|SALMON|TILAPIA|MEAL|KIT|DINNER|ENTREE|BITES|POTSTICKER|PASTE|DRIED|BURGER|CANNED|TACO|LO MEIN|PAD THAI|FAJITA|PEPPER|SPICY|BBQ|GRILL|MARINATED|STUFFED|BACON|SAUSAGE|SURIMI|IMITATION|MIX|MEDLEY|SEAFOOD|SWEET|CURRY|SESAME|ORANGE|HONEY|GINGER|CHILI|BROCCOLI|NOODLE|VEGETABLE|BREADING|POPPER|CRISPY|PANKO'
 [[package]]
 food = "Canned tuna (in water)"
 sizes = [[1, "each", "can (5 oz)"]]
@@ -121,6 +242,10 @@ sizes = [[1, "each", "can (5 oz)"]]
 [[package]]
 food = "Black beans (canned)"
 sizes = [[15, "oz", "15 oz can"]]
+[package.fdc]
+category = 'Canned & Bottled Beans|Canned Vegetables'
+match = '\bBLACK BEANS?\b'
+exclude = 'SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\bBAR\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|SEASONED|REFRIED|RICE|CORN|LOW|DRIED|DRY|SPICY|CUBAN|SALSA|PEPPER|LIME|CHIPOTLE|JALAPENO|GARLIC|ONION|MEXICAN|SOUTHWEST|FIESTA|TACO|BBQ|BAKED|COWBOY|RANCH|CHILE|TOMATO|SOFRITO|SAZON|VEGETARIAN|PINTO|KIDNEY|CHICKPEA|CANNELLINI|DIP|PASTE|NOODLE|BLACK[- ]EYED'
 [[package]]
 food = "Black beans (canned drained)"
 sizes = [[1, "each", "15 oz can drained"]]
@@ -136,6 +261,10 @@ note = "the vocabulary weighs one can drained (each)"
 [[package]]
 food = "Cannellini beans (canned)"
 sizes = [[15, "oz", "15 oz can"]]
+[package.fdc]
+category = 'Canned & Bottled Beans|Canned Vegetables'
+match = '\bCANNELLINI\b|\bWHITE KIDNEY\b'
+exclude = 'SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\bBAR\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|SEASONED|LOW|DRIED|DRY|GARLIC|ROSEMARY|TOMATO|PEPPER|HERB|ITALIAN|TUSCAN|SPICY|BAKED'
 [[package]]
 food = "Canned cannellini beans (drained)"
 sizes = [[1, "each", "15 oz can drained"]]
@@ -143,95 +272,207 @@ note = "the vocabulary weighs one can drained (each)"
 [[package]]
 food = "Chickpeas (canned)"
 sizes = [[15, "oz", "15 oz can"]]
+[package.fdc]
+category = 'Canned & Bottled Beans|Canned Vegetables'
+match = '\bCHICK ?PEAS?\b|\bGARBANZO'
+exclude = 'SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\bBAR\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|HUMMUS|ROASTED|CRUNCH|PASTA|FLOUR|LOW|DRIED|DRY|SEASONED|GARLIC|CURRY|MASALA|SPICY|TOMATO|SPINACH|BLEND|BEANS AND|KIDNEY|BLACK'
 [[package]]
 food = "Chickpeas (canned drained)"
 sizes = [[1.5, "cup", "15 oz can drained (about 1.5 cups)"]]
 [[package]]
 food = "Diced tomatoes (canned)"
 sizes = [[14.5, "oz", "14.5 oz can"], [28, "oz", "28 oz can"]]
+[package.fdc]
+category = 'Tomatoes|Canned Vegetables'
+match = '\bDICED TOMATOES\b|\bTOMATOES,? DICED\b'
+exclude = 'SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\bBAR\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|GREEN CHIL|CHILE|JALAPENO|PASTA|SALSA|MEXICAN|FIESTA|ZESTY|ROTEL|PEPPER|ONION|GARLIC|BASIL|OREGANO|ITALIAN|HERB|BURNT|FIRE|ROASTED|LIME|CILANTRO|SPICY|HOT|TACO|BALSAMIC|OLIVE|CELERY|CAJUN|MILD|SAUCE|PUREE|PASTE|CRUSHED|STEWED|WHOLE'
 [[package]]
 food = "Crushed tomatoes (canned)"
 sizes = [[28, "oz", "28 oz can"]]
+[package.fdc]
+category = 'Tomatoes|Canned Vegetables'
+match = '\bCRUSHED TOMATOES\b|\bTOMATOES,? CRUSHED\b'
+exclude = 'SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\bBAR\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|BASIL|GARLIC|OREGANO|ITALIAN|HERB|FIRE|ROASTED|SPICY|PEPPER|ONION|PUREE|PASTE|DICED|STEWED|WHOLE'
 [[package]]
 food = "Tomato sauce (canned)"
 sizes = [[8, "oz", "8 oz can"], [15, "oz", "15 oz can"]]
+[package.fdc]
+category = 'Tomatoes|Canned Vegetables'
+match = '\bTOMATO SAUCE\b'
+exclude = 'PASTA|PIZZA|MARINARA|BASIL|MEAT|CHILI|SPAGHETTI|GARLIC|ONION|HERB|ITALIAN|PEPPER|SPICY|HOT|MEXICAN|CHILE|JALAPENO|HABANERO|OREGANO|SEASONED|ROASTED|FIRE|ARRABBIATA|VODKA|PESTO|MUSHROOM|SAUSAGE|CHEESE|ALFREDO|DIP|SALSA|BBQ|CURRY|SPINACH|OLIVE|CAPER|PUTTANESCA|TACO|SLOPPY|ENCHILADA'
 [[package]]
 food = "Tomato paste"
 sizes = [[6, "oz", "6 oz can"]]
+[package.fdc]
+category = 'Tomatoes|Canned Vegetables|Sauce'
+match = '\bTOMATO PASTE\b'
+exclude = 'SOUP|DIP|CHILI|BURRITO|SALAD|SAUCE|MIX|SNACK|\bBAR\b|CHIPS|CRACKER|COOKIE|DRESSING|FLAVOR|MEAL|BOWL|KIT|GARLIC|BASIL|ITALIAN|HERB|ROASTED|SPICY|PEPPER|ONION|DOUBLE'
 [[package]]
 food = "Coconut milk (canned)"
 sizes = [[13.5, "fl_oz", "13.5 fl oz can"]]
+[package.fdc]
+category = 'Canned|Oriental, Mexican & Ethnic|Other Cooking|Baking|Milk Additives'
+match = '\bCOCONUT MILK\b'
+exclude = 'BEVERAGE|YOGURT|ICE CREAM|FROZEN|CREAMER|ALMOND|CHOCOLATE|VANILLA|DRINK|SHAKE|LITE|LIGHT|POWDER|CURRY|SAUCE|SOUP|RICE|BAR\b|CANDY|JUICE|WATER|CREAM OF|CONDENSED|SWEETENED|PANDAN|MANGO|BANANA|STRAWBERRY|CORN|TAPIOCA|PUDDING|JELLY|SAGO|SPLIT|BEAN|PALM|BOBA|TEA|COFFEE|LATTE'
 [[package]]
 food = "Canned green chiles"
 sizes = [[4, "oz", "4 oz can"]]
+[package.fdc]
+category = 'Pickles, Olives, Peppers|Canned Vegetables|Oriental, Mexican'
+match = '\bGREEN CHIL(E|I)E?S\b'
+exclude = 'SAUCE|SALSA|ENCHILADA|TOMATO|CHEESE|DIP|PORK|CHICKEN|STEW|SOUP|BURRITO|RICE|CORN|BEANS|FROZEN|ROASTED|FIRE|JALAPENO|HOT|SPICY|SEASONING|POWDER|DRIED|PASTE|QUESO|TAMALE|MAC|PIZZA|CHIPS|ONION|GARLIC|BAKED|STUFFED|RELISH'
 [[package]]
 food = "Black olives (canned)"
 sizes = [[6, "oz", "can (6 oz drained)"]]
+[package.fdc]
+category = 'Pickles, Olives'
+match = '\bRIPE OLIVES\b|\bBLACK OLIVES\b'
+exclude = 'KALAMATA|GREEN|TAPENADE|STUFFED|SPREAD|MIX|SALAD|BLEND|MEDLEY|PIMENTO|GREEK|NICOISE|OIL|CURED|PITTED KALAMATA|CAPER|PESTO|DIP|PIZZA|SNACK|CUP|GO|MARINATED|GARLIC|HERB|PEPPER'
 [[package]]
 food = "Crushed pineapple (canned in juice)"
 sizes = [[8, "oz", "8 oz can"], [20, "oz", "20 oz can"]]
+[package.fdc]
+category = 'Canned Fruit'
+match = '\bCRUSHED PINEAPPLE\b|\bPINEAPPLE,? CRUSHED\b'
+exclude = 'SYRUP|HEAVY|LIGHT|MANGO|COCONUT|CHERRY|PEACH|MIX|TOPPING|PIE|FILLING'
 [[package]]
 food = "Roasted red peppers (jarred)"
 sizes = [[12, "oz", "12 oz jar"]]
+[package.fdc]
+category = 'Pickles, Olives, Peppers|Canned Vegetables'
+match = '\bROASTED (RED )?PEPPERS?\b|\bROASTED RED\b'
+exclude = 'HUMMUS|DIP|SPREAD|SAUCE|SOUP|PESTO|DRESSING|CHEESE|TAPENADE|GARLIC|ONION|STRIPS|YELLOW|GREEN|MIXED|BLEND|MEDLEY|MARINATED|HERB|OIL|SPICY|HOT|ARTICHOKE|OLIVE|RELISH|BRUSCHETTA|CHIPS|CRACKER|SALSA|SALAD'
 [[package]]
 food = "Chicken broth"
 sizes = [[32, "fl_oz", "carton (32 fl oz)"], [14.5, "oz", "can (14.5 oz)"]]
+[package.fdc]
+category = 'Soup'
+match = '\bCHICKEN (BROTH|STOCK)\b'
+exclude = 'NOODLE|RICE|BOUILLON|CUBE|POWDER|BASE|CONCENTRATE|CREAM|GRAVY|SOUP|BONE|GINGER|TURMERIC|LEMON|GARLIC|HERB|ROASTED|LOW|LESS|REDUCED|NO SALT|UNSALTED|FAT FREE|COOKING|SEASONED|ITALIAN|MEXICAN|PHO|RAMEN|MISO|CHIPOTLE|SPICY|THAI|CURRY|ONION|MUSHROOM|VEGETABLE|BEEF|TURKEY|PORK|ORGANIC FREE|PACKET|SINGLE|CUP|STICK|ENVELOPE|SACHET'
 [[package]]
 food = "Beef broth (low sodium)"
 sizes = [[32, "fl_oz", "carton (32 fl oz)"]]
 [[package]]
 food = "Vegetable broth"
 sizes = [[32, "fl_oz", "carton (32 fl oz)"]]
+[package.fdc]
+category = 'Soup'
+match = '\bVEGETABLE (BROTH|STOCK)\b'
+exclude = 'NOODLE|RICE|BOUILLON|CUBE|POWDER|BASE|CONCENTRATE|CREAM|GRAVY|SOUP|GINGER|TURMERIC|GARLIC|HERB|ROASTED|LOW|LESS|REDUCED|NO SALT|UNSALTED|COOKING|SEASONED|PHO|RAMEN|MISO|SPICY|ONION|MUSHROOM|CHICKEN|BEEF|PACKET|CUP|STICK|ENVELOPE|SACHET|BEEF'
 
 # -- grains, pasta, bread ---------------------------------------------------------------------------------
 [[package]]
 food = "AP Flour"
 sizes = [[5, "lb", "5 lb bag"]]
+[package.fdc]
+category = 'Flours'
+match = '\bALL[ -]PURPOSE\b.*\bFLOUR\b|\bFLOUR\b.*\bALL[ -]PURPOSE\b'
+exclude = 'MIX|GLUTEN|ALMOND|BLEND|BAKING MIX|COCONUT|RICE|OAT|CASSAVA|KETO|SELF[ -]RISING|WHOLE|WHITE WHOLE|SPROUTED|ANCIENT|PASTRY|BREAD FLOUR|PROTEIN|GRAIN FREE|PALEO|SORGHUM|CHICKPEA|1:1|1-TO-1|1 TO 1|CUP FOR CUP|MEASURE'
 [[package]]
 food = "Whole wheat flour"
 sizes = [[5, "lb", "5 lb bag"]]
+[package.fdc]
+category = 'Flours'
+match = '\bWHOLE WHEAT FLOUR\b|\bFLOUR,? WHOLE WHEAT\b|\b100% WHOLE WHEAT\b'
+exclude = 'MIX|BLEND|TORTILLA|PASTA|PASTRY|WHITE WHOLE|SPROUTED|GLUTEN|ALL[ -]PURPOSE|BREAD MIX|PANCAKE|GRAHAM|ATTA|DURUM|STONE[ -]GROUND|SELF[ -]RISING'
 [[package]]
 food = "Jasmine rice (dry)"
 sizes = [[2, "lb", "2 lb bag"]]
+[package.fdc]
+category = '^Rice$'
+match = '\bJASMINE\b'
+exclude = 'READY|MICROWAV|COOKED|HEAT|STEAM|POUCH|\bCUPS?\b|BOWL|SEASON|FLAVOR|MIX|FRIED|PILAF|GARLIC|CILANTRO|LIME|CHICKEN|BEEF|VEGETABLE|CAKE|CRACKER|CHIPS|SNACK|PASTA|FLOUR|CRISP|BLEND|MEDLEY|SPANISH|MEXICAN|BUTTER|CHEESE|COCONUT|BEANS|QUINOA|SALAD|90 SEC|BURRITO|SUSHI|BROWN|BLACK|RED|PURPLE|WILD|BASMATI|HALF|SPROUTED'
 [[package]]
 food = "Brown rice (dry)"
 sizes = [[2, "lb", "2 lb bag"]]
+[package.fdc]
+category = '^Rice$'
+match = '\bBROWN RICE\b|\bRICE,? BROWN\b'
+exclude = 'READY|MICROWAV|COOKED|HEAT|STEAM|POUCH|\bCUPS?\b|BOWL|SEASON|FLAVOR|MIX|FRIED|PILAF|GARLIC|CILANTRO|LIME|CHICKEN|BEEF|VEGETABLE|CAKE|CRACKER|CHIPS|SNACK|PASTA|FLOUR|CRISP|BLEND|MEDLEY|SPANISH|MEXICAN|BUTTER|CHEESE|COCONUT|BEANS|QUINOA|SALAD|90 SEC|BURRITO|SUSHI|INSTANT|MINUTE|QUICK|WILD|RED|BLACK|SPROUTED|SYRUP|PARBOILED|BOIL IN BAG|BAG|SPAGHETTI|PENNE|FUSILLI|ELBOW|LINGUINE|NOODLE|RAMEN|CEREAL|PUFFED|CRISPY'
 [[package]]
 food = "Instant brown rice (dry)"
 sizes = [[14, "oz", "14 oz box"]]
+[package.fdc]
+category = '^Rice$'
+match = '\b(INSTANT|MINUTE|QUICK)\b.*\bBROWN\b|\bBROWN\b.*\b(INSTANT|QUICK)\b'
+exclude = '\bCUPS?\b|MICROWAV|READY|BOWL|FLAVOR|SEASON|CHICKEN|BEEF|VEGETABLE|SPANISH|WILD|BLEND|QUINOA|GARLIC|HERB|MIX|POUCH|HEAT'
 [[package]]
 food = "Quinoa (dry)"
 sizes = [[16, "oz", "16 oz bag"]]
+[package.fdc]
+category = 'Other Grains|Rice|Grain'
+match = '\bQUINOA\b'
+exclude = 'READY|MICROWAV|COOKED|BLEND|MIX|PASTA|FLAVOR|CHIP|BAR\b|CRISP|PUFF|FLOUR|FLAKE|BOWL|SALAD|SPINACH|KALE|RICE|GARLIC|HERB|LEMON|BURGER|PATT|CEREAL|GRANOLA|COOKIE|CRACKER|SNACK|BITES|POP|CHIA|FLAX|MEDLEY|PILAF|PROTEIN|SEASON|HEAT|POUCH|\bCUPS?\b|STEAM|SPROUTED|COUSCOUS|LENTIL|BEAN|AMARANTH|MILLET|FARRO|BARLEY|ANCIENT|SUPER|TRI[- ]COLOR|TRICOLOR|RED|BLACK|RAINBOW'
 [[package]]
 food = "Rolled oats"
 sizes = [[18, "oz", "18 oz canister"], [42, "oz", "42 oz canister"]]
+[package.fdc]
+category = 'Cereal|Grain'
+match = '\b(OLD[ -]FASHIONED|ROLLED) OATS\b|\bOATS,? (OLD[ -]FASHIONED|ROLLED)\b'
+exclude = 'BAR\b|COOKIE|GRANOLA|\bCUPS?\b|MAPLE|FLAVOR|APPLE|BERRY|SUGAR|HONEY|CHOCOLATE|CINNAMON|INSTANT|OVERNIGHT|QUICK|STEEL|PROTEIN|FLAX|CHIA|BLEND|MIX|PACKET|NUT|RAISIN|PEACH|BANANA|PUMPKIN|VANILLA|COCONUT|SPROUTED|GLUTEN|CRUNCH|MUESLI|BITES|CLUSTERS'
 [[package]]
 food = "Couscous (dry)"
 sizes = [[10, "oz", "10 oz box"]]
+[package.fdc]
+category = 'Pasta|Rice|Grain|Other Grains'
+match = '\bCOUSCOUS\b'
+exclude = 'PARMESAN|GARLIC|HERB|ROASTED|TOASTED|PEARL|ISRAELI|PILAF|MIX|CHICKEN|LEMON|TOMATO|BASIL|SPINACH|FLAVOR|SALAD|\bCUPS?\b|BOWL|MEDITERRANEAN|SEASON|BROTH|ONION|PESTO|WHOLE WHEAT|TRI[- ]COLOR|GIANT|QUINOA|LENTIL|CAULIFLOWER|ANCIENT|PEPPER|OLIVE|MUSHROOM|CURRY|MOROCCAN|BUTTER|PINE NUT|ALMOND|SPICY|SAFFRON|CHICKPEA|VEGETABLE|ROSEMARY|BLEND|MEDLEY'
 [[package]]
 food = "Orzo (dry)"
 sizes = [[16, "oz", "1 lb box"]]
+[package.fdc]
+category = 'Pasta'
+match = '\bORZO\b'
+exclude = 'SALAD|SOUP|RICE|PILAF|MIX|PREPARED|COOKED|GLUTEN|LENTIL|CHICKPEA|QUINOA|TRI[- ]COLOR|SPINACH|TOMATO|GARLIC|LEMON|PARMESAN|BUTTER|CHICKEN|BOWL|MEAL|FROZEN|BEAN|PESTO|HERB|MUSHROOM|VEGETABLE|CAULIFLOWER|PROTEIN|KETO|BRONZE|SAUCE'
 [[package]]
 food = "Egg noodles (dry)"
 sizes = [[12, "oz", "12 oz bag"]]
+[package.fdc]
+category = 'Pasta|All Noodles'
+match = '\bEGG NOODLES?\b|\bNOODLES?,? EGG\b'
+exclude = 'SOUP|CHICKEN|BEEF|STROGANOFF|BUTTER|ALFREDO|CASSEROLE|MIX|DINNER|COOKED|FROZEN|\bCUPS?\b|BOWL|SAUCE|STIR|YOLK|GLUTEN|SPINACH|TOMATO|GARLIC|PARMESAN|CHEESE|HERB|SKILLET|MEAL|LO MEIN|CHOW|CHINESE|FRESH|RAMEN|INSTANT|FLAVOR|ASIAN|WONTON|UDON|RICE|PROTEIN|KETO|LOW CARB|WHOLE WHEAT|HOMESTYLE PASTA'
 [[package]]
 food = "Rice noodles (dry)"
 sizes = [[14, "oz", "14 oz package"]]
+[package.fdc]
+category = 'All Noodles|Pasta|Oriental'
+match = '\bRICE (NOODLES?|STICKS?|VERMICELLI)\b|\bPAD THAI NOODLES?\b'
+exclude = 'KIT|SAUCE|SOUP|BOWL|\bCUPS?\b|SEASON|FLAVOR|INSTANT|CHICKEN|BEEF|SHRIMP|\bPHO\b|SPICY|SESAME|GARLIC|PEANUT|TERIYAKI|ORANGE|CURRY|TOFU|VEGETABLE|MEAL|DINNER|BROWN|BLACK|RED|PURPLE|SWEET POTATO|MUNG|KELP|SHIRATAKI|SOBA|BUCKWHEAT|PASTA|RAMEN|LO MEIN|STIR|THAI KITCHEN|FROZEN|FRESH|COOKED|NOODLE BOWL'
 [[package]]
 food = "Brown lentils (dry)"
 sizes = [[16, "oz", "1 lb bag"]]
+[package.fdc]
+category = 'Vegetable and Lentil Mixes|Canned & Bottled Beans|Other Grains|Pre-Packaged'
+match = '\bLENTILS?\b'
+exclude = '\bRED\b|GREEN|FRENCH|BELUGA|BLACK|YELLOW|SOUP|CANNED|READY|COOKED|STEAMED|PASTA|CHIPS|SNACK|CURRY|\bDAL\b|DAHL|MIX|BLEND|SPROUTED|PILAF|SALAD|FLOUR|STEW|CRACKER|PUFF|CRISP|BURGER|RICE|QUINOA|BEAN|CHICKPEA|SPLIT|PEAS|BARLEY|MASOOR|URAD|CHANA|MOONG|TOOR|SPICY|SEASON|GARLIC|ONION|TOMATO|VEGETABLE|SAUCE|BOWL|POUCH|MICROWAV|HEAT|PROTEIN|ROASTED|CRUNCH|ITALIAN|HERB|LEMON|BAKED|SMOKED|MEDLEY|PARDINA|PETITE|CALIFORNIA|SPANISH|DUPUY|PUY|MEXICAN|ORANGE|\bCUPS?\b|HUMMUS|SPREAD|DIP|PATT|CAKE|MEAL|ENTREE|KIT|SPAGHETTI|PENNE|ROTINI|ELBOW|FUSILLI|LINGUINE|NOODLE'
 [[package]]
 food = "Panko"
 sizes = [[8, "oz", "8 oz box"]]
+[package.fdc]
+category = 'Bread & Muffin Mixes|Baking'
+match = '\bPANKO\b'
+exclude = 'SHRIMP|CHICKEN|FISH|COD|SALMON|CRAB|TOFU|GARLIC|HERB|ITALIAN|PARMESAN|LEMON|SPICY|SEASONED|CAJUN|BBQ|CHEESE|GLUTEN|WHOLE WHEAT|ONION|PEPPER|BUFFALO|RANCH|SRIRACHA|CHIPOTLE|COCONUT|MIX|BLEND|KETO|PORK RIND|CORN|RICE|BUTTER|TOASTED'
 [[package]]
 food = "Bread crumbs (plain)"
 sizes = [[15, "oz", "15 oz canister"]]
+[package.fdc]
+category = 'Bread & Muffin Mixes|Baking'
+match = '\bBREAD ?CRUMBS?\b|\bCRUMBS,? BREAD\b'
+exclude = 'PANKO|ITALIAN|SEASONED|GARLIC|HERB|PARMESAN|LEMON|SPICY|CAJUN|CHEESE|GLUTEN|WHOLE WHEAT|ONION|PEPPER|MIX|BLEND|KETO|PORK RIND|CORN|RICE|BUTTER|TOASTED|STUFFING|CHICKEN|SHRIMP|FISH|COATING|FLAVOR|SOFT|FRESH|ITALIANO|ROMANO|BASIL|ROSEMARY'
 [[package]]
 food = "Whole wheat bread"
 sizes = [[20, "oz", "20 oz loaf"]]
+[package.fdc]
+category = 'Breads & Buns|^Bread$'
+match = '\bWHOLE WHEAT\b.*\bBREAD\b|\b100% WHOLE WHEAT\b'
+exclude = '\bBUNS?\b|ROLL|BAGEL|ENGLISH|PITA|TORTILLA|WRAP|THIN|MINI|STUFFING|CRUMB|CROUTON|FLATBREAD|NAAN|SANDWICH THINS|HOT DOG|HAMBURGER|SLIDER|SUB|HOAGIE|HONEY|OAT|FLAX|SEED|GRAIN|NUT|RAISIN|CINNAMON|SPROUTED|PROTEIN|KETO|LOW CARB|LIGHT|DOUBLE FIBER|HIGH FIBER|LOAF CAKE|MUFFIN|CRACKER|SOFT|SWIRL|BREADSTICK|CRUST|PIZZA|GARLIC|CHEESE|VEGGIE|POTATO|BUTTER|HEARTY|SPLIT TOP|SMALL|HALF|SQUARE|CHIPS'
 [[package]]
 food = "White bread"
 sizes = [[20, "oz", "20 oz loaf"]]
+[package.fdc]
+category = 'Breads & Buns|^Bread$'
+match = '\bWHITE\b.*\bBREAD\b|\bBREAD\b.*\bWHITE\b|\bENRICHED WHITE\b'
+exclude = '\bBUNS?\b|ROLL|BAGEL|ENGLISH|PITA|TORTILLA|WRAP|THIN|MINI|STUFFING|CRUMB|CROUTON|FLATBREAD|NAAN|HOT DOG|HAMBURGER|SLIDER|SUB|HOAGIE|WHOLE|WHEAT|HONEY|OAT|SEED|GRAIN|RAISIN|CINNAMON|PROTEIN|KETO|LIGHT|MUFFIN|CRACKER|SWIRL|BREADSTICK|CRUST|PIZZA|GARLIC|CHEESE|POTATO|BUTTER|TEXAS|SMALL|HALF|SQUARE|CHIPS|SANDWICH THINS|FRENCH|ITALIAN|SOURDOUGH|CORN|RYE|BUTTERMILK|SPLIT TOP|CHOCOLATE|FRUIT|PUMPERNICKEL|MULTIGRAIN|FIBER|BRIOCHE|CHALLAH|HAWAIIAN|SWEET|DINNER|BAGUETTE|BATARD|CIABATTA|BOULE|PAN DE|PANE'
 [[package]]
 food = "Whole wheat tortilla"
 sizes = [[8, "each", "pack of 8"]]
@@ -258,122 +499,270 @@ sizes = [[8, "each", "pack of 8"]]
 [[package]]
 food = "Granulated sugar"
 sizes = [[4, "lb", "4 lb bag"]]
+[package.fdc]
+category = 'Granulated, Brown & Powdered Sugar'
+match = '^(PURE |ORGANIC |PURE CANE |CANE |WHITE |EXTRA FINE |GRANULATED |FINE GRANULATED )*SUGAR$|\bGRANULATED (CANE |WHITE )?SUGAR\b|\bPURE CANE SUGAR\b|\bCANE SUGAR,? GRANULATED\b'
+exclude = 'BROWN|POWDER|CONFECTION|COOKIE|CUBE|RAW|TURBINADO|DEMERARA|COCONUT|MAPLE|DATE|STEVIA|MONK|SPLENDA|TRUVIA|BLEND|SUBSTITUTE|ZERO|KETO|ALLULOSE|ERYTHRITOL|SWEETENER|LIGHT|SUPERFINE|BAKER|CASTER|COLORED|SANDING|DECORAT|CINNAMON|VANILLA|PACKET|STICK|SPRINKLE|PEARL|ROCK|CANDY|SYRUP|ORGANIC CANE SUGAR, UNREFINED|UNREFINED|EVAPORATED|FAIR TRADE|DARK|MUSCOVADO|PANELA|PILONCILLO|JAGGERY|LESS|REDUCED|FREE'
 [[package]]
 food = "Brown sugar"
 sizes = [[2, "lb", "2 lb bag"]]
+[package.fdc]
+category = 'Granulated, Brown & Powdered Sugar'
+match = '\bBROWN SUGAR\b'
+exclude = 'CINNAMON|MAPLE|OATMEAL|BACON|BBQ|SAUCE|SYRUP|BLEND|STEVIA|SPLENDA|TRUVIA|SUBSTITUTE|ZERO|KETO|MONK|ALTERNATIVE|ALLULOSE|ERYTHRITOL|SWEETENER|COCONUT|CUBE|PACKET|STICK|LIQUID|GRANULATED|PILONCILLO|PANELA|JAGGERY|MUSCOVADO|TURBINADO|DEMERARA|RAW|LESS|REDUCED|FREE|SUGAR BLEND'
 [[package]]
 food = "Powdered sugar"
 sizes = [[2, "lb", "2 lb bag"]]
+[package.fdc]
+category = 'Granulated, Brown & Powdered Sugar'
+match = '\bPOWDERED SUGAR\b|\bCONFECTIONER.?S\b|\b10X\b'
+exclude = 'STEVIA|SPLENDA|TRUVIA|SUBSTITUTE|ZERO|KETO|MONK|ALTERNATIVE|ALLULOSE|ERYTHRITOL|SWEETENER|COCONUT|BLEND|ORGANIC POWDERED|LESS|REDUCED|FREE|FROSTING|ICING|DONUT|COOKIE|CHOCOLATE|CINNAMON|VANILLA|STRAWBERRY|COLORED'
 [[package]]
 food = "Cornstarch"
 sizes = [[16, "oz", "16 oz box"]]
+[package.fdc]
+category = 'Flours & Corn Meal|Baking'
+match = '\bCORN ?STARCH\b'
+exclude = 'MIX|BLEND|POTATO|TAPIOCA|ARROWROOT|PUDDING|BAKING POWDER|FLOUR|MEAL|MASA|PUDIN|MAIZENA FLAVOR|FLAVOR|VANILLA|CHOCOLATE|STRAWBERRY|COCONUT'
 [[package]]
 food = "Baking powder"
 sizes = [[8, "oz", "8 oz can"]]
+[package.fdc]
+category = 'Baking'
+match = '\bBAKING POWDER\b'
+exclude = 'BISCUIT|MIX|PANCAKE|SODA|FLOUR|ALUMINUM FREE|FREE|GLUTEN'
 [[package]]
 food = "Baking soda"
 sizes = [[1, "lb", "1 lb box"]]
+[package.fdc]
+category = 'Baking'
+match = '\bBAKING SODA\b|\bSODIUM BICARBONATE\b|\bBICARBONATE OF SODA\b'
+exclude = 'POWDER|MIX|FLOUR|CLEAN|DEODOR|TOOTH|FRIDGE|FREEZER|LAUNDRY|DETERG'
 [[package]]
 food = "Active dry yeast"
 sizes = [[0.75, "oz", "strip of 3 packets"], [4, "oz", "4 oz jar"]]
 [[package]]
 food = "Vanilla extract"
 sizes = [[2, "fl_oz", "2 fl oz bottle"]]
+[package.fdc]
+category = 'Baking Additives'
+match = '\bVANILLA EXTRACT\b|\bEXTRACT,? VANILLA\b'
+exclude = 'IMITATION|FLAVOR|ARTIFICIAL|BEAN PASTE|ALMOND|BLEND|COMPOUND|POWDER|SUGAR|BUTTER|CHOCOLATE|COCONUT|MEXICAN|BOURBON|TAHITIAN|MADAGASCAR|DOUBLE|NON-ALCOHOLIC|ALCOHOL FREE|GLYCERIN|CLEAR|WHITE'
 [[package]]
 food = "Semisweet chocolate chips"
 sizes = [[12, "oz", "12 oz bag"]]
+[package.fdc]
+category = 'Baking Decorations|Chocolate|Baking'
+match = '\bSEMI[- ]?SWEET\b.*\b(CHIPS|MORSELS|CHUNKS)\b|\b(CHIPS|MORSELS)\b.*\bSEMI[- ]?SWEET\b'
+exclude = 'MINI|MILK|WHITE|DARK|BITTERSWEET|PEANUT|BUTTERSCOTCH|MINT|CARAMEL|TOFFEE|SEA SALT|DAIRY FREE|VEGAN|ALLERGY|SUGAR FREE|STEVIA|KETO|NO SUGAR|COOKIE|BAR\b|BAKING BAR|SQUARES|MEGA|BIG|GIANT|CHUNKS|SWIRL|BLEND|MIX'
 [[package]]
 food = "Shredded coconut (sweetened)"
 sizes = [[7, "oz", "7 oz bag"]]
+[package.fdc]
+category = 'Baking'
+match = '\bCOCONUT\b'
+exclude = 'UNSWEETENED|CHIPS|MILK|WATER|OIL|FLOUR|CREAM|CHOCOLATE|BAR\b|CANDY|TOASTED|DESICCATED|FLAKES UNSWEETENED|SUGAR|NECTAR|AMINOS|BUTTER|EXTRACT|FLAVOR|PASTE|POWDER|PALM|DATE|PECAN|FROSTING|ICING|CUSTARD|PIE|CAKE|MACAROON|CRISP|CLUSTER|BITES|^((?!SHRED|FLAKE).)*$'
 [[package]]
 food = "Cocoa powder (unsweetened)"
 sizes = [[8, "oz", "8 oz canister"]]
+[package.fdc]
+category = 'Baking|Chocolate|Powdered Drinks'
+match = '\bCOCOA\b|\bCACAO POWDER\b'
+exclude = 'HOT|MIX|DRINK|BUTTER|NIBS|BEVERAGE|SUGAR|MILK|INSTANT|MARSHMALLOW|PROTEIN|CEREAL|PUFF|CRISP|BAR\b|CANDY|FUDGE|FROSTING|CAKE|COOKIE|BROWNIE|SYRUP|SAUCE|ALMOND|PEANUT|HAZELNUT|MINT|CINNAMON|VANILLA|CARAMEL|MOCHA|COFFEE|LATTE|CHAI|RAW|CEREMONIAL|BLEND|SUPERFOOD|ADAPTOGEN|MUSHROOM|COLLAGEN|MACA|DUTCH|DARK|SPECIAL|BLACK|SWEETENED|^((?!POWDER|UNSWEETENED|BAKING COCOA|100%).)*$'
 
 # -- oils, vinegars, sauces, condiments ----------------------------------------------------------------------
 [[package]]
 food = "Olive oil"
 sizes = [[16.9, "fl_oz", "500 mL bottle"], [33.8, "fl_oz", "1 L bottle"]]
+[package.fdc]
+category = 'Oil'
+match = '\bOLIVE OIL\b'
+exclude = 'SPRAY|BLEND|CANOLA|SUNFLOWER|VEGETABLE|DRESSING|TUNA|SARDINE|ARTICHOKE|GARLIC|LEMON|BASIL|ROSEMARY|CHILI|TRUFFLE|ORANGE|LIME|HERB|PEPPER|CHIPOTLE|JALAPENO|BLOOD|INFUSED|FLAVOR|MIST|POMACE|LIGHT TASTING|PURE|\bLIGHT\b|EXTRA LIGHT|SPREAD|MAYO|BUTTER|MARGARINE|SOAP'
 [[package]]
 food = "Canola oil"
 sizes = [[48, "fl_oz", "48 fl oz bottle"]]
+[package.fdc]
+category = 'Oil'
+match = '\bCANOLA OIL\b|^CANOLA$'
+exclude = 'SPRAY|BLEND|OLIVE|VEGETABLE|MAYO|MIST|BUTTER|FLAVOR|SPREAD|MARGARINE|SOY|CORN|SUNFLOWER|SAFFLOWER|COCONUT|AVOCADO|PEANUT'
 [[package]]
 food = "Peanut oil"
 sizes = [[24, "fl_oz", "24 fl oz bottle"]]
+[package.fdc]
+category = 'Oil'
+match = '\bPEANUT OIL\b'
+exclude = 'SPRAY|BLEND|MIST|ROASTED|TOASTED|FLAVOR|CANOLA|SOY|VEGETABLE|SESAME|COTTONSEED'
 [[package]]
 food = "Sesame oil"
 sizes = [[5, "fl_oz", "5 fl oz bottle"]]
+[package.fdc]
+category = 'Oil|Oriental'
+match = '\bSESAME OIL\b'
+exclude = 'SPRAY|BLEND|DRESSING|SAUCE|NOODLE|CHILI|HOT|GARLIC|GINGER|CANOLA|SOY|PEANUT|VEGETABLE|SUNFLOWER|MIST|LIGHT|COLD PRESSED|BLACK|WHITE'
 [[package]]
 food = "Cooking spray"
 sizes = [[6, "oz", "6 oz can"]]
+[package.fdc]
+category = 'Oil'
+match = '\bSPRAY\b|\bMIST\b'
+exclude = 'PUMP|NON[- ]AEROSOL|BUTTER FLAVOR|FLAVOR|GARLIC|CHIPOTLE|LEMON|TRUFFLE|HERB|BAKING|FLOUR|GRILL|HIGH HEAT|PROFESSIONAL|BAKERY|PAN|DRESSING|SALAD|COCONUT|AVOCADO'
 [[package]]
 food = "Apple cider vinegar"
 sizes = [[16, "fl_oz", "16 fl oz bottle"]]
+[package.fdc]
+category = 'Other Cooking Sauces|Vinegar|Condiment'
+match = '\bAPPLE CIDER VINEGAR\b|\bCIDER VINEGAR\b'
+exclude = 'DRINK|BEVERAGE|GUMM|SHOT|TONIC|CAPSULE|TABLET|HONEY|GINGER|TURMERIC|CINNAMON|LEMON|LIME|CAYENNE|POMEGRANATE|BERRY|GRAPE|APPLE JUICE|SPARKLING|BLEND|MIX|DRESSING|VINAIGRETTE|MOTHER|RAW|UNFILTERED|ORGANIC RAW|WITH THE MOTHER|FLAVOR'
 [[package]]
 food = "Balsamic vinegar"
 sizes = [[16.9, "fl_oz", "500 mL bottle"]]
+[package.fdc]
+category = 'Other Cooking Sauces|Vinegar|Condiment|Salad Dressing'
+match = '\bBALSAMIC VINEGAR\b|\bVINEGAR,? BALSAMIC\b'
+exclude = 'GLAZE|REDUCTION|DRESSING|VINAIGRETTE|WHITE|FIG|CHERRY|RASPBERRY|STRAWBERRY|POMEGRANATE|BLACKBERRY|BLUEBERRY|PEACH|MANGO|ORANGE|LEMON|GARLIC|HERB|TRUFFLE|HONEY|MAPLE|ESPRESSO|CHOCOLATE|CINNAMON|FLAVOR|INFUSED|AGED|RESERVE|CONDIMENT|CREAM|SPRAY|MIST|GOLDEN|SPICY|CHILI|JALAPENO|BASIL|TANGERINE|APPLE|PEAR|PINEAPPLE|COCONUT|VANILLA|DARK|TRADIZIONALE|DOP|IGP|MODENA LEAF|YEAR|GRADE'
 [[package]]
 food = "Rice vinegar"
 sizes = [[12, "fl_oz", "12 fl oz bottle"]]
+[package.fdc]
+category = 'Other Cooking Sauces|Vinegar|Condiment|Oriental'
+match = '\bRICE (WINE )?VINEGAR\b|\bVINEGAR,? RICE\b'
+exclude = 'SEASONED|SUSHI|GARLIC|GINGER|HONEY|SPICY|DRESSING|VINAIGRETTE|BROWN|BLACK|RED|LIGHT|LOW|LESS|FLAVOR|SWEET'
 [[package]]
 food = "White wine vinegar"
 sizes = [[12.7, "fl_oz", "375 mL bottle"]]
+[package.fdc]
+category = 'Other Cooking Sauces|Vinegar|Condiment|Salad Dressing'
+match = '\bWHITE WINE VINEGAR\b|\bVINEGAR,? WHITE WINE\b'
+exclude = 'TARRAGON|HERB|GARLIC|DRESSING|VINAIGRETTE|CHAMPAGNE|SHALLOT|FLAVOR|INFUSED|LEMON|BALSAMIC'
 [[package]]
 food = "Red wine vinegar"
 sizes = [[12.7, "fl_oz", "375 mL bottle"]]
+[package.fdc]
+category = 'Other Cooking Sauces|Vinegar|Condiment|Salad Dressing'
+match = '\bRED WINE VINEGAR\b|\bVINEGAR,? RED WINE\b'
+exclude = 'GARLIC|HERB|DRESSING|VINAIGRETTE|OREGANO|SHALLOT|FLAVOR|INFUSED|BALSAMIC|CABERNET|MERLOT|CHIANTI|ZINFANDEL|PINOT|SHERRY|RIOJA'
 [[package]]
 food = "Distilled white vinegar"
 sizes = [[32, "fl_oz", "32 fl oz bottle"]]
+[package.fdc]
+category = 'Other Cooking Sauces|Vinegar|Condiment'
+match = '\bDISTILLED\b.*\bVINEGAR\b|\bWHITE VINEGAR\b|\bVINEGAR\b.*\bDISTILLED\b'
+exclude = 'CLEANING|CLEAN|HOUSEHOLD|MALT|APPLE|CIDER|WINE|RICE|BALSAMIC|COCONUT|CANE|DATE|SHERRY|CHAMPAGNE|GARLIC|HERB|PEPPER|PICKLING|FLAVOR|SPRAY|DRESSING|VINAIGRETTE|CONCENTRATE|EXTRA STRENGTH|30%|20%|10%|6%|ROBUST'
 [[package]]
 food = "Soy sauce"
 sizes = [[15, "fl_oz", "15 fl oz bottle"]]
+[package.fdc]
+category = 'Oriental, Mexican & Ethnic Sauces|Sauce|Condiment|Season'
+match = '\bSOY SAUCE\b|\bSHOYU\b'
+exclude = 'LOW|LESS|REDUCED|LITE|LIGHT|PACKET|CHICKEN|NOODLE|RICE|DUMPLING|GINGER|GARLIC|SESAME|TERIYAKI|MUSHROOM|DARK|SWEET|SPICY|SUPERIOR|THICK|DOUBLE|SEASONED|SEASONING|CHILI|SRIRACHA|HONEY|STIR|MARINADE|DIP|DRESSING|GLAZE|WASABI|TAMARI|GLUTEN|ORGANIC TAMARI|COCONUT|AMINOS|POWDER|FLAKES|SUBSTITUTE|ALTERNATIVE|SOY FREE|CITRUS|PONZU|YUZU|LEMON|LIME|SUSHI|SASHIMI|KOREAN|FILIPINO|MEAT|TOFU|BROWN SUGAR|BBQ|BULGOGI|GALBI|BLACK BEAN|OYSTER|FISH|SAUCE MIX|SAUCE,? MIX'
 [[package]]
 food = "Soy sauce (low sodium)"
 sizes = [[15, "fl_oz", "15 fl oz bottle"]]
+[package.fdc]
+category = 'Oriental, Mexican & Ethnic Sauces|Sauce|Condiment|Season'
+match = '(?=.*\b(SOY SAUCE|SHOYU)\b)(?=.*\b(LOW|LESS|REDUCED|LITE)\b)'
+exclude = 'PACKET|CHICKEN|NOODLE|RICE|DUMPLING|GINGER|GARLIC|SESAME|TERIYAKI|MUSHROOM|DARK|SWEET|SPICY|SRIRACHA|HONEY|STIR|MARINADE|DIP|DRESSING|GLAZE|TAMARI|GLUTEN|COCONUT|AMINOS|PONZU|SUSHI|BBQ|OYSTER|FISH'
 [[package]]
 food = "Fish sauce"
 sizes = [[8.45, "fl_oz", "250 mL bottle"]]
+[package.fdc]
+category = 'Oriental, Mexican & Ethnic Sauces|Sauce|Condiment|Season'
+match = '\bFISH SAUCE\b'
+exclude = 'VEGAN|VEGETARIAN|PLANT|SEAWEED|MUSHROOM|CHILI|GARLIC|LIME|DIPPING|DRESSING|MARINADE|POWDER|SEASONING|SWEET|SPICY|PACKET|VEGETABLE'
 [[package]]
 food = "Hoisin sauce"
 sizes = [[8.5, "oz", "8.5 oz jar"]]
+[package.fdc]
+category = 'Oriental, Mexican & Ethnic Sauces|Sauce|Condiment|Season|Other Cooking'
+match = '\bHOISIN\b'
+exclude = 'CHICKEN|PORK|BEEF|DUCK|TOFU|NOODLE|RICE|DUMPLING|BAO|BUN|WRAP|MEAL|BOWL|KIT|MIX|GLAZE|DRESSING|SRIRACHA|SPICY|GARLIC|PLUM|BBQ|ORANGE|GINGER|SESAME|HONEY|STIR|MARINADE|GLUTEN|LESS|LOW|REDUCED|PACKET'
 [[package]]
 food = "Sriracha"
 sizes = [[17, "oz", "17 oz bottle"]]
+[package.fdc]
+category = 'Oriental, Mexican & Ethnic Sauces|Ketchup, Mustard|Sauce|Condiment|Season|Other Cooking'
+match = '\bSRIRACHA\b'
+exclude = 'MAYO|CHIPS|ALMOND|PEANUT|CASHEW|SEAWEED|NOODLE|BBQ|HONEY|RANCH|KETCHUP|CHICKEN|POPCORN|SEASONING|SALT|AIOLI|LIME|MUSTARD|BITES|JERKY|SAUSAGE|PRETZEL|SAUCE MIX|POWDER|STICK|PACKET|GARLIC|GREEN|GOLD|SWEET|SMOKED|TERIYAKI|SESAME|SOY|BUFFALO|WING|CREAM|CHEESE|DIP|DRESSING|SPREAD|HOT DOG|BURGER|TOFU|SHRIMP|RICE|CRACKER|NUT|SEED|POP|CORN|PICKLE|SAUERKRAUT|KIMCHI|HUMMUS|SALSA|BUTTER|JAM|JELLY|MAYONNAISE|BLEND|ZERO|NO SUGAR|LESS|REDUCED|LOW|EXTRA|MILD|HOT$|CHILI$|MINI|SQUEEZE PACK'
 [[package]]
 food = "Teriyaki sauce (reduced sodium)"
 sizes = [[10, "fl_oz", "10 fl oz bottle"]]
 [[package]]
 food = "Worcestershire sauce"
 sizes = [[10, "fl_oz", "10 fl oz bottle"]]
+[package.fdc]
+category = 'Sauce|Condiment|Season|Other Cooking|Marinades|Ketchup'
+match = '\bWORCESTERSHIRE\b'
+exclude = 'CHIPS|PRETZEL|NUT|ALMOND|PEANUT|CASHEW|POPCORN|SNACK|SEASONING|POWDER|SALT|PEPPER|BBQ|MARINADE|BURGER|STEAK|JERKY|BEEF|PORK|CHICKEN|MIX|BLEND|DIP|DRESSING|KETCHUP|MAYO|MUSTARD|BLOODY|COCKTAIL|VEGAN|VEGETARIAN|GLUTEN|LESS|LOW|REDUCED|WHITE WINE|CHIPOTLE|SPICY|HOT|BOLD|THICK|PACKET'
 [[package]]
 food = "Hot sauce"
 sizes = [[5, "fl_oz", "5 fl oz bottle"]]
+[package.fdc]
+category = 'Ketchup, Mustard|Oriental, Mexican|Other Condiments|Sauce|Condiment'
+match = '\bHOT SAUCE\b|\bHOT PEPPER SAUCE\b|\bRED HOT\b.*\bSAUCE\b|\bLOUISIANA\b.*\bHOT\b'
+exclude = 'WING|BBQ|CHIPS|BUFFALO|GARLIC|HONEY|MANGO|PINEAPPLE|PEACH|HABANERO|GHOST|REAPER|SCORPION|CHIPOTLE|JALAPENO|GREEN|VERDE|SRIRACHA|SWEET|SMOKED|SMOKEY|SMOKY|LIME|LEMON|CITRUS|MUSTARD|CRANBERRY|CHERRY|RASPBERRY|STRAWBERRY|BLUEBERRY|BLACKBERRY|APPLE|MAPLE|BOURBON|WHISKEY|TEQUILA|BEER|COFFEE|CHOCOLATE|VANILLA|CINNAMON|GINGER|TURMERIC|CURRY|SESAME|SOY|TERIYAKI|HOISIN|OYSTER|FISH|SHRIMP|CHICKEN|BEEF|PORK|BACON|SAUSAGE|CHEESE|CREAM|MAYO|RANCH|KETCHUP|DRESSING|DIP|SALSA|PICANTE|SEASONING|POWDER|SALT|PACKET|MILD|EXTRA|XXX|INSANE|SUICIDE|DEATH|HELL|DEVIL|DIABLO|FIRE|BLAZING|BURN|HEAT|HOT HOT|STEAK|CHILI SAUCE|CHILE SAUCE|SWEET CHILI|PIRI|PERI|HARISSA|GOCHUJANG|SAMBAL|YELLOW|SCOTCH BONNET|ROCOTO|AJI|CARIBBEAN|JAMAICAN|JERK|TROPICAL|FRUIT|TRUFFLE|KIMCHI|GOURMET|CRAFT|SMALL BATCH|ARTISAN|VARIETY|GIFT|SAMPLER|PACK OF|PASTA|TOMATO|ARRABBIATA|BLACK PEPPER|ITALIAN|MARINARA'
 [[package]]
 food = "Ketchup"
 sizes = [[20, "oz", "20 oz bottle"], [32, "oz", "32 oz bottle"]]
+[package.fdc]
+category = 'Ketchup, Mustard'
+match = '\bKETCHUP\b|\bCATSUP\b'
+exclude = 'BBQ|MUSTARD|SRIRACHA|SPICY|HOT|CHIPS|PACKET|BANANA|CURRY|TRUFFLE|JALAPENO|CHIPOTLE|HABANERO|MAYO|RELISH|SAUCE|SEASONING|POWDER|GARLIC|ONION|BACON|HONEY|MAPLE|SMOKY|SMOKED|SWEET|CHILI|BLEND|MIX|PORTION|SINGLE|PACK OF|POUCH|PILLOW|DIP CUP|FANCY PACK|PC\b|\bCT\b|COUNT|FOOD SERVICE|FOODSERVICE|BULK|#10|GAL'
 [[package]]
 food = "Mayonnaise"
 sizes = [[30, "fl_oz", "30 fl oz jar"]]
+[package.fdc]
+category = 'Salad Dressing & Mayonnaise'
+match = '\bMAYONNAISE\b|^(REAL |ORGANIC |CLASSIC )*MAYO$|\bREAL MAYO\b'
+exclude = 'LIGHT|LITE|REDUCED|FAT FREE|LOW FAT|HALF|OLIVE OIL|AVOCADO|CHIPOTLE|SRIRACHA|GARLIC|VEGAN|PLANT|SPICY|DRESSING|PESTO|LEMON|TRUFFLE|WASABI|BACON|DIJONNAISE|MUSTARD|SALAD|HONEY|CHILI|JALAPENO|LIME|HERB|BASIL|DILL|HORSERADISH|KETCHUP|SAUCE|SPREAD|AIOLI|DIP|FLAVOR|EGG FREE|EGGLESS|SANDWICH SPREAD|MIRACLE|WHIPPED|KEWPIE|JAPANESE|SESAME|SOY|COCONUT|CANOLA|SAFFLOWER|SUNFLOWER|PACKET|PORTION|PC\b|\bCT\b|COUNT|POUCH|DIP CUP|SINGLE|GAL\b|GALLON|BULK|FOODSERVICE|FOOD SERVICE'
 [[package]]
 food = "Dijon mustard"
 sizes = [[8, "oz", "8 oz jar"]]
+[package.fdc]
+category = 'Ketchup, Mustard'
+match = '\bDIJON\b'
+exclude = 'HONEY|VINAIGRETTE|DRESSING|MAYO|CHICKEN|DIJONNAISE|SALMON|PORK|POTATO|PACKET|MAPLE|GARLIC|HERB|TARRAGON|HORSERADISH|BALSAMIC|WHISKEY|BOURBON|BEER|CHAMPAGNE|SPICY|HOT|JALAPENO|CHIPOTLE|SRIRACHA|TRUFFLE|LEMON|CRANBERRY|FIG|APPLE|GRAINY|COARSE|WHOLE GRAIN|STONE GROUND|COUNTRY|OLD STYLE|SPREAD|SAUCE|DIP|PORTION|PC\b|\bCT\b|COUNT|SINGLE'
 [[package]]
 food = "Honey"
 sizes = [[12, "oz", "12 oz bottle"]]
+[package.fdc]
+category = '^Honey$|Syrups|Jam|Spread'
+match = '\bHONEY$|^(PURE |RAW |CLOVER |WILDFLOWER |ORGANIC |LOCAL |FILTERED |UNFILTERED |NATURAL |US GRADE A |GRADE A |100% PURE |AMERICAN )*HONEY\b'
+exclude = 'MUSTARD|BUTTER|ROASTED|\bNUTS?\b|BBQ|SAUCE|GRAHAM|OAT|CEREAL|\bHAM\b|TURKEY|CHICKEN|BAR\b|SRIRACHA|\bHOT\b|GARLIC|CINNAMON|COMB|WHIPPED|CREAMED|CREAMY|SPUN|STICK|STRAW|PACKET|PORTION|SINGLE|\bCT\b|COUNT|MANUKA|BUCKWHEAT|ORANGE BLOSSOM|TUPELO|SAGE|ALFALFA|AVOCADO|BLUEBERRY|MESQUITE|ACACIA|EUCALYPTUS|GINGER|LEMON|VANILLA|LAVENDER|INFUSED|FLAVOR|CHILI|JALAPENO|HABANERO|PEPPER|SPICY|DIJON|WHEAT|ALMOND|PEANUT|CASHEW|PECAN|WALNUT|PISTACHIO|SUNFLOWER|SESAME|TAHINI|COCONUT|LIME|BERRY|CHERRY|APPLE|PEAR|PEACH|FIG|DATE|MAPLE|AGAVE|SYRUP|SPREAD|BEAR'
 [[package]]
 food = "Maple syrup"
 sizes = [[12.5, "fl_oz", "12.5 fl oz bottle"]]
+[package.fdc]
+category = 'Syrups'
+match = '\bMAPLE SYRUP\b'
+exclude = 'PANCAKE|FLAVORED|FLAVOR|ARTIFICIAL|LITE|LIGHT|SUGAR FREE|BUTTER|BACON|BOURBON|CINNAMON|VANILLA|INFUSED|AGED|BLUEBERRY|PECAN|WALNUT|BLEND|TABLE|BREAKFAST|WAFFLE|BELGIAN|CORN|ZERO|KETO|LESS|REDUCED|COFFEE|ESPRESSO|WHISKEY|RUM|BARREL|CHILI|HOT|SPICY|SMOKED|SMOKY|MAPLE SUGAR|CANDY|CREAM|BUTTER|SPREAD|FLAKE|PACKET|PORTION|SINGLE|\bCT\b|COUNT|POUCH|DIP CUP'
 [[package]]
 food = "Salsa"
 sizes = [[16, "oz", "16 oz jar"]]
+[package.fdc]
+category = 'Dips & Salsa'
+match = '\bSALSA\b'
+exclude = 'VERDE|CON QUESO|QUESO|CHEESE|\bDIP\b|PEACH|MANGO|PINEAPPLE|CORN|BLACK BEAN|CHIPS|CHIPOTLE|ROASTED|HABANERO|GARLIC|LIME|CILANTRO|FIRE|BEAN|STRAWBERRY|CHERRY|GREEN|TOMATILLO|AVOCADO|GUACAMOLE|SPICY|HOT|EXTRA|CHUNKY|THICK|RESTAURANT|CANTINA|STREET|PICO|SALSA DIP|SALSA CON|SALSA ROJA|SALSA RANCHERA|SALSA CASERA|SALSA BRAVA|SALSA MACHA|SALSA TAQUERA|SALSA PICANTE|SALSA VALENTINA|SALSA HUICHOL|SALSA LIZANO|SALSA INGLESA|SALSA DE|SALSA CHILE|SALSA ARBOL|SALSA CHIPOTLE|SALSA HABANERA|SALSA VERDE|SALSA ROJA|SALSA MEXICANA|SALSA TATEMADA|SALSA BORRACHA|SALSA ALAMBRE|PACKET|PORTION|SINGLE|\bCT\b|COUNT|CUP|SNACK|GO PACK|BOWL|KIT|SEASONING|MIX|POWDER|JALAPENO|SERRANO|POBLANO|ANCHO|GUAJILLO|CASCABEL|PASILLA|MORITA|CHILE DE ARBOL|PEPPER|ONION|TOMATO|BLEND'
 [[package]]
 food = "Peanut butter (creamy)"
 sizes = [[16, "oz", "16 oz jar"], [40, "oz", "40 oz jar"]]
+[package.fdc]
+category = 'Nut & Seed Butters'
+match = '\bCREAMY PEANUT BUTTER\b|\bPEANUT BUTTER,? CREAMY\b|\bSMOOTH PEANUT BUTTER\b'
+exclude = 'CUP|COOKIE|CRACKER|BAR\b|CHOCOLATE|HONEY|PRETZEL|FILLED|POWDER|CANDY|SANDWICH|JELLY|CEREAL|NATURAL|NO STIR|REDUCED|LESS|LOW|PROTEIN|KETO|MAPLE|CINNAMON|VANILLA|BANANA|STRAWBERRY|RASPBERRY|GRAPE|MARSHMALLOW|CARAMEL|COCONUT|ALMOND|CASHEW|HAZELNUT|SUNFLOWER|SEED|SQUEEZE|POUCH|PACKET|PORTION|SINGLE|\bCT\b|COUNT|TO GO|DIP|SPREAD|BLEND|OMEGA|FLAX|CHIA|SALT|UNSALTED|NO SALT|ORGANIC|PALM|WHIPPED|DARK|WHITE|MILK|BLONDIE|BROWNIE|FUDGE|TOFFEE|SNICKERDOODLE|PUMPKIN|SPICED|SPICY|HOT|CHILI|SRIRACHA|BACON'
 [[package]]
 food = "Peanut butter (crunchy)"
 sizes = [[16, "oz", "16 oz jar"]]
+[package.fdc]
+category = 'Nut & Seed Butters'
+match = '\b(CRUNCHY|CHUNKY|EXTRA CRUNCHY|SUPER CHUNK)\b.*\bPEANUT BUTTER\b|\bPEANUT BUTTER,? (CRUNCHY|CHUNKY)\b'
+exclude = 'CUP|COOKIE|CRACKER|BAR\b|CHOCOLATE|HONEY|PRETZEL|FILLED|POWDER|CANDY|SANDWICH|JELLY|CEREAL|NATURAL|NO STIR|REDUCED|LESS|LOW|PROTEIN|KETO|MAPLE|CINNAMON|ALMOND|CASHEW|SUNFLOWER|SQUEEZE|POUCH|PACKET|PORTION|SINGLE|\bCT\b|COUNT|BLEND|OMEGA|FLAX|CHIA|SALT|UNSALTED|NO SALT|ORGANIC|PALM|DARK|WHITE'
 [[package]]
 food = "Hummus"
 sizes = [[10, "oz", "10 oz tub"]]
+[package.fdc]
+category = 'Dips|Deli'
+match = '\bHUMMUS\b'
+exclude = 'CHIPS|CRACKER|SNACK|\bCUPS?\b|PRETZEL|SINGLES|\bGO\b|DESSERT|CHOCOLATE|BROWNIE|COOKIE|CAKE|CARROT|VEGGIE|PITA|TRAY|WRAP|SANDWICH|PLATTER|KIT|BOWL|MEAL|ENTREE|BURRITO|PIZZA|DIP CUP|PORTION|PACK OF|\bCT\b|COUNT|MINI|SNACK PACK|TO GO|GRAB|GO PACK|TUB OF 2|2 PACK|MULTIPACK|VARIETY|SAMPLER|PUFF|POP|CRISP|STICK|BAR\b|MIX|SEASONING|POWDER|SPICE|FLAVOR PACK'
 [[package]]
 food = "Dry white wine"
 sizes = [[25.4, "fl_oz", "750 mL bottle"]]
@@ -385,54 +774,118 @@ sizes = [[25.4, "fl_oz", "750 mL bottle"]]
 [[package]]
 food = "Table salt"
 sizes = [[26, "oz", "26 oz canister"]]
+[package.fdc]
+category = 'Seasoning Mixes, Salts|Herbs & Spices'
+match = '\bIODIZED\b.*\bSALT\b|\bTABLE SALT\b|^(IODIZED )?SALT$|\bSALT,? IODIZED\b'
+exclude = 'SEA|KOSHER|PINK|HIMALAYAN|GARLIC|ONION|SEASON|CELERY|SMOKED|LITE|SUBSTITUTE|PEPPER|TRUFFLE|LEMON|LIME|BLACK|FLAKE|COARSE|ROCK|GRINDER|MILL|SHAKER|PACKET|PORTION|SINGLE|\bCT\b|COUNT|LOW SODIUM|LESS|REDUCED|POTASSIUM|NO SALT|SALT FREE|PICKLING|CANNING|POPCORN|SPICE|HERB|BLEND|MIX|RUB|BRINE|CURE|CURING|MORTON SALT SUBSTITUTE|MSG|ACCENT|SAZON|ADOBO|LAWRY|SEASONED'
 [[package]]
 food = "Kosher salt"
 sizes = [[3, "lb", "3 lb box"]]
+[package.fdc]
+category = 'Seasoning Mixes, Salts|Herbs & Spices'
+match = '\bKOSHER SALT\b|\bSALT,? KOSHER\b'
+exclude = 'GARLIC|SEASON|PEPPER|SMOKED|FLAVOR|ONION|HERB|LEMON|LIME|TRUFFLE|CELERY|BLEND|MIX|RUB|GRINDER|MILL|PACKET|SEA SALT|PINK|HIMALAYAN|FLAKE|BLACK|RED|CHILI|HOT|SPICY|BACON|MAPLE|BOURBON|WINE|ROSEMARY|THYME'
 [[package]]
 food = "Black pepper"
 sizes = [[3, "oz", "3 oz tin"]]
+[package.fdc]
+category = 'Herbs & Spices'
+match = '\bBLACK PEPPER\b|\bPEPPER,? BLACK\b'
+exclude = 'WHOLE|PEPPERCORN|GRINDER|LEMON|GARLIC|SALT|SEASONING|BLEND|MILL|ROYAL|TELLICHERRY|JAVA|MALABAR|SMOKED|TRUFFLE|ONION|HERB|STEAK|MONTREAL|CAJUN|RUB|MIX|SAUCE|MARINADE|JERKY|PACKET|PORTION|\bCT\b|COUNT|SINGLE|WHITE|RED|GREEN|PINK|ROSE|SZECHUAN|SICHUAN|MEDLEY|RAINBOW|FOUR|4|BUTCHER|RESTAURANT|TABLE GRIND|SHAKER'
 [[package]]
 food = "Ground cumin"
 sizes = [[1.5, "oz", "spice jar"]]
+[package.fdc]
+category = 'Herbs & Spices'
+match = '\bCUMIN\b'
+exclude = 'BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|WHOLE|SEED|CHILI|TACO|CORIANDER|TURMERIC|GARLIC|ONION|PAPRIKA|ROASTED|TOASTED|BLACK|PACKET'
 [[package]]
 food = "Chili powder"
 sizes = [[2.5, "oz", "spice jar"]]
+[package.fdc]
+category = 'Herbs & Spices'
+match = '\bCHILI POWDER\b|\bCHILE POWDER\b'
+exclude = 'BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|ANCHO|CHIPOTLE|GUAJILLO|NEW MEXICO|HATCH|KASHMIRI|KOREAN|GOCHUGARU|THAI|CAYENNE|ARBOL|PASILLA|HABANERO|GHOST|DARK|HOT|MILD|SPICY|EXTRA|SMOKED|SALT FREE|NO SALT|PACKET|GARLIC|ONION|LIME|TACO'
 [[package]]
 food = "Paprika"
 sizes = [[2, "oz", "spice jar"]]
+[package.fdc]
+category = 'Herbs & Spices'
+match = '\bPAPRIKA\b'
+exclude = 'BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|SMOKED|HOT|SWEET HUNGARIAN|HUNGARIAN|SPANISH|PIMENTON|GARLIC|ONION|CHILI|PACKET|SMOKY'
 [[package]]
 food = "Garlic powder"
 sizes = [[3, "oz", "spice jar"]]
+[package.fdc]
+category = 'Herbs & Spices'
+match = '\bGARLIC POWDER\b|\bGRANULATED GARLIC\b|\bGARLIC,? GRANULATED\b'
+exclude = 'BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|PARSLEY|HERB|ONION|PEPPER|ROASTED|BLACK|PACKET|MINCED|CHOPPED|FLAKES|BREAD'
 [[package]]
 food = "Ground cinnamon"
 sizes = [[2.4, "oz", "spice jar"]]
+[package.fdc]
+category = 'Herbs & Spices'
+match = '\bCINNAMON\b'
+exclude = 'BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|STICK|SUGAR|ROLL|APPLE|CEREAL|RAISIN|WHOLE|CHIPS|HONEY|PUMPKIN|APPLE PIE|CHAI|NUTMEG|GINGER|CLOVE|ALLSPICE|CARDAMOM|VANILLA|COCOA|CHOCOLATE|COFFEE|PACKET|BARK|QUILL|CHIP'
 [[package]]
 food = "Ground ginger"
 sizes = [[0.8, "oz", "spice jar"]]
+[package.fdc]
+category = 'Herbs & Spices'
+match = '\bGINGER\b'
+exclude = 'BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|CRYSTALLIZED|CANDIED|PASTE|FRESH|SNAP|\bALE\b|ROOT|SLICED|PICKLED|GARLIC|TURMERIC|CINNAMON|PUMPKIN|CHAI|LEMON|HONEY|MINCED|CHOPPED|STIR|PACKET|WHOLE|CRYSTAL'
 [[package]]
 food = "Ground coriander"
 sizes = [[1.25, "oz", "spice jar"]]
+[package.fdc]
+category = 'Herbs & Spices'
+match = '\bCORIANDER\b'
+exclude = 'BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|SEED|WHOLE|CUMIN|CILANTRO|LEAF|LEAVES|PACKET'
 [[package]]
 food = "Cayenne pepper"
 sizes = [[1.75, "oz", "spice jar"]]
+[package.fdc]
+category = 'Herbs & Spices'
+match = '\bCAYENNE\b'
+exclude = 'BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|GARLIC|LEMON|HONEY|SAUCE|HOT SAUCE|CHILI|PACKET|WHOLE|CRUSHED|FLAKES|PODS'
 [[package]]
 food = "Dried oregano"
 sizes = [[0.75, "oz", "spice jar"]]
+[package.fdc]
+category = 'Herbs & Spices'
+match = '\bOREGANO\b'
+exclude = 'BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|BASIL|THYME|ROSEMARY|MARJORAM|GARLIC|ITALIAN|PARSLEY|OIL|FRESH|PASTE|PACKET|MEXICAN|GREEK|TURKISH|MEDITERRANEAN'
 [[package]]
 food = "Dried basil"
 sizes = [[0.6, "oz", "spice jar"]]
+[package.fdc]
+category = 'Herbs & Spices'
+match = '\bBASIL\b'
+exclude = 'BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|PASTE|PESTO|FRESH|TOMATO|GARLIC|FREEZE|OREGANO|THYME|ITALIAN|PARSLEY|ROSEMARY|LEMON|THAI|HOLY|SEED|PACKET|CUBES|FROZEN'
 [[package]]
 food = "Dried thyme"
 sizes = [[0.75, "oz", "spice jar"]]
+[package.fdc]
+category = 'Herbs & Spices'
+match = '\bTHYME\b'
+exclude = 'BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|OREGANO|ROSEMARY|BASIL|SAGE|ITALIAN|PARSLEY|GARLIC|LEMON|FRESH|PASTE|PACKET|POULTRY|HERBES|PROVENCE'
 [[package]]
 food = "Dried dill"
 sizes = [[0.6, "oz", "spice jar"]]
+[package.fdc]
+category = 'Herbs & Spices'
+match = '\bDILL\b'
+exclude = 'BLEND|SEASONING|SALT|GRINDER|MILL|RUB|MIX|DIP|SAUCE|DRESSING|CHIPS|TEA|PICKLE|SEED|CHIPS|SAUCE|DIP|FRESH|PASTE|GARLIC|LEMON|PARSLEY|ONION|RELISH|PACKET|WHOLE|SALMON|POTATO'
 [[package]]
 food = "Mustard powder"
 sizes = [[1.75, "oz", "spice jar"]]
 [[package]]
 food = "Italian seasoning"
 sizes = [[0.75, "oz", "spice jar"]]
+[package.fdc]
+category = 'Herbs & Spices|Seasoning Mixes'
+match = '\bITALIAN SEASONING\b|\bITALIAN HERBS?\b'
+exclude = 'GRINDER|SALT|DRESSING|BREAD|CRUMB|PANKO|MIX\b|SAUCE|SAUSAGE|CHICKEN|BEEF|PORK|TOFU|MEATBALL|PASTA|PIZZA|SPAGHETTI|GARLIC|PARMESAN|CHEESE|SALT FREE|NO SALT|PACKET|PORTION|\bCT\b|COUNT|BLEND OF|PASTE|OIL|BUTTER|SPREAD|DIP|VINEGAR|VINAIGRETTE|CROUTON|STUFFING|RICE|ORZO|COUSCOUS|QUINOA|BEANS|TOMATO|SOUP|BROTH|STOCK|BOUILLON|GRAVY|RUB|MARINADE|FRESH|FROZEN|CUBES|TUBE'
 [[package]]
 food = "Red chili flakes"
 sizes = [[1.5, "oz", "spice jar"]]
@@ -441,41 +894,85 @@ sizes = [[1.5, "oz", "spice jar"]]
 [[package]]
 food = "Pecans"
 sizes = [[6, "oz", "6 oz bag"]]
+[package.fdc]
+category = 'Popcorn, Peanuts, Seeds|Baking|Wholesome Snacks|Nuts'
+match = '\bPECANS?\b'
+exclude = 'CANDIED|GLAZED|PRALINE|HONEY|MAPLE|CINNAMON|CHOCOLATE|ROASTED|SALTED|PIE|COOKIE|\bBAR\b|TRAIL|MIX|CARAMEL|SPICED|SUGAR|BUTTER|TOFFEE|COATED|SMOKED|YOGURT|DIPPED|CLUSTER|BRITTLE|PRALINES|PECAN PIE|SANDIES|TURTLE|DATE|WALNUT|ALMOND|CASHEW|PISTACHIO|HAZELNUT|MACADAMIA|PEANUT|BRAZIL|CRANBERR|RAISIN|CHERRY|APRICOT|FIG|BLUEBERR|COCONUT|GRANOLA|CEREAL|SEASONED|SPICY|CAJUN|BBQ|RANCH|GARLIC|ONION|CHILI|LIME|SRIRACHA|BUFFALO|TRUFFLE|ROSEMARY|BOURBON|WHISKEY|RUM|COFFEE|ESPRESSO|VANILLA|PUMPKIN|SWEET|SPICE|FLOUR|MEAL|OIL|MILK'
 [[package]]
 food = "Walnuts"
 sizes = [[8, "oz", "8 oz bag"]]
+[package.fdc]
+category = 'Popcorn, Peanuts, Seeds|Baking|Wholesome Snacks|Nuts'
+match = '\bWALNUTS?\b'
+exclude = 'CANDIED|GLAZED|PRALINE|HONEY|MAPLE|CINNAMON|CHOCOLATE|ROASTED|SALTED|PIE|COOKIE|\bBAR\b|TRAIL|MIX|CARAMEL|SPICED|SUGAR|BUTTER|TOFFEE|COATED|SMOKED|YOGURT|DIPPED|CLUSTER|BRITTLE|BLACK WALNUT|PECAN|ALMOND|CASHEW|PISTACHIO|HAZELNUT|MACADAMIA|PEANUT|BRAZIL|CRANBERR|RAISIN|CHERRY|APRICOT|FIG|DATE|BLUEBERR|COCONUT|GRANOLA|CEREAL|SEASONED|SPICY|BBQ|GARLIC|CHILI|ROSEMARY|BOURBON|COFFEE|VANILLA|PUMPKIN|SWEET|SPICE|FLOUR|MEAL|OIL|MILK|BUTTER|BROWNIE|BREAD|CAKE|FUDGE|IN SHELL|INSHELL|IN-SHELL|BAKLAVA'
 [[package]]
 food = "Sesame seeds"
 sizes = [[2, "oz", "2 oz jar"]]
+[package.fdc]
+category = 'Herbs & Spices|Baking|Popcorn, Peanuts, Seeds|Other Grains|Oriental'
+match = '\bSESAME SEEDS?\b'
+exclude = 'STICKS|CANDY|\bBAR\b|SNACK|BAGEL|\bBUNS?\b|CRACKER|\bOIL\b|DRESSING|SAUCE|HONEY|BRITTLE|CHIPS|SEAWEED|TAHINI|PASTE|SALT|SEASONING|FURIKAKE|GOMASIO|BLEND|MIX|EVERYTHING|BAGEL SEASONING|GARLIC|ONION|POPPY|FLAX|CHIA|SUNFLOWER|PUMPKIN|HEMP|NUT|ALMOND|PEANUT|CASHEW|CHICKEN|BEEF|TOFU|NOODLE|RICE|SUSHI|ROLL|WRAP|BOWL|KIT|CANDIED|GLAZED|COATED|SWEET|SPICY|WASABI|SOY|TERIYAKI|GINGER|SRIRACHA|CHILI|PACKET|GRINDER'
 [[package]]
 food = "Chia seeds"
 sizes = [[12, "oz", "12 oz bag"]]
+[package.fdc]
+category = 'Other Grains|Popcorn, Peanuts, Seeds|Wholesome Snacks|Baking|Grain'
+match = '\bCHIA SEEDS?\b|^(ORGANIC |BLACK |WHITE |PREMIUM )*CHIA$'
+exclude = 'PUDDING|\bBAR\b|DRINK|JUICE|KOMBUCHA|SQUEEZE|CEREAL|CRACKER|CHIPS|JAM|BLEND|MIX|FLAX|HEMP|QUINOA|OAT|GRANOLA|BITES|CLUSTER|CRISP|PUFF|SNACK|POUCH|PACKET|PORTION|SINGLE|\bCT\b|COUNT|PROTEIN|POWDER|MILLED|GROUND|FLOUR|OIL|SPROUTED|COCONUT|CHOCOLATE|VANILLA|BERRY|MANGO|CINNAMON|APPLE|BANANA|STRAWBERRY|PEANUT|ALMOND|CASHEW|SUNFLOWER|PUMPKIN|SESAME|NUT|SEED BUTTER|SPREAD|YOGURT|SMOOTHIE|WATER|LEMONADE|TEA|COFFEE'
 [[package]]
 food = "Golden raisins"
 sizes = [[12, "oz", "12 oz box"]]
+[package.fdc]
+category = 'Wholesome Snacks|Popcorn, Peanuts, Seeds|Fruit|Pre-Packaged|Baking'
+match = '\bGOLDEN RAISINS?\b|\bRAISINS?,? GOLDEN\b'
+exclude = 'MIX|TRAIL|CHOCOLATE|\bNUTS?\b|YOGURT|\bBAR\b|SALAD|ALMOND|WALNUT|PECAN|COATED|DIPPED|CEREAL|GRANOLA|CASHEW|PEANUT|BLEND|MEDLEY|\bCT\b|COUNT|SNACK|BOXES|MINI|PACKET|PORTION|SINGLE|PACK OF|LUNCHBOX|YOGURT|CHOCOLATE|DARK|FLAME|THOMPSON|JUMBO|BLACK|RED|CRIMSON|SULTANA|CURRANT|CRANBERR|CHERRY|BLUEBERR|APRICOT|DATE|FIG|PRUNE|MANGO|PINEAPPLE|PAPAYA|BANANA|COCONUT|GINGER'
 [[package]]
 food = "Dried cranberries"
 sizes = [[6, "oz", "6 oz bag"]]
+[package.fdc]
+category = 'Wholesome Snacks|Popcorn, Peanuts, Seeds|Fruit|Pre-Packaged|Baking'
+match = '\bDRIED CRANBERRIES\b|\bCRANBERRIES,? (SWEETENED )?DRIED\b|\bCRAISINS\b|\bSWEETENED DRIED CRANBERRIES\b'
+exclude = 'MIX|TRAIL|CHOCOLATE|\bNUTS?\b|YOGURT|\bBAR\b|SALAD|ALMOND|WALNUT|PECAN|COATED|DIPPED|CEREAL|GRANOLA|CASHEW|PEANUT|BLEND|MEDLEY|\bCT\b|COUNT|SNACK|BOXES|MINI|PACKET|PORTION|SINGLE|PACK OF|LUNCHBOX|REDUCED|LESS|LOW|NO SUGAR|UNSWEETENED|JUICE|ORANGE|CHERRY|POMEGRANATE|RASPBERRY|BLUEBERR|STRAWBERR|APPLE|MANGO|PINEAPPLE|RAISIN|APRICOT|DATE|FIG|PRUNE|COCONUT|GINGER|VANILLA|CINNAMON|MAPLE|HONEY|SLICED|DICED|CHOPPED|INFUSED|FLAVOR|SPICED|PROBIOTIC|FIBER|PROTEIN|BITES|CHEWS'
 [[package]]
 food = "Dried apricots"
 sizes = [[6, "oz", "6 oz bag"]]
+[package.fdc]
+category = 'Wholesome Snacks|Popcorn, Peanuts, Seeds|Fruit|Pre-Packaged|Baking'
+match = '\bDRIED APRICOTS?\b|\bAPRICOTS?,? DRIED\b|\bTURKISH APRICOTS?\b|\bAPRICOTS?\b'
+exclude = 'MIX|TRAIL|CHOCOLATE|\bNUTS?\b|YOGURT|\bBAR\b|SALAD|ALMOND|WALNUT|PECAN|COATED|DIPPED|CEREAL|GRANOLA|CASHEW|PEANUT|BLEND|MEDLEY|\bCT\b|COUNT|SNACK|BOXES|MINI|PACKET|PORTION|SINGLE|PACK OF|LUNCHBOX|DICED|CHOPPED|SLICED|BITES|JAM|PRESERVE|NECTAR|JUICE|SYRUP|CANNED|HALVES IN|LIGHT SYRUP|HEAVY SYRUP|IN JUICE|PIE|FILLING|KERNEL|SEED|OIL|CHERRY|PEACH|PLUM|PRUNE|DATE|FIG|RAISIN|CRANBERR|BLUEBERR|MANGO|PINEAPPLE|PAPAYA|BANANA|COCONUT|GINGER|CALIFORNIA|BLENHEIM|SUN[- ]DRIED|UNSULFURED|UNSULPHURED|ORGANIC UNSULFURED|SULFUR|JUMBO|SMALL|FANCY|CHOICE|STANDARD|SLAB|CHUNKS|LEATHER|ROLL|STRIP'
 
 # -- produce sold in set packs ------------------------------------------------------------------------------------
 [[package]]
 food = "Carrot"
 sizes = [[1, "lb", "1 lb bag"], [2, "lb", "2 lb bag"]]
+[package.fdc]
+category = 'Pre-Packaged Fruit & Vegetables'
+match = '^(WHOLE |FRESH |ORGANIC |CELLO |TABLE |JUMBO |MEDIUM |LARGE )*CARROTS$|\bWHOLE CARROTS\b'
+exclude = 'BABY|SHRED|CHIPS|MATCH|COIN|STICK|CRINKLE|DIP|RANCH|JUICE|CAKE|PEAS|MIX|SNACK|PETITE|RAINBOW|PURPLE|HEIRLOOM|COLORED|CUT|PEELED|SLICED|DICED|JULIENNE|CRUNCH|BITES|TOPS|BUNCH|ROMAINE|CELERY|ONION|BROCCOLI|STIR|SALAD|SOUP|ROAST|STEAM'
 [[package]]
 food = "Potatoes"
 sizes = [[5, "lb", "5 lb bag"]]
+[package.fdc]
+category = 'Pre-Packaged Fruit & Vegetables'
+match = '\bRUSSET POTATOES\b|^(WHOLE |FRESH |ORGANIC |IDAHO |RUSSET |BAKING |WHITE )*POTATOES$|\bRUSSETS\b'
+exclude = 'SWEET|FINGERLING|BABY|PETITE|MINI|CREAMER|MASHED|FRIES|TOTS|CHIPS|HASH|SALAD|FROZEN|DEHYDRATED|INSTANT|CANNED|SCALLOPED|AU GRATIN|WEDGE|SOUP|GNOCCHI|STEAM|MICROWAV|RED|GOLD|YELLOW|PURPLE|BLUE|MEDLEY|DICED|CUBED|SLICED|SHREDDED|CUT|PEELED|SEASONED|ROASTED|BAKED|STUFFED|TWICE|LOADED|CHEESE|BACON|ONION|GARLIC|HERB|BUTTER|SKILLET|BOWL|MEAL|KIT|SINGLE|EACH|WRAPPED|JUMBO'
 [[package]]
 food = "Fingerling potatoes"
 sizes = [[24, "oz", "24 oz bag"]]
+[package.fdc]
+category = 'Pre-Packaged Fruit & Vegetables'
+match = '\bFINGERLING\b'
+exclude = 'MASHED|FRIES|CHIPS|SALAD|FROZEN|SEASONED|ROASTED|BAKED|STEAM|MICROWAV|HERB|GARLIC|BUTTER|OIL|KIT|MEAL|BOWL|SKILLET|DICED|SLICED|CUT'
 [[package]]
 food = "Garlic"
 sizes = [[10, "each", "head (about 10 cloves)"]]
 [[package]]
 food = "Celery"
 sizes = [[1, "lb", "celery hearts (1 lb)"]]
+[package.fdc]
+category = 'Pre-Packaged Fruit & Vegetables'
+match = '\bCELERY HEARTS\b|^(FRESH |ORGANIC )*CELERY$|\bCELERY STALKS\b'
+exclude = 'STICKS|SNACK|DIP|RANCH|PEANUT|CARROT|MIX|DICED|CHOPPED|SLICED|CUT|SALT|SEED|ROOT|CELERIAC|JUICE|SOUP|MIREPOIX|SOFRITO|TRINITY|ONION|PEPPER'
 [[package]]
 food = "Scallions"
 sizes = [[6, "each", "bunch (about 6)"]]
@@ -497,21 +994,45 @@ sizes = [[8, "oz", "bunch (about 8 oz)"]]
 [[package]]
 food = "Baby spinach"
 sizes = [[5, "oz", "5 oz clamshell"]]
+[package.fdc]
+category = 'Pre-Packaged Fruit|Vegetable|Produce|Salad'
+match = '\bBABY SPINACH\b'
+exclude = 'BLEND|MIX|SALAD KIT|ARUGULA|KALE|SPRING|ROMAINE|DIP|FROZEN|DRESSING|CHARD|RADICCHIO|FRISEE|LETTUCE|GREENS|MESCLUN|HERB|BEET|CARROT|CABBAGE|BROCCOLI|PEA|WATERCRESS|MICRO|POWER|SUPER|BOWL|KIT|MEAL|CHICKEN|EGG|CHEESE|FETA|BACON|STRAWBERR|CRANBERR|WALNUT|PECAN|ALMOND|SEED|NUT|CROUTON|CRISP|WRAP|SANDWICH|PIZZA|PASTA|RAVIOLI|SOUP|PIE|QUICHE|FRITTATA|OMELET|SAUTE|STEAM|COOKED|CREAMED|CHOPPED'
 [[package]]
 food = "Mixed greens"
 sizes = [[5, "oz", "5 oz clamshell"]]
+[package.fdc]
+category = 'Pre-Packaged Fruit & Vegetables'
+match = '\bSPRING MIX\b|\bMIXED GREENS\b|\bSPRING BLEND\b|\bMESCLUN\b'
+exclude = 'KIT|DRESSING|\bWITH\b|BOWL|MEAL|CHICKEN|EGG|CHEESE|BACON|CROUTON|NUT|SEED|FRUIT|BERRY|CRANBERR|SPINACH|ARUGULA|HERB|BUTTER|ROMAINE|ICEBERG|KALE|CHARD|POWER|SUPER|SWEET|BABY|MICRO|SPROUT|SHOOTS|CABBAGE|SLAW|CARROT|RADICCHIO'
 [[package]]
 food = "Arugula"
 sizes = [[5, "oz", "5 oz clamshell"]]
+[package.fdc]
+category = 'Pre-Packaged Fruit & Vegetables'
+match = '\bARUGULA\b|\bROCKET\b'
+exclude = 'BLEND|MIX|KIT|SPINACH|SPRING|PESTO|DRESSING|SALAD|ROMAINE|KALE|RADICCHIO|FRISEE|LETTUCE|GREENS|MESCLUN|HERB|CHARD|MICRO|POWER|SUPER|WILD|BOWL|MEAL|CHEESE|NUT|SEED|PIZZA'
 [[package]]
 food = "Coleslaw mix"
 sizes = [[14, "oz", "14 oz bag"]]
+[package.fdc]
+category = 'Pre-Packaged Fruit & Vegetables'
+match = '\bCOLE ?SLAW\b'
+exclude = 'KIT|DRESSING|DELI|BROCCOLI|ASIAN|RAINBOW|SWEET KALE|KALE|BRUSSEL|SUPERFOOD|CRUNCH|ANGEL HAIR|ANGEL|SHREDDED CABBAGE|RED CABBAGE|GREEN CABBAGE|CARROT|CHOPPED|SALAD|MEAL|BOWL|POPPY|RANCH|BBQ|SPICY|CREAMY|TANGY|HONEY|APPLE|CRANBERR|NUT|SEED|PEANUT|ALMOND|SESAME|GINGER'
 [[package]]
 food = "Broccoli florets"
 sizes = [[12, "oz", "12 oz bag"]]
+[package.fdc]
+category = 'Pre-Packaged Fruit & Vegetables'
+match = '\bBROCCOLI\b.*\bFLORETS?\b|\bBROCCOLI CROWNS?\b|\bBROCCOLI CUTS?\b'
+exclude = 'CAULIFLOWER|CARROT|MIX|BLEND|SLAW|RICE|RICED|DIP|STIR|CHEESE|SAUCE|STEAM|MICROWAV|SEASONED|ROASTED|GARLIC|BUTTER|HERB|LEMON|PARMESAN|TOTS|BITES|TATER|PIZZA|CRUST|PASTA|NOODLE|SALAD|KIT|MEAL|BOWL|SNAP|PEA|BEAN|MEDLEY|ROMANESCO|BROCCOLINI|RAAB|RABE|SPROUT|STALK|SPEAR|STEM|SHRED|CHOPPED|FROZEN|BROCCOFLOWER|ASIAN|SESAME|TERIYAKI|CHICKEN|BEEF|SHRIMP|TOFU|DUMPLING|SOUP|CASSEROLE|QUICHE|FRITTATA|BAKE|GRATIN|AU GRATIN'
 [[package]]
 food = "Cremini mushrooms"
 sizes = [[8, "oz", "8 oz pack"]]
+[package.fdc]
+category = 'Pre-Packaged Fruit & Vegetables'
+match = '\bCREMINI\b|\bCRIMINI\b|\bBABY BELLA\b|\bBABY PORTOBELLO\b|\bBROWN MUSHROOMS\b|\bBELLA MUSHROOMS?\b'
+exclude = 'SAUCE|SOUP|DRIED|MARINATED|STUFFED|CANNED|PIZZA|SLICED|DICED|CHOPPED|HALVED|QUARTERED|BLEND|MIX|MEDLEY|SHIITAKE|OYSTER|ENOKI|MAITAKE|PORCINI|CHANTERELLE|MOREL|BEECH|KING|LION|WHITE|BUTTON|PORTOBELLO CAPS|CAPS|STEAM|MICROWAV|SEASONED|ROASTED|GARLIC|BUTTER|HERB|ONION|PEPPER|SPINACH|CHEESE|KIT|MEAL|BOWL|JERKY|CHIPS|BURGER|PATT'
 [[package]]
 food = "Grape tomatoes"
 sizes = [[10, "oz", "10 oz pint"]]
@@ -530,17 +1051,37 @@ sizes = [[6, "oz", "6 oz clamshell"]]
 [[package]]
 food = "Firm tofu"
 sizes = [[14, "oz", "14 oz block"]]
+[package.fdc]
+category = 'Other Meats|Tofu|Soy|Vegetarian|Meat Substitute|Protein'
+match = '\b(EXTRA[ -])?FIRM TOFU\b|\bTOFU,? (EXTRA[ -])?FIRM\b|\bTOFU\b.*\b(EXTRA[ -])?FIRM\b'
+exclude = 'BAKED|SMOKED|SEASONED|MARINATED|TERIYAKI|SPICY|SOUP|SPROUTED|SUPER|HIGH PROTEIN|SILKEN|SOFT|MEDIUM|PRESSED|CUBED|CUBES|NUGGETS|BITES|STRIPS|SLICES|CUTLET|PATT|BURGER|SCRAMBLE|CRUMBLE|SAVORY|THAI|SESAME|GINGER|GARLIC|HERB|BBQ|CURRY|SRIRACHA|CHIPOTLE|FIVE SPICE|FRIED|PUFF|DRIED|SKIN|YUBA|NOODLE|SHIRATAKI|SKEWER|KIT|MEAL|BOWL|SALAD|DESSERT|PUDDING|SWEET|FLAVOR'
 
 # -- frozen ------------------------------------------------------------------------------------------------------------
 [[package]]
 food = "Frozen chopped spinach"
 sizes = [[10, "oz", "10 oz box"]]
+[package.fdc]
+category = 'Frozen Vegetables'
+match = '\bCHOPPED SPINACH\b|\bSPINACH,? CHOPPED\b|\bCUT LEAF SPINACH\b|\bLEAF SPINACH\b|^(ORGANIC |FROZEN )*SPINACH$'
+exclude = 'CREAMED|SOUFFLE|DIP|ARTICHOKE|CHEESE|PIE|RAVIOLI|BREADED|BITES|MIX|BLEND|SAUCE|PASTA|BABY|STEAM|MICROWAV|BUTTER|GARLIC|SEASONED|MEDLEY|KALE|CHARD|COLLARD|MUSTARD|TURNIP|GREENS|BROCCOLI|PEA|CORN|CARROT|BEAN|CAULIFLOWER|SPANAKOPITA|QUICHE|FRITTATA|OMELET|PIZZA|CALZONE|STROMBOLI|EMPANADA|SAMOSA|BURGER|PATT|NUGGET|TOT'
 [[package]]
 food = "Frozen corn kernels"
 sizes = [[12, "oz", "12 oz bag"]]
+[package.fdc]
+category = 'Frozen Vegetables'
+match = '\bCORN\b'
+exclude = 'COB|\bEARS?\b|MIX|BLEND|PEAS|CARROT|BEAN|CREAM|BUTTER|SOUFFLE|FIRE|DOG|BREAD|CHIP|PEPPER|ONION|EDAMAME|SUCCOTASH|FIESTA|MEXICAN|CASSEROLE|SAUCE|RICE|POPCORN|NUGGET|BITES|TORTILLA|PUDDING|SOUP|ROASTED|GRILLED|CHARRED|STREET|ELOTE|SEASONED|STEAM|MICROWAV|SAUTE|SKILLET|MEDLEY|SALSA|SOUTHWEST|BABY|SHOEPEG|WHITE|BI[- ]?COLOR|CUTTLE|CORNISH|CORN DOG|CORNBREAD|CORNMEAL|CORN FLAKE|BREADED|BATTER|FRITTER|DUMPLING|EMPANADA|TAMALE|BURRITO|ENCHILADA|TACO|QUESADILLA|PIZZA|BOWL|MEAL|KIT|ENTREE|DINNER|POTATO|SPINACH|BROCCOLI|CAULIFLOWER|SQUASH|ZUCCHINI|OKRA|TOMATO|KALE|GREENS|CHILI|JALAPENO|POBLANO|CHIPOTLE|LIME|CILANTRO|GARLIC|HERB|CHEESE|BACON|HAM|SAUSAGE|CHICKEN|BEEF|PORK|SHRIMP|CRAB|FISH|SALMON|TUNA|TOFU'
 [[package]]
 food = "Frozen green peas"
 sizes = [[12, "oz", "12 oz bag"]]
+[package.fdc]
+category = 'Frozen Vegetables'
+match = '\b(GREEN |SWEET |GARDEN |PETITE |BABY |TENDER |EARLY |SWEET GARDEN )*PEAS\b'
+exclude = 'CARROT|CORN|MIX|BLEND|SNOW|SNAP|PODS|CHICK|RICE|ONION|BLACK[- ]?EYED|PIGEON|CROWDER|FIELD|SOUP|STEAM|MICROWAV|BUTTER|CREAM|SAUCE|SEASONED|MEDLEY|EDAMAME|BEAN|POTATO|MUSHROOM|PEARL|PASTA|SPLIT|LENTIL|SOUTHERN|PURPLE HULL|ZIPPER|LADY|CREAM PEAS|SAUTE|SKILLET|BOWL|MEAL|KIT|ENTREE|CURRY|PANEER|SAMOSA|DUMPLING|PIE|CASSEROLE|STIR|ASIAN|ORIENTAL|BROCCOLI|CAULIFLOWER|SPINACH|PEPPER|MINT|HERB|GARLIC|BACON|HAM|CHEESE|PROSCIUTTO'
 [[package]]
 food = "Frozen stir-fry vegetables"
 sizes = [[16, "oz", "16 oz bag"]]
+[package.fdc]
+category = 'Frozen Vegetables'
+match = '\bSTIR[ -]?FRY\b'
+exclude = 'CHICKEN|BEEF|SHRIMP|PORK|TOFU|RICE|NOODLE|MEAL|KIT|TERIYAKI|SAUCE|SEASON|LO MEIN|FRIED RICE|PAD THAI|ORANGE|SESAME|GENERAL|KUNG PAO|SZECHUAN|SICHUAN|SWEET AND SOUR|SWEET & SOUR|GARLIC|GINGER|HONEY|SPICY|BBQ|KOREAN|THAI|CURRY|PEANUT|CASHEW|MUSHROOM|BROCCOLI STIR|SUGAR SNAP|PEPPER STIR|PEPPER & ONION|PEPPERS AND ONION|FAJITA|ITALIAN|MEDITERRANEAN|SOUTHWEST|MEXICAN|CAULIFLOWER RICE|RICED|SPIRAL|ZOODLE|BOWL|ENTREE|DINNER|SKILLET'

@@ -3,8 +3,10 @@
     python3 tools/import_packages.py            # load (after tools/import_vocabulary.py)
     python3 tools/import_packages.py --check    # read the file against data/vocabulary.toml; write nothing
 
-Idempotent; a size the file no longer names is removed. The owner's own sizes are a level below
-this one, from private/packages.toml (tools/instantiate_profile.py packages).
+A food with an FDC rule takes its common sizes from data/packages/fdc.json (tools/package_extract.py),
+loaded `sourced`; every other food, and one whose count is too small, its estimate. Idempotent; a size
+the file no longer names is removed. The owner's own sizes are a level below this one, from
+private/packages.toml (tools/instantiate_profile.py packages).
 """
 
 import argparse
@@ -15,7 +17,7 @@ import tomllib
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner.connection import connect
-from mealplanner.packages import PUBLIC_LEVEL, check_against_vocabulary, import_packages, read_packages
+from mealplanner.packages import PUBLIC_LEVEL, apply_pin, check_against_vocabulary, import_packages, read_packages, read_pin
 from mealplanner.profiles import ProfileError
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -26,12 +28,15 @@ def main(argv=None) -> int:
     parser.add_argument("--check", action="store_true", help="read only; write nothing")
     args = parser.parse_args(argv)
     try:
-        entries = read_packages(ROOT)
+        entries = apply_pin(read_packages(ROOT), read_pin(ROOT))
         with open(os.path.join(ROOT, "data/vocabulary.toml"), "rb") as fh:
             problems = check_against_vocabulary(entries, tomllib.load(fh))
         if problems:
             raise ProfileError(problems)
-        print(f"{len(entries)} foods, {sum(len(e.sizes) for e in entries)} sizes, on {PUBLIC_LEVEL!r}")
+        counted = [e for e in entries if e.provenance == "sourced"]
+        print(f"{len(entries)} foods, {sum(len(e.sizes) for e in entries)} sizes, on {PUBLIC_LEVEL!r}: "
+              f"{len(counted)} foods ({sum(len(e.sizes) for e in counted)} sizes) from FDC Branded Foods, "
+              f"{len(entries) - len(counted)} estimated")
         if args.check:
             return 0
         client = connect(owner_data_ok=True)
