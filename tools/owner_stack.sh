@@ -30,12 +30,12 @@ compose() { STRUCTR_PORT="$port" docker compose -p "$project" ${https_files[@]+"
 use_https() {
   [ -e private/https ] || return 0
   # Structr told to serve HTTPS from a keystore it cannot read may not start at all, HTTP included
-  if [ ! -f private/https/keystore.p12 ] || [ ! -f private/https/structr.env ]; then
-    echo "private/https is incomplete: run tools/make_https_cert.py again, or move that folder away to serve HTTP only." >&2
+  if [ ! -f private/https/keystore.p12 ] || [ ! -f private/https/structr.env ] || [ -e private/https/.replacing ]; then
+    echo "private/https is incomplete: run tools/make_https_cert.py again with --force, or move that folder away to serve HTTP only." >&2
     exit 1
   fi
   https_files=(-f docker-compose.yml -f docker-compose.https.yml)
-  if [ -f private/https/ca.crt ] && ! openssl x509 -in private/https/ca.crt -noout -checkend $((35 * 86400)) >/dev/null 2>&1; then
+  if [ -f private/https/ca.crt ] && command -v openssl >/dev/null 2>&1 && ! openssl x509 -in private/https/ca.crt -noout -checkend $((35 * 86400)) >/dev/null 2>&1; then
     echo "warning: the HTTPS certificate expires within a month; tools/make_https_cert.py --force makes another (docs/pages.md)." >&2
   fi
 }

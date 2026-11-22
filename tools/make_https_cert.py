@@ -23,6 +23,7 @@ import ipaddress
 import os
 import re
 import secrets
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -32,6 +33,7 @@ OUT = Path(__file__).resolve().parent.parent / "private" / "https"
 CA_DAYS = 825       # Apple accepts no server certificate valid for longer
 SERVER_DAYS = 820   # inside the authority's
 NAME = re.compile(r"[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*")
+REPLACING = ".replacing"      # there while the three files may be of two certificates; owner_stack.sh up refuses then
 NO_NAMES = "none.invalid"     # constraints apply by kind: with no DNS entry every DNS name would be allowed
 
 
@@ -108,19 +110,27 @@ def make(out: Path, hosts: list[str], force: bool = False) -> str:
         raise CertError(f"{out} already holds a certificate; --force replaces it, and every device must trust the new one")
     out.mkdir(parents=True, exist_ok=True)
     out.chmod(0o700)
+    for left in out.glob(".making-*"):      # by a run that was killed: it holds a key
+        shutil.rmtree(left)
     password = secrets.token_hex(24)
     with tempfile.TemporaryDirectory(dir=out, prefix=".making-") as tmp:    # 0700, gone with the authority's key
         work = Path(tmp)
         make_authority(work, addresses, names)
         sign_server(work, addresses, names)
+        (work / "ca.key").unlink()          # before anything is published, so a kill cannot leave it behind a trusted one
         openssl(work, "pkcs12", "-export", "-name", "structr", "-inkey", "server.key", "-in", "server.crt",
                 "-certfile", "ca.crt", "-out", "keystore.p12", "-passout", "env:KEYSTORE_PASSWORD",
                 env={"KEYSTORE_PASSWORD": password})    # in the environment, not on the command line
         (work / "structr.env").write_text(f"STRUCTR_application_keystore_password={password}\n")
         fingerprint = openssl(work, "x509", "-in", "ca.crt", "-noout", "-fingerprint", "-sha256").strip().split("=", 1)[1]
-        for name, mode in (("ca.crt", 0o644), ("structr.env", 0o600), ("keystore.p12", 0o600)):
+        files = (("ca.crt", 0o644), ("structr.env", 0o600), ("keystore.p12", 0o600))
+        for name, mode in files:
             (work / name).chmod(mode)
-            os.replace(work / name, out / name)    # the keystore last: it is what switches HTTPS on
+        # Three renames are not one: cut short, they leave a password that does not open the keystore
+        (out / REPLACING).touch()
+        for name, _ in files:
+            os.replace(work / name, out / name)
+        (out / REPLACING).unlink()
     return fingerprint
 
 

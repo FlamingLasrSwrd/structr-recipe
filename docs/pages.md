@@ -85,7 +85,7 @@ plain-HTTP address other than localhost: the sign-in answers 200, then every pag
 when the owner first signed in from the network). A session idle for 30 minutes
 (`application.session.timeout`) ends, and the pages then answer 404 until the next sign-in.
 
-## HTTPS (built 2026-11-22, not yet run on a live Structr)
+## HTTPS (built 2026-11-22, run on a throwaway Structr)
 
 Structr serves HTTPS itself, so nothing new is installed. On the computer that runs the owner's stack:
 
@@ -112,7 +112,8 @@ Sign in at `https://<address>:8443/structr/html/login`. The tools keep `http://l
   and its key was deleted once it had signed. `keystore.p12` and `structr.env` are secrets, and a backup
   holds them with the rest of `private/`.
 - **It lasts 820 days, and for that address only.** Reserve the address in the router. After either ends:
-  `make_https_cert.py --force`, stop and up, and trust the new file on each device. `up` warns a month ahead.
+  `make_https_cert.py --force`, stop and up, and trust the new file on each device. `up` warns a month ahead,
+  and refuses while a replacement that was cut short is there (`--force` again mends it).
 - **Start it with `tools/owner_stack.sh up`, from the folder that holds `private/https/`.** A plain
   `docker compose up`, or another checkout, recreates the container without HTTPS. With HTTPS, `up` names
   its compose files, so a `docker-compose.override.yml` is not read.
@@ -123,10 +124,13 @@ Sign in at `https://<address>:8443/structr/html/login`. The tools keep `http://l
   interface is on both ports, and a booking is still a link another site could send a signed-in browser
   to (`docs/self-hosting.md`), which now reaches every device that can sign in.
 
-Verified 2026-11-22 without a live Structr: the settings, their defaults and that HTTP stays beside HTTPS,
+**Run on a throwaway Structr 7.1** (2026-11-22, by that day's review, 21 of 21 checks): by address and by
+name, a client trusting the authority signed in, kept the `Secure` cookie and opened five pages; a wrong
+host and a client not trusting it were refused; HTTP stayed up for the tools; the same after a certificate
+was replaced. A replacement cut short is tested offline only. Verified besides: the settings, their defaults and that HTTP stays beside HTTPS,
 read from the installed 7.1.0 image's own code and start script; the keystore read by Java's keytool; a
 TLS 1.2 handshake in memory by a client trusting the authority (`tests/test_https.py`); the merged compose
-configuration. Not seen: Structr serving it, or any browser or phone trusting it.
+configuration. Not seen: any browser or phone trusting it.
 
 ## Checked at scale (2026-10-23, throwaway instance)
 

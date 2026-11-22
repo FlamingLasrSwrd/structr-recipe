@@ -14,6 +14,7 @@ import socket
 import ssl
 import stat
 import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -174,6 +175,23 @@ class Again(unittest.TestCase):
             self.assertNotIn(password, printed.getvalue())
 
 
+# Replaces a certificate, and dies as a killed process does (no cleanup) at the Nth rename
+KILLED_AT_A_RENAME = """
+import importlib.util, os, pathlib, sys
+spec = importlib.util.spec_from_file_location("tool", sys.argv[1])
+tool = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(tool)
+rename, left = os.replace, [int(sys.argv[3])]
+def replace(source, target):
+    left[0] -= 1
+    if not left[0]:
+        os._exit(9)
+    rename(source, target)
+os.replace = replace
+tool.make(pathlib.Path(sys.argv[2]), [sys.argv[4]], True)
+"""
+
+
 class OwnerStack(unittest.TestCase):
     """tools/owner_stack.sh in a throwaway folder, with a docker that records what it was asked."""
 
@@ -233,6 +251,35 @@ class OwnerStack(unittest.TestCase):
                 self.certificate(*kept)
                 done, asked = self.run_stack("up")
                 self.assertEqual((done.returncode, asked), (1, ""))
+
+    @unittest.skipUnless(shutil.which("openssl"), "needs openssl")
+    def test_a_replacement_cut_short_is_refused_until_made_again(self):
+        https = self.root / "private" / "https"
+        for rename in (1, 2, 3):
+            with self.subTest(rename):
+                shutil.rmtree(https, ignore_errors=True)
+                self.log.unlink(missing_ok=True)
+                tool.make(https, [ADDRESS])
+                killed = subprocess.run([sys.executable, "-c", KILLED_AT_A_RENAME, str(ROOT / "tools" / "make_https_cert.py"),
+                                         str(https), str(rename), ADDRESS], capture_output=True, text=True)
+                self.assertEqual(killed.returncode, 9, killed.stderr)
+                self.assertEqual(list(https.rglob("ca.key")), [])
+                done, asked = self.run_stack("up")
+                self.assertEqual((done.returncode, asked), (1, ""))
+                self.assertIn("--force", done.stderr)
+                tool.make(https, [ADDRESS], force=True)
+                self.assertEqual(sorted(p.name for p in https.iterdir()), ["ca.crt", "keystore.p12", "structr.env"])
+                self.assertEqual(self.run_stack("up")[0].returncode, 0)
+
+    def test_without_openssl_up_gives_no_false_warning(self):
+        self.certificate("ca.crt", "keystore.p12", "structr.env")
+        (self.root / "bin" / "openssl").unlink()
+        for needed in ("bash", "dirname"):
+            (self.root / "bin" / needed).symlink_to(shutil.which(needed))
+        done, asked = self.run_stack("up", PATH=str(self.root / "bin"))
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertNotIn("warning", done.stderr)
+        self.assertIn("docker-compose.https.yml", asked)
 
     def test_stop_works_whatever_state_the_certificate_is_in(self):
         self.certificate()
