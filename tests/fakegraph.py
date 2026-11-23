@@ -77,12 +77,12 @@ class WritableGraph(FakeGraph):
     fields are stored as Refs, so they render as Structr renders them, and the reverse
     side of the relationships the code reads back is kept up to date."""
 
-    RELATIONS = {"hierarchy", "parent", "isAbout", "forNutrient", "identifierScheme", "denotesType", "inScheme",
+    RELATIONS = {"hierarchy", "parent", "isAbout", "targetType", "forNutrient", "identifierScheme", "denotesType", "inScheme",
                  "forType", "hasKind", "hasValue", "keyedBy", "hasTargetRange", "instanceOf", "memberOfSet",
                  "inheresIn", "isAboutQuality", "wasDerivedFrom", "forPerson", "members", "hasBaseline", "servingOf",
                  "requestsRecipe", "memberOf", "references", "hasPlannedConsumption", "shareOf", "eatenBy",
                  "consumesLeftoverFrom", "mayBearFunction"}
-    REVERSES = {"forType": "defaultSpecifications", "memberOfSet": "hasMemberPart", "parent": "children",
+    REVERSES = {"forType": "defaultSpecifications", "targetType": "yieldTargetOf", "memberOfSet": "hasMemberPart", "parent": "children",
                 "inheresIn": "bearerOf", "isAboutQuality": "measurements", "wasDerivedFrom": "imputedMeasurements",
                 "forPerson": "nutritionTargets", "servingOf": "servingProfiles", "memberOf": "hasEntry",
                 "shareOf": "hasShare", "consumesLeftoverFrom": "sourceForLeftoverEntries"}

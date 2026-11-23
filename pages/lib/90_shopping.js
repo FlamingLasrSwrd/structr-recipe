@@ -99,27 +99,61 @@ function leftOverKeeps(food, firstUse) {
   return days != null ? [new Date(firstUse.getTime() + days * 86400e3), false] : [null, false];
 }
 
+// yields.edible_fraction: [of a gram as bought, what a recipe weighs; what is cut away]: the food's own
+// trim or its nearest ancestor's, a Yield keyed by Trimming alone whose target is the Type it is on
+function edibleFraction(food) {
+  for (const t of ancestorsOrSelf(food)) {
+    for (const d of defaultsOf(t, "Yield")) {
+      const keys = d.keyedBy || [];
+      if (keys.length !== 1 || keys[0].name !== "Trimming" || !d.targetType || d.targetType.id !== t.id) continue;
+      const v = d.hasValue;
+      if (v && v.unit === "ratio" && v.value > 0 && v.value <= 1) {
+        const source = d.source || "", at = source.indexOf("cut away: ");
+        return [v.value, at < 0 ? "" : source.slice(at + 10).split(";")[0].trim()];
+      }
+    }
+  }
+  return [1, ""];
+}
+
+// yields.made_from: {source, factor} for the food this one is bought as, a Yield on another food whose
+// target is this one, the first by name; null if none
+function madeFrom(food) {
+  const found = (food.yieldTargetOf || []).filter((d) => d.hasKind && d.hasKind.name === "Yield" && d.forType
+    && d.forType.id !== food.id && (d.keyedBy || []).length === 1 && d.hasValue && d.hasValue.unit === "ratio" && d.hasValue.value > 0);
+  if (!found.length) return null;
+  found.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  return {source: found[0].forType, factor: found[0].hasValue.value};
+}
+
 // shopping._round_up: whole packages of the sizes the food is sold in, or whole items of a food the
-// recipes count, or as much as is needed
+// recipes count, or as much as is needed; a food with a trim bought by weight as it is sold (a package
+// by weight or volume holds `edible` of it as a recipe weighs it, a loose need is bought over it)
 function roundUp(line, food, packages) {
-  const sizes = [];
+  const found = [];
   for (const p of packages ? foodPackages(packages, food) : []) {
     const grams = toGrams(food, p.amount, p.unit);
-    if (grams) sizes.push([grams, p]);
+    if (grams) found.push([grams, p, COUNT.indexOf(String(p.unit).trim().toLowerCase()) >= 0]);
   }
+  if (found.some((f) => !f[2]) || !(found.length || line.each)) [line.edible, line.trimmed] = edibleFraction(food);
+  const sizes = found.map((f) => [f[2] ? f[0] : f[0] * line.edible, f[0], f[1]]);
   if (sizes.length) {
     const counts = choosePackages(sizes.map((s) => s[0]), line.buy);
     line.packages = [];
-    let bought = 0;
+    let bought = 0, asBought = 0;
     counts.forEach((n, i) => {
       bought += n * sizes[i][0];
-      if (n) { line.packages.push({count: n, label: sizes[i][1].label}); line.estimated_size = line.estimated_size || sizes[i][1].estimated; }
+      asBought += n * sizes[i][1];
+      if (n) { line.packages.push({count: n, label: sizes[i][2].label}); line.estimated_size = line.estimated_size || sizes[i][2].estimated; }
     });
     line.bought = bought;
+    line.as_bought = asBought;
   } else if (line.each) {
     line.bought = Math.ceil(line.buy / line.each - 1e-9) * line.each;
+    line.as_bought = line.bought;
   } else {
     line.bought = line.buy;
+    line.as_bought = line.buy / line.edible;
   }
   line.left = Math.max(0, line.bought - line.buy);
 }
@@ -181,8 +215,10 @@ function eligibleGrams(food, portions, pools) {
 // shopping.shopping_list: {zone, priced, packaged, cooks, leftovers, buy (lines to buy, by the day first
 // needed, then food), covered, unquantified, not_bought, unpriced, total, left_total}. A line: {food, need,
 // have, buy, first, recipes, optional, each, cost, estimated, packages ([{count, label}]), estimated_size,
-// bought, left, left_cost, keeps_until, keeps_opened}. ownOnly: only stock private to the caller counts
-// (a household's own; ownStock in 50_pantry.js), as for a household's method. packageLevel: a package
+// bought, left, left_cost, keeps_until, keeps_opened, made ([[food, grams]]: what it is bought to make),
+// edible (of a gram as bought, what a recipe weighs), trimmed, as_bought (grams as the shop weighs them)}.
+// ownOnly: only stock private to the caller counts (a household's own; ownStock in 50_pantry.js), as for a
+// household's method. packageLevel: a package
 // level's name, or null for none
 function shoppingFor(week, levelName, ownOnly, packageLevel) {
   const zone = weekZone(week);
@@ -191,13 +227,42 @@ function shoppingFor(week, levelName, ownOnly, packageLevel) {
   const portions = $.find("PortionOfSubstance").concat($.find("DiscreteWholeItem"))
     .filter((p) => !ownOnly || p.visibleToAuthenticatedUsers === false);
   const n = needs(week);
+  // shopping.shopping_list's purchased forms: a food another yields and no package level sells in a size of
+  // its own is bought as that food, what its own stock leaves of it over the yield joining that food's line
+  const boughtAs = {};
+  for (const id of Object.keys(n.pools)) {
+    if (packages && foodPackages(packages, n.pools[id].food).length) continue;
+    const made = madeFrom(n.pools[id].food);
+    if (made) boughtAs[id] = made;
+  }
+  const sources = Object.keys(boughtAs).map((id) => boughtAs[id].source.id);
+  for (const id of Object.keys(boughtAs)) if (sources.indexOf(id) >= 0) delete boughtAs[id];   // one step: a source is bought as itself
+  for (const id of Object.keys(boughtAs)) {
+    const src = boughtAs[id].source;
+    if (!n.pools[src.id]) n.pools[src.id] = {food: src, need: 0, recipes: [], first: null, optional: true, counted: false};
+  }
+  const have = {}, extra = {}, madeFor = {};
+  for (const id of Object.keys(n.pools)) have[id] = eligibleGrams(n.pools[id].food, portions, n.pools);
+  for (const id of Object.keys(boughtAs)) {
+    const p = n.pools[id], short = p.need - have[id];
+    if (short < SHORT_G) continue;
+    const src = boughtAs[id].source.id, s = n.pools[src];
+    extra[src] = (extra[src] || 0) + short / boughtAs[id].factor;
+    (madeFor[src] = madeFor[src] || []).push([p.food.name, short]);
+    for (const r of p.recipes) if (s.recipes.indexOf(r) < 0) s.recipes.push(r);
+    if (p.first && (!s.first || p.first < s.first)) s.first = p.first;
+    s.optional = s.optional && p.optional;
+    s.counted = s.counted || !!toGrams(s.food, 1, "each");
+  }
   const lines = [], notBought = [], unpriced = [];
   for (const id of Object.keys(n.pools)) {
-    const p = n.pools[id];
-    const have = eligibleGrams(p.food, portions, n.pools), short = p.need - have;
-    const line = {food: p.food.name, need: p.need, have: have, buy: short >= SHORT_G ? short : 0, first: p.first,
+    const p = n.pools[id], need = p.need + (extra[id] || 0), short = need - have[id];
+    if (boughtAs[id] && p.need - have[id] >= SHORT_G) continue;     // on the line of the food it is bought as
+    if (need <= 0) continue;                                         // a food others are bought as, needing nothing
+    const line = {food: p.food.name, need: need, have: have[id], buy: short >= SHORT_G ? short : 0, first: p.first,
                   recipes: p.recipes, optional: p.optional, each: p.counted ? toGrams(p.food, 1, "each") : null, cost: null, estimated: false,
-                  packages: [], estimated_size: false, bought: null, left: 0, left_cost: null, keeps_until: null, keeps_opened: false};
+                  packages: [], estimated_size: false, bought: null, left: 0, left_cost: null, keeps_until: null, keeps_opened: false,
+                  made: madeFor[id] || [], edible: 1, trimmed: "", as_bought: null};
     if (line.buy > 0) {
       const price = table ? foodPrice(table, p.food) : null;
       const value = price && price.hasValue ? price.hasValue.value : null;
@@ -213,7 +278,8 @@ function shoppingFor(week, levelName, ownOnly, packageLevel) {
     lines.push(line);
   }
   const buy = lines.filter((l) => l.buy > 0), covered = lines.filter((l) => l.buy <= 0).sort((a, b) => a.food.localeCompare(b.food));
-  for (const food of Object.keys(n.unquantified)) if (lines.some((l) => l.food === food) || notBought.indexOf(food) >= 0) delete n.unquantified[food];
+  const madeNames = [].concat(...buy.map((l) => l.made.map((m) => m[0])));
+  for (const food of Object.keys(n.unquantified)) if (lines.some((l) => l.food === food) || notBought.indexOf(food) >= 0 || madeNames.indexOf(food) >= 0) delete n.unquantified[food];
   buy.sort((a, b) => (a.first ? dayKey(a.first, zone) : "~").localeCompare(b.first ? dayKey(b.first, zone) : "~") || a.food.localeCompare(b.food));
   return {zone: zone, priced: !!table, packaged: !!packages, cooks: n.cooks, leftovers: n.leftovers, buy: buy, covered: covered,
           unquantified: n.unquantified, not_bought: notBought, unpriced: unpriced, total: buy.reduce((s, l) => s + (l.cost || 0), 0),

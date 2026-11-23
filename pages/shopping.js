@@ -18,9 +18,20 @@ function gramsText(grams) {
 
 // shopping.Line.amount
 function amountText(line) {
-  if (line.packages.length) return line.packages.map((p) => p.count + " \u00d7 " + p.label).join(" + ") + " (about " + number(line.bought, 0) + " g)";
+  if (line.packages.length) return line.packages.map((p) => p.count + " \u00d7 " + p.label).join(" + ") + " (about " + number(line.as_bought != null ? line.as_bought : line.bought, 0) + " g)";
   if (line.each) return Math.ceil(line.buy / line.each - 1e-9) + " (about " + number(line.bought || line.buy, 0) + " g)";
+  if (line.as_bought != null && line.edible < 1) return gramsText(line.as_bought) + " as bought";
   return gramsText(line.buy);
+}
+
+// shopping.describe's notes on a purchased form: what a line is bought to make, and what of it is used
+function formText(line) {
+  const out = [];
+  if (line.made.length) out.push("for " + line.made.map((m) => m[0] + " (" + number(m[1], 0) + " g)").join(", "));
+  if (line.edible < 1 && !(line.each && !line.packages.length)) {
+    out.push(Math.round(line.edible * 100) + "% of it as bought is used" + (line.trimmed ? " (less " + line.trimmed + ")" : ""));
+  }
+  return out.join("; ");
 }
 
 // shopping.left_over_text
@@ -64,10 +75,11 @@ if (!week) {
       + "<td><label for=\"" + id + "\">" + esc(l.food) + (l.optional ? " <i>(optional)</i>" : "") + "</label></td>"
       + "<td class=\"num" + (l.estimated_size ? " estimated" : "") + "\">" + esc(amountText(l)) + "</td>"
       + "<td class=\"num" + (l.estimated ? " estimated" : "") + "\">" + (l.cost == null ? "" : "$" + l.cost.toFixed(2)) + "</td>"
-      + "<td class=\"note\">" + (l.have > 0 ? "have " + number(l.have, 0) + " g of " + number(l.need, 0) + " g; " : "") + esc(l.recipes.join(", "))
+      + "<td class=\"note\">" + (l.have > 0 ? "have " + number(l.have, 0) + " g of " + number(l.need, 0) + " g; " : "")
+      + (formText(l) ? esc(formText(l)) + "; " : "") + esc(l.recipes.join(", "))
       + (leftText(l, zone) ? "<br>" + esc(leftText(l, zone)) : "") + "</td></tr>";
     data.to_buy.push({food: l.food, buy: l.buy, need: l.need, have: l.have, first: l.first ? l.first.toISOString() : null, cost: l.cost,
-                      packages: l.packages, bought: l.bought, left: l.left, left_cost: l.left_cost,
+                      packages: l.packages, bought: l.bought, left: l.left, left_cost: l.left_cost, as_bought: l.as_bought, made: l.made,
                       keeps_until: l.keeps_until ? l.keeps_until.toISOString() : null, keeps_opened: l.keeps_opened});
   }
   html += day === null ? "<p>Nothing to buy: the pantry covers the week.</p>" : "</tbody></table>";

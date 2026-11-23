@@ -4,8 +4,8 @@ What each food is sold in, and a shopping list that buys whole packages and says
 (data-model.md J39). Asked for by the owner on 2026-10-31 ("This application needs to be aware of the
 amount that ingredients are sold in. Buying a whole rotisserie chicken is cheap but needs to be used
 that week, which affects wastage"), and to be built on 2026-11-22. This is stages 1 and 2 of the four
-in `docs/todo.md`, and stage 4, the planner weighing what is left (2026-11-23, below); stage 3 is under
-"Not built".
+in `docs/todo.md`, and stages 3 and 4 (2026-11-23): the form a food is bought in ("The form
+bought" below) and the planner weighing what is left (below that).
 
 ## What a food is sold in
 
@@ -159,6 +159,68 @@ with Python on all 41 foods to buy, and, with the page's opened-shelf-life test 
 34 differences. It also found a gap of its own, fixed: a food a stock policy tops up was left out of the
 foods to buy but not out of what the pantry covers, where the page, applying no policy, lists it.
 
+## The form bought
+
+Stage 3 (data-model.md J41, `mealplanner/yields.py`): a recipe weighs the part of a food it uses, and a
+shop sells something else. Two kinds, both the `Yield` default the model has named since §5.1, so no
+schema change:
+
+- **A trim**: an onion is sold with its skin. A recipe's 270 g of onion, and FDC's figures per 100 g,
+  are of the edible part; bought by weight, that is 270 / 0.90 = 300 g of onion. A trim is a Yield on
+  the food, keyed by the method `Trimming`, whose target is the food itself. A count of items needs
+  no trim (FDC's "1 medium onion", 110 g, is of the edible part), so a food bought whole by count is
+  bought as before.
+- **A yield from another food**: lemon juice is sold inside lemons. A Yield on Lemon, keyed by
+  `Juicing`, whose target is Lemon juice: a gram of lemon gives 48 / 58 = 0.83 g of juice (FDC's
+  "lemon yields" 48 g, over a lemon's 58 g). Egg whites come from eggs the same way (`Separating`).
+
+```toml
+[[food]]
+name = "Yellow Onion"
+trim = { refuse = 10, what = "skin and ends", source = "..." }
+
+[[food]]
+name = "Lemon juice"
+yield_from = { food = "Lemon", method = "Juicing", portion = "lemon yields" }
+```
+
+What the shopping list does with them (the list in Python, the page and the `shoppingList` method alike):
+
+- A food another yields, and that the package level sells in **no size of its own**, is bought as that
+  food. What the pantry holds of it counts first (a bottle of lemon juice already open); what is left,
+  over the yield, joins that food's line, against what the pantry holds of that food. The line says
+  what it is for: `Lemon  2 (about 116 g)  for Lemon juice (50 g); salad`. A food a source yields is
+  bought whole by count when the source has a weight per item (lemons, eggs). A food the package level
+  does sell (data/packages.toml sells the drained beans in a can drained, so their own sizes stand) is
+  bought as itself, so a household that buys bottled juice gives Lemon juice a size on its own level.
+- A food with a trim is bought as it is sold: a package by weight or volume holds that fraction of
+  its weight as a recipe weighs it (a 3 lb bag of onions holds 1,225 g of onion), and a need bought
+  loose is shown as bought (`300 g (0.7 lb) as bought`, `90% of it as bought is used (less skin and
+  ends)`). The grams a line buys, has left over and is priced by stay those a recipe weighs.
+
+Where the figures come from. The yields from another food are worked out from two FDC portions,
+`calculated`: lemon, lime and orange juice, egg whites. The trims, 22 fresh fruits and vegetables
+whose loss is plain (not cauliflower, kale or tomatoes, whose figures were too unsure to state), are
+USDA SR28's refuse: SR28's FOOD_DES file gives every SR food's refuse as a share of it as purchased.
+That file's host was not reachable from the session that wrote them, so each is stated as an
+estimate, Claude's recollection of SR28's figure, to be reviewed. Where SR28 can be downloaded (the
+owner's computer):
+
+```bash
+python3 tools/yield_extract.py --fetch   # .cache/sr28/sr28asc.zip, then pins data/yields/sr28.json
+STRUCTR_URL=http://localhost:8085 python3 tools/import_vocabulary.py
+```
+
+prints each estimate beside SR28's own and pins SR28's; the vocabulary then loads SR28's, `sourced`, and
+a food SR28 gives no refuse loses its trim.
+
+Not yet: the rotisserie chicken the owner named, which needs two foods the vocabulary lacks (the bird
+and its meat, with FDC records to pin) and then one `yield_from`; one step of yield only; a price is
+read per gram as a recipe weighs it, as Purchase to Plate's are, so an owner's price for a trimmed
+food, stated per gram as bought, prices it about its refuse low; the pantry books a purchase as it is
+weighed, so a bag of onions booked by weight counts its skins as stock; and the planner's weighing of
+package waste (stage 4) does not read the purchased form.
+
 ## The planner weighing what is left (stage 4)
 
 Built 2026-11-23 (`docs/optimizer-design.md` §12, "Package waste", has the whole of it). The shopping list
@@ -193,10 +255,6 @@ singly) is not weighed. The shopping list is unchanged: it still buys on the wee
 
 ## Not built
 
-- **Stage 3, the form bought against the form used**: a rotisserie chicken bought for "shredded
-  chicken", through the bird's yield of meat; juice from a lemon; whites from eggs; a can weighed
-  drained. The vocabulary has no purchased form for a food yet (`reservation.py`'s note), and a yield
-  from one food to another is a new kind of fact for the model to place. A proposal, not built.
 - **Stage 4's next steps**: package waste in the CP-SAT model (it takes the term's ceiling today, so
   only the climb and the exact search weigh it); weighing it in dollars where prices are known; and the
   shopping list grouping purchases by keeping time as the planner does, so that a can opened Monday is

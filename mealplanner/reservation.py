@@ -383,19 +383,22 @@ def net_requirements(client, meal_plan_id: str, now: datetime) -> dict[str, floa
     900g standing pantry reserve for free -- the two needs compete for
     the same purchase.
 
-    KNOWN LIMIT: the model's formula also divides by "the yield factor of any
+    The model's formula also divides by "the yield factor of any
     trimming/prep transformation between the purchased form and the required
-    form" (a recipe needing 180g diced onion, bought whole). There is no
-    vocabulary yet distinguishing a Type's purchased form from its
-    as-required form, so that division isn't applied; amounts are in the
-    recipe's own required form. Flagged, not silently assumed away."""
+    form" (a recipe needing 180g diced onion, bought whole). These amounts are
+    in the recipe's own required form; the division is the shopping list's
+    (mealplanner/shopping.py, with mealplanner/yields.py: a food's trim and the
+    food another is bought as, data-model.md J41), since what is bought, and in
+    what packages, decides which purchased form applies."""
     return {root: need.net for root, need in acquisition(client, meal_plan_id, now).items() if need.net > 0}
 
 
-def acquisition(client, meal_plan_id: str, now: datetime) -> dict[str, PoolNeed]:
+def acquisition(client, meal_plan_id: str, now: datetime, also=()) -> dict[str, PoolNeed]:
     """net_requirements' pools with their demand, target and eligible stock, every pool
     the plan or a StockPolicy names, whether or not anything needs buying for it (the
-    shopping list shows what the pantry covers too, mealplanner/shopping.py)."""
+    shopping list shows what the pantry covers too, mealplanner/shopping.py), and a pool
+    for each Type in `also` (the foods others are bought as, mealplanner/yields.py), so
+    that their stock is counted as any pool's is."""
     client = ReadCache(client)      # read-only: each node is fetched once for the whole computation
     pools: dict[str, dict] = {}
 
@@ -414,6 +417,8 @@ def acquisition(client, meal_plan_id: str, now: datetime) -> dict[str, PoolNeed]
     for policy in client.get_all("StockPolicy")["result"]:
         if policy.get("appliesTo"):
             pool_for(policy["appliesTo"]["id"])
+    for type_id in also:
+        pool_for(type_id)
 
     # The NEAREST policy owns the physical stock. A pool for a Type that has
     # another pool nested below it leaves that nested stock out of its own
