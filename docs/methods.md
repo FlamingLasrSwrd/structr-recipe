@@ -21,6 +21,7 @@ script. So a method runs the engine code the pages run, not a copy of it.
 | `30_stock.js` | stock on hand and expiry |
 | `40_bookings.js` | how every booking writes, and one booking in a transaction of its own |
 | `50_pantry.js` | the pantry's bookings |
+| `55_products.js` | a barcode read as its GTIN, the product it names, and a product added on the pantry page (the page's alone) |
 | `60_requests.js` | recipes asked for a week |
 | `70_menu.js` | a week's meals cooked and changed as the week goes |
 | `75_instructions.js` | a recipe's steps written as sentences, and a Plan's steps read as data |

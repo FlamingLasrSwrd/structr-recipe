@@ -41,7 +41,7 @@ from datetime import date, datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mealplanner import menu_changes, pantry, requests
+from mealplanner import menu_changes, pantry, products, requests
 from mealplanner.connection import connect
 from mealplanner.inventory import FMT, instance_expiration
 from mealplanner.nutrition_scope import day_zone, raw_inputs
@@ -58,10 +58,17 @@ FIELDS = {     # what a booking writes on each type
     "Measurement": ("value", "unit", "status", "hasTime", "isAboutQuality"),
     "Allocation": ("isAbout", "hasParticipationRole", "hasActualQuantity", "process", "fulfills"),
     "MealPlanEntry": ("fulfilledBy", "isSkipped", "eatenInstead", "references", "hasPlannedServings", "isAbout", "memberOf"),
-    "TypeHierarchy": (), "DomainType": ("hierarchy", "isLookupBearing"),
+    "TypeHierarchy": (), "DomainType": ("hierarchy", "isLookupBearing", "parent"),
+    "Identifier": ("identifierValue", "identifierScheme", "denotesType"), "ConceptScheme": (), "Concept": ("inScheme",),
+    "DefaultSpecification": ("forType", "hasKind", "hasValue", "provenance", "source"),
+    "QuantitySpecification": ("value", "unit", "status"),
 }
-SWEPT = (*FIELDS, "MealPlan", "QuantitySpecification", "MealShare", "Person")   # every type the check and its bookings name
+SWEPT = (*FIELDS, "MealPlan", "MealShare", "Person")   # every type the check and its bookings name
 MARK = "c4ecb00c"      # begins every token the check books with; a page's own token is 8 random hex digits
+# The barcodes the check adds products with: GS1 keeps the prefix 952 for demonstrations and examples, so
+# no package carries one. As GTINs of 14 digits they begin 0952.
+DEMO_PREFIX = "0952"
+SCAN_DATA = re.compile(r'<script type="application/json" id="scan-data">(.*?)</script>', re.S)
 
 
 def new_token() -> str:
@@ -79,6 +86,11 @@ def sweep(client) -> int:
         for row in client.get(f"/structr/rest/{type_name}", params={"name": MARK, "_inexact": 1})["result"]:
             if MARK in (row.get("name") or ""):
                 found[row["id"]] = row.get("type") or type_name
+    for row in client.get("/structr/rest/Identifier", params={"identifierValue": DEMO_PREFIX, "_inexact": 1})["result"]:
+        code = client.get_all("Identifier", row["id"])["result"]     # a barcode the check added, its product gone or left
+        owner = (code.get("denotesType") or {}).get("name")
+        if (code.get("identifierValue") or "").startswith(DEMO_PREFIX) and (owner is None or MARK in owner):
+            found[code["id"]] = "Identifier"
     removed, refused = _remove(client, found)
     kinds = {row["id"]: "DomainType" for name in (pantry.PURCHASE, pantry.USE, pantry.DISCARDING)
              for row in client.get("/structr/rest/DomainType", params={"name": name})["result"] if row.get("type") == "DomainType"}
@@ -181,6 +193,8 @@ class Check:
                 return masked(value.get("name") or value.get("id", ""), tokens)
             if isinstance(value, list):
                 return sorted(norm(v) for v in value)
+            if isinstance(value, str):
+                return masked(value, tokens)        # a barcode's value
             return value
         out = {k: norm(row.get(k)) for k in FIELDS[type_name] + SEEN}
         for k in TIMES:
@@ -320,6 +334,9 @@ def main(argv=None) -> int:
         print("cook")
         cook_check(check, client, t, args.food, args.keeps)
 
+        print("add a product, and scan it")
+        product_check(check, client, args.food)
+
         print("ask for a recipe next week")
         request_check(check, client)
 
@@ -360,6 +377,77 @@ def shown_check(check: Check, client, p_portion: str, y_portion: str, t: dict) -
     drawn = [row["value"] for name in got["created"] for type_name, row in check.nodes(name) if type_name == "Measurement"]
     if drawn != [300.6]:
         check.fail(f"use the amount shown: the page drew {drawn}, not all of the 300.6 g")
+
+
+def demo_barcode() -> str:
+    """An EAN-13 of the demonstration prefix 952 (DEMO_PREFIX), random but for its check digit."""
+    body = "952" + "".join(secrets.choice("0123456789") for _ in range(9))
+    return body + str(products.check_digit(body))
+
+
+def product_check(check: Check, client, food: str) -> None:
+    """The pantry page's "Add a product" (pages/lib/55_products.js) against products.add_product: a product
+    of `food` added through each, then a second barcode of it, the page's form sent again, and what each
+    refuses alike (a barcode of the other's product, a package of another size). Then the page's barcode
+    box, given each barcode, names what products.find names. The products are named with tokens and
+    their barcodes are demonstration ones, so the sweep finds what an interrupted run left."""
+    tok, pytok = new_token(), new_token()
+    mine, theirs = f"TEST -- product {tok}", f"TEST -- product {pytok}"
+    codes = [demo_barcode() for _ in range(5)]
+    gtins = [products.normalize(c) for c in codes]
+
+    def python_names(name, gtin, new=True):
+        return ([name, f"{name} package size", f"{name} package size value"] if new else []) + [f"GTIN {gtin}"]
+
+    form = dict(do="product", token=new_token(), barcode=codes[0], name=mine, food=food, amount="500", unit="g")
+    got = check.page("pantry", **form)
+    if got["problem"]:
+        check.fail(f"add a product through the page: {got['problem']}")
+        return
+    check.remember(got["created"])
+    py = products.add_product(client, theirs, food, codes[1], 500, "g")
+    check.remember(python_names(theirs, gtins[1]))
+    if py["created"] != 4:
+        check.fail(f"add a product through Python: {py}")
+    check.same_nodes("add a product", got["created"], [tok, gtins[0]], python_names(theirs, gtins[1]), [pytok, gtins[1]])
+
+    second = check.page("pantry", **dict(form, token=new_token(), barcode=codes[2]))
+    check.remember(second["created"])
+    py = products.add_product(client, theirs, food, codes[3], 500, "g")
+    check.remember(python_names(theirs, gtins[3], new=False))
+    if second["created"] != [f"GTIN {gtins[2]}"] or py["created"] != 1:
+        check.fail(f"a second barcode: the page wrote {second['created']} ({second['problem']}), Python {py}")
+    check.same_nodes("a second barcode", second["created"], [tok, gtins[2]], python_names(theirs, gtins[3], False), [pytok, gtins[3]])
+    again = check.page("pantry", **form)
+    if again["created"] or again["problem"]:
+        check.fail(f"the same product sent again: wrote {again['created']}, problem {again['problem']!r}")
+
+    for what, page_form, py_args in (
+        ("a barcode of the other's product", dict(barcode=codes[1]), (theirs, food, codes[0], 500, "g")),
+        ("a package of another size", dict(barcode=codes[4], amount="250"), (theirs, food, codes[4], 250, "g")),
+    ):
+        refused = check.page("pantry", **dict(form, token=new_token(), **page_form))
+        try:
+            products.add_product(client, *py_args)
+            said = None
+        except products.ProductError as exc:
+            said = str(exc)
+        a = masked(refused["problem"] or "", [tok, pytok] + gtins)
+        b = masked(said or "", [pytok, tok] + gtins[1::-1] + gtins[2:])
+        if refused["created"] or not refused["problem"] or said is None or a != b:
+            check.fail(f"{what}: the page said {refused['problem']!r} and wrote {refused['created']}, Python said {said!r}")
+
+    unknown = "952000000000" + str(products.check_digit("952000000000"))           # no product's
+    for code in (codes[0], " ".join((gtins[0][:2], gtins[0][2:8], gtins[0][8:])), codes[3], unknown):
+        r = check.booker.get(f"{client.base_url}/structr/html/pantry", params={"scan": code}, timeout=client.timeout)
+        r.raise_for_status()
+        shown = json.loads(SCAN_DATA.search(r.text).group(1))
+        found = products.find(client, code)
+        want = {"gtin": products.normalize(code), "product": found and found.product, "food": found and found.food,
+                "amount": found and found.amount, "unit": found and found.unit}
+        if shown != want:
+            check.fail(f"scanning {code}: the page names {shown}, products.find {want}")
+    print(f"  a product of {food} and a second barcode, the same both ways; refused alike; four scans as products.find reads them")
 
 
 def cook_check(check: Check, client, t: dict, food: str, keeps: str) -> None:

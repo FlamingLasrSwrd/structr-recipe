@@ -16,7 +16,8 @@ session) and compares the data block each prints (#page-data) with Python's answ
               for the same Plan as recipe_import.export_plan reads it (J35), as written and as weights
               (?measure=weight; mealplanner/weights.py)
   pantry      inventory.current_magnitude and instance_expiration for every portion on hand; and what
-              Buy offers (#buy-data), against products.buyable, and the unit it picks (#buy-units), buy_unit
+              Buy offers (#buy-data), against products.buyable, and the unit it picks (#buy-units), buy_unit;
+              and what its barcode box names (#scan-data) for every product's barcode, against products.find
   shopping    shopping.shopping_list: each food to buy, what is needed and on hand, the packages it is
               bought in at the default package level (packages.default_level), what is left of them,
               its cost and until when it keeps, the cost at "Home prices" where it exists, and what
@@ -40,7 +41,7 @@ from mealplanner.connection import connect
 from mealplanner.instructions import instructions
 from mealplanner.weights import food_weights
 from mealplanner.pantry import USED_UP_G
-from mealplanner.products import buy_units, buyable
+from mealplanner.products import buy_units, buyable, check_digit, find, gtin_identifiers, normalize
 from mealplanner.recipe_import import capability_bearers, export_plan
 from mealplanner.inventory import current_magnitude, instance_expiration, mass_quality
 from mealplanner.packages import default_level, package_table
@@ -56,6 +57,7 @@ TOLERANCE = 1e-6
 DATA = re.compile(r'<script type="application/json" id="page-data">(.*?)</script>', re.S)
 BUY_DATA = re.compile(r'<script type="application/json" id="buy-data">(.*?)</script>', re.S)
 BUY_UNITS = re.compile(r'<script type="application/json" id="buy-units">(.*?)</script>', re.S)
+SCAN_DATA = re.compile(r'<script type="application/json" id="scan-data">(.*?)</script>', re.S)
 
 
 def page_data(client, path: str):
@@ -259,6 +261,35 @@ def check_buyable(client, reads, problems: list[str]) -> int:
     return len(want)
 
 
+def scan_data(client, barcode: str):
+    """What the pantry page's barcode box names for a barcode (#scan-data)."""
+    r = client.request("GET", "/structr/html/pantry", params={"scan": barcode})
+    r.raise_for_status()
+    found = SCAN_DATA.search(r.text)
+    if not found:
+        raise ValueError("/structr/html/pantry?scan= printed no scan data")
+    return json.loads(found.group(1))
+
+
+def check_scans(client, problems: list[str]) -> int:
+    """The pantry page's barcode box against products.find: each product's barcodes, as stored and as a
+    UPC-A or EAN-13 prints it, one no product has, one misread and one a shop gives its own packs."""
+    codes = [row["identifierValue"] for row in gtin_identifiers(client) if row.get("denotesType")]
+    printed = [code.lstrip("0").rjust(12, "0") for code in codes]       # a UPC-A, or an EAN-13
+    unknown = "952000000000" + str(check_digit("952000000000"))         # GS1's demonstration prefix: no package's
+    for code in codes + printed + [unknown, "036000291453", "212345678992"]:
+        try:
+            found = find(client, code)
+            want = {"gtin": normalize(code), "product": found and found.product, "food": found and found.food,
+                    "amount": found and found.amount, "unit": found and found.unit}
+        except ValueError as exc:                   # ProductError is one
+            want = {"problem": str(exc)}
+        shown = scan_data(client, code)
+        if shown != want:
+            problems.append(f"pantry: scanning {code} names {shown}, products.find {want}")
+    return len(codes)
+
+
 def check_shopping(client, week: dict, problems: list[str], shown=None, who: str = "the page") -> int:
     if shown is None:
         shown = page_data(client, f"shopping/{week['id']}")
@@ -330,6 +361,7 @@ def main(argv=None) -> int:
     print(f"recipes: {check_recipes(client, reads, problems)} shown")
     print(f"pantry: {check_pantry(client, reads, problems)} portions on hand")
     print(f"pantry: {check_buyable(client, reads, problems)} foods and products to buy")
+    print(f"pantry: {check_scans(client, problems)} barcodes scanned, and three that name no product")
     for problem in problems:
         print(f"difference: {problem}")
     print(f"{len(problems)} difference(s)")

@@ -96,8 +96,8 @@ def scan(client, barcode: str, packages: float, when: datetime, token: str, **ho
     except ValueError as exc:               # not a product's barcode at all, or one two products share
         raise pantry.PantryError(str(exc)) from None
     if found is None:
-        raise pantry.PantryError(f"no product has barcode {products.normalize(barcode)}: add it to the products file "
-                                 "(tools/import_products.py), or buy the food by name")
+        raise pantry.PantryError(f"no product has barcode {products.normalize(barcode)}: add it on the pantry page "
+                                 "(Add a product) or to the products file (tools/import_products.py), or buy the food by name")
     if found.amount is None:
         raise pantry.PantryError(f"{found.product}: no package size is known for it, so buy it by name with an amount")
     booking = pantry.buy(client, found.product, found.amount * packages, found.unit, when, token, **how)

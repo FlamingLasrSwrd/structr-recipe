@@ -4,9 +4,15 @@
 //
 // Its forms book what happens to it, as mealplanner/pantry.py does (docs/pantry.md): buy, use, count
 // (a stock take), open, move (freeze) and discard. Each sends ?do=<booking>&token=<one per form>.
-// The bookings themselves are in pages/common.js (PANTRY_ACTIONS), shared with the bookPantry method.
+// The bookings themselves are in pages/lib/50_pantry.js (PANTRY_ACTIONS), shared with the bookPantry method.
+//
+// A barcode scanned or typed into Buy's barcode box (?scan=..., docs/pantry.md "Products and barcodes")
+// fills Buy in with the product it names and what one package holds, as products.find reads it; a
+// barcode no product has opens "Add a product" with it, which writes what products.add_product writes
+// (do=product, pages/lib/55_products.js: the page's alone) and then fills Buy in with the new product.
+// A USB or Bluetooth scanner types into the box as a keyboard does, and its Enter sends it.
 
-const said = runBooking(PANTRY_ACTIONS);
+const said = runBooking(Object.assign({}, PANTRY_ACTIONS, PRODUCT_ACTIONS));
 
 const options = (values, chosen) => values.map((v) => "<option" + (v === chosen ? " selected" : "") + ">" + esc(v) + "</option>").join("");
 const hidden = (fields) => Object.keys(fields).map((k) => "<input type=\"hidden\" name=\"" + k + "\" value=\"" + esc(fields[k]) + "\">").join("");
@@ -14,8 +20,10 @@ function form(action, fields, inner, label, confirmText) {
   return "<form class=\"inline\" action=\"/structr/html/pantry\"" + (confirmText ? " onsubmit=\"" + esc("return confirm(" + JSON.stringify(confirmText) + ")") + "\"" : "") + ">"
     + hidden(Object.assign({do: action, token: newToken()}, fields)) + inner + "<button>" + esc(label) + "</button></form>";
 }
-const amountInputs = (unit) => "<input name=\"amount\" type=\"number\" step=\"any\" min=\"0\" required size=\"5\" placeholder=\"amount\">"
+const amountInputs = (unit, amount, placeholder) => "<input name=\"amount\" type=\"number\" step=\"any\" min=\"0\" required size=\"5\" placeholder=\""
+  + esc(placeholder || "amount") + "\"" + (amount != null ? " value=\"" + esc(amount) + "\"" : "") + ">"
   + "<select name=\"unit\">" + options(UNITS, unit) + "</select>";
+const given = (v) => v == null ? "" : String(v);
 
 const rows = [];
 for (const portion of $.find("PortionOfSubstance").concat($.find("DiscreteWholeItem"))) {
@@ -29,10 +37,7 @@ rows.sort((a, b) => (a.days == null) - (b.days == null) || (a.days - b.days) || 
 
 const typesIn = (hierarchy) => (($.find("TypeHierarchy", {name: hierarchy})[0] || {}).domainTypes || []);
 // products.product_ids: the Types a GTIN denotes, each a packaged product below the food it is a kind of
-const products = {};
-for (const code of (($.find("Concept", {name: "GTIN"})[0] || {}).identifiersInScheme || [])) {
-  if (code.denotesType) products[code.denotesType.id] = true;
-}
+const products = productIds();
 // products.buyable: a food nothing but products sits under (a food others sit under is a group), and each product
 const buyable = typesIn("Food Identity").filter((t) => (t.children || []).every((c) => products[c.id]));
 const foods = buyable.map((t) => t.name).sort();
@@ -48,14 +53,67 @@ for (const t of buyable) {
   if (unit && unit !== "g") buyUnits[t.name] = unit;
 }
 const classes = typesIn("Perishability Class").map((t) => t.name).sort();
+// what a product may be a kind of (products.import_products): a food Buy offers that is no product itself
+const productFoods = buyable.filter((t) => !products[t.id]).map((t) => t.name).sort();
+
+// The barcode scanned or typed (?scan=), else the one a product was just added with: what it names
+const added = BOOKED && BOOKED.action === "product" && !BOOKED.problem;
+const asked = given($.request.scan).trim() || (added ? given($.request.barcode).trim() : "");
+let scan = null;
+if (asked) {
+  try {
+    scan = findProduct(asked);
+  } catch (e) {
+    if (!(e instanceof BookingError)) throw e;
+    scan = {problem: e.message};
+  }
+}
+// a scan led here: the barcode box keeps the cursor for the next one, unless a product is to be named first
+const scanning = !!(asked || $.request.scanning);
+let fill = {food: "", amount: null, unit: "g"};      // Buy, filled in with the product scanned
+let scanSaid = "";
+if (scan && scan.problem) scanSaid = "<p class=\"problem\">Problem: " + esc(scan.problem) + "</p>";
+else if (scan && scan.product) {
+  fill = {food: scan.product, amount: scan.amount, unit: scan.unit || "g"};
+  if (scan.amount != null && UNITS.indexOf(fill.unit) < 0) {          // a unit Buy does not offer: its grams
+    fill = {food: scan.product, amount: toGrams(typeNamed(scan.product), scan.amount, scan.unit), unit: "g"};
+  }
+  scanSaid = "<p class=\"scanned\">" + esc(scan.product) + (scan.food ? " <small>(" + esc(scan.food) + ")</small>" : "")
+    + (scan.amount != null ? ": one package holds " + esc(number(scan.amount, 2)) + " " + esc(scan.unit)
+       + ". Change the amount for more than one package, and Add to pantry."
+       : ": no package size is known for it, so give the amount.") + "</p>";
+}
+// "Add a product": open with the barcode scanned where no product has it, or with what was sent where adding failed
+const retry = BOOKED && BOOKED.action === "product" && BOOKED.problem;
+const unknown = scan && !scan.problem && !scan.product;
+const draft = retry ? {barcode: given($.request.barcode), name: given($.request.name), food: given($.request.food),
+                       amount: given($.request.amount) || null, unit: given($.request.unit) || "g"}
+  : {barcode: unknown ? asked : "", name: "", food: "", amount: null, unit: "g"};
+if (unknown) scanSaid = "<p class=\"note\">No product has barcode " + esc(asked) + " yet: add it below, "
+  + "or buy its food by name.</p>";
 
 let html = nav("pantry") + "<h1>Pantry</h1>" + said
   + "<details class=\"buy\" open><summary>Buy</summary>"
-  + form("buy", {}, "<input name=\"food\" list=\"foods\" required placeholder=\"food\" size=\"24\">" + amountInputs("g")
+  + "<form class=\"inline scan\" action=\"/structr/html/pantry\"><input name=\"scan\" inputmode=\"numeric\" autocomplete=\"off\""
+  + " required size=\"16\" placeholder=\"scan or type a barcode\"" + (scanning && !unknown ? " autofocus" : "") + "><button>Look up</button></form>"
+  + scanSaid
+  + form("buy", scan && scan.product ? {scanning: "1"} : {}, "<input name=\"food\" list=\"foods\" required placeholder=\"food\" size=\"24\""
+    + (fill.food ? " value=\"" + esc(fill.food) + "\"" : "") + ">" + amountInputs(fill.unit, fill.amount)
     + "<select name=\"storage\">" + options(STORAGE, "Fridge") + "</select>"
     + "<select name=\"keeps\" title=\"For a food FoodKeeper gives no time for\"><option value=\"\">keeps as FoodKeeper says</option>"
     + options(classes) + "</select>", "Add to pantry")
   + "<datalist id=\"foods\">" + foods.map((f) => "<option value=\"" + esc(f) + "\">").join("") + "</datalist></details>"
+  + "<details class=\"product\"" + (unknown || retry ? " open" : "") + "><summary>Add a product</summary>"
+  + "<p class=\"note\">A product is a packaged food with a barcode, bought as many packages of what one holds. It is "
+  + "stock of its food, and keeps and weighs as that food does. A package of another size is another product.</p>"
+  + form("product", {scanning: "1"}, "<input name=\"barcode\" inputmode=\"numeric\" autocomplete=\"off\" required size=\"16\" placeholder=\"barcode\""
+    + (draft.barcode ? " value=\"" + esc(draft.barcode) + "\"" : "") + ">"
+    + "<input name=\"name\" required size=\"24\" placeholder=\"name, as on the package\"" + (draft.name ? " value=\"" + esc(draft.name) + "\"" : "")
+    + (unknown ? " autofocus" : "") + ">"
+    + "<input name=\"food\" list=\"product-foods\" required size=\"24\" placeholder=\"the food it is\""
+    + (draft.food ? " value=\"" + esc(draft.food) + "\"" : "") + ">"
+    + amountInputs(draft.unit, draft.amount, "one holds"), "Add product")
+  + "<datalist id=\"product-foods\">" + productFoods.map((f) => "<option value=\"" + esc(f) + "\">").join("") + "</datalist></details>"
   + "<p class=\"note\">" + rows.length + " foods on hand, " + rows.filter((r) => r.days != null).length
   + " with a known shelf life. Soonest to expire first.</p>"
   + "<table><thead><tr><th>Food</th><th>On hand</th><th>Weighed</th><th>Expires (estimate)</th><th></th></tr></thead><tbody>";
@@ -89,6 +147,7 @@ html += "</tbody></table><p class=\"note\">Imputed: an amount from the pantry pr
 $.print(html + "<script type=\"application/json\" id=\"page-data\">" + JSON.stringify(data).replace(/</g, "\\u003c") + "</script>"
   + "<script type=\"application/json\" id=\"buy-data\">" + JSON.stringify(foods).replace(/</g, "\\u003c") + "</script>"
   + "<script type=\"application/json\" id=\"buy-units\">" + JSON.stringify(buyUnits).replace(/</g, "\\u003c") + "</script>"
+  + "<script type=\"application/json\" id=\"scan-data\">" + JSON.stringify(scan).replace(/</g, "\\u003c") + "</script>"
   + "<script>(function () { var food = document.querySelector('details.buy input[name=food]'); if (!food) return;"
   + " var unit = food.form.querySelector('select[name=unit]');"
   + " var offered = JSON.parse(document.getElementById('buy-data').textContent), units = JSON.parse(document.getElementById('buy-units').textContent);"

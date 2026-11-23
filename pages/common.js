@@ -27,7 +27,9 @@ function weekPicker(page, current) {
     .map((w) => "<a href=\"/structr/html/" + page + "/" + w.id + "\">" + esc(w.name) + "</a>").join(" · ") + "</p>";
 }
 
-// Run a booking from the page's address (?do=...), as the superuser; a message saying what it did
+// Run a booking from the page's address (?do=...), as the superuser; a message saying what it did.
+// BOOKED then holds the booking's action and its problem (null once it was booked)
+let BOOKED = null;
 function runBooking(actions) {
   const action = $.request.do;
   if (!action) return "";
@@ -39,6 +41,7 @@ function runBooking(actions) {
   const privileged = typeof $.doPrivileged === "function";
   if (privileged) $.doPrivileged(run); else run();
   const problem = done.problem, booking = done.booking;
+  BOOKED = {action: action, problem: problem};
   // what was booked, for tools/check_bookings.py
   const record = "<script type=\"application/json\" id=\"booking-data\">" + JSON.stringify({
     action: action, privileged: privileged, problem: problem, process: booking.process, created: booking.created,

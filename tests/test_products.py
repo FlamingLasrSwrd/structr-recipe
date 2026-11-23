@@ -25,11 +25,12 @@ import unittest
 from contextlib import redirect_stdout
 from unittest import mock
 
-from mealplanner.identifier_schema import GTIN, SCHEME_CONCEPTS
+from mealplanner.identifier_schema import GTIN, SCHEME, SCHEME_CONCEPTS
 from mealplanner.inventory import instance_expiration, physical_on_hand
 from mealplanner.pantry import PantryError, buy
 from mealplanner.products import (
-    Product, ProductError, buy_units, buyable, check_digit, find, import_products, normalize, parse_products, product_ids,
+    PAGE_SOURCE, SOURCE, Product, ProductError, add_product, buy_units, buyable, check_digit, find, import_products, normalize,
+    parse_products, product_ids,
 )
 from tests.fakegraph import Ref, when
 from tests.planning_graph import add_type
@@ -262,6 +263,80 @@ class Load(unittest.TestCase):
         self.assertIn("no 'PurchaseQuantity' kind of default", problems_of(import_products, g, [DOZEN])[0])
 
 
+SEEN = ("visibleToAuthenticatedUsers", "visibleToPublicUsers")
+
+
+class AddFromThePage(unittest.TestCase):
+    """products.add_product: one barcode added on the pantry page (pages/lib/55_products.js; on an instance
+    tools/check_bookings.py compares the page with it, and tests/test_pantry_scan.py runs the page)."""
+
+    def test_a_new_product_is_what_the_file_would_write_but_sourced_to_the_page(self):
+        g, h = kitchen(), kitchen()
+        self.assertEqual(add_product(g, "Farm eggs dozen", "Eggs", "0 36000 29145 2", 12, "each"),
+                         {"created": 6, "changed": 0, "unchanged": 0, "deleted": 0})      # scheme, Concept, Type, barcode, size, value
+        import_products(h, [DOZEN])
+        fields = {"DomainType": ("parent", "hierarchy", "isLookupBearing"), "Concept": ("inScheme",),
+                  "Identifier": ("identifierValue", "identifierScheme", "denotesType"), "ConceptScheme": (),
+                  "QuantitySpecification": ("value", "unit", "status"),
+                  "DefaultSpecification": ("forType", "hasKind", "hasValue", "provenance")}
+
+        def written(graph):
+            out = {}
+            for node in list(graph.nodes.values()):
+                keys = fields.get(node["type"])
+                if keys is not None:
+                    row = graph.get_all(node["type"], node["id"])["result"]
+                    out[(node["type"], node["name"])] = [row.get(k)["name"] if isinstance(row.get(k), dict) else row.get(k)
+                                                         for k in keys + SEEN]
+            return out
+        self.assertEqual(written(g), written(h))
+        size = "DefaultSpecification:Farm eggs dozen package size"
+        self.assertEqual((g.nodes[size]["source"], h.nodes[size]["source"]), (PAGE_SOURCE, SOURCE))
+        self.assertEqual(find(g, UPC_A).amount, 12.0)
+
+    def test_another_barcode_of_a_product_is_added_and_none_taken_away(self):
+        g = kitchen()
+        import_products(g, [DOZEN])
+        posts = g.posts
+        self.assertEqual(add_product(g, "Farm eggs dozen", "Eggs", UPC_E, 12.0, "each"),
+                         {"created": 1, "changed": 0, "unchanged": 2, "deleted": 0})        # the barcode alone
+        self.assertEqual(g.posts, posts + 1)
+        self.assertEqual((find(g, UPC_E).product, find(g, UPC_A).product), ("Farm eggs dozen", "Farm eggs dozen"))
+        source = g.nodes["DefaultSpecification:Farm eggs dozen package size"]["source"]
+        self.assertEqual(source, SOURCE)                    # what the file wrote is left as it was
+
+    def test_twice_writes_nothing_new(self):
+        g = kitchen()
+        add_product(g, "Farm eggs dozen", "Eggs", UPC_A, 12, "each")
+        posts, patches = g.posts, g.patches
+        self.assertEqual(add_product(g, "Farm eggs dozen", "Eggs", "0036000291452", 12, "each")["created"], 0)
+        self.assertEqual((g.posts, g.patches), (posts, patches))
+
+    def test_what_cannot_be_added_is_named_and_nothing_is_written(self):
+        g = kitchen()
+        import_products(g, [DOZEN, MILK])
+        posts, patches = g.posts, g.patches
+        for args, expected in (
+            (("Farm eggs dozen", "Eggs", UPC_E, 6, "each"),
+             ["Farm eggs dozen: one package of it holds 12 each already; a package of another size is another product, "
+              "so name it apart"]),
+            (("Farm eggs dozen", "Milk", UPC_E, 12, "each"),
+             ["Farm eggs dozen: it is a product of 'Eggs' already, not of 'Milk'"]),
+            (("Farm eggs dozen", "Eggs", EAN_8, 12, "each"),
+             ["Farm eggs dozen: barcode 00000073513537 already belongs to 'Dairy milk 1 L'"]),
+            (("Other eggs", "Eggs", UPC_A, 6, "each"),
+             ["Other eggs: barcode 00036000291452 already belongs to 'Farm eggs dozen', which this file does not name"]),
+            (("Tinned beans", "Beans", UPC_E, 400, "g"),
+             ["Tinned beans: 'Beans' is a group of foods (Black beans, Chickpeas), not a food that is bought"]),
+            (("Milk", "Eggs", UPC_E, 6, "each"), ["Milk: that name is already a food here, not a product"]),
+            (("Six eggs", "Eggs", "036000291453", 0, "each"),
+             ["Six eggs: what a package holds (amount) must be more than 0",
+              "Six eggs: barcode '036000291453' is misread or mistyped: its last digit should be 2"]),
+        ):
+            self.assertEqual(problems_of(add_product, g, *args), expected, args)
+        self.assertEqual((g.posts, g.patches), (posts, patches))
+
+
 class Find(unittest.TestCase):
     def setUp(self):
         self.g = kitchen()
@@ -352,8 +427,11 @@ class InThePantry(unittest.TestCase):
                                     "pantry: Buy picks a unit for Beans, which it does not offer"])
 
     def test_the_page_reads_the_same_scheme(self):
-        page = (pathlib.Path(__file__).resolve().parents[1] / "pages" / "pantry.js").read_text()
-        self.assertIn(f'$.find("Concept", {{name: "{GTIN}"}})', page)
+        root = pathlib.Path(__file__).resolve().parents[1] / "pages"
+        page, lib = (root / "pantry.js").read_text(), (root / "lib" / "55_products.js").read_text()
+        self.assertIn(f'const GTIN_SCHEME = "{GTIN}", IDENTIFIER_SCHEME = "{SCHEME}";', lib)
+        self.assertIn(f'const PAGE_SOURCE = "{PAGE_SOURCE}";', lib)
+        self.assertIn("const products = productIds();", page)
         self.assertIn('id=\\"buy-data\\"', page)
         self.assertIn('id=\\"buy-units\\"', page)
 
