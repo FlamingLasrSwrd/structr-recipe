@@ -22,6 +22,7 @@ import unittest
 import zipfile
 
 from mealplanner.fdc import ImplausibleRecord, extract, extract_branded, extract_survey, household, unit_name
+from mealplanner.unit_conversion import convert_to_grams
 from mealplanner.vocabulary_import import (
     VocabularyError, _with_equivalents, composition, core_gaps, import_vocabulary, measure_value, merge, nutrient_name,
     parse_vocabulary, volume_unit,
@@ -513,6 +514,43 @@ class Load(unittest.TestCase):
         self.assertEqual(imported.counts["deleted"], 3)        # garlic's, shallot's and kosher salt's (all from FDC 2)
         self.assertEqual(imported.affected, self.ids(g, "Garlic", "Shallot", "Kosher salt"))
         self.assertFalse([r for r in g.get_all("NutrientProfile")["result"] if r["name"] == "Garlic -- Sodium - Na per 100 g"])
+
+    def placeholder(self, g, food, kind, value, unit):
+        """A build's placeholder default, as mealplanner/seed_vocabulary.py writes them, on `food`."""
+        g.add("QuantitySpecification", f"q:{food}:{kind}", f"{value} {unit} for {food} [PLACEHOLDER]",
+              value=value, unit=unit, status="default")
+        spec = g.add("DefaultSpecification", f"d:{food}:{kind}", f"{kind} of {food} [PLACEHOLDER]",
+                     forType=Ref(food), hasKind=Ref(kind), hasValue=Ref(f"q:{food}:{kind}"), keyedBy=[])
+        g.nodes[food].setdefault("defaultSpecifications", []).append(Ref(spec))
+
+    def test_a_placeholder_the_file_gives_a_figure_for_goes_and_the_food_converts(self):
+        # On a development instance the build's placeholders were already there: Garlic's weight per
+        # item and Onion's density sat beside the file's and tied, so converting either was ambiguous.
+        g = instance()
+        self.load(g)
+        garlic, onion = self.node(g, "DomainType", "Garlic")["id"], self.node(g, "DomainType", "Onion")["id"]
+        self.placeholder(g, garlic, "MassPerUnit", 180.0, "g_per_each")
+        self.placeholder(g, onion, "Density", 0.5, "g_per_mL")
+        self.placeholder(g, onion, "MassPerUnit", 150.0, "g_per_each")    # the file gives Onion no weight per item
+        imported = self.imported(g)
+        self.assertEqual(imported.counts["deleted"], 4)                  # two defaults and their two values
+        self.assertEqual(imported.affected, {garlic, onion})
+        left = {r["name"] for r in g.get_all("DefaultSpecification")["result"] if "PLACEHOLDER" in r["name"]}
+        self.assertEqual(left, {f"MassPerUnit of {onion} [PLACEHOLDER]"})
+        self.assertEqual({r["name"] for r in g.get_all("QuantitySpecification")["result"] if "PLACEHOLDER" in r["name"]},
+                         {f"150.0 g_per_each for {onion} [PLACEHOLDER]"})
+        self.assertEqual(convert_to_grams(g, garlic, 2, "each"), 6.0)    # the file's clove, 3 g, by hand
+        self.assertEqual(convert_to_grams(g, onion, 1, "each"), 150.0)   # what the file does not give is kept
+        self.assertAlmostEqual(convert_to_grams(g, onion, 1, "cup"), 115.0, places=3)   # half a cup sliced is 57.5 g
+        self.assertEqual(self.imported(g).counts["deleted"], 0)
+
+    def test_a_keyed_default_of_the_same_kind_is_not_the_files_to_remove(self):
+        g = instance()
+        self.load(g)
+        garlic = self.node(g, "DomainType", "Garlic")["id"]
+        self.placeholder(g, garlic, "MassPerUnit", 5.0, "g_per_each")
+        g.nodes[f"d:{garlic}:MassPerUnit"]["keyedBy"] = [Ref("Stir-Frying")]
+        self.assertEqual(self.imported(g).counts["deleted"], 0)
 
     def test_every_node_written_states_its_visibility_and_types_are_lookup_bearing(self):
         g = instance()
