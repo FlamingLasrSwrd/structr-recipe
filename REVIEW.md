@@ -45,7 +45,7 @@ requests once the model met real recipes and a real household. In order of how m
   pantry profiles, public prices; the owner's data in its own instance, out of reach of the demos
   (`tools/owner_stack.sh`); memory caps after the 8 GB laptop froze; backups of that instance, checked
   by restoring them (`tools/backup.py`, `docs/backups.md`).
-- **Testing:** 1159 offline tests (72 when the second review's fixes landed), three mutation sweeps
+- **Testing:** 1161 offline tests (72 when the second review's fixes landed), three mutation sweeps
   (below), and checks of the pages against Python on real Structr.
 
 ## What is being reviewed
@@ -85,7 +85,7 @@ describe a known posture rather than a regression.
 ## Running it
 
 ```bash
-python3 -m unittest discover -s tests -t .            # 1159 offline tests, no Structr (29 skip without OR-tools, 17 without node or gjs)
+python3 -m unittest discover -s tests -t .            # 1161 offline tests, no Structr (29 skip without OR-tools, 17 without node or gjs)
 .venv/bin/python -m unittest discover -s tests -t .   # the same with OR-tools (requirements-solver.txt)
 python3 tools/check_names.py                          # undefined names and unused imports (no pyflakes here)
 python3 scripts/23a_schema_drift_test.py              # offline: the schema helpers against a drifted schema
@@ -294,9 +294,14 @@ JavaScript run in gjs, which also compared the two sides on random weeks and boo
 Left open: a use booked in the past can overdraw a portion used since; Grocy rows that share a `stock_id`
 (a split entry) book only the first; a repeated use or discard answers with an error where it should say
 "booked before"; what is left of a food bought for an overdue meal is said to keep to a date already past.
-On a development instance (not the owner's, whose build removes the demos' placeholders) the vocabulary's
-density and weight per item sit beside the demos' placeholders for the same food, so any conversion of
-such a food is ambiguous and `tools/import_profiles.py` fails on Yellow Onion.
+
+Fixed since: on a development instance (not the owner's, whose build removes the demos' placeholders) the
+vocabulary's density and weight per item sat beside the build's placeholders for the same food (AP Flour,
+Yellow Onion), so any conversion of such a food was ambiguous and `tools/import_profiles.py` failed on
+Yellow Onion. Loading the vocabulary now deletes any other unkeyed density or weight per item on a food the
+file gives one of that kind for; a food it gives none for keeps its own. Seen on a rebuilt development
+instance: the profiles import failed after main's vocabulary load, and after a load with the fix (which
+deleted those four nodes) wrote 595.
 
 ## Open items
 

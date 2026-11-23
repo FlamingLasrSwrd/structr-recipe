@@ -39,8 +39,10 @@ food, `estimated` for anything nearer or rougher (a similar food, an average of
 labels, a web figure), `calculated` for a composition worked out from parts.
 
 Existing nodes are matched by name and changed only where they differ. A
-food's profiles for nutrients no source reports any longer are deleted. A name
-that already exists in another hierarchy is an error, not a rename.
+food's profiles for nutrients no source reports any longer are deleted, and so is
+any other density or weight per item on a food the file gives one for (a build's
+placeholder), which would tie with the file's. A name that already exists in
+another hierarchy is an error, not a rename.
 """
 
 from __future__ import annotations
@@ -800,6 +802,7 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> Imported:
     if any(f.serving for f in vocabulary.foods):     # a kind of its own, made here, as prices and packages make theirs
         kinds[SERVING_KIND] = sync.ensure("DomainType", SERVING_KIND, {"hierarchy": _hierarchy(client, "Default Kind")})
     wanted_profiles: set[str] = set()
+    measures: dict[tuple[str, str], str] = {}     # (food id, kind id) -> the name of the file's default
     for food in vocabulary.foods:
         fid = food_ids[food.name]
         if food.fdc:
@@ -833,6 +836,7 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> Imported:
             sync.ensure("DefaultSpecification", f"{food.name} {label}", {
                 "forType": fid, "hasKind": kinds[kind], "hasValue": qty, "provenance": measure.status,
                 "source": measure_source(fdc, measure)}, fid)
+            measures[(fid, kinds[kind])] = f"{food.name} {label}"
         if food.serving:                  # rounds a weight as it is shown; no figure rests on it
             s = food.serving
             qty = sync.ensure("QuantitySpecification", f"{food.name} serving value", {
@@ -840,6 +844,7 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> Imported:
             sync.ensure("DefaultSpecification", f"{food.name} serving", {
                 "forType": fid, "hasKind": kinds[SERVING_KIND], "hasValue": qty, "provenance": s.status,
                 "source": s.source})
+    _retire_superseded_measures(sync, measures)
     mapped = {f.name for f in vocabulary.foods if f.sources or f.label}
     for profile in list(sync.rows("NutrientProfile").values()):
         if (profile.get("isAbout") or {}).get("name") in mapped and profile["name"] not in wanted_profiles:
@@ -859,6 +864,23 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> Imported:
     if vocabulary.shelf_table:
         _write_shelf_lives(sync, vocabulary, food_ids)
     return Imported(sync.counts, sync.affected)
+
+
+def _retire_superseded_measures(sync: Sync, measures: dict[tuple[str, str], str]) -> None:
+    """A food's density and weight per item are the file's alone. Any other unkeyed Density or
+    MassPerUnit on a food the file gives one of that kind for is deleted, with its value: on a
+    development instance, a build's placeholder (mealplanner/seed_vocabulary.py's AP Flour and
+    Yellow Onion). Left beside the file's, the two tie, so every conversion of that food to grams
+    is ambiguous (defaults.AmbiguousDefaultError): tools/import_profiles.py failed on Yellow Onion
+    so. A food the file gives none of a kind for keeps whatever it has of that kind."""
+    for spec in list(sync.rows("DefaultSpecification").values()):
+        key = ((spec.get("forType") or {}).get("id"), (spec.get("hasKind") or {}).get("id"))
+        if key not in measures or spec["name"] == measures[key] or spec.get("keyedBy"):
+            continue
+        sync.delete("DefaultSpecification", spec, key[0])
+        value = sync.rows("QuantitySpecification").get((spec.get("hasValue") or {}).get("name"))
+        if value:
+            sync.delete("QuantitySpecification", value)
 
 
 def _write_shelf_lives(sync: Sync, vocabulary: Vocabulary, food_ids: dict) -> None:
