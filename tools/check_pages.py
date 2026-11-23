@@ -15,7 +15,7 @@ session) and compares the data block each prints (#page-data) with Python's answ
               recipe's instructions, written from its steps' facts, against mealplanner/instructions.py
               for the same Plan as recipe_import.export_plan reads it (J35)
   pantry      inventory.current_magnitude and instance_expiration for every portion on hand; and what
-              Buy offers (#buy-data), against products.buyable
+              Buy offers (#buy-data), against products.buyable, and the unit it picks (#buy-units), buy_unit
   shopping    shopping.shopping_list: each food to buy, what is needed and on hand, the packages it is
               bought in at the default package level (packages.default_level), what is left of them,
               its cost and until when it keeps, the cost at "Home prices" where it exists, and what
@@ -38,7 +38,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mealplanner.connection import connect
 from mealplanner.instructions import instructions
 from mealplanner.pantry import USED_UP_G
-from mealplanner.products import buyable
+from mealplanner.products import buy_units, buyable
 from mealplanner.recipe_import import capability_bearers, export_plan
 from mealplanner.inventory import current_magnitude, instance_expiration, mass_quality
 from mealplanner.packages import default_level, package_table
@@ -53,6 +53,7 @@ from structr_client import ReadCache
 TOLERANCE = 1e-6
 DATA = re.compile(r'<script type="application/json" id="page-data">(.*?)</script>', re.S)
 BUY_DATA = re.compile(r'<script type="application/json" id="buy-data">(.*?)</script>', re.S)
+BUY_UNITS = re.compile(r'<script type="application/json" id="buy-units">(.*?)</script>', re.S)
 
 
 def page_data(client, path: str):
@@ -216,23 +217,29 @@ def check_pantry(client, reads, problems: list[str]) -> int:
     return counted
 
 
-def buy_data(client) -> list[str]:
+def buy_data(client) -> tuple[list[str], dict[str, str]]:
+    """What the pantry page's Buy offers, and the unit it picks for each that is not grams."""
     r = client.request("GET", "/structr/html/pantry")
     r.raise_for_status()
-    found = BUY_DATA.search(r.text)
-    if not found:
+    found, units = BUY_DATA.search(r.text), BUY_UNITS.search(r.text)
+    if not found or not units:
         raise ValueError("/structr/html/pantry printed no buy data")
-    return json.loads(found.group(1))
+    return json.loads(found.group(1)), json.loads(units.group(1))
 
 
 def check_buyable(client, reads, problems: list[str]) -> int:
     """What the pantry page's Buy offers, against products.buyable: a food that only products sit under is
-    still offered, and so is each product."""
-    shown, want = buy_data(client), buyable(reads)
+    still offered, and so is each product. And the unit it picks for each, against products.buy_unit."""
+    (shown, units), want = buy_data(client), buyable(reads)
     for name in sorted(set(want) - set(shown)):
         problems.append(f"pantry: {name} can be bought, but Buy does not offer it")
     for name in sorted(set(shown) - set(want)):
         problems.append(f"pantry: Buy offers {name}, which is a group of foods or no food")
+    for name, unit in sorted(buy_units(reads).items()):
+        if units.get(name, "g") != unit:
+            problems.append(f"pantry: Buy picks {units.get(name, 'g')} for {name}, buy_unit {unit}")
+    for name in sorted(set(units) - set(want)):
+        problems.append(f"pantry: Buy picks a unit for {name}, which it does not offer")
     return len(want)
 
 

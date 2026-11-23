@@ -34,7 +34,19 @@ for (const code of (($.find("Concept", {name: "GTIN"})[0] || {}).identifiersInSc
   if (code.denotesType) products[code.denotesType.id] = true;
 }
 // products.buyable: a food nothing but products sits under (a food others sit under is a group), and each product
-const foods = typesIn("Food Identity").filter((t) => (t.children || []).every((c) => products[c.id])).map((t) => t.name).sort();
+const buyable = typesIn("Food Identity").filter((t) => (t.children || []).every((c) => products[c.id]));
+const foods = buyable.map((t) => t.name).sort();
+// products.buy_unit: the unit Buy picks once a food is chosen: a product's own package size, else the first
+// size the food (or its nearest ancestor food) is sold in at the package level, that Buy offers and that
+// converts to grams for it; else grams (left out here: the form's own default)
+const packageLevel = defaultPackageLevel(), packages = packageLevel ? packageTable(packageLevel) : null;
+const buyUnits = {};
+for (const t of buyable) {
+  const own = resolveDefault(t, PACKAGE_KIND, []);
+  const units = (own && own.hasValue ? [own.hasValue.unit] : []).concat(packages ? foodPackages(packages, t).map((p) => p.unit) : []);
+  const unit = units.find((u) => UNITS.indexOf(u) >= 0 && toGrams(t, 1, u) != null);
+  if (unit && unit !== "g") buyUnits[t.name] = unit;
+}
 const classes = typesIn("Perishability Class").map((t) => t.name).sort();
 
 let html = nav("pantry") + "<h1>Pantry</h1>" + said
@@ -73,5 +85,12 @@ html += "</tbody></table><p class=\"note\">Imputed: an amount from the pantry pr
   + "estimate: the shelf life for how a portion is kept now, opened or sealed, counted from when it was bought or first weighed. "
   + "When it was opened, frozen or moved is not recorded, so freezing keeps a portion's shelf life as if it had always been "
   + "frozen, and opening one judges it as if opened from the start (storage is a tag, not a history: docs/pantry.md).</p>";
+// choosing a food Buy offers sets the unit to the one it picks for it (buyUnits); typing part of a name changes nothing
 $.print(html + "<script type=\"application/json\" id=\"page-data\">" + JSON.stringify(data).replace(/</g, "\\u003c") + "</script>"
-  + "<script type=\"application/json\" id=\"buy-data\">" + JSON.stringify(foods).replace(/</g, "\\u003c") + "</script>");
+  + "<script type=\"application/json\" id=\"buy-data\">" + JSON.stringify(foods).replace(/</g, "\\u003c") + "</script>"
+  + "<script type=\"application/json\" id=\"buy-units\">" + JSON.stringify(buyUnits).replace(/</g, "\\u003c") + "</script>"
+  + "<script>(function () { var food = document.querySelector('details.buy input[name=food]'); if (!food) return;"
+  + " var unit = food.form.querySelector('select[name=unit]');"
+  + " var offered = JSON.parse(document.getElementById('buy-data').textContent), units = JSON.parse(document.getElementById('buy-units').textContent);"
+  + " function pick() { var name = food.value.trim(); if (offered.indexOf(name) >= 0) unit.value = units[name] || 'g'; }"
+  + " food.addEventListener('input', pick); food.addEventListener('change', pick); })();</script>");

@@ -27,6 +27,7 @@ from mealplanner.packages import (
     HOME_LEVEL, PUBLIC_LEVEL, Package, check_against_vocabulary, choose, default_level, food_packages, import_packages,
     instantiate_packages, package_table, parse_packages, read_packages,
 )
+from mealplanner.products import buy_unit
 from mealplanner.profiles import ProfileError
 from mealplanner.shopping import Line, _round_up, describe, shopping_list
 from tests.fakegraph import Ref, WritableGraph, when
@@ -134,6 +135,29 @@ class Levels(unittest.TestCase):
     def test_a_food_takes_its_parents_sizes(self):
         self.assertEqual(sizes(instance(), PUBLIC_LEVEL, "Butter (salted)"), [("1 lb", 1.0, "lb")])
         self.assertEqual(sizes(instance(), PUBLIC_LEVEL, "Salt"), [])
+
+    def test_buy_picks_the_unit_of_the_first_size_a_food_is_sold_in(self):
+        g = instance()
+        table = package_table(g, PUBLIC_LEVEL)
+        picked = {food: buy_unit(g, food, table) for food in ("Flour", "Milk", "Egg", "Butter (salted)", "Salt")}
+        self.assertEqual(picked, {"Flour": "lb", "Milk": "fl_oz", "Egg": "each", "Butter (salted)": "lb", "Salt": "g"})
+        home(g)
+        self.assertEqual(buy_unit(g, "Flour", package_table(g, HOME_LEVEL)), "kg")
+        self.assertEqual(buy_unit(g, "Flour", None), "g")
+
+    def test_buy_picks_a_products_own_size_before_its_foods(self):
+        g = instance()
+        g.add("DomainType", "Milk 1 l carton", "Milk 1 l carton", hierarchy=Ref("Food Identity"), parent=Ref("Milk"),
+              defaultSpecifications=[Ref("Milk 1 l carton package size")])
+        g.add("QuantitySpecification", "Milk 1 l carton package size value", value=1.0, unit="l", status="default")
+        g.add("DefaultSpecification", "Milk 1 l carton package size", forType=Ref("Milk 1 l carton"),
+              hasKind=Ref("PurchaseQuantity"), keyedBy=[], hasValue=Ref("Milk 1 l carton package size value"))
+        self.assertEqual(buy_unit(g, "Milk 1 l carton", package_table(g, PUBLIC_LEVEL)), "l")   # not Milk's gallon
+
+    def test_buy_skips_a_size_that_no_longer_converts_to_grams(self):
+        g = instance()
+        g.nodes["Milk"]["defaultSpecifications"] = []           # its density gone since the gallon was loaded
+        self.assertEqual(buy_unit(g, "Milk", package_table(g, PUBLIC_LEVEL)), "g")
 
     def test_the_owners_sizes_replace_a_foods_and_the_rest_fall_back(self):
         g = instance()

@@ -53,6 +53,7 @@ from dataclasses import dataclass
 
 from mealplanner.defaults import resolve_default
 from mealplanner.identifier_schema import GTIN, SCHEME
+from mealplanner.packages import default_level, food_packages, package_table
 from mealplanner.typetree import dt
 from mealplanner.unit_conversion import UNIT_TABLE, convert_to_grams
 from mealplanner.vocabulary_import import FOOD_HIERARCHY, Sync
@@ -62,6 +63,8 @@ PACKAGE_SIZE = "PurchaseQuantity"       # the Default-Kind Type (seed_vocabulary
 SOURCE = "the package, as the products file states it"
 # The first digits of a GTIN-13 that GS1 leaves to each shop for its own packs (restricted circulation).
 SHOP_PREFIXES = ("02", "04", "2")
+# The units the pantry page's Buy offers, in its order (pages/lib/50_pantry.js UNITS).
+BUY_UNITS = ("g", "kg", "oz", "lb", "ml", "l", "cup", "tbsp", "tsp", "fl_oz", "each")
 
 
 class ProductError(ValueError):
@@ -212,6 +215,32 @@ def buyable(client) -> list[str]:
     under is a group, not something bought), and each product. pages/pantry.js follows this."""
     products = product_ids(client)
     return sorted(t["name"] for t in _foods(client) if all(c["id"] in products for c in t.get("children") or []))
+
+
+def buy_unit(client, food_id: str, packages: dict | None) -> str:
+    """The unit the pantry's Buy picks once a food is chosen (the owner's request, 2026-11-22): the unit of
+    what one package holds where the food is a product, else of the sizes the food (or its nearest
+    ancestor food) is sold in at `packages` (package_table at packages.default_level), in their order;
+    the first of those that Buy offers and that converts to grams for this food. Else grams.
+    pages/pantry.js follows this."""
+    units = []
+    own = resolve_default(client, food_id, dt(client, PACKAGE_SIZE))
+    if own is not None:
+        units.append(own.quantity["unit"])
+    if packages:
+        units.extend(p.unit for p in food_packages(client, packages, food_id))
+    for unit in units:
+        if unit in BUY_UNITS and convert_to_grams(client, food_id, 1.0, unit) is not None:
+            return unit
+    return "g"
+
+
+def buy_units(client) -> dict[str, str]:
+    """Each food and product Buy offers (buyable) -> the unit it picks for it (buy_unit)."""
+    level = default_level(client)
+    packages = package_table(client, level) if level else None
+    offered = set(buyable(client))
+    return {t["name"]: buy_unit(client, t["id"], packages) for t in _foods(client) if t["name"] in offered}
 
 
 def import_products(client, products: list[Product]) -> dict[str, int]:
