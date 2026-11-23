@@ -79,7 +79,8 @@ def plan_week(
     leftover_days: float | None = None, leftovers: bool = True, portions: tuple = (), eater_portions: dict | None = None,
     shortlist_above: int | None = SHORTLIST_ABOVE, deadline: float | None = None, proposal: dict | None = None,
     requests: tuple = (), preps: tuple = (), cooking_time: float = 0.0, repeat_tolerance: int | None = None,
-    repeat_weight: float = 1.0, build_only: bool = False, **search_options,
+    repeat_weight: float = 1.0, package_waste: float = 0.0, package_level: str | None = None, build_only: bool = False,
+    **search_options,
 ) -> PlanResult:
     """Read the MealPlan, search for the best week for the slots in `template`,
     and (only if asked, and only if a plan meets every hard constraint) write it
@@ -102,6 +103,8 @@ def plan_week(
     cooking_time: how much the week's total cooking time counts against it, points an hour (Weights).
     repeat_tolerance, repeat_weight: how many meals of the week one recipe may be before each more costs
     repeat_weight points (a soft preference, the owner's decision 2026-10-26); None: nothing counted.
+    package_waste, package_level: points off per package's worth the week's purchases leave to spoil, and
+    the package level the sizes are read at (extract.build_problem; Weights.package_waste); 0: not weighed.
 
     build_only: return the problem as built, unsearched (its search and evaluation empty), for the
     planner's JSON contract (planning/contract.py; tools/plan_week.py --export-problem).
@@ -115,7 +118,8 @@ def plan_week(
             client, meal_plan_id, template, now, servings_eaten=servings_eaten, max_difficulty=max_difficulty,
             leftover_days=leftover_days, leftovers=leftovers, portions=portions, eater_portions=eater_portions,
             shortlist_above=None, requests=requests, preps=preps, cooking_time=cooking_time,
-            repeat_tolerance=repeat_tolerance, repeat_weight=repeat_weight,
+            repeat_tolerance=repeat_tolerance, repeat_weight=repeat_weight, package_waste=package_waste,
+            package_level=package_level,
         )
         problem.notes.extend(settled(problem))
         evaluation = evaluate(problem, picks_from(problem, proposal))
@@ -135,6 +139,7 @@ def plan_week(
             leftover_days=leftover_days, leftovers=leftovers, portions=portions, eater_portions=eater_portions,
             shortlist_above=shortlist_above, shortlist_factor=factor, requests=requests, preps=preps,
             cooking_time=cooking_time, repeat_tolerance=repeat_tolerance, repeat_weight=repeat_weight,
+            package_waste=package_waste, package_level=package_level,
         )
         if build_only:
             return PlanResult(problem, SearchResult(None, False, 0, "not searched"), None, None)

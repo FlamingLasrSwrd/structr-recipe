@@ -21,8 +21,8 @@ needed: loose produce, a deli counter.
 
 What a need takes (choose): the whole packages that leave least over, then the fewest packages,
 then the fewest of the sizes listed first. A food the recipes count (eggs, tortillas) with no
-package size is bought in whole items. What is left over is reported, never planned around: the
-planner weighing it as waste is the owner's decision (docs/todo.md).
+package size is bought in whole items. What is left over is reported; the planner weighs what a week
+leaves to spoil only when the week file asks (Weights.package_waste, planning/evaluate.package_leftovers).
 """
 
 from __future__ import annotations

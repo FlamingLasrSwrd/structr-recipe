@@ -4,7 +4,8 @@ What each food is sold in, and a shopping list that buys whole packages and says
 (data-model.md J39). Asked for by the owner on 2026-10-31 ("This application needs to be aware of the
 amount that ingredients are sold in. Buying a whole rotisserie chicken is cheap but needs to be used
 that week, which affects wastage"), and to be built on 2026-11-22. This is stages 1 and 2 of the four
-in `docs/todo.md`; stages 3 and 4 are below, under "Not built".
+in `docs/todo.md`, and stage 4, the planner weighing what is left (2026-11-23, below); stage 3 is under
+"Not built".
 
 ## What a food is sold in
 
@@ -146,7 +147,7 @@ About $55.40 at 'Home prices', of which $42.07 is left over (* priced from an es
 ```
 
 Most of that $42 is bottles and jars bought for a spoonful (a litre of olive oil, fish sauce, sesame
-oil), which last for months; the perishable part is what stage 4 would weigh.
+oil), which last for months; the perishable part is what stage 4 weighs.
 
 The page computes the same in Structr's JavaScript (`pages/lib/90_shopping.js`: `packageTable`,
 `choosePackages`, `leftOverKeeps`, `roundUp`), and `tools/check_pages.py` compares, for every food,
@@ -158,15 +159,48 @@ with Python on all 41 foods to buy, and, with the page's opened-shelf-life test 
 34 differences. It also found a gap of its own, fixed: a food a stock policy tops up was left out of the
 foods to buy but not out of what the pantry covers, where the page, applying no policy, lists it.
 
+## The planner weighing what is left (stage 4)
+
+Built 2026-11-23 (`docs/optimizer-design.md` §12, "Package waste", has the whole of it). The shopping list
+says what a week leaves; the planner can now prefer a week that leaves less to spoil: two recipes using
+one 28 oz can of tomatoes before it goes off score better than one recipe and half a can thrown out.
+It is off unless the week file weighs it:
+
+```toml
+# private/week.toml
+packages = "Home packages"          # optional: the level the sizes are read at (default as the shopping list's)
+[weights]
+package_waste = 1                   # points off per package's worth left to spoil; 0 or left out: not weighed
+```
+
+For each food the recipes use and the level sells in packages, what stock does not cover is bought at
+the first cook that needs it, as the whole packages the shopping list would buy for every cook while
+what is opened keeps (the same keeping time the list prints); the next cook after that buys again.
+What a purchase leaves counts in full when it is past keeping before the week's last meal, less the
+longer it keeps beyond that, and nothing from a week past it on, or when no keeping time is known. It is
+counted in the food's smallest size, so half a can is 0.5. The proposed week lists what it leaves to
+spoil:
+
+```
+  package waste: 0.76 package(s)' worth left to spoil, at 1 a point each:
+    Tomatoes: 311 g left of 411 g bought Mon, keeps to Tue 29 Sep (all of it): 0.76
+```
+
+What is left that keeps (a bottle of fish sauce) costs nothing, which is why the term looks at keeping
+times and not only at grams. The unit, the week's grace, the weight and leaving out what keeps an
+unknown time are proposals for the owner to retune; a food bought by count with no package size (eggs
+singly) is not weighed. The shopping list is unchanged: it still buys on the week's total.
+
 ## Not built
 
 - **Stage 3, the form bought against the form used**: a rotisserie chicken bought for "shredded
   chicken", through the bird's yield of meat; juice from a lemon; whites from eggs; a can weighed
   drained. The vocabulary has no purchased form for a food yet (`reservation.py`'s note), and a yield
   from one food to another is a new kind of fact for the model to place. A proposal, not built.
-- **Stage 4, the planner weighing what is left over**: choosing recipes that share what a purchase
-  leaves before it keeps no longer, and counting what they do not as waste. That changes the objective
-  (optimizer-design.md §4.5), which is the owner's decision: proposed in `docs/todo.md`.
+- **Stage 4's next steps**: package waste in the CP-SAT model (it takes the term's ceiling today, so
+  only the climb and the exact search weigh it); weighing it in dollars where prices are known; and the
+  shopping list grouping purchases by keeping time as the planner does, so that a can opened Monday is
+  not counted as covering Sunday.
 - **Products** (barcode scanning, step 1, `docs/pantry.md` "Products and barcodes"): a product carries
   its own PurchaseQuantity on its own Type, unkeyed, which `package_table` does not read: the list is by
   food. Once a household can choose a product for a food, the list could buy that product in its

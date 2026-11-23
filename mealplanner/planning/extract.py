@@ -35,7 +35,12 @@ from mealplanner.nutrition_scope import (
     SERVING_BASIS, active_entries, baseline_day_intake, baseline_plans, convert_nutrient, entry_servings_eaten,
     entry_start, serving_nutrient_figure, stored_serving_profiles, target_scope_problem,
 )
-from mealplanner.planning.model import Candidate, Fixed, Lot, PlanningProblem, PrepSession, Request, Slot, Target, Weights
+from mealplanner import packages as package_sizes
+from mealplanner.planning.model import (Candidate, Fixed, Lot, Packaging, PlanningProblem, PrepSession, Request, Slot, Target,
+                                        Weights)
+from mealplanner.profiles import ProfileError
+from mealplanner.shopping import keeps_days
+from mealplanner.unit_conversion import convert_to_grams
 from mealplanner.planning.shortlist import FACTOR, SHORTLIST_ABOVE, choose
 from mealplanner.planning_view_schema import TYPE as VIEW_TYPE, VIEW as PLANNING_VIEW
 from mealplanner.recipe_nutrition import PREFETCH_ABOVE
@@ -45,6 +50,10 @@ from mealplanner.typetree import dt
 from structr_client import ReadCache
 
 LEFTOVER_CLASS = "Cooked Leftover"
+
+
+class PackageLevelError(ValueError):
+    """The week names a package level the instance does not have."""
 
 
 @dataclass(frozen=True)
@@ -195,6 +204,7 @@ def build_problem(
     leftovers: bool = True, portions: tuple = (), eater_portions: dict | None = None,
     shortlist_above: int | None = SHORTLIST_ABOVE, shortlist_factor: float = FACTOR, requests: tuple = (),
     preps: tuple = (), cooking_time: float = 0.0, repeat_tolerance: int | None = None, repeat_weight: float = 1.0,
+    package_waste: float = 0.0, package_level: str | None = None,
 ) -> PlanningProblem:
     """Read the MealPlan, the recipes, the stock and the constraints into a
     PlanningProblem for the slots in `template` (an iterable of SlotSpec).
@@ -220,6 +230,11 @@ def build_problem(
     repeat_tolerance, repeat_weight: how many meals of the week one recipe may be before each more costs
     repeat_weight points (PlanningProblem.repeat_tolerance, Weights.repeats).
 
+    package_waste: the week file's weight on what the week's purchases leave to spoil (Weights.package_waste).
+    Only when it is above 0 are the sizes the week's foods are sold in read, at `package_level` (default:
+    the owner's level where there is one, else the public one, as the shopping list does), with how long
+    each keeps once opened (shopping.keeps_days), as PlanningProblem.packaging.
+
     preps: PrepSessions, when the week may cook ahead (docs/optimizer-design.md Sec 12). A dish
     already committed at one (an entry at its start that no one eats) takes its share of the
     session's dishes and minutes.
@@ -237,6 +252,7 @@ def build_problem(
             leftover_days=leftover_days, leftovers=leftovers, portions=portions, eater_portions=eater_portions,
             shortlist_above=shortlist_above, shortlist_factor=shortlist_factor, requests=requests, preps=preps,
             cooking_time=cooking_time, repeat_tolerance=repeat_tolerance, repeat_weight=repeat_weight,
+            package_waste=package_waste, package_level=package_level,
         )
         changed = changes_since(client, before)
         if not changed:
@@ -253,6 +269,7 @@ def _read_problem(
     leftovers: bool = True, portions: tuple = (), eater_portions: dict | None = None,
     shortlist_above: int | None = SHORTLIST_ABOVE, shortlist_factor: float = FACTOR, requests: tuple = (),
     preps: tuple = (), cooking_time: float = 0.0, repeat_tolerance: int | None = None, repeat_weight: float = 1.0,
+    package_waste: float = 0.0, package_level: str | None = None,
 ) -> PlanningProblem:
     """build_problem's reads, once: what it says it reads, through one ReadCache."""
     client = ReadCache(client)
@@ -269,7 +286,7 @@ def _read_problem(
         time=number(meal_plan.get("timeBudgetWeight"), 0.5), variety=number(meal_plan.get("varietyWeight"), 0.5),
         stock=number(meal_plan.get("stockWeight"), 0.0), waste=number(meal_plan.get("wasteWeight"), 0.0),
         time_budget_minutes=number(meal_plan.get("timeBudgetMinutes"), 60.0), cooking_time=cooking_time,
-        repeats=repeat_weight,
+        repeats=repeat_weight, package_waste=package_waste,
     )
 
     # Every figure for one nutrient is read in one unit, the unit of the first target
@@ -532,8 +549,43 @@ def _read_problem(
         Lot(pool=root, grams=lot.grams, expires=lot.expires, name=lot.name)
         for root, pool_lots in lots_by_pool.items() for lot in pool_lots
     )
+    packaging = ()
+    if package_waste > 0:
+        packaging = _packaging(client, sorted({pool for c in candidates.values() for pool in c.demand}), package_level, notes)
     return PlanningProblem(slots=tuple(slots), candidates=candidates, lots=lots, notes=notes, book_size=len(book),
-                           requests=tuple(wanted), preps=tuple(sessions), **week)
+                           requests=tuple(wanted), preps=tuple(sessions), packaging=packaging, **week)
+
+
+def _packaging(client, pools: list, level: str | None, notes: list) -> tuple:
+    """Packaging for each pool whose food is sold in packages at the level (packages.package_table, with
+    the food's ancestors' sizes as the shopping list takes them), in grams, with its keeping time once
+    opened. A size that does not convert to grams is left out, as the shopping list leaves it out."""
+    level = level or package_sizes.default_level(client)
+    if level is None:
+        notes.append("package waste is not weighed: no package level is loaded (tools/import_packages.py)")
+        return ()
+    try:
+        table = package_sizes.package_table(client, level)
+    except ProfileError as exc:
+        raise PackageLevelError(f"package waste cannot be weighed: {'; '.join(exc.problems)}") from exc
+    out, unknown = [], []
+    for pool in pools:
+        sizes = []
+        for size in package_sizes.food_packages(client, table, pool):
+            grams = convert_to_grams(client, pool, size.amount, size.unit)
+            if grams:
+                sizes.append(grams)
+        if not sizes:
+            continue
+        name = client.get_all("DomainType", pool)["result"].get("name") or pool
+        days, _ = keeps_days(client, pool)
+        if days is None:
+            unknown.append(name)
+        out.append(Packaging(pool=pool, sizes=tuple(sizes), keeps_days=days, name=name))
+    notes.append(f"package waste weighed: {len(out)} of the {len(pools)} foods the recipes use are sold in packages at "
+                 f"{level!r}" + (f"; {len(unknown)} with no keeping time known, whose leftovers are not counted: "
+                                 + ", ".join(sorted(unknown)[:5]) + (", ..." if len(unknown) > 5 else "") if unknown else ""))
+    return tuple(out)
 
 
 def _figures(client, plan: dict, unit_of: dict) -> tuple[dict, set, set]:

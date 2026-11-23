@@ -387,4 +387,54 @@ problem it built. **No objective, search or result changed:** the search on a pr
 JSON finds the same picks and score on 80 random problems (`tests/test_planning_contract.py`, where a
 problem with every field off its default checks nothing is left out, and five mutants were caught).
 
+**Package waste may be weighed, week by week** (2026-11-23, `docs/packages.md` stage 4; the owner asked for the
+application to know what ingredients are sold in because "buying a whole rotisserie chicken is cheap but needs to
+be used that week, which affects wastage", 2026-10-31, and for stage 4 to be built overnight, 2026-11-23, "Build
+what you can overnight"). `[weights] package_waste` in the week file: **points off for each package's worth of what
+the week buys that is left over and spoils.** **0, the default, leaves the objective as it was**; like
+`cooking_time` it is the week file's alone, not written onto the MealPlan, so no schema changes. Only when it is
+above 0 does `extract.build_problem` read, for each stock pool the recipes use, the sizes its food is sold in at the
+week's package level (`packages = "..."`, else the owner's level, else the public one, as the shopping list does) and
+how long what is left keeps from its first use (`shopping.keeps_days`, the figure the shopping list prints:
+FoodKeeper opened where it says, else unopened), as `PlanningProblem.packaging`. The term (`evaluate.package_leftovers`):
+
+1. *What each cook must buy*: stock serves the cooks first, in the order they are cooked (`allocate_stock`, as for
+   the stock term); what it does not cover is bought. A cook before `now` was bought for already and is left out.
+2. *Purchases*: a food's first cook to need some opens a purchase; it serves that cook and every later one that
+   starts while it keeps (until `keeps_days` after that cook, the same "past its time" rule as a dish's leftovers);
+   the next cook after that opens another. A purchase is the whole packages `packages.choose` takes for what its
+   cooks need together, which is exactly what the shopping list buys when every use falls within one keeping time.
+3. *What counts*: what a purchase leaves is all waste if it is past keeping before the week's last meal; if it
+   keeps beyond that, it may feed next week, so it counts less the longer it keeps, linearly to nothing at
+   `GRACE_DAYS` = 7 past the last meal. A food with no keeping time known counts nothing (a jar the data says nothing
+   of is not taken to spoil), and the run's notes name such foods. Less than 0.5 g left is nothing.
+4. *Units*: what counts, divided by the food's smallest size: half a 14.5 oz can is 0.5 whatever the food. So
+   `-w x` the package's worth over every purchase.
+
+**Proposals, for the owner to retune** (Claude's choices, 2026-11-23): the unit (a package's worth, not grams,
+which would weigh a bag of flour against a bunch of herbs by weight, nor dollars, which the problem does not
+carry and many foods have only as an estimate); the 7-day grace and its straight line; not counting what keeps an
+unknown time; one open purchase per food at a time (a second package bought with the first is taken as opened
+with it, so it keeps no longer); and a suggested weight of 1, at which a whole package left to spoil costs what one
+meal's time fit and variety bonus add together at their defaults (0.5 each). Counted foods with no package size
+(eggs bought singly, a recipe asking for 3 tortillas) are not weighed, though the shopping list rounds them to
+whole items: the problem's demand is in grams and does not say which foods are counted.
+
+The searches: the term is never above 0 and can shrink as cooks are added (a later cook uses up what an earlier
+purchase left), so the prefix bound counts nothing for it, which is sound and lets the exact search stay exact; the
+beam search ranks partial weeks without it; the climb (`improve`) judges every change with `evaluate()` and so
+weighs it fully. CP-SAT does not model it (a step function of the amount bought, over windows that depend on the
+plan): it takes its ceiling, 0, so a week with waste is re-scored lower by `evaluate()` and not claimed proven. The
+report lists each food left to spoil, what is left of what was bought, when it was opened and until when it keeps,
+and how many purchases leave something that keeps. The JSON contract carries `packaging` and the weight (format 2;
+a format 1 problem is read as one without them). Measured offline (synthetic weeks: 21 meals, 30 recipes over 14
+foods each sold in one or two common sizes keeping 3 to 14 days or unknown, a hard daily protein range, leftovers,
+20 s with CP-SAT): weighed at 1, what spoiled fell from 4.45, 3.42 and 3.86 packages' worth to 1.20, 1.16 and 0.79,
+and the rest of the score from 23.1, 23.1 and 22.6 to 22.73, 22.79 and 21.85; `evaluate()` took 0.20 ms
+against 0.12 ms. Weeks that were proven in a second unweighed now use the whole time, since the bound does not see
+the term. Not measured on the owner's own week (no instance was reachable from the session that built it). Tests:
+`tests/test_planning_package_waste.py` (each case worked by hand; the bound against every prefix of sampled random
+weeks with packaging, the exact search against the oracle on 80 of them; the reading from the graph, the week
+file and the contract), and ten mutants of the new code, each caught.
+
 **Not built:** a tighter variety formulation or stock as flows for the solver; hard stock ("only cook from what I have"); a per-day time budget; a penalty for unused near-expiry stock; a soft difficulty term; a persistent "locked" flag on entries beyond what an existing entry already is; the parent link that would carry a leftover's purchase date through a division (J12).

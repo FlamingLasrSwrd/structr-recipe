@@ -106,14 +106,13 @@ def _pool_root(client, type_id: str) -> str:
     return resolution.root_type_id if resolution else type_id
 
 
-def left_over_keeps(client, food_id: str, first_use: datetime) -> tuple[datetime | None, bool]:
-    """(until when what is left of a food keeps, whether that is as opened). The leftover is taken to
-    be in a package opened at its first use: of the fridge and the pantry, the longest a FoodKeeper
-    figure for it opened gives. A food with no opened figure keeps as it does unopened, where the
-    pantry assumes it is kept (inventory.assumed_storage); neither, None. Both count from the first
-    use, as if bought then, which a list grouped by the day each food is first needed allows: bought
-    earlier, it keeps less long. An opened can of beans keeps days in the fridge, not its unopened
-    years in the pantry."""
+def keeps_days(client, food_id: str) -> tuple[float | None, bool]:
+    """(how many days what is left of a food keeps from its first use, whether that is as opened): of
+    the fridge and the pantry, the longest a FoodKeeper figure for it opened gives. A food with no
+    opened figure keeps as it does unopened, where the pantry assumes it is kept
+    (inventory.assumed_storage); neither, None. An opened can of beans keeps days in the fridge, not
+    its unopened years in the pantry. The planner weighs package waste with the same figure
+    (planning/extract.py, model.Packaging)."""
     kind, opened = _type_or_none(client, "ShelfLife"), _type_or_none(client, "Opened")
     if kind is None or opened is None:
         return None, False
@@ -125,9 +124,17 @@ def left_over_keeps(client, food_id: str, first_use: datetime) -> tuple[datetime
                 and (best is None or found.quantity["value"] > best):
             best = found.quantity["value"]
     if best is not None:
-        return first_use + timedelta(days=best), True
+        return float(best), True
     days = shelf_life_days(client, food_id, "Sealed", assumed_storage(client, {"instanceOf": {"id": food_id}}))
-    return (first_use + timedelta(days=days), False) if days is not None else (None, False)
+    return (float(days), False) if days is not None else (None, False)
+
+
+def left_over_keeps(client, food_id: str, first_use: datetime) -> tuple[datetime | None, bool]:
+    """(until when what is left of a food keeps, whether that is as opened): keeps_days from its first
+    use, as if bought then, which a list grouped by the day each food is first needed allows: bought
+    earlier, it keeps less long."""
+    days, opened = keeps_days(client, food_id)
+    return (first_use + timedelta(days=days), opened) if days is not None else (None, False)
 
 
 def _round_up(client, line: Line, root: str, packages: dict | None) -> None:
