@@ -6,12 +6,13 @@ For a development or throwaway instance only: it writes, then removes what it wr
 refuses the owner's instance; --keep leaves it for a look). Every token it books with begins with
 MARK, so each run first removes whatever an earlier one left, interrupted or kept. Each booking (buy, use, count, open,
 freeze, discard, a Use of the amount shown rounded up, and a planned meal cooked) is made once through
-the page, as a test Person made for the run ("TEST -- booker", signed in with a generated password
-that is never shown, deleted at the end), and once through Python, naming that Person as who made it
+the page, as a test Person made for the run ("TEST -- booker", in no household, so the page books as the
+superuser for them; signed in with a generated password that is never shown, deleted at the end), and once
+through Python, naming that Person as who made it
 (`by`), on two portions of the same food, and it compares:
 
   the nodes each wrote, field by field, the booking's token aside, who made it (wasAssociatedWith) among
-  them, and that the page's Process names the Person signed in;
+  them, and that the page's Process names the Person signed in (a count's, an opening's and a move's too);
   what the inventory engine then says of the two portions: grams on hand, days to expiry;
   that sending the page's form again writes nothing new.
 
@@ -41,7 +42,7 @@ from datetime import date, datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mealplanner import menu_changes, pantry, products, requests
+from mealplanner import menu_changes, ownership, pantry, products, requests
 from mealplanner.connection import connect
 from mealplanner.inventory import FMT, instance_expiration
 from mealplanner.nutrition_scope import day_zone, raw_inputs
@@ -51,7 +52,7 @@ DATA = re.compile(r'<script type="application/json" id="booking-data">(.*?)</scr
 PAGE_DATA = re.compile(r'<script type="application/json" id="page-data">(.*?)</script>', re.S)
 FIELDS = {     # what a booking writes on each type
     "TemporalRegion": ("hasBeginning", "hasEnd"),
-    "Process": ("hasKind", "occupiesTemporalRegion", "concretizes", "wasAssociatedWith"),
+    "Process": ("hasKind", "occupiesTemporalRegion", "concretizes", "wasAssociatedWith", "hasParticipant"),
     "ContainerObject": ("hasStorageCondition", "hasOpenedStatus"),
     "PortionOfSubstance": ("instanceOf", "beginsToExistDuring", "locatedIn", "hasPerishabilityType"),
     "Quality": ("hasKind", "inheresIn"),
@@ -92,7 +93,7 @@ def sweep(client) -> int:
         if (code.get("identifierValue") or "").startswith(DEMO_PREFIX) and (owner is None or MARK in owner):
             found[code["id"]] = "Identifier"
     removed, refused = _remove(client, found)
-    kinds = {row["id"]: "DomainType" for name in (pantry.PURCHASE, pantry.USE, pantry.DISCARDING)
+    kinds = {row["id"]: "DomainType" for name in ownership.KINDS
              for row in client.get("/structr/rest/DomainType", params={"name": name})["result"] if row.get("type") == "DomainType"}
     if kinds and not any((p.get("hasKind") or {}).get("id") in kinds for p in client.get_all("Process")["result"]):
         kinds.update({row["id"]: "TypeHierarchy" for row in client.get("/structr/rest/TypeHierarchy",
@@ -262,8 +263,9 @@ def main(argv=None) -> int:
     if left:
         print(f"removed {left} node(s) an earlier run left")
     check = Check(client)
-    before = {name for name in ("Pantry Operation", "Purchase", "Use", "Discarding") if check.nodes(name)}
-    t = {k: new_token() for k in ("buy", "use", "count", "discard", "cook", "pybuy", "pyuse", "pycount",
+    before = {name for name in (pantry.OPERATIONS, *ownership.KINDS) if check.nodes(name)}
+    t = {k: new_token() for k in ("buy", "use", "count", "discard", "cook", "pybuy", "pyuse", "pycount", "open", "pyopen",
+                                            "move", "pymove",
                                             "pydiscard", "pycook", "week", "stock", "menu", "pymenu", "shown",
                                             "pyshown", "recount", "pyrecount")}
     now = datetime.now(timezone.utc)
@@ -291,7 +293,9 @@ def main(argv=None) -> int:
 
         for action, page_args, py_call, token, py_token in (
             ("use", dict(amount="150", unit="g"), lambda tok: pantry.use(client, y_portion, 150, "g", datetime.now(timezone.utc), tok, by=check.booker_id), "use", "pyuse"),
-            ("count", dict(amount="420", unit="g"), lambda tok: pantry.stock_take(client, y_portion, 420, "g", datetime.now(timezone.utc), tok), "count", "pycount"),
+            ("count", dict(amount="420", unit="g"), lambda tok: pantry.stock_take(client, y_portion, 420, "g", datetime.now(timezone.utc), tok, by=check.booker_id), "count", "pycount"),
+            ("open", {}, lambda tok: pantry.open_portion(client, y_portion, datetime.now(timezone.utc), tok, by=check.booker_id), "open", "pyopen"),
+            ("move", {"storage": "Freezer"}, lambda tok: pantry.move(client, y_portion, "Freezer", datetime.now(timezone.utc), tok, by=check.booker_id), "move", "pymove"),
         ):
             print(action)
             got = check.page("pantry", do=action, portion=p_portion, token=t[token], **page_args)
@@ -299,21 +303,10 @@ def main(argv=None) -> int:
                 check.fail(f"{action} through the page: {got['problem']}")
                 continue
             check.remember(got["created"])
-            if action == "use":
-                check.booked_by_booker(action, got["process"])
+            check.booked_by_booker(action, got["process"])          # every booking names who made it (2026-11-23)
             py = py_call(t[py_token])
             check.remember(py.created)
             check.same_nodes(action, got["created"], [t["buy"], t[token]], py.created, [t["pybuy"], t[py_token]])
-            check.same_stock(action, p_portion, y_portion)
-
-        for action, page_args, py_call in (("open", {}, lambda: pantry.open_portion(client, y_portion)),
-                                           ("move", {"storage": "Freezer"}, lambda: pantry.move(client, y_portion, "Freezer"))):
-            print(action)
-            got = check.page("pantry", do=action, portion=p_portion, token=new_token(), **page_args)
-            if got["problem"]:
-                check.fail(f"{action} through the page: {got['problem']}")
-                continue
-            py_call()
             check.same_stock(action, p_portion, y_portion)
 
         print("discard")
@@ -347,7 +340,7 @@ def main(argv=None) -> int:
         race_check(check, client, args.food, args.keeps)
     finally:
         if not args.keep:
-            for name in ("Pantry Operation", "Purchase", "Use", "Discarding"):
+            for name in (pantry.OPERATIONS, *ownership.KINDS):
                 if name not in before:
                     check.remember([name])
             left = remove_written(client, check.made)
@@ -486,6 +479,27 @@ def cook_check(check: Check, client, t: dict, food: str, keeps: str) -> None:
         return node
 
     week = make("MealPlan", week_name, {})
+    sealed = opened_statuses(client)              # a cook opens a sealed portion it leaves some of: put back after
+    try:
+        cooks(check, client, t, plan, week, week_name, start, make)
+    finally:
+        put_back(client, sealed)
+
+
+def opened_statuses(client) -> dict:
+    """Each container's opened status (its DomainType's id), to put back what a cook opened of the stock the
+    check did not buy: a cook draws on the soonest to expire, the instance's own among it."""
+    return {c["id"]: (c.get("hasOpenedStatus") or {}).get("id") for c in client.get_all("ContainerObject")["result"]}
+
+
+def put_back(client, before: dict) -> None:
+    now = opened_statuses(client)
+    for container, status in before.items():
+        if container in now and now[container] != status:
+            client.patch(f"/structr/rest/ContainerObject/{container}", {"hasOpenedStatus": status})
+
+
+def cooks(check: Check, client, t: dict, plan: dict, week: str, week_name: str, start: datetime, make) -> None:
     entries = []
     for k in range(2):
         region = make("TemporalRegion", f"{week_name} region {k}", {"hasBeginning": start.strftime(FMT)})

@@ -439,9 +439,10 @@ class StructrClient:
         visible_to_authenticated_users: bool = True,
         visible_to_public_users: bool = False,
     ) -> str:
-        """Find-by-unique-property, then create or patch. Always sets
-        visibility explicitly - Structr's default is owner-only and
-        fails silently otherwise.
+        """Find-by-unique-property, then create or patch. A node it creates
+        has its visibility set explicitly - Structr's default is owner-only
+        and fails silently otherwise; a node it patches keeps the visibility
+        it has.
 
         0 matches: create. 1: patch it. More than 1: DuplicateMatchError.
         This used to patch whichever came back first, which after any earlier
@@ -458,14 +459,16 @@ class StructrClient:
             raise DuplicateMatchError(type_name, unique_prop, unique_value, [m["id"] for m in matches])
         payload = {k: v for k, v in fields.items() if v is not None}
         payload[unique_prop] = unique_value
-        payload["visibleToAuthenticatedUsers"] = visible_to_authenticated_users
-        payload["visibleToPublicUsers"] = visible_to_public_users
 
         if matches:
+            # An existing node keeps the visibility it has: one made private to its owners since it was
+            # created (a household's, for instance) must not become everyone's again by being written.
             node_id = matches[0]["id"]
             self.patch(f"/structr/rest/{type_name}/{node_id}", payload)
             return node_id
 
+        payload["visibleToAuthenticatedUsers"] = visible_to_authenticated_users
+        payload["visibleToPublicUsers"] = visible_to_public_users
         created = self.post(f"/structr/rest/{type_name}", payload)
         return created["result"][0]
 

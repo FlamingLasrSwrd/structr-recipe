@@ -15,8 +15,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from mealplanner import ownership
 from mealplanner.connection import connect
 from mealplanner.recipe_nutrition import calculate, schema_ready
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def describe(report) -> str:
@@ -49,7 +52,7 @@ def main(argv=None) -> int:
         print(f"checked {report.plans} recipe(s): {len(report.differences)} difference(s)")
         return 1 if report.differences else 0
     print(describe(report))
-    return 0
+    return 0 if ownership.settle(client, ROOT) else 1      # a household's recipe's figures are its own
 
 
 if __name__ == "__main__":

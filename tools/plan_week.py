@@ -94,6 +94,7 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from mealplanner import ownership
 from mealplanner.connection import connect
 from mealplanner.household import latest_plan as household_latest_plan
 from mealplanner.profiles import ProfileError
@@ -110,6 +111,7 @@ from mealplanner.requests import week_start
 from mealplanner.vocabulary_import import Sync
 
 STRUCTR_TIME = "%Y-%m-%dT%H:%M:%S%z"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class WeekError(ValueError):
@@ -420,6 +422,8 @@ def main(argv=None) -> int:
             print(f"\ncommitted {len(result.committed)} entries")
             if proposal is not None:
                 os.remove(kept)
+            if not ownership.settle(client, ROOT):          # the week is the household's
+                return 1
         else:
             with open(kept, "w", encoding="utf-8") as fh:
                 json.dump(to_data(result.problem, result.evaluation, week["start"].isoformat()), fh, indent=1)

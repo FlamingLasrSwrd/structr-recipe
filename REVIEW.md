@@ -45,7 +45,7 @@ requests once the model met real recipes and a real household. In order of how m
   pantry profiles, public prices; the owner's data in its own instance, out of reach of the demos
   (`tools/owner_stack.sh`); memory caps after the 8 GB laptop froze; backups of that instance, checked
   by restoring them (`tools/backup.py`, `docs/backups.md`).
-- **Testing:** 1256 offline tests (72 when the second review's fixes landed), three mutation sweeps
+- **Testing:** 1273 offline tests (72 when the second review's fixes landed), three mutation sweeps
   (below), and checks of the pages against Python on real Structr.
 
 ## What is being reviewed
@@ -85,7 +85,7 @@ describe a known posture rather than a regression.
 ## Running it
 
 ```bash
-python3 -m unittest discover -s tests -t .            # 1256 offline tests, no Structr (30 skip without OR-tools, 41 without node or gjs, 19 more without node and its Playwright Chromium)
+python3 -m unittest discover -s tests -t .            # 1273 offline tests, no Structr (30 skip without OR-tools, 51 without node or gjs, 19 more without node and its Playwright Chromium)
 .venv/bin/python -m unittest discover -s tests -t .   # the same with OR-tools (requirements-solver.txt)
 python3 tools/check_names.py                          # undefined names and unused imports (no pyflakes here)
 python3 scripts/23a_schema_drift_test.py              # offline: the schema helpers against a drifted schema
@@ -129,7 +129,7 @@ rest are the commit after it.
 
 | # | Finding | Status |
 |---|---|---|
-| 1 | P0: not safe for untrusted users (superuser writes, links not form posts, a public sign-in page, every node visible to every signed-in user) | **Agreed, and known:** out of scope by the owner's choice (above). It is the review's reading of this guide's own list. `docs/self-hosting.md` step 4 is what a release needs |
+| 1 | P0: not safe for untrusted users (superuser writes, links not form posts, a public sign-in page, every node visible to every signed-in user) | **Agreed, and known:** out of scope by the owner's choice (above). It is the review's reading of this guide's own list. `docs/self-hosting.md` step 4 is what a release needs. **Two of the four since done (2026-11-23):** a household's member books from the pages as themselves, not as the superuser, and a household's data is private to it and each person's to them (`docs/verification-and-sharing.md` §3.4a); writes are still links, and the sign-in page is still public |
 | 2 | P1: the planner does not do all it is said to: "minimize waste" is a reward for using stock near expiry, not a penalty for what goes unused; stock is soft; cost is reported, not optimized | **Right about one document.** `docs/CLAUDE.md` said the tool "generates a weekly plan satisfying ... minimal ingredient waste"; it now says what the planner is meant to do and what it does, term by term (`optimizer-design.md` §12 already did, and this guide's open items listed all three). The objective is the owner's to change: a waste penalty, a cost term and weeks to judge the objective by are in `docs/todo.md` |
 | 3 | P1: the documents' authority is out of step with the code: `docs/CLAUDE.md` single-user, without Person/Agent, "the optimizer has never been designed", Rev 4.2; the README two reviews | **Wrong about the commit it reviewed.** Every one of those quotes is from `e8d1cbf`, the second review's commit (`git show e8d1cbf:docs/CLAUDE.md`, lines 7, 13, 44, 52), as are the "44 scripts" and "214 named entities" it cites from this guide. At `523fc97` `docs/CLAUDE.md` says Rev 4.5, households, Person/Agent in, and the optimizer built; `tests/test_docs.py` has failed on a wrong revision since round 2 #22. The README's "two" was right then, a third review not having happened. **One it did not name was real:** the build sketch, marked authoritative, opened "Maps the Rev. 4.1 data model"; it now says what it covers. `tests/test_docs.py` now also fails if the README's or `docs/CLAUDE.md`'s count of reviews differs from the rounds recorded here, if the sketch names another revision than the model's, or if this guide's count of offline tests is not the real one |
 | 4 | P1: the model says more than the build enforces; the documents should tell represented, computed, validated and enforced apart | **Already so where it was asked, now said in the model too.** `mealplanner/domain_invariants.py` records each invariant as structural, write-time, computation or audit, partial, deferred or not built, a test checks it covers all thirty, and the README counts each kind. The model's §11 listed the rules without saying so; it now says they are the model's, and where the build stands |

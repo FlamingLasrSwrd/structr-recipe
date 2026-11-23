@@ -27,12 +27,14 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mealplanner import kitchen_check
+from mealplanner import kitchen_check, ownership
 from mealplanner.connection import connect
 from mealplanner.recipe_import import (
     RecipeFormatError, RecipeFrozenError, RecipeResolutionError, import_recipe, loaded_unchanged, read_recipe, resolve,
 )
 from mealplanner.recipe_nutrition import calculate, schema_ready
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 YES = {"y", "yes"}
 
@@ -108,6 +110,8 @@ def main(argv=None, ask=input, interactive=None) -> int:
         # their nutrition per serving, stored for the planner (J28): worked out again, kept if unchanged
         report = calculate(client, loaded)
         print("recipe nutrition per serving: " + ", ".join(f"{k} {v}" for k, v in report.counts.items()))
+    if loaded and not ownership.settle(client, ROOT):     # a recipe not in data/recipes/ is the household's own
+        failed += 1
     return 1 if failed else 0
 
 

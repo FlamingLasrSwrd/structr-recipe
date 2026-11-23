@@ -31,6 +31,7 @@ from mealplanner.products import Product, ProductError, import_products, parse_p
 from mealplanner.profiles import ProfileError
 from mealplanner.shopping import left_over_keeps, shopping_list
 from mealplanner.vocabulary_import import nutrient_name
+from structr_client.client import StructrError
 from tests import test_menu_changes, test_packages, test_products, test_shopping
 from tests.fakegraph import Ref, WritableGraph, at, when
 from tests.planning_graph import add_entry, add_portion, add_type
@@ -85,7 +86,7 @@ def strict(get_all):
     def read(type_name, node_id=None, **kwargs):
         found = get_all(type_name, node_id, **kwargs)
         if node_id is not None and type_name == "PortionOfSubstance" and found["result"]["type"] != type_name:
-            raise LookupError(f"404: no {type_name} {node_id}")
+            raise StructrError("GET", f"/structr/rest/{type_name}/{node_id}", 404, {"code": 404})
         return found
     return read
 

@@ -43,7 +43,9 @@ review, so what the README and REVIEW.md claim has to be true.
   not. Never run a demo from `scripts/` against it (`connect()` refuses a marked instance), and
   never `down -v` it: nothing can rebuild it. The exception is a schema-only migration (such as
   `30a` to `43a`), which declares `owner_data_ok=True` and must be run on the owner's instance as well,
-  then Structr restarted (hard rule 8).
+  then Structr restarted (hard rule 8); and `50a`, the data migration that made the owner's existing data
+  their household's and their people's (`docs/verification-and-sharing.md` §3.4a). The tools that write a
+  household's data make what they wrote its own when they finish (`mealplanner/ownership.py`).
 - **The development computer, since 2026-11-04: 24 GB of memory, 8 GB of swap, 8 CPU cores, about
   420 GB of disk free.** The project moved there from an 8 GB laptop that froze four times (the fourth
   on 2026-11-03: a throwaway stack with the whole vocabulary loaded, timing imports beside the desktop
@@ -109,6 +111,7 @@ python3 tools/plan_problem.py private/week.problem.json   # the planner as a wor
 STRUCTR_URL=http://localhost:8085 python3 tools/import_products.py private/products.toml   # products: barcodes and package sizes (docs/pantry.md); --check reads only
 python3 tools/import_grocy.py private/grocy/ --map private/grocy-map.toml --check   # a Grocy export: what it would book (docs/imports.md)
 python3 tools/install_pages.py && python3 tools/install_methods.py   # the pages (and pages/files/) and the Structr methods (methods/): code, safe on any instance
+STRUCTR_URL=http://localhost:8085 python3 scripts/50a_household_ownership.py --check   # what is not yet the household's or its people's; without --check, makes it so (after install_methods.py)
 python3 tools/check_households.py   # dev only: two test households book and read as themselves through the methods, kept apart (docs/methods.md)
 python3 tools/check_instructions.py # the recipe page writes instructions word for word as mealplanner/instructions.py (any instance)
 python3 tools/fdc_extract.py        # after adding a food: re-pins data/fdc/ from the datasets in .cache/fdc/ (loads the FNDDS JSON, ~450 MB)

@@ -142,7 +142,9 @@ def main(argv=None) -> int:
             print(f"problem: {b.token} ({b.product}): {booked.problem}")
         else:
             print(f"{b.token}: " + (f"wrote {booked.created} node(s)" if booked.created else "booked before; nothing new written"))
-    return 1 if failed else 0
+    from mealplanner import ownership
+    settled = ownership.settle(client, ROOT)                # the stock is the household's
+    return 1 if failed or not settled else 0
 
 
 if __name__ == "__main__":

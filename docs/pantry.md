@@ -40,9 +40,13 @@ cook) is `wasAssociatedWith` the Person who booked it (PROV; data-model.md K1). 
 methods that is whoever is signed in, `$.me`, when they are a `Person` (taken before a page's booking runs
 as the superuser); `mealplanner/pantry.py` takes it as `by`, which `tools/pantry.py` fills from `--by NAME`
 or else the Person it signs in as (the tools' own account is none, so a booking from the terminal then
-names no one). A stock take, an opening and a move write no Process, so they name no one yet: a stock
-take as a Process of its own, with the weighing it generated, is part of the checks of
-`docs/verification-and-sharing.md` §3.1. A booking sent again by someone else is still the first one's.
+names no one). Since 2026-11-23 a stock take, an opening and a move each write a Process too (kinds
+*Stock take*, *Opening*, *Move*), with the portion as its participant, so every booking names who made it.
+A booking sent again by someone else is still the first one's.
+
+**The first use of a sealed portion opens it** (the owner's rule, 2026-11-23): a Use, or a cook's draw,
+that leaves some of a portion in a sealed container sets it *Opened*, so the opened shelf life applies from
+then on, and says so. One that takes all of it opens nothing.
 
 **Every booking is named by a token** (a page form carries one made when the page was drawn; the tool
 makes one per run, or takes `--token`), and every node it writes is found by name before it is
@@ -53,8 +57,10 @@ grams.
 Where it is built: `mealplanner/pantry.py` (the bookings; `tests/test_pantry.py`),
 `tools/pantry.py` (the same from the terminal), and `pages/pantry.js`, `pages/week.js` and the
 bookings section of `pages/common.js` (the same from the pages, which follow the Python function by
-function, as the pages' reads do). The pages write as the superuser, through Structr's
-`$.doPrivileged`, as the tools do, and every node states its visibility (hard rule 4).
+function, as the pages' reads do). A household's member books from the pages as themselves, and what
+they write is private to their household (`docs/verification-and-sharing.md` §3.4a); the tools write as
+the tools' account and then make what they wrote the household's (`mealplanner/ownership.py`). Every node
+states its visibility (hard rule 4).
 
 **An item is used up below 0.5 g** (`pantry.USED_UP_G`), what shows as 0 g, and leaves the page and the
 tool's list. An amount is stored as it was given, so a Use typed as the rounded figure shown (996 g of

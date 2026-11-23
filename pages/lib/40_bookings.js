@@ -1,12 +1,13 @@
-// Bookings (mealplanner/pantry.py): how every booking writes, the pages' as the superuser and the
-// methods' as the caller's household.
+// Bookings (mealplanner/pantry.py): how every booking writes: for the caller's household, as the caller (the
+// methods', and a page's by a household's member), or as the superuser (a page's by anyone else).
 
 // A form carries a token made when the page was drawn, and every node a booking writes is found by
 // name before it is created, so sending a form twice writes nothing new (CLAUDE.md hard rule 5).
-// Writes run as the superuser ($.doPrivileged), as the tools' do, and state their visibility (rule 4).
-// A booking made for a household instead (the bookPantry method, as the caller: Path S,
-// docs/architecture-decision.md §7a) writes nodes private to that household: seen by no one else,
-// granted to its Group, so every member reads and changes them. It never makes shared vocabulary.
+// Every write states its visibility (rule 4). A booking made for a household (the methods, and a page's by a
+// Person in one household: Path S, docs/architecture-decision.md §7a, stage 5) runs as the caller and writes
+// nodes private to that household: seen by no one else, granted to its Group, so every member reads and
+// changes them. It never makes shared vocabulary. Anyone else's page booking runs as the superuser
+// ($.doPrivileged), as every booking did before, and writes what every signed-in user sees.
 //
 // One booking at a time, each committed before the page answers (REVIEW.md round 3 #9; measured on
 // Structr 6.0.0, docs/structr-cheatsheet.md). Two presses at once each found no node of a name and each
@@ -19,15 +20,15 @@
 // A method's booking for a household takes that household's turn instead: it first writes
 // Household.bookingTurn, an ordinary Structr write that Neo4j holds the same way, so households never
 // wait on each other. Not the Cypher lock, because a Cypher write made Structr answer 404 to methods
-// called at the same moment (docs/structr-cheatsheet.md §3a); the pages keep it until they too book
-// as their household (docs/architecture-decision.md §7a, stage 5).
+// called at the same moment (docs/structr-cheatsheet.md §3a); a page's booking by an account in no household
+// keeps it.
 const LOCK = "MATCH (l:MealPlannerBookingLock) WITH l ORDER BY elementId(l) LIMIT 1 SET l.at = timestamp() RETURN count(l) AS n";
 const SEEN = {visibleToAuthenticatedUsers: true, visibleToPublicUsers: false};
 const PRIVATE = {visibleToAuthenticatedUsers: false, visibleToPublicUsers: false};
 const stamp = (d) => d.toISOString().replace(/\.\d{3}Z$/, "+0000");
 // pantry.signed_in_person: who is signed in, if they are a Person (data-model.md K1), taken before a page's
-// booking runs as the superuser ($.doPrivileged), where $.me may be someone else. Each booking's Process
-// names them (wasAssociatedWith); a stock take, an opening and a move write no Process, so name no one.
+// booking may run as the superuser ($.doPrivileged), where $.me may be someone else. Each booking's Process
+// names them (wasAssociatedWith), a stock take's, an opening's and a move's too (2026-11-23).
 const BOOKED_BY = $.me && $.me.type === "Person" ? $.me.id : null;
 const newToken = () => Math.random().toString(16).slice(2, 10);
 
