@@ -313,9 +313,17 @@ its usual serving (`serving`), and that step is snapped to 1, 2 or 5 times a pow
 | Rolled oats | a 40 g serving | 5 g | 80 g |
 | Olive oil | a 1 tbsp serving, 13.5 g | 1 g | 216 g |
 
-The usual servings are FDA's reference amounts customarily consumed (21 CFR 101.12), a typical label
-serving, or an estimate, each with its source; they are the vocabulary's like everything there, for
-the owner to review, and need only be about right, since the snap absorbs a third either way. A food
+The usual servings are the reference amounts customarily consumed per eating occasion that labels'
+serving sizes are based on: Table 2 of FDA's 21 CFR 101.12, and for meat and poultry, which FDA's table
+leaves to USDA, Table 2 of FSIS's 9 CFR 317.312 and 381.412 (their ready-to-cook amount for a raw food).
+Those rows are pinned in `data/racc/table2.tsv`, public domain like all U.S. regulations, as the eCFR
+text read on 2026-11-23 (21 CFR 101.12 as last amended at 81 FR 34041, May 27, 2016; the FSIS sections
+at 60 FR 186 and 60 FR 207, Jan. 3, 1995); the session could not reach ecfr.gov, so it was read from two
+independent GitHub mirrors of eCFR, which agree. Each food's `serving` quotes its row, and is `sourced`
+when the row covers it, or `estimated` when the row is only the nearest (a table wine as "Cooking wine")
+or no row fits (canned coconut milk's label serving, vanilla extract). A test checks that every quoted
+row is in the pinned table and that a sourced amount is one that row gives. A serving need only be
+about right, since the snap absorbs a third either way. A food
 with neither rounds to the gram. What stays as written, by the owner's decisions of 2026-10-31: what
 is counted (eggs, garlic cloves), an amount stated by volume that weighs under 10 g ("most kitchen
 scales cannot accurately measure below about 10 grams"), and an amount whose food has no density, which
