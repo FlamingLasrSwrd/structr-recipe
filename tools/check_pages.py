@@ -13,7 +13,8 @@ session) and compares the data block each prints (#page-data) with Python's answ
   recipes     nutrition_scope.stored_figure for each recipe and nutrient shown
   recipe      one recipe's ingredients and stored figures, for the first recipe in the book; and every
               recipe's instructions, written from its steps' facts, against mealplanner/instructions.py
-              for the same Plan as recipe_import.export_plan reads it (J35)
+              for the same Plan as recipe_import.export_plan reads it (J35), as written and as weights
+              (?measure=weight; mealplanner/weights.py)
   pantry      inventory.current_magnitude and instance_expiration for every portion on hand; and what
               Buy offers (#buy-data), against products.buyable, and the unit it picks (#buy-units), buy_unit
   shopping    shopping.shopping_list: each food to buy, what is needed and on hand, the packages it is
@@ -37,6 +38,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner.connection import connect
 from mealplanner.instructions import instructions
+from mealplanner.weights import food_weights
 from mealplanner.pantry import USED_UP_G
 from mealplanner.products import buy_units, buyable
 from mealplanner.recipe_import import capability_bearers, export_plan
@@ -166,6 +168,7 @@ def check_recipes(client, reads, problems: list[str]) -> int:
         if len(detail.get("figures", [])) != len(stored):
             problems.append(f"recipe {plan['name']!r}: shows {len(detail.get('figures', []))} figures, {len(stored)} are stored")
     unread = []
+    type_ids = {t["name"]: t["id"] for t in reads.get_all("DomainType")["result"]}
     for row in shown:                            # every recipe's instructions, from its steps' facts
         plan = plans.get(row["recipe"])
         if plan is None:
@@ -179,16 +182,29 @@ def check_recipes(client, reads, problems: list[str]) -> int:
         if written is None:                      # pages installed before they wrote instructions (J35)
             print("  (the recipe pages here write no instructions yet: tools/install_pages.py)")
             break
-        want = instructions(read_back, capability_bearers(reads, read_back))
-        if written != want:
-            first = next((k for k, (a, b) in enumerate(zip(want, written or [])) if a != b), None)
-            problems.append(f"recipe {plan['name']!r}: the page's instructions differ from Python's"
-                            + (f" at step {first + 1}: {written[first]!r}, not {want[first]!r}" if first is not None else
-                               f": {len(written or [])} sentences, not {len(want)}"))
+        bearers = capability_bearers(reads, read_back)
+        compare_instructions(plan, written, instructions(read_back, bearers), "", problems)
+        weighed = page_data(client, f"recipe/{plan['id']}?measure=weight")
+        if weighed.get("measure") != "weight":    # pages installed before they showed weights
+            print("  (the recipe pages here show no weights yet: tools/install_pages.py)")
+            continue
+        foods = {i.food for step in read_back for i in step.inputs} | {
+            sub.food for step in read_back for i in step.inputs for sub in i.substitutes}
+        weights = {food: reads.memo(("weights", food), lambda food=food: food_weights(reads, type_ids[food]))
+                   for food in foods if food in type_ids}
+        compare_instructions(plan, weighed.get("instructions"), instructions(read_back, bearers, weights), " as weights", problems)
     if unread:
         print(f"  ({len(unread)} recipe(s) not made by tools/import_recipe.py, whose instructions are not compared: "
               + ", ".join(unread[:3]) + (", ..." if len(unread) > 3 else "") + ")")
     return len(shown)
+
+
+def compare_instructions(plan: dict, written, want: list[str], how: str, problems: list[str]) -> None:
+    if written != want:
+        first = next((k for k, (a, b) in enumerate(zip(want, written or [])) if a != b), None)
+        problems.append(f"recipe {plan['name']!r}: the page's instructions{how} differ from Python's"
+                        + (f" at step {first + 1}: {written[first]!r}, not {want[first]!r}" if first is not None else
+                           f": {len(written or [])} sentences, not {len(want)}"))
 
 
 def check_pantry(client, reads, problems: list[str]) -> int:

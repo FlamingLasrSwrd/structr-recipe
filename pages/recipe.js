@@ -1,6 +1,8 @@
 // /structr/html/recipe/<Plan id>: one recipe version, as tools/import_recipe.py loaded it: its facts, its
 // ingredients and amounts step by step (a source's instructions are not stored), instructions of our own
 // written from the steps' facts (pages/lib/75_instructions.js), and every stored figure per serving.
+// Amounts are shown as written, or as weights (docs/recipe-format.md, "Amounts as weights") for a person
+// whose preferredMeasure is "weight"; ?measure=weight or ?measure=written in the address overrides it.
 
 function stepIndex(step) {
   const m = / step (\d+)( -- |$)/.exec(String(step.name || ""));
@@ -38,6 +40,25 @@ if (!plan) {
       + "</form>";
   }
 
+  // as written, or as weights: the address, else the signed-in person's preference
+  const asked = String($.request.measure || "");
+  const byWeight = asked ? asked === "weight" : !!($.me && $.me.preferredMeasure === "weight");
+  let weights = null;
+  if (byWeight) {
+    weights = {};
+    for (const step of plan.steps || []) {
+      for (const spec of step.hasSpecification || []) {
+        if (spec.hasParticipationRole !== "input") continue;
+        const kinds = [spec.specifies].concat((spec.hasSubstitutionRule || []).map((r) => r.candidateType));
+        for (const kind of kinds) if (kind && !weights[kind.name]) weights[kind.name] = foodWeights(kind);
+      }
+    }
+  }
+  data.measure = byWeight ? "weight" : "written";
+  html += "<p class=\"note\">Amounts " + (byWeight
+    ? "as weights, rounded to suit each food. <a href=\"/structr/html/recipe/" + esc(plan.id) + "?measure=written\">Show them as written</a>"
+    : "as written. <a href=\"/structr/html/recipe/" + esc(plan.id) + "?measure=weight\">Show them as weights</a>") + "</p>";
+
   data.ingredients = [];
   const steps = (plan.steps || []).slice().sort((a, b) => stepIndex(a) - stepIndex(b));
   for (const step of steps) {
@@ -45,10 +66,14 @@ if (!plan) {
     const label = String(step.name || "").split(" -- ").slice(1).join(" -- ") || "step " + stepIndex(step);
     html += "<h3>" + esc(label) + (step.instanceOf ? " <small>(" + esc(step.instanceOf.name) + ")</small>" : "") + "</h3><ul>";
     for (const spec of specs.filter((s) => s.hasParticipationRole === "input")) {
-      const q = spec.hasSpecifiedQuantity;
-      const amount = q && q.value != null ? number(q.value, 2) + " " + esc(q.unit || "") + " " : "";
-      data.ingredients.push({food: spec.specifies ? spec.specifies.name : null, amount: q ? q.value : null, unit: q ? q.unit : null});
-      html += "<li>" + amount + esc(spec.specifies ? spec.specifies.name : "?") + (spec.isOptional ? " <i>(optional)</i>" : "") + "</li>";
+      const q = spec.hasSpecifiedQuantity, food = spec.specifies ? spec.specifies.name : null;
+      const written = [q ? q.value : null, q ? q.unit : null];
+      const shown = weights ? shownAmount(written[0], written[1], weights[food] || null) : written;
+      const changed = shown[0] !== written[0] || shown[1] !== written[1];
+      const amount = shown[0] != null ? number(shown[0], 2) + " " + esc(shown[1] || "") + " " : "";
+      data.ingredients.push({food: food, amount: shown[0], unit: shown[1], written: changed ? written : null});
+      html += "<li>" + amount + esc(food || "?") + (changed ? " <small>(" + number(written[0], 2) + " " + esc(written[1] || "") + ")</small>" : "")
+        + (spec.isOptional ? " <i>(optional)</i>" : "") + "</li>";
     }
     const tools = specs.filter((s) => s.hasParticipationRole === "instrument").map((s) => s.specifies ? s.specifies.name : "?");
     const makes = specs.filter((s) => s.hasParticipationRole === "output").map((s) => s.specifies ? s.specifies.name : "?");
@@ -57,7 +82,7 @@ if (!plan) {
   }
 
   // instructions of our own, written from the steps' facts (mealplanner/instructions.py; J35)
-  data.instructions = stepSentences(planSteps(plan), capabilityBearers(plan));
+  data.instructions = stepSentences(planSteps(plan), capabilityBearers(plan), weights);
   html += "<h2>How to make it</h2><ol class=\"instructions\">" + data.instructions.map((line) => "<li>" + esc(line) + "</li>").join("")
     + "</ol><p class=\"note\">Written here from the steps' facts, not the source's words.</p>";
 

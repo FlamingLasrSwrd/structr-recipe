@@ -76,6 +76,56 @@ function toGrams(type, value, unit) {
   return value * entry[1] * q.value;
 }
 
+// weights.TIDY_STEPS, STEP_SHARE, SMALLEST_WEIGHED_G: amounts shown as weights (docs/recipe-format.md)
+const TIDY_STEPS = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+const STEP_SHARE = 0.1, SMALLEST_WEIGHED_G = 10;
+
+// weights.tidy_step: the tidy step nearest x on a ratio scale
+function tidyStep(x) {
+  for (let k = 0; k + 1 < TIDY_STEPS.length; k++) if (x * x <= TIDY_STEPS[k] * TIDY_STEPS[k + 1]) return TIDY_STEPS[k];
+  return TIDY_STEPS[TIDY_STEPS.length - 1];
+}
+
+// weights.rounding_step: a tenth of an item, else of a usual serving, made tidy; null with neither
+function roundingStep(food) {
+  const base = food ? (food.each || food.serving) : null;
+  return base ? tidyStep(base * STEP_SHARE) : null;
+}
+
+// weights.to_grams over facts already read
+function gramsOf(amount, unit, food) {
+  const entry = UNIT_TABLE[String(unit || "").trim().toLowerCase()];
+  if (amount == null || !entry) return null;
+  if (entry[0] === "mass") return amount * entry[1];
+  if (entry[0] === "volume" && food && food.density) return amount * entry[1] * food.density;
+  return null;
+}
+
+// weights.shown_amount: [amount, unit] as a person who prefers weights is shown it
+function shownAmount(amount, unit, food) {
+  const entry = UNIT_TABLE[String(unit || "").trim().toLowerCase()];
+  if (amount == null || !entry || entry[0] === "count") return [amount, unit];
+  const grams = gramsOf(amount, unit, food);
+  if (grams == null || (entry[0] === "volume" && grams < SMALLEST_WEIGHED_G)) return [amount, unit];
+  const step = roundingStep(food) || 1;
+  const rounded = Math.floor(Math.floor(grams / step + 0.5) * step * 1e6 + 0.5) / 1e6;   // 71 * 0.1 is 7.1000000000000005
+  return rounded <= 0 ? [amount, unit] : [rounded, "g"];
+}
+
+// weights.food_weights: a food Type's density, weight per item and usual serving (grams), resolved along
+// its hierarchy; each null where it has none
+function foodWeights(type) {
+  const value = (kind, unit) => {
+    const d = type ? resolveDefault(type, kind, []) : null;
+    const q = d && d.hasValue;
+    return q && q.value != null && (!unit || q.unit === unit) ? q : null;
+  };
+  const density = value("Density", "g_per_mL"), each = value("MassPerUnit", "g_per_each"), serving = value("ServingSize", null);
+  const d = density ? density.value : null;
+  return {density: d, each: each ? each.value : null,
+          serving: serving ? gramsOf(serving.value, serving.unit, {density: d}) : null};
+}
+
 // nutrition_scope.day_zone: the zone whose midnight a dayBoundaryRule names, or null
 function zoneOf(rule) {
   if (rule === "midnight") return "UTC";

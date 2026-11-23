@@ -13,6 +13,8 @@ The verb is the method's (VERBS); a step with no method, or one the list does no
 its own label of a few words instead. "Meanwhile" marks a step that does not follow the one before it.
 A capability named instead of a tool (J37) reads as the tools that can give it, "with the oven or
 toaster oven", from `bearers` (recipe_import.capability_bearers); "the tool for oven heat" when none can.
+Given `weights` (food name -> weights.FoodWeights), for a person who prefers weighing, each amount is
+written as weights.shown_amount gives it: "126 g ap flour" for 1 cup, but still "2 egg".
 pages/lib/75_instructions.js writes the same sentences, word for word, on the recipe page;
 tools/check_instructions.py and tools/check_pages.py compare the two.
 """
@@ -20,6 +22,8 @@ tools/check_instructions.py and tools/check_pages.py compare the two.
 from __future__ import annotations
 
 import math
+
+from mealplanner.weights import shown_amount
 
 VERBS = {
     "Boiling": "Boil", "Simmering": "Simmer", "Braising": "Braise", "Stir-Frying": "Stir-fry", "Searing": "Sear",
@@ -51,26 +55,32 @@ def either(items: list[str]) -> str:
     return ", ".join(items[:-1]) + " or " + items[-1]
 
 
-def ingredient(ing, made: set) -> str:
+def amount_words(amount: float, unit: str | None, food: str, weights: dict | None) -> str:
+    """"3 tbsp", "4" for a count, or with `weights` the amount as weights.shown_amount gives it."""
+    if weights is not None:
+        amount, unit = shown_amount(amount, unit, weights.get(food))
+    return number(amount) + ("" if unit in COUNTED else " " + (unit or ""))
+
+
+def ingredient(ing, made: set, weights: dict | None = None) -> str:
     name = ing.food.lower()
     if ing.food in made:
         return "the " + name
-    unit = "" if ing.unit in COUNTED else " " + (ing.unit or "")
     alternatives = []
     for sub in getattr(ing, "substitutes", ()):           # what may stand in, by its ratio; never one ruled out
         if sub.never:
             continue
-        scaled = "" if ing.amount is None or sub.ratio == 1 else number(ing.amount * sub.ratio) + unit + " "
+        scaled = "" if ing.amount is None or sub.ratio == 1 else amount_words(ing.amount * sub.ratio, ing.unit, sub.food, weights) + " "
         alternatives.append("or " + scaled + sub.food.lower())
     other = f" ({', '.join(alternatives)})" if alternatives else ""
     if ing.amount is None:
         return name + other + (", to taste" if ing.optional else "")
-    return f"{number(ing.amount)}{unit} {name}" + other + (" (optional)" if ing.optional else "")
+    return f"{amount_words(ing.amount, ing.unit, ing.food, weights)} {name}" + other + (" (optional)" if ing.optional else "")
 
 
-def sentence(i: int, step, made: set, bearers: dict | None = None) -> str:
+def sentence(i: int, step, made: set, bearers: dict | None = None, weights: dict | None = None) -> str:
     """Step i (from 1), knowing what the steps before it made and which tools can give each capability."""
-    what = join([ingredient(ing, made) for ing in step.inputs])
+    what = join([ingredient(ing, made, weights) for ing in step.inputs])
 
     able = set(getattr(step, "capabilities", ()))
 
@@ -111,12 +121,13 @@ def sentence(i: int, step, made: set, bearers: dict | None = None) -> str:
     return text + "."
 
 
-def instructions(steps, bearers: dict | None = None) -> list[str]:
+def instructions(steps, bearers: dict | None = None, weights: dict | None = None) -> list[str]:
     """One sentence per step, in order: `steps` as recipe_import.StepDoc, from a file or from
-    export_plan; `bearers`, for each capability they name, the tools that can give it."""
+    export_plan; `bearers`, for each capability they name, the tools that can give it; `weights`, for
+    a person who prefers weighing, each food's weights.FoodWeights (None: amounts as written)."""
     out, made = [], set()
     for i, step in enumerate(steps, 1):
-        out.append(sentence(i, step, made, bearers))
+        out.append(sentence(i, step, made, bearers, weights))
         made.add(step.makes)
     return out
 
