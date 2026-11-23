@@ -285,6 +285,8 @@ itself; the app's part there is choosing quicker weeks.
 
 ## The changes that would save the most
 
+Each has a plan in `docs/time-savings-plans.md` (2026-11-23).
+
 Ranked by minutes saved a week, household B, steady state (estimates). The first three are on the
 pantry; together they halve the booking time.
 
