@@ -292,6 +292,36 @@ above, reads:
 So a step's label is best a few words of what it does ("rinse the rice"), and facts left out are left
 out of the sentence: nothing is guessed.
 
+## Amounts as weights
+
+A recipe keeps its source's measure. A person who prefers weighing sees its amounts as weights on the
+recipe page, in its ingredient list and its sentences alike, converted as they are shown and never
+stored, so the recipe's version, nutrition and costs are untouched (`mealplanner/weights.py`;
+`pages/lib/10_units.js` writes the same). The preference is the person's (`measure = "weight"` in the
+household file, `docs/profiles.md`; `scripts/49a`), and the page's address can ask either way
+(`?measure=weight`, `?measure=written`), with a link to switch.
+
+A weight is rounded to suit the food, by the owner's rule (2026-11-23): to a tenth of one of its items
+(its weight per item, `each` in `data/vocabulary.toml`), or, for a food with no single item, a tenth of
+its usual serving (`serving`), and that step is snapped to 1, 2 or 5 times a power of ten:
+
+| Food | A tenth of | Step | 1 cup becomes |
+|---|---|---|---|
+| Yellow onion | an onion, 110 g | 10 g | 120 g |
+| AP flour | a 30 g serving | 2 g | 126 g |
+| Whole milk | a 240 mL serving, 248 g | 20 g | 240 g |
+| Rolled oats | a 40 g serving | 5 g | 80 g |
+| Olive oil | a 1 tbsp serving, 13.5 g | 1 g | 216 g |
+
+The usual servings are FDA's reference amounts customarily consumed (21 CFR 101.12), a typical label
+serving, or an estimate, each with its source; they are the vocabulary's like everything there, for
+the owner to review, and need only be about right, since the snap absorbs a third either way. A food
+with neither rounds to the gram. What stays as written, by the owner's decisions of 2026-10-31: what
+is counted (eggs, garlic cloves), an amount stated by volume that weighs under 10 g ("most kitchen
+scales cannot accurately measure below about 10 grams"), and an amount whose food has no density, which
+is never guessed. The ingredient list shows the amount as written beside a weight, "126 g AP Flour
+(1 cup)".
+
 ## What it becomes
 
 A `RecipeIdentity` (meal types; an `Identifier` for the source page), a `Plan` named

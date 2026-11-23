@@ -15,6 +15,9 @@ Central foods (mealplanner/fdc.py) or a stated source. Loading it
                        its source, so any figure can be checked later (J21)
   Density, MassPerUnit from an FDC household portion, several averaged, or a
                        stated weight with its source; with provenance and source
+  ServingSize          a usual serving, by weight or volume, with its source: what a
+                       weight of a food with no single item is rounded by
+                       (mealplanner/weights.py)
   RetentionFactor 1.0  on "Food" for each nutrient the owner decided is kept
                        through cooking (data-model.md Sec 18 J18)
   ShelfLife            USDA FoodKeeper's, keyed by storage condition (and opened
@@ -114,6 +117,19 @@ class Measure:
 
 
 @dataclass(frozen=True)
+class Serving:
+    """A usual serving (ServingSize): `amount` of `unit`, a mass or volume unit, with its source. A volume
+    is weighed through the food's density where it is shown (mealplanner/weights.py)."""
+    amount: float
+    unit: str
+    source: str
+    status: str = "estimated"
+
+
+SERVING_KIND = "ServingSize"
+
+
+@dataclass(frozen=True)
 class Food:
     name: str
     parent: str
@@ -123,6 +139,7 @@ class Food:
     label: "Label | None" = None
     retention: tuple[tuple[str, str], ...] = ()   # (method, USDA row code): a retention class's factors
     keeps: tuple[int, bool] | None = None         # (FoodKeeper product id, a proxy): how long it keeps (J31)
+    serving: Serving | None = None                # a usual serving: what a weight is rounded by
 
     @property
     def fdc(self) -> int | None:
@@ -390,6 +407,27 @@ def _measure(raw, first: Source | None, where: str, want_volume: bool, problems:
     return Measure(portions=((fid, raw.get("portion", "")),), status=raw.get("status", default))
 
 
+def _serving(raw, where: str, problems: list[str]) -> Serving | None:
+    """{ amount = 30, unit = "g", source = "..." }: a usual serving in a mass or volume unit, with its source."""
+    if raw is None:
+        return None
+    if not isinstance(raw, dict) or set(raw) - {"amount", "unit", "source", "status"}:
+        problems.append(f"{where}: serving is {{ amount, unit, source }} (and a status)")
+        return None
+    amount, unit, status = raw.get("amount"), raw.get("unit"), raw.get("status", "estimated")
+    if not isinstance(amount, (int, float)) or isinstance(amount, bool) or amount <= 0:
+        problems.append(f"{where}: a serving's amount is a number above zero")
+        return None
+    if UNIT_TABLE.get(unit, ("count",))[0] not in ("mass", "volume"):
+        problems.append(f"{where}: a serving is by weight or volume, not {unit!r}")
+        return None
+    if not raw.get("source"):
+        problems.append(f"{where}: a serving needs its source")
+    if status not in STATUSES:
+        problems.append(f"{where}: serving status {status!r} is not one of {STATUSES}")
+    return Serving(float(amount), unit, raw.get("source", ""), status)
+
+
 def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None, shelf_table: dict | None = None) -> Vocabulary:
     """A Vocabulary, or VocabularyError naming every problem. With `fdc` (the
     pinned subsets merged), every FDC id and portion label is checked against it;
@@ -440,7 +478,8 @@ def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None, sh
         problems.append(f"capability {c!r} has the same name as a food, method or equipment")
 
     foods = []
-    allowed = {"name", "parent", "fdc", "proxy", "sources", "each", "volume", "note", "label", "retention", "foodkeeper"}
+    allowed = {"name", "parent", "fdc", "proxy", "sources", "each", "volume", "note", "label", "retention", "foodkeeper",
+               "serving"}
     for i, raw in enumerate(data.get("food", []), 1):
         where = f"food {i}"
         for key in sorted(set(raw) - allowed):
@@ -471,7 +510,7 @@ def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None, sh
             problems.append(f"{where} retention: {method!r} is not a method in the file")
         keeps = _keeps(raw.get("foodkeeper"), where, shelf_table, problems)
         food = Food(raw["name"], raw.get("parent", ROOT_FOOD), tuple(sources), each, volume, label,
-                    tuple(sorted(rows.items())), keeps)
+                    tuple(sorted(rows.items())), keeps, _serving(raw.get("serving"), where, problems))
         if fdc is not None:
             for fid in sorted(Vocabulary((), (food,), (), (), ()).ids()):
                 if str(fid) not in fdc["foods"]:
@@ -758,6 +797,8 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> Imported:
             pending.remove(food)
 
     kinds = {k: sync.rows("DomainType")[k]["id"] for k in ("Density", "MassPerUnit", "RetentionFactor")}
+    if any(f.serving for f in vocabulary.foods):     # a kind of its own, made here, as prices and packages make theirs
+        kinds[SERVING_KIND] = sync.ensure("DomainType", SERVING_KIND, {"hierarchy": _hierarchy(client, "Default Kind")})
     wanted_profiles: set[str] = set()
     for food in vocabulary.foods:
         fid = food_ids[food.name]
@@ -792,6 +833,13 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> Imported:
             sync.ensure("DefaultSpecification", f"{food.name} {label}", {
                 "forType": fid, "hasKind": kinds[kind], "hasValue": qty, "provenance": measure.status,
                 "source": measure_source(fdc, measure)}, fid)
+        if food.serving:                  # rounds a weight as it is shown; no figure rests on it
+            s = food.serving
+            qty = sync.ensure("QuantitySpecification", f"{food.name} serving value", {
+                "value": s.amount, "unit": s.unit, "status": "default"})
+            sync.ensure("DefaultSpecification", f"{food.name} serving", {
+                "forType": fid, "hasKind": kinds[SERVING_KIND], "hasValue": qty, "provenance": s.status,
+                "source": s.source})
     mapped = {f.name for f in vocabulary.foods if f.sources or f.label}
     for profile in list(sync.rows("NutrientProfile").values()):
         if (profile.get("isAbout") or {}).get("name") in mapped and profile["name"] not in wanted_profiles:

@@ -21,6 +21,13 @@
 #   each     the weight of one item: a portion label of its first source, or a table
 #   volume   a density: the same, or { portions = [[fdc, label], ...] } averaged, or
 #            { grams = x, per = "tsp", source = "..." } for a weight from elsewhere
+#   serving  a usual serving, { amount, unit, source }, by weight or volume (a volume is weighed through
+#            the food's density): a weight of a food with no single item ("each") is shown rounded to a
+#            tenth of it (mealplanner/weights.py). Inherited along `parent`. Chosen by Claude
+#            (2026-11-23) from FDA's reference amounts customarily consumed (21 CFR 101.12, Table 2) as
+#            Claude recalls them, the regulation's text not being reachable from that session, or a
+#            typical label serving, or an estimate, as each source says; all `estimated`, to be reviewed.
+#            A tenth of it is snapped to a 1, 2 or 5 step, so it need only be about right.
 #   foodkeeper  its USDA FoodKeeper product, for how long it keeps (J31): `sourced`, or
 #            { id = n, proxy = true }, `estimated`, a near kind of food. Chosen by Claude, to be reviewed.
 #   parent   default "Food", the root every food sits under; a food USDA's retention factors apply
@@ -558,17 +565,21 @@ parent = "Utensil"
 
 [[food]]
 name = "Poultry"
+serving = { amount = 114, unit = "g", source = "FDA reference amount (21 CFR 101.12): poultry, raw" }
 
 [[food]]
 name = "Beef (raw)"
+serving = { amount = 114, unit = "g", source = "FDA reference amount (21 CFR 101.12): meat, raw" }
 
 [[food]]
 name = "Butter"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): butter, margarine, oil, shortening" }
 
 # -- retention classes (J30): each heat method's USDA row ------------------------------------
 
 [[food]]
 name = "Leafy greens"         # USDA VEG,GREENS
+serving = { amount = 85, unit = "g", source = "FDA reference amount (21 CFR 101.12): vegetables, fresh, lettuce" }
 [food.retention]
 Boiling = "3005"
 Simmering = "3006"
@@ -584,6 +595,7 @@ Toasting = "3001"
 
 [[food]]
 name = "Fresh herbs"          # USDA VEG,GREENS, standing in: the table has no rows for herbs
+serving = { amount = 4, unit = "g", source = "FDA reference amount (21 CFR 101.12): vegetables used for garnish or flavor (parsley)" }
 [food.retention]
 Boiling = "3005"
 Simmering = "3006"
@@ -599,6 +611,7 @@ Toasting = "3001"
 
 [[food]]
 name = "Root vegetables"      # USDA VEG,ROOTS,ETC (onions and garlic with them)
+serving = { amount = 85, unit = "g", source = "FDA reference amount (21 CFR 101.12): vegetables, fresh" }
 [food.retention]
 Boiling = "3455"
 Simmering = "3456"
@@ -614,6 +627,7 @@ Toasting = "3451"
 
 [[food]]
 name = "Potatoes (white)"     # USDA POTATOES
+serving = { amount = 110, unit = "g", source = "FDA reference amount (21 CFR 101.12): potatoes" }
 [food.retention]
 Boiling = "3308"
 Simmering = "3309"
@@ -629,6 +643,7 @@ Toasting = "3301"
 
 [[food]]
 name = "Sweet potatoes"       # USDA SWEETPOTATOES
+serving = { amount = 110, unit = "g", source = "FDA reference amount (21 CFR 101.12): sweet potatoes" }
 [food.retention]
 Boiling = "3708"
 Simmering = "3709"
@@ -644,6 +659,7 @@ Toasting = "3701"
 
 [[food]]
 name = "Fresh tomatoes"       # USDA TOMATOES
+serving = { amount = 85, unit = "g", source = "FDA reference amount (21 CFR 101.12): vegetables, fresh" }
 [food.retention]
 Boiling = "3751"
 Simmering = "3751"
@@ -659,6 +675,7 @@ Toasting = "3752"
 
 [[food]]
 name = "Canned tomatoes"      # USDA TOMATOES,REHEATED: canned is cooked already
+serving = { amount = 130, unit = "g", source = "FDA reference amount (21 CFR 101.12): vegetables canned in liquid, stewed tomatoes" }
 [food.retention]
 Boiling = "3754"
 Simmering = "3754"
@@ -674,6 +691,7 @@ Toasting = "3754"
 
 [[food]]
 name = "Other vegetables"     # USDA VEG,OTHER
+serving = { amount = 85, unit = "g", source = "FDA reference amount (21 CFR 101.12): vegetables, fresh or frozen" }
 [food.retention]
 Boiling = "3775"
 Simmering = "3776"
@@ -689,6 +707,7 @@ Toasting = "3771"
 
 [[food]]
 name = "Canned vegetables"    # USDA VEG,OTHER,REHEATED: canned is cooked already
+serving = { amount = 130, unit = "g", source = "FDA reference amount (21 CFR 101.12): vegetables canned in liquid" }
 [food.retention]
 Boiling = "3788"
 Simmering = "3788"
@@ -704,6 +723,7 @@ Toasting = "3788"
 
 [[food]]
 name = "Citrus fruits"        # USDA FRUITS,CITRUS,CKD
+serving = { amount = 140, unit = "g", source = "FDA reference amount (21 CFR 101.12): fruits, fresh" }
 [food.retention]
 Boiling = "0270"
 Simmering = "0270"
@@ -719,6 +739,7 @@ Toasting = "0270"
 
 [[food]]
 name = "Fresh fruits"         # USDA FRUITS,FRESH(NOT CITRUS)
+serving = { amount = 140, unit = "g", source = "FDA reference amount (21 CFR 101.12): fruits, fresh" }
 [food.retention]
 Boiling = "0155"
 Simmering = "0155"
@@ -734,6 +755,7 @@ Toasting = "0151"
 
 [[food]]
 name = "Dried fruits"         # USDA FRUITS(DRIED)
+serving = { amount = 40, unit = "g", source = "FDA reference amount (21 CFR 101.12): fruits, dried" }
 [food.retention]
 Boiling = "0255"
 Simmering = "0255"
@@ -749,6 +771,7 @@ Toasting = "0251"
 
 [[food]]
 name = "Eggs"                 # USDA EGGS
+serving = { amount = 50, unit = "g", source = "FDA reference amount (21 CFR 101.12): eggs" }
 [food.retention]
 Boiling = "0105"
 Simmering = "0107"
@@ -764,6 +787,7 @@ Toasting = "0101"
 
 [[food]]
 name = "Cheeses"              # USDA CHEESE
+serving = { amount = 30, unit = "g", source = "FDA reference amount (21 CFR 101.12): cheese, all others" }
 [food.retention]
 Boiling = "0005"
 Simmering = "0005"
@@ -779,6 +803,7 @@ Toasting = "0001"
 
 [[food]]
 name = "Milk and cream"       # USDA MILK,HEATED (10 minutes for quick heat, 30 for a simmer or a bake, an hour for a braise)
+serving = { amount = 240, unit = "ml", source = "FDA reference amount (21 CFR 101.12): milk" }
 [food.retention]
 Boiling = "2151"
 Simmering = "2152"
@@ -826,6 +851,7 @@ Toasting = "1805"
 
 [[food]]
 name = "Poultry sausages"     # USDA SAUSAGE,RAW,PORK,OTHER
+serving = { amount = 55, unit = "g", source = "FDA reference amount (21 CFR 101.12): sausages" }
 parent = "Poultry"
 [food.retention]
 Boiling = "1706"
@@ -842,6 +868,7 @@ Toasting = "1707"
 
 [[food]]
 name = "Pork sausages"        # USDA SAUSAGE,RAW,PORK,OTHER
+serving = { amount = 55, unit = "g", source = "FDA reference amount (21 CFR 101.12): sausages" }
 [food.retention]
 Boiling = "1706"
 Simmering = "1706"
@@ -857,6 +884,7 @@ Toasting = "1707"
 
 [[food]]
 name = "Fresh pork"           # USDA PORK,FRESH, with drippings
+serving = { amount = 114, unit = "g", source = "FDA reference amount (21 CFR 101.12): meat, raw" }
 [food.retention]
 Boiling = "1302"
 Simmering = "1302"
@@ -872,6 +900,7 @@ Toasting = "1254"
 
 [[food]]
 name = "Ground pork"          # USDA PORK,FRSH,GROUND, browned and simmered with drippings for any dry heat
+serving = { amount = 114, unit = "g", source = "FDA reference amount (21 CFR 101.12): meat, raw" }
 [food.retention]
 Boiling = "1406"
 Simmering = "1406"
@@ -887,6 +916,7 @@ Toasting = "1402"
 
 [[food]]
 name = "Bacon"                # USDA BACON,BROILED/FRIED, for any heat
+serving = { amount = 15, unit = "g", source = "FDA reference amount (21 CFR 101.12): bacon" }
 [food.retention]
 Boiling = "1456"
 Simmering = "1456"
@@ -902,6 +932,7 @@ Toasting = "1456"
 
 [[food]]
 name = "Cooked ham"           # USDA PORK,CURED,REHEATED: cooked already
+serving = { amount = 55, unit = "g", source = "FDA reference amount (21 CFR 101.12): luncheon meats" }
 [food.retention]
 Boiling = "1606"
 Simmering = "1606"
@@ -949,6 +980,7 @@ Toasting = "0750"
 
 [[food]]
 name = "Shellfish"            # USDA SHELLFISH,WO/SHELL, with drippings
+serving = { amount = 114, unit = "g", source = "FDA reference amount (21 CFR 101.12): fish and shellfish, raw" }
 [food.retention]
 Boiling = "2762"
 Simmering = "2762"
@@ -964,6 +996,7 @@ Toasting = "2750"
 
 [[food]]
 name = "Cooked legumes"       # USDA LEGUMES,REHEATED: canned beans and tofu are cooked already
+serving = { amount = 130, unit = "g", source = "FDA reference amount (21 CFR 101.12): beans, plain, cooked or canned" }
 [food.retention]
 Boiling = "0550"
 Simmering = "0550"
@@ -979,6 +1012,7 @@ Toasting = "0550"
 
 [[food]]
 name = "Nuts and seeds"       # USDA NUTS (peanuts with them)
+serving = { amount = 30, unit = "g", source = "FDA reference amount (21 CFR 101.12): nuts and seeds" }
 [food.retention]
 Boiling = "2204"
 Simmering = "2204"
@@ -994,6 +1028,7 @@ Toasting = "2203"
 
 [[food]]
 name = "Pasta"                # USDA PASTA: boiled and drained, or not drained when simmered in a sauce or soup; reheated when fried after
+serving = { amount = 55, unit = "g", source = "FDA reference amount (21 CFR 101.12): pasta, dry" }
 [food.retention]
 Boiling = "0381"
 Simmering = "0384"
@@ -1009,6 +1044,7 @@ Toasting = "0380"
 
 [[food]]
 name = "Rice"                 # USDA RICE,WHITE/BROWN: cooked with its water used, sauteed and simmered in a pan
+serving = { amount = 45, unit = "g", source = "FDA reference amount (21 CFR 101.12): grains such as rice, dry" }
 [food.retention]
 Boiling = "0432"
 Simmering = "0432"
@@ -1024,6 +1060,7 @@ Toasting = "0433"
 
 [[food]]
 name = "Oats"                 # USDA OATMEAL,REG/QUICK,COOKED for wet heat; FLOUR/MEAL for dry
+serving = { amount = 40, unit = "g", source = "FDA reference amount (21 CFR 101.12): hot breakfast cereals, dry" }
 [food.retention]
 Boiling = "0352"
 Simmering = "0352"
@@ -1039,6 +1076,7 @@ Toasting = "0306"
 
 [[food]]
 name = "Flours and starches"  # USDA FLOUR/MEAL
+serving = { amount = 30, unit = "g", source = "FDA reference amount (21 CFR 101.12): flour, cornmeal" }
 [food.retention]
 Boiling = "0302"
 Simmering = "0302"
@@ -1054,6 +1092,7 @@ Toasting = "0306"
 
 [[food]]
 name = "Breads"               # USDA FLOUR/MEAL,TOASTED or REHEATED: bread is baked already
+serving = { amount = 50, unit = "g", source = "FDA reference amount (21 CFR 101.12): breads and rolls" }
 [food.retention]
 Boiling = "0304"
 Simmering = "0304"
@@ -1069,6 +1108,7 @@ Toasting = "0306"
 
 [[food]]
 name = "Doughs"               # USDA FLOUR/MEAL,BAKED
+serving = { amount = 55, unit = "g", source = "FDA reference amount (21 CFR 101.12): biscuits, croissants" }
 [food.retention]
 Boiling = "0301"
 Simmering = "0301"
@@ -1086,6 +1126,7 @@ Toasting = "0301"
 
 [[food]]
 name = "Firm tofu"
+serving = { amount = 85, unit = "g", source = "FDA reference amount (21 CFR 101.12): tofu" }
 foodkeeper = 168
 parent = "Cooked legumes"
 fdc = 172475                    # SR: Tofu, raw, firm, prepared with calcium sulfate
@@ -1100,6 +1141,7 @@ fdc = 169742                    # SR: Rice noodles, dry
 
 [[food]]
 name = "Tamarind paste"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): major condiments" }
 foodkeeper = 231
 fdc = 167763                    # SR: Tamarinds, raw (the pulp)
 proxy = true                    # the pulp, not pressed paste; its density is loose pulp's
@@ -1107,17 +1149,20 @@ volume = "cup, pulp"
 
 [[food]]
 name = "Tap water"
+serving = { amount = 240, unit = "ml", source = "Claude's estimate: a cup; there is no reference amount for water used in cooking" }
 fdc = 173647                    # SR: Beverages, water, tap, drinking
 volume = "fl oz"
 
 [[food]]
 name = "Soy sauce (low sodium)"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): major condiments" }
 foodkeeper = 360
 fdc = 172473                    # SR: Soy sauce made from soy and wheat (shoyu), low sodium
 volume = "tbsp"
 
 [[food]]
 name = "Rice vinegar"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): vinegar" }
 foodkeeper = 361
 fdc = 172237                    # SR: Vinegar, distilled
 proxy = true                    # FDC has no rice vinegar; the Mizkan, Kikkoman and Marukan labels are all 0 too
@@ -1125,18 +1170,21 @@ volume = "tbsp"
 
 [[food]]
 name = "Five-spice powder"      # the parts on the Spice Islands label: cinnamon, anise, fennel, black pepper, cloves
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 238
 sources = [{ mean = [171320, 171316, 171323, 170931, 171321], status = "calculated", note = "equal parts of the five spices on the Spice Islands label; the labels' own figures round to 0 at 0.5 g" }]
 volume = { portions = [[1495185, "tsp"], [2037617, "tsp"]] }   # Spice Islands, Dynasty
 
 [[food]]
 name = "Fish sauce"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): major condiments (as soy sauce)" }
 foodkeeper = { id = 360, proxy = true }
 fdc = 174531                    # SR: Sauce, fish, ready-to-serve
 volume = "tbsp"
 
 [[food]]
 name = "Palm sugar"             # no brand named: two widely sold ones, Wira (label impossible) and Dragonfly "pure" (46 g sugar per 100 g) left out
+serving = { amount = 8, unit = "g", source = "FDA reference amount (21 CFR 101.12): sugar" }
 foodkeeper = { id = 239, proxy = true }
 sources = [
   { mean = [2033749, 2149557], note = "Dragonfly Palm Sugar and Good & Gather Coconut Palm Sugar labels" },
@@ -1146,17 +1194,20 @@ volume = { fdc = 2033749, portion = "tbsp" }                  # Dragonfly: 1 Tbs
 
 [[food]]
 name = "Peanut oil"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): butter, margarine, oil, shortening" }
 foodkeeper = 228
 fdc = 171410                    # SR: Oil, peanut, salad or cooking
 volume = "tbsp"
 
 [[food]]
 name = "Dried shrimp"
+serving = { amount = 15, unit = "g", source = "Claude's estimate: a garnish-sized amount" }
 fdc = 2706366                   # FNDDS: Shrimp, dried (USDA derived it from canned shrimp)
 volume = "cup"                  # FNDDS: 1 cup = 135 g
 
 [[food]]
 name = "Sweet preserved radish" # Thai chai po; FDC has no label for it
+serving = { amount = 15, unit = "g", source = "Claude's estimate: pickles and relishes" }
 foodkeeper = { id = 353, proxy = true }
 sources = [
   { mean = [2030391, 2623526, 2030346], note = "Akiyama, Waimanalo Ko-Ko and Kula Maui takuan: sweet pickled daikon, the nearest labelled food" },
@@ -1203,6 +1254,7 @@ volume = "cup, chopped"
 
 [[food]]
 name = "Thai chile flakes"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 238
 fdc = 170932                    # SR: Spices, pepper, red or cayenne
 proxy = true                    # dried Thai chiles, flaked; cayenne is the nearest FDC has
@@ -1231,12 +1283,14 @@ volume = "cup"
 
 [[food]]
 name = "Paprika"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 238
 fdc = 171329                    # SR: Spices, paprika
 volume = "tsp"
 
 [[food]]
 name = "Kosher salt"
+serving = { amount = 0.25, unit = "tsp", source = "FDA reference amount (21 CFR 101.12): salt" }
 foodkeeper = 468
 fdc = 173468                    # SR: Salt, table: the same salt, not a kosher-salt analysis
 proxy = true
@@ -1244,12 +1298,14 @@ volume = { portions = [[2617978, "tsp"], [2571981, "tsp"]] }  # Morton 1/4 tsp =
 
 [[food]]
 name = "Table salt"
+serving = { amount = 0.25, unit = "tsp", source = "FDA reference amount (21 CFR 101.12): salt" }
 foodkeeper = 468
 fdc = 173468                    # SR: Salt, table
 volume = "tsp"
 
 [[food]]
 name = "Canola oil"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): butter, margarine, oil, shortening" }
 foodkeeper = 520
 fdc = 172336                    # SR: Oil, canola
 volume = "tbsp"
@@ -1278,18 +1334,21 @@ volume = "cup sliced"
 
 [[food]]
 name = "Dry white wine"
+serving = { amount = 2, unit = "tbsp", source = "Claude's estimate: wine as a cooking ingredient" }
 foodkeeper = 463
 fdc = 174837                    # SR: Alcoholic beverage, wine, table, white
 volume = "fl oz"
 
 [[food]]
 name = "Beef broth (low sodium)"
+serving = { amount = 240, unit = "ml", source = "a typical US label serving: broth" }
 foodkeeper = 485
 fdc = 172889                    # SR: Soup, beef broth, less/reduced sodium, ready to serve
 volume = "cup"
 
 [[food]]
 name = "Sour cream"
+serving = { amount = 30, unit = "g", source = "FDA reference amount (21 CFR 101.12): sour cream" }
 foodkeeper = 29
 parent = "Milk and cream"
 fdc = 171257                    # SR: Cream, sour, cultured
@@ -1297,6 +1356,7 @@ volume = "cup"
 
 [[food]]
 name = "Dijon mustard"
+serving = { amount = 1, unit = "tsp", source = "FDA reference amount (21 CFR 101.12): minor condiments, mustard" }
 foodkeeper = 351
 sources = [
   { mean = [2597122, 2601407], only = [1093], note = "sodium from the Grey Poupon and French's Dijon labels; their other figures round to 0 at 5 g" },
@@ -1306,12 +1366,14 @@ volume = { portions = [[2597122, "tsp"], [2601407, "tsp"]] }  # both 1 tsp = 5 g
 
 [[food]]
 name = "Worcestershire sauce"
+serving = { amount = 1, unit = "tsp", source = "FDA reference amount (21 CFR 101.12): minor condiments" }
 foodkeeper = 362
 fdc = 171610                    # SR: Sauce, worcestershire
 volume = "tbsp"
 
 [[food]]
 name = "Black pepper"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 469
 fdc = 170931                    # SR: Spices, pepper, black
 volume = "tsp, ground"
@@ -1332,6 +1394,7 @@ volume = "cup"
 
 [[food]]
 name = "Olive oil"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): butter, margarine, oil, shortening" }
 foodkeeper = 227
 fdc = 171413                    # SR: Oil, olive, salad or cooking
 volume = "tablespoon"
@@ -1345,6 +1408,7 @@ each = "piece"                  # USDA: one piece = 272 g; breasts vary widely
 
 [[food]]
 name = "Chicken broth"
+serving = { amount = 240, unit = "ml", source = "a typical US label serving: broth" }
 foodkeeper = 486
 fdc = 174536                    # SR: Soup, chicken broth, ready-to-serve
 volume = "cup"
@@ -1360,24 +1424,28 @@ each = { grams = 270, per = "each", source = "one 15-oz can drained and rinsed: 
 
 [[food]]
 name = "Canned green chiles"
+serving = { amount = 30, unit = "g", source = "a typical US label serving: canned chiles" }
 foodkeeper = 372
 parent = "Canned vegetables"
 fdc = 170426                    # SR: Peppers, hot chili, green, canned, pods, excluding seeds, solids and liquids
 
 [[food]]
 name = "Dried oregano"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 236
 fdc = 171328                    # SR: Spices, oregano, dried
 volume = "tsp, leaves"
 
 [[food]]
 name = "Ground cumin"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 473
 fdc = 170923                    # SR: Spices, cumin seed (ground cumin is the ground seed)
 volume = { fdc = 170923, portion = "tsp, whole", status = "estimated" }   # SR gives whole seed only
 
 [[food]]
 name = "Cayenne pepper"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 238
 fdc = 170932                    # SR: Spices, pepper, red or cayenne
 volume = "tsp"
@@ -1472,6 +1540,7 @@ each = { fdc = 2709784, portion = "miniature" }               # FNDDS Cucumber r
 
 [[food]]
 name = "Ginger"
+serving = { amount = 4, unit = "g", source = "FDA reference amount (21 CFR 101.12): vegetables used for garnish or flavor (the nearest category)" }
 foodkeeper = 286
 parent = "Root vegetables"
 fdc = 169231                    # SR: Ginger root, raw
@@ -1568,6 +1637,7 @@ each = 'fruit (2-5/8" dia)'
 
 [[food]]
 name = "Orange juice (fresh)"
+serving = { amount = 240, unit = "ml", source = "FDA reference amount (21 CFR 101.12): fruit juices" }
 foodkeeper = 457
 parent = "Citrus fruits"
 fdc = 169098                    # SR: Orange juice, raw
@@ -1601,6 +1671,7 @@ fdc = 169994                    # SR: Chives, raw
 
 [[food]]
 name = "Sage"
+serving = { amount = 4, unit = "g", source = "FDA reference amount (21 CFR 101.12): vegetables used for garnish or flavor (parsley)" }
 foodkeeper = 236
 fdc = 170935                    # SR: Spices, sage, ground
 proxy = true                    # FDC has no fresh sage; the recipes use a gram or two
@@ -1701,6 +1772,7 @@ volume = "cup, shredded"
 
 [[food]]
 name = "Parmesan (grated)"
+serving = { amount = 5, unit = "g", source = "FDA reference amount (21 CFR 101.12): hard cheeses, grated" }
 foodkeeper = 4
 parent = "Cheeses"
 fdc = 171247                    # SR: Cheese, parmesan, grated
@@ -1715,6 +1787,7 @@ volume = "tbsp"
 
 [[food]]
 name = "Creme fraiche"
+serving = { amount = 30, unit = "g", source = "FDA reference amount (21 CFR 101.12): sour cream (the nearest category)" }
 foodkeeper = { id = 29, proxy = true }
 parent = "Milk and cream"
 sources = [
@@ -1732,12 +1805,14 @@ volume = "cup"
 
 [[food]]
 name = "Cream sauce base"       # HelloFresh's; a cream-and-milk sauce base with no published label
+serving = { amount = 60, unit = "ml", source = "FDA reference amount (21 CFR 101.12): minor main-dish sauces" }
 foodkeeper = 342
 fdc = 170857                    # SR: Cream, fluid, light (coffee cream or table cream)
 proxy = true
 
 [[food]]
 name = "Garlic herb butter"     # HelloFresh's compound butter
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): butter, margarine, oil, shortening" }
 foodkeeper = { id = 1, proxy = true }
 fdc = 173410                    # SR: Butter, salted
 proxy = true
@@ -1745,6 +1820,7 @@ volume = "tbsp"
 
 [[food]]
 name = "Smoky red pepper crema" # HelloFresh's sour-cream topping
+serving = { amount = 2, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): dips" }
 foodkeeper = { id = 16, proxy = true }
 fdc = 171257                    # SR: Cream, sour, cultured
 proxy = true
@@ -1783,6 +1859,7 @@ volume = { grams = 81, per = "cup", source = "SR 173904: 1 cup = 81 g (its 0.33 
 
 [[food]]
 name = "Panko"
+serving = { amount = 30, unit = "g", source = "a typical US label serving: bread crumbs" }
 foodkeeper = 643
 parent = "Breads"
 sources = [
@@ -1848,12 +1925,14 @@ each = 'pita, large (6-1/2" dia)'
 
 [[food]]
 name = "Blue corn tortilla chips"
+serving = { amount = 30, unit = "g", source = "FDA reference amount (21 CFR 101.12): chips and other snacks" }
 foodkeeper = { id = 392, proxy = true }
 fdc = 167558                    # SR: Snacks, tortilla chips, plain, white corn, salted
 proxy = true                    # FDC has no blue corn chip
 
 [[food]]
 name = "Balsamic vinegar"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): vinegar" }
 foodkeeper = 669
 fdc = 172241                    # SR: Vinegar, balsamic
 sources = [{ fdc = 2709351, status = "estimated", note = "FNDDS Vinegar: what SR does not report" }]
@@ -1861,6 +1940,7 @@ volume = "tbsp"
 
 [[food]]
 name = "White wine vinegar"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): vinegar" }
 foodkeeper = 361
 fdc = 172240                    # SR: Vinegar, red wine
 sources = [{ fdc = 2709351, status = "estimated", note = "FNDDS Vinegar: what SR does not report" }]
@@ -1869,30 +1949,35 @@ volume = "tbsp"
 
 [[food]]
 name = "Fruit jam"              # cherry, cranberry and fig jams and preserves
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): jams, jellies, honey" }
 foodkeeper = 347
 fdc = 169641                    # SR: Jams and preserves
 volume = "tbsp"
 
 [[food]]
 name = "Apricot jam"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): jams, jellies, honey" }
 foodkeeper = 347
 fdc = 170645                    # SR: Jams and preserves, apricot
 volume = "tbsp"
 
 [[food]]
 name = "Ketchup"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): major condiments" }
 foodkeeper = 348
 fdc = 168556                    # SR: Catsup
 volume = "tbsp"
 
 [[food]]
 name = "Mayonnaise"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): mayonnaise" }
 foodkeeper = 350
 fdc = 171009                    # SR: Salad dressing, mayonnaise, regular
 volume = "tbsp"
 
 [[food]]
 name = "Tomato paste"
+serving = { amount = 2, unit = "tbsp", source = "a typical US label serving: tomato paste" }
 foodkeeper = 501
 parent = "Canned tomatoes"
 fdc = 170459                    # SR: Tomato products, canned, paste, without salt added
@@ -1900,12 +1985,14 @@ volume = "tbsp"
 
 [[food]]
 name = "Soy sauce"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): major condiments" }
 foodkeeper = 360
 fdc = 174277                    # SR: Soy sauce made from soy and wheat (shoyu)
 volume = "tbsp"
 
 [[food]]
 name = "Sriracha"
+serving = { amount = 1, unit = "tsp", source = "FDA reference amount (21 CFR 101.12): minor condiments, hot sauce" }
 foodkeeper = 559
 fdc = 171186                    # SR: Sauce, hot chile, sriracha
 sources = [{ fdc = 2710093, status = "estimated", note = "FNDDS Hot pepper sauce: what SR does not report" }]
@@ -1913,6 +2000,7 @@ volume = "tsp"
 
 [[food]]
 name = "Hot sauce"
+serving = { amount = 1, unit = "tsp", source = "FDA reference amount (21 CFR 101.12): minor condiments, hot sauce" }
 foodkeeper = 559
 fdc = 174527                    # SR: Sauce, ready-to-serve, pepper or hot
 sources = [{ fdc = 2710093, status = "estimated", note = "FNDDS Hot pepper sauce: what SR does not report" }]
@@ -1920,30 +2008,35 @@ volume = { grams = 4.7, per = "tsp", source = "SR 174527: 1 tsp = 4.7 g" }
 
 [[food]]
 name = "Honey"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): jams, jellies, honey" }
 foodkeeper = 345
 fdc = 169640                    # SR: Honey
 volume = "tbsp"
 
 [[food]]
 name = "Maple syrup"
+serving = { amount = 60, unit = "ml", source = "a typical US label serving: maple syrup" }
 foodkeeper = 534
 fdc = 169661                    # SR: Syrups, maple
 volume = "tbsp"
 
 [[food]]
 name = "Granulated sugar"
+serving = { amount = 8, unit = "g", source = "FDA reference amount (21 CFR 101.12): sugar" }
 foodkeeper = 240
 fdc = 169655                    # SR: Sugars, granulated
 volume = "tsp"
 
 [[food]]
 name = "Brown sugar"
+serving = { amount = 8, unit = "g", source = "FDA reference amount (21 CFR 101.12): sugar" }
 foodkeeper = 239
 fdc = 168833                    # SR: Sugars, brown
 volume = "tsp packed"
 
 [[food]]
 name = "Sweet soy glaze"        # HelloFresh's: soy sauce, honey, vinegar, garlic, ginger, sesame oil, cornstarch
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): major condiments" }
 foodkeeper = { id = 360, proxy = true }
 fdc = 171167                    # SR: Sauce, teriyaki, ready-to-serve
 proxy = true
@@ -1951,6 +2044,7 @@ volume = "tbsp"
 
 [[food]]
 name = "Sweet chili sauce"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): major condiments" }
 foodkeeper = { id = 348, proxy = true }
 sources = [
   { mean = [2616781, 2542455, 2093921, 2010822], note = "Allied Old English, House of Tsang, Schlotterbeck & Foss and Greystar sweet chili sauce labels" },
@@ -1959,6 +2053,7 @@ sources = [
 
 [[food]]
 name = "Ponzu"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): major condiments" }
 foodkeeper = { id = 360, proxy = true }
 fdc = 172473                    # SR: Soy sauce made from soy and wheat (shoyu), low sodium
 proxy = true                    # its sodium and energy are those of Kikkoman's ponzu label (3200 mg, 67 kcal per 100 mL), which is sold by volume
@@ -1966,6 +2061,7 @@ volume = "tbsp"
 
 [[food]]
 name = "Chipotle adobo sauce"
+serving = { amount = 1, unit = "tsp", source = "FDA reference amount (21 CFR 101.12): minor condiments, hot sauce" }
 foodkeeper = { id = 373, proxy = true }
 sources = [
   { mean = [2673773, 559011], note = "Goya and B&G chipotle peppers in adobo sauce labels" },
@@ -1975,6 +2071,7 @@ volume = { grams = 15, per = "tbsp", source = "B&G label: 2 Tbsp = 30 g" }
 
 [[food]]
 name = "Tex-Mex paste"          # HelloFresh's: a chipotle-tomato paste with no published label
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): major condiments" }
 foodkeeper = { id = 560, proxy = true }
 sources = [
   { mean = [2673773, 559011], status = "estimated", note = "chipotle peppers in adobo labels (Goya, B&G), the nearest labelled food" },
@@ -2028,6 +2125,7 @@ each = { grams = 12, per = "each", source = "as the chicken concentrate: 12 g" }
 
 [[food]]
 name = "Coconut milk (canned)"
+serving = { amount = 80, unit = "ml", source = "a typical US label serving: canned coconut milk" }
 foodkeeper = 602
 fdc = 170173                    # SR: Nuts, coconut milk, canned
 sources = [{ fdc = 2707568, status = "estimated", moisture = true, note = "FNDDS Coconut milk used in cooking: what SR does not report" }]
@@ -2041,36 +2139,42 @@ fdc = 175188                    # SR: Beans, black turtle, mature seeds, canned 
 
 [[food]]
 name = "Dried thyme"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 236
 fdc = 170938                    # SR: Spices, thyme, dried
 volume = "tsp, leaves"
 
 [[food]]
 name = "Garlic powder"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 474
 fdc = 171325                    # SR: Spices, garlic powder
 volume = "tsp"
 
 [[food]]
 name = "Ground turmeric"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 238
 fdc = 172231                    # SR: Spices, turmeric, ground
 volume = "tsp"
 
 [[food]]
 name = "Ground cinnamon"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 472
 fdc = 171320                    # SR: Spices, cinnamon, ground
 volume = "tsp"
 
 [[food]]
 name = "Curry powder"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 238
 fdc = 170924                    # SR: Spices, curry powder
 volume = "tbsp"
 
 [[food]]
 name = "Chipotle powder"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = { id = 232, proxy = true }
 fdc = 170932                    # SR: Spices, pepper, red or cayenne
 proxy = true                    # ground dried chile, as chipotle powder is; FDC has no chipotle
@@ -2078,18 +2182,21 @@ volume = "tsp"
 
 [[food]]
 name = "Southwest spice blend"  # HelloFresh's: garlic powder, cumin and chili powder
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 233
 sources = [{ mean = [171325, 170923, 171319], status = "calculated", note = "equal parts of garlic powder, cumin and chili powder, the three HelloFresh names (ratio assumed)" }]
 volume = { portions = [[171325, "tbsp"], [171319, "tbsp"]] }   # garlic and chili powder: 1 tbsp = 9.7 g and 8 g
 
 [[food]]
 name = "Shawarma spice blend"   # HelloFresh's
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 233
 sources = [{ mean = [172231, 172231, 170923, 170923, 170922, 171325, 171329], status = "calculated", note = "turmeric, cumin, coriander, garlic powder and paprika 2:2:1:1:1, from a published copy of HelloFresh's blend (mysweetprecision.com); its allspice and pepper (1/8) left out" }]
 volume = { portions = [[172231, "tbsp"], [170922, "tbsp"], [171325, "tbsp"]] }
 
 [[food]]
 name = "Truffle zest"           # HelloFresh's dried truffle seasoning
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = { id = 233, proxy = true }
 fdc = 168436                    # SR: Mushrooms, shiitake, dried
 proxy = true                    # the nearest dried fungus FDC has
@@ -2121,6 +2228,7 @@ fdc = 171723                    # SR: Cranberries, dried, sweetened
 
 [[food]]
 name = "Semisweet chocolate chips"
+serving = { amount = 15, unit = "g", source = "FDA reference amount (21 CFR 101.12): baking candies, chips" }
 foodkeeper = 216
 fdc = 167976                    # SR: Candies, semisweet chocolate
 volume = "cup chips (6 oz package)"
@@ -2136,6 +2244,7 @@ volume = "cup"
 
 [[food]]
 name = "Berry compote"          # HelloFresh's; berries cooked with sugar, no published label
+serving = { amount = 2, unit = "tbsp", source = "Claude's estimate: fruit toppings" }
 foodkeeper = { id = 347, proxy = true }
 fdc = 173951                    # SR: Blueberries, frozen, sweetened
 proxy = true
@@ -2178,6 +2287,7 @@ volume = "cup drained, rinsed"   # added 2026-10-31 for the basic recipe set: it
 
 [[food]]
 name = "Red chili flakes"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 238
 fdc = 170932                    # SR: Spices, pepper, red or cayenne
 proxy = true                    # crushed dried red chiles; cayenne is the nearest FDC has
@@ -2211,6 +2321,7 @@ fdc = 173941                    # SR: Apricots, dried, sulfured, uncooked
 
 [[food]]
 name = "Everything bagel seasoning"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 233
 sources = [{ mean = [170150, 170150, 171330, 171330, 171325, 171325, 171327, 171327, 173468], status = "calculated", note = "sesame, poppy, garlic, onion and salt 2:2:2:2:1, a common recipe (ratio assumed)" }]
 volume = { portions = [[170150, "tbsp"], [171330, "tbsp"]] }
@@ -2224,12 +2335,14 @@ volume = "cup, crumbled"
 
 [[food]]
 name = "Fry seasoning"          # HelloFresh's: garlic powder, onion powder and paprika
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 233
 sources = [{ mean = [171325, 171327, 171329], status = "calculated", note = "equal parts garlic powder, onion powder and paprika (mommytravels.net, HelloFresh Spice Recipes)" }]
 volume = { portions = [[171325, "tbsp"], [171327, "tbsp"]] }
 
 [[food]]
 name = "Hummus"
+serving = { amount = 2, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): dips" }
 foodkeeper = 181
 fdc = 174289                    # SR: Hummus, commercial
 sources = [{ fdc = 2707402, status = "estimated", moisture = true, note = "FNDDS Hummus plain: what SR does not report" }]
@@ -2253,6 +2366,7 @@ proxy = true                    # HelloFresh's is not sold as lower sodium; its 
 
 [[food]]
 name = "Italian seasoning"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 236
 sources = [{ mean = [171328, 171317, 170938, 171333], status = "calculated", note = "equal parts dried oregano, basil, thyme and rosemary (ratio assumed)" }]
 volume = { portions = [[171317, "tbsp, leaves"], [170938, "tbsp, leaves"]] }
@@ -2273,6 +2387,7 @@ proxy = true                    # HelloFresh's is maple-flavored
 
 [[food]]
 name = "Mexican spice blend"    # HelloFresh's
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 233
 sources = [{ mean = [171319, 170923, 171325, 171327, 171329, 171328], status = "calculated", note = "equal parts chili powder, cumin, garlic powder, onion powder, paprika and oregano (assumed; HelloFresh publishes no ratio)" }]
 volume = { portions = [[171319, "tbsp"], [171325, "tbsp"]] }
@@ -2296,6 +2411,7 @@ each = "piece whole"
 
 [[food]]
 name = "Powdered sugar"
+serving = { amount = 8, unit = "g", source = "FDA reference amount (21 CFR 101.12): sugar" }
 foodkeeper = 241
 fdc = 169656                    # SR: Sugars, powdered
 volume = "cup unsifted"   # added 2026-10-31 for the basic recipe set: its own FDC record's portion
@@ -2309,6 +2425,7 @@ proxy = true                    # a pressed salted ricotta; FDC has none, feta i
 
 [[food]]
 name = "Shredded coconut (sweetened)"
+serving = { amount = 15, unit = "g", source = "FDA reference amount (21 CFR 101.12): shredded coconut" }
 foodkeeper = 257
 parent = "Nuts and seeds"
 fdc = 168586                    # SR: Nuts, coconut meat, dried (desiccated), sweetened, shredded
@@ -2323,12 +2440,14 @@ each = 'cucumber (8-1/4")'
 
 [[food]]
 name = "Tuscan heat spice"      # HelloFresh's
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 233
 sources = [{ mean = [171317, 171317, 171317, 171317, 171333, 171333, 171328, 171328, 171325, 171325, 170932, 171323], status = "calculated", note = "basil, rosemary, oregano, garlic powder, cayenne and fennel 4:2:2:2:1:1, the ratio HelloFresh published (forktospoon.com)" }]
 volume = { portions = [[171317, "tbsp, leaves"], [171325, "tbsp"]] }
 
 [[food]]
 name = "Za'atar"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 233
 sources = [{ mean = [170938, 170150], status = "calculated", note = "equal parts dried thyme and sesame (assumed; sumac is not in FDC and salt is left out)" }]
 volume = { portions = [[170938, "tsp, ground"], [170150, "tbsp"]] }
@@ -2364,17 +2483,20 @@ each = 'tortilla (approx 10" dia)'
 
 [[food]]
 name = "Honey Dijon dressing"   # EveryPlate's
+serving = { amount = 2, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): salad dressings" }
 foodkeeper = 356
 fdc = 171043                    # SR: Salad dressing, honey mustard, regular
 
 [[food]]
 name = "Buttermilk ranch dressing"   # EveryPlate's
+serving = { amount = 2, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): salad dressings" }
 foodkeeper = 623
 fdc = 173592                    # SR: Salad dressing, ranch dressing, regular
 volume = "tablespoon"
 
 [[food]]
 name = "Greek vinaigrette"      # EveryPlate's: oil, vinegar and herbs
+serving = { amount = 2, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): salad dressings" }
 foodkeeper = 625
 fdc = 171019                    # SR: Salad dressing, italian dressing, commercial, regular
 proxy = true
@@ -2382,6 +2504,7 @@ volume = "tbsp"
 
 [[food]]
 name = "Frank's seasoning blend"   # EveryPlate's Frank's RedHot seasoning; no published label
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 233
 sources = [{ mean = [170932, 171325, 171329], status = "calculated", note = "equal parts cayenne, garlic powder and paprika (assumed; like the kits' other blends, salt left out, which may understate sodium)" }]
 
@@ -2389,24 +2512,28 @@ sources = [{ mean = [170932, 171325, 171329], status = "calculated", note = "equ
 
 [[food]]
 name = "Baking powder"
+serving = { amount = 0.6, unit = "g", source = "FDA reference amount (21 CFR 101.12): baking powder, baking soda" }
 foodkeeper = 212
 fdc = 172803                    # SR: Leavening agents, baking powder, double-acting, sodium aluminum sulfate
 volume = { grams = 4.6, per = "tsp", source = "SR 172803: 1 tsp = 4.6 g (and 0.5 tsp = 2.3 g, the same density)" }
 
 [[food]]
 name = "Baking soda"
+serving = { amount = 0.6, unit = "g", source = "FDA reference amount (21 CFR 101.12): baking powder, baking soda" }
 foodkeeper = 213
 fdc = 175040                    # SR: Leavening agents, baking soda
 volume = { grams = 4.6, per = "tsp", source = "SR 175040: 1 tsp = 4.6 g (and 0.5 tsp = 2.3 g, the same density)" }
 
 [[food]]
 name = "Active dry yeast"
+serving = { amount = 0.6, unit = "g", source = "FDA reference amount (21 CFR 101.12): baking powder, baking soda (the nearest category)" }
 foodkeeper = 561
 fdc = 175043                    # SR: Leavening agents, yeast, baker's, active dry
 volume = "tsp"
 
 [[food]]
 name = "Cornstarch"
+serving = { amount = 1, unit = "tbsp", source = "a typical US label serving: cornstarch" }
 foodkeeper = 220
 parent = "Flours and starches"
 fdc = 169698                    # SR: Cornstarch
@@ -2414,12 +2541,14 @@ volume = "cup"
 
 [[food]]
 name = "Vanilla extract"
+serving = { amount = 1, unit = "tsp", source = "Claude's estimate: flavoring extracts" }
 foodkeeper = 530
 fdc = 173471                    # SR: Vanilla extract
 volume = "tsp"
 
 [[food]]
 name = "Sesame oil"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): butter, margarine, oil, shortening" }
 foodkeeper = 612
 fdc = 171016                    # SR: Oil, sesame, salad or cooking
 volume = "tsp"
@@ -2428,6 +2557,7 @@ volume = "tsp"
 
 [[food]]
 name = "Cottage cheese"
+serving = { amount = 110, unit = "g", source = "FDA reference amount (21 CFR 101.12): cottage cheese" }
 foodkeeper = 9
 parent = "Cheeses"
 fdc = 172179                    # SR: Cheese, cottage, creamed, large or small curd (the 4% milkfat the recipes ask for)
@@ -2442,6 +2572,7 @@ each = { fdc = 172738, portion = "sheet" }                     # SR, the same pa
 
 [[food]]
 name = "Heavy cream"
+serving = { amount = 15, unit = "ml", source = "FDA reference amount (21 CFR 101.12): cream, fluid" }
 foodkeeper = 14
 parent = "Milk and cream"
 fdc = 170859                    # SR: Cream, fluid, heavy whipping
@@ -2456,6 +2587,7 @@ volume = "cup, shredded"
 
 [[food]]
 name = "Ground nutmeg"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 476
 fdc = 171326                    # SR: Spices, nutmeg, ground
 volume = "tsp"
@@ -2483,6 +2615,7 @@ volume = { grams = 10.5, per = "tbsp", source = "FNDDS 2707590 Chia seeds: 1 cup
 
 [[food]]
 name = "Peanut butter (crunchy)"
+serving = { amount = 2, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): nut butters" }
 foodkeeper = 387
 parent = "Nuts and seeds"
 fdc = 174265                    # SR: Peanut butter, chunk style, with salt
@@ -2518,6 +2651,7 @@ each = 'medium (7" to 7-7/8" long)'
 
 [[food]]
 name = "Dried parsley"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 236
 fdc = 170930                    # SR: Spices, parsley, dried
 volume = "tsp"
@@ -2574,6 +2708,7 @@ volume = "cup"
 
 [[food]]
 name = "Evaporated milk (fat-free)"
+serving = { amount = 30, unit = "ml", source = "FDA reference amount (21 CFR 101.12): evaporated milk" }
 foodkeeper = 372
 parent = "Milk and cream"
 fdc = 170878                    # SR: Milk, canned, evaporated, nonfat, with added vitamin A and vitamin D
@@ -2588,6 +2723,7 @@ volume = "cup"
 
 [[food]]
 name = "Nonfat plain yogurt"
+serving = { amount = 170, unit = "g", source = "FDA reference amount (21 CFR 101.12): yogurt" }
 fdc = 170887                    # SR: Yogurt, plain, skim milk
 volume = "cup (8 fl oz)"
 
@@ -2598,6 +2734,7 @@ each = "container"
 
 [[food]]
 name = "Sour cream (fat-free)"
+serving = { amount = 30, unit = "g", source = "FDA reference amount (21 CFR 101.12): sour cream" }
 foodkeeper = 29
 parent = "Milk and cream"
 fdc = 173444                    # SR: Sour cream, fat free
@@ -2633,6 +2770,7 @@ volume = "cup, chunks"
 
 [[food]]
 name = "Crushed pineapple (canned in juice)"
+serving = { amount = 140, unit = "g", source = "FDA reference amount (21 CFR 101.12): fruits, canned" }
 foodkeeper = 373
 fdc = 169126                    # SR: Pineapple, canned, juice pack, solids and liquids
 volume = "cup, crushed, sliced, or chunks"
@@ -2667,12 +2805,14 @@ volume = "cup (not packed)"
 
 [[food]]
 name = "Lemon juice"
+serving = { amount = 5, unit = "ml", source = "FDA reference amount (21 CFR 101.12): lemon and lime juice" }
 foodkeeper = { id = 457, proxy = true }  # fresh orange juice's
 fdc = 167747                    # SR: Lemon juice, raw
 volume = "cup"
 
 [[food]]
 name = "Lime juice"
+serving = { amount = 5, unit = "ml", source = "FDA reference amount (21 CFR 101.12): lemon and lime juice" }
 foodkeeper = { id = 457, proxy = true }  # fresh orange juice's
 fdc = 168156                    # SR: Lime juice, raw
 volume = "cup"
@@ -2758,6 +2898,7 @@ each = "pepper"
 
 [[food]]
 name = "Roasted red peppers (jarred)"
+serving = { amount = 30, unit = "g", source = "a typical US label serving: jarred peppers" }
 foodkeeper = 373
 parent = "Canned vegetables"
 fdc = 168546                    # SR: Peppers, sweet, red, canned, solids and liquids
@@ -2773,6 +2914,7 @@ volume = "cup slices"
 
 [[food]]
 name = "Black olives (canned)"
+serving = { amount = 15, unit = "g", source = "FDA reference amount (21 CFR 101.12): olives" }
 foodkeeper = { id = 353, proxy = true }  # pickles'
 fdc = 169094                    # SR: Olives, ripe, canned (small-extra large)
 each = "large"
@@ -2780,12 +2922,14 @@ volume = "tbsp"
 
 [[food]]
 name = "Tomato juice (no salt added)"
+serving = { amount = 240, unit = "ml", source = "FDA reference amount (21 CFR 101.12): vegetable juices" }
 foodkeeper = 373
 fdc = 170545                    # SR: Tomato juice, canned, without salt added
 volume = "cup"
 
 [[food]]
 name = "Tomato sauce (canned)"
+serving = { amount = 60, unit = "ml", source = "FDA reference amount (21 CFR 101.12): minor main-dish sauces" }
 foodkeeper = 373
 parent = "Canned tomatoes"
 fdc = 170054                    # SR: Tomato products, canned, sauce
@@ -2793,6 +2937,7 @@ volume = "cup"
 
 [[food]]
 name = "Salsa"
+serving = { amount = 2, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): dips and salsa" }
 foodkeeper = { id = 373, proxy = true }  # high-acid canned goods'
 fdc = 2709738                   # FNDDS: Salsa, red
 volume = "cup"
@@ -2813,6 +2958,7 @@ each = "can drained solids"
 
 [[food]]
 name = "Brown lentils (dry)"
+serving = { amount = 35, unit = "g", source = "FDA reference amount (21 CFR 101.12): legumes, dry" }
 parent = "Cooked legumes"
 fdc = 172420                    # SR: Lentils, raw
 volume = "cup"
@@ -2854,12 +3000,14 @@ volume = "cup"
 
 [[food]]
 name = "Bread crumbs (plain)"
+serving = { amount = 30, unit = "g", source = "a typical US label serving: bread crumbs" }
 foodkeeper = 643
 fdc = 174928                    # SR: Bread, crumbs, dry, grated, plain
 volume = "cup"
 
 [[food]]
 name = "Cornflake crumbs"
+serving = { amount = 30, unit = "g", source = "a typical US label serving: bread crumbs (the nearest)" }
 foodkeeper = { id = 643, proxy = true }  # commercial breadcrumbs'
 fdc = 174648                    # SR: Cereals ready-to-eat, RALSTON Corn Flakes
 proxy = true                    # the flakes, crushed
@@ -2874,6 +3022,7 @@ each = "slice"
 
 [[food]]
 name = "Peanut butter (creamy)"
+serving = { amount = 2, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): nut butters" }
 foodkeeper = 387
 parent = "Nuts and seeds"
 fdc = 174266                    # SR: Peanut butter, smooth style, with salt
@@ -2887,12 +3036,14 @@ volume = "tbsp"
 
 [[food]]
 name = "Cocoa powder (unsweetened)"
+serving = { amount = 1, unit = "tbsp", source = "a typical US label serving: cocoa powder" }
 foodkeeper = { id = 216, proxy = true }  # baking chocolate's
 fdc = 169593                    # SR: Cocoa, dry powder, unsweetened
 volume = "tbsp"
 
 [[food]]
 name = "Vegetable shortening"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): butter, margarine, oil, shortening" }
 foodkeeper = { id = 227, proxy = true }  # oils'
 fdc = 173584                    # SR: Shortening, vegetable, household, composite
 volume = "tbsp"
@@ -2905,6 +3056,7 @@ each = "spray , about 1/3 second (1 NLEA serving)"
 
 [[food]]
 name = "Salmon fillet (raw)"
+serving = { amount = 114, unit = "g", source = "FDA reference amount (21 CFR 101.12): fish, raw" }
 fdc = 175167                    # SR: Fish, salmon, Atlantic, farmed, raw
 
 [[food]]
@@ -2927,48 +3079,56 @@ each = "drumstick without skin"
 
 [[food]]
 name = "Vegetable broth"
+serving = { amount = 240, unit = "ml", source = "a typical US label serving: broth" }
 foodkeeper = { id = 486, proxy = true }  # chicken broth's
 fdc = 171583                    # SR: Soup, vegetable broth, ready to serve
 volume = "cup"
 
 [[food]]
 name = "Hoisin sauce"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): major condiments" }
 foodkeeper = { id = 360, proxy = true }  # soy and teriyaki sauce's
 fdc = 172886                    # SR: Sauce, hoisin, ready-to-serve
 volume = "tbsp"
 
 [[food]]
 name = "Teriyaki sauce (reduced sodium)"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): major condiments" }
 foodkeeper = 360
 fdc = 172890                    # SR: Sauce, teriyaki, ready-to-serve, reduced sodium
 volume = "Tbsp"
 
 [[food]]
 name = "Apple cider vinegar"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): vinegar" }
 foodkeeper = 361
 fdc = 173469                    # SR: Vinegar, cider
 volume = "tbsp"
 
 [[food]]
 name = "Distilled white vinegar"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): vinegar" }
 foodkeeper = 361
 fdc = 172237                    # SR: Vinegar, distilled
 volume = "tbsp"
 
 [[food]]
 name = "Red wine vinegar"
+serving = { amount = 1, unit = "tbsp", source = "FDA reference amount (21 CFR 101.12): vinegar" }
 foodkeeper = 361
 fdc = 172240                    # SR: Vinegar, red wine
 volume = "tbsp"
 
 [[food]]
 name = "Dry red wine"
+serving = { amount = 2, unit = "tbsp", source = "Claude's estimate: wine as a cooking ingredient" }
 foodkeeper = { id = 463, proxy = true }  # white wine's
 fdc = 173190                    # SR: Alcoholic beverage, wine, table, red
 volume = "fl oz"
 
 [[food]]
 name = "Dry sherry"
+serving = { amount = 2, unit = "tbsp", source = "Claude's estimate: wine as a cooking ingredient" }
 foodkeeper = { id = 463, proxy = true }  # white wine's
 fdc = 175112                    # SR: Alcoholic beverage, wine, dessert, dry
 volume = "fl oz"
@@ -2982,54 +3142,63 @@ volume = "tbsp"
 
 [[food]]
 name = "Dried basil"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 236
 fdc = 171317                    # SR: Spices, basil, dried
 volume = "tsp, leaves"
 
 [[food]]
 name = "Dried dill"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 236
 fdc = 171322                    # SR: Spices, dill weed, dried
 volume = "tsp"
 
 [[food]]
 name = "Bay leaves"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 236
 fdc = 170917                    # SR: Spices, bay leaf
 volume = "tsp, crumbled"
 
 [[food]]
 name = "Chili powder"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 232
 fdc = 171319                    # SR: Spices, chili powder
 volume = "tsp"
 
 [[food]]
 name = "Ground ginger"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 238
 fdc = 170926                    # SR: Spices, ginger, ground
 volume = "tsp"
 
 [[food]]
 name = "Ground coriander"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 238
 fdc = 170922                    # SR: Spices, coriander seed (ground: its tsp is ground seed's)
 volume = "tsp"
 
 [[food]]
 name = "Ground cloves"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 238
 fdc = 171321                    # SR: Spices, cloves, ground
 volume = "tsp"
 
 [[food]]
 name = "Ground allspice"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 238
 fdc = 171315                    # SR: Spices, allspice, ground
 volume = "tsp"
 
 [[food]]
 name = "Mustard powder"
+serving = { amount = 0.5, unit = "g", source = "FDA reference amount (21 CFR 101.12): spices and dried herbs" }
 foodkeeper = 238
 fdc = 170929                    # SR: Spices, mustard seed, ground
 volume = "tsp"

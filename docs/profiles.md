@@ -107,6 +107,7 @@ name = "Jamie"                          # also a Structr login name; no password
 nutrition = "private/nutrition.toml"
 baseline = ["Daily supplements"]
 adopts = true                            # the targets set up before there were people are this person's
+measure = "weight"                       # recipes' amounts shown as weights; default "written" (needs scripts/49a)
 [[person]]
 name = "Alex"
 nutrition = "private/nutrition-alex.toml"
@@ -118,8 +119,10 @@ python3 tools/instantiate_household.py private/household.toml
 
 Each person's targets are named "Daily Protein target (Alex)" and linked to them. With `adopts`,
 the targets instantiated before there were people ("Daily Protein target") become that person's,
-renamed in place, so a MealPlan that uses them is undisturbed. A person no longer listed leaves
-the household but is not deleted. The kitchen, pantry and prices stay the household's.
+renamed in place, so a MealPlan that uses them is undisturbed. `measure` is how the recipe page
+shows a recipe's amounts to that person: as written, or as weights (`docs/recipe-format.md`, "Amounts
+as weights"); taking the line out leaves what was set, so write `measure = "written"` to go back. A
+person no longer listed leaves the household but is not deleted. The kitchen, pantry and prices stay the household's.
 
 ## The dietary profiles (`data/profiles/dietary.toml`)
 

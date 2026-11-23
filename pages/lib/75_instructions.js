@@ -29,26 +29,31 @@ function eitherWords(items) {
   return items.slice(0, -1).join(", ") + " or " + items[items.length - 1];
 }
 
+// instructions.amount_words: "3 tbsp", "4" for a count, or with `weights` the amount as shownAmount gives it
+function amountWords(amount, unit, food, weights) {
+  if (weights) [amount, unit] = shownAmount(amount, unit, weights[food] || null);
+  return writtenNumber(amount) + (COUNTED_UNITS.indexOf(unit) >= 0 ? "" : " " + (unit || ""));
+}
+
 // instructions.ingredient
-function ingredientWords(ing, made) {
+function ingredientWords(ing, made, weights) {
   const name = String(ing.food).toLowerCase();
   if (made[ing.food]) return "the " + name;
-  const unit = COUNTED_UNITS.indexOf(ing.unit) >= 0 ? "" : " " + (ing.unit || "");
   const alternatives = [];
   for (const sub of ing.substitutes || []) {                // what may stand in, by its ratio; never one ruled out
     if (sub.never) continue;
-    const scaled = ing.amount == null || sub.ratio === 1 ? "" : writtenNumber(ing.amount * sub.ratio) + unit + " ";
+    const scaled = ing.amount == null || sub.ratio === 1 ? "" : amountWords(ing.amount * sub.ratio, ing.unit, sub.food, weights) + " ";
     alternatives.push("or " + scaled + String(sub.food).toLowerCase());
   }
   const other = alternatives.length ? " (" + alternatives.join(", ") + ")" : "";
   if (ing.amount == null) return name + other + (ing.optional ? ", to taste" : "");
-  return writtenNumber(ing.amount) + unit + " " + name + other + (ing.optional ? " (optional)" : "");
+  return amountWords(ing.amount, ing.unit, ing.food, weights) + " " + name + other + (ing.optional ? " (optional)" : "");
 }
 
 // instructions.sentence: step i (from 1), knowing what the steps before it made and which tools can
 // give each capability
-function stepSentence(i, step, made, bearers) {
-  const what = joinWords(step.inputs.map((ing) => ingredientWords(ing, made)));
+function stepSentence(i, step, made, bearers, weights) {
+  const what = joinWords(step.inputs.map((ing) => ingredientWords(ing, made, weights)));
   const able = {};
   for (const c of step.capabilities || []) able[c] = true;
   const the = (tool) => {                                   // "the oven", or the tools that can give a capability
@@ -82,11 +87,12 @@ function stepSentence(i, step, made, bearers) {
   return text + ".";
 }
 
-// instructions.instructions
-function stepSentences(steps, bearers) {
+// instructions.instructions: `weights`, for a person who prefers weighing, each food's foodWeights by name
+// (null: amounts as written)
+function stepSentences(steps, bearers, weights) {
   const out = [], made = {};
   steps.forEach((step, k) => {
-    out.push(stepSentence(k + 1, step, made, bearers));
+    out.push(stepSentence(k + 1, step, made, bearers, weights));
     made[step.makes] = true;
   });
   return out;
