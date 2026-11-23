@@ -81,12 +81,30 @@ class Lot:
 
 
 @dataclass(frozen=True)
+class Packaging:
+    """What the food of one stock pool is bought in, for Weights.package_waste (docs/packages.md stage 4).
+
+    sizes: the grams of each size it is sold in, in the order packages.choose takes them (the order
+      packages.package_table reads them). keeps_days: how long what is left of a package keeps from
+      its first use, as shopping.keeps_days works it out for the shopping list (opened, where FoodKeeper
+      says; else unopened); None when nothing says, and then what is left is not counted as waste."""
+
+    pool: str
+    sizes: tuple
+    keeps_days: float | None = None
+    name: str = ""
+
+
+@dataclass(frozen=True)
 class Weights:
     """The MealPlan's own weights, with the selector's defaults. `cooking_time` is the week file's
     alone (the owner's decision, 2026-10-24: "an optional preference that can be adjusted week-to-
     week"): points off the score per hour of the week's cooking; 0, the default, ignores it. `repeats`
     is the week file's too: points off per meal of a recipe beyond PlanningProblem.repeat_tolerance,
-    counted only when the week sets a tolerance (the owner's decision, 2026-10-26: a soft preference)."""
+    counted only when the week sets a tolerance (the owner's decision, 2026-10-26: a soft preference).
+    `package_waste` is the week file's too: points off for each package's worth of what the week buys
+    that is left over and spoils before it can be used (PlanningProblem.packaging; evaluate.package_waste);
+    0, the default, ignores it (docs/optimizer-design.md Sec 12, "Package waste")."""
 
     time: float = 0.5
     variety: float = 0.5
@@ -95,6 +113,7 @@ class Weights:
     time_budget_minutes: float = 60.0
     cooking_time: float = 0.0
     repeats: float = 1.0              # points off per meal of a recipe beyond the week's repeat_tolerance
+    package_waste: float = 0.0        # points off per package's worth the week's purchases leave to spoil (Packaging)
 
 
 @dataclass(frozen=True)
@@ -208,6 +227,9 @@ class PlanningProblem:
     # tolerate eating the same meal in a week?"; a soft preference, the owner's decision 2026-10-26).
     # The week file's alone. None: nothing is counted, as before.
     repeat_tolerance: int | None = None
+    # What the week's foods are bought in (Packaging), one per stock pool that has package sizes: read
+    # only when Weights.package_waste weighs it. Empty: nothing is bought in packages, as before.
+    packaging: tuple = ()
     _cache: dict = field(default_factory=dict, repr=False, compare=False)
 
     def __post_init__(self):
@@ -260,12 +282,21 @@ class PlanningProblem:
         if len(set(pinned)) != len(pinned):
             raise ValueError("two requests are pinned to one meal")
         for w in (self.weights.time, self.weights.variety, self.weights.stock, self.weights.waste, self.weights.cooking_time,
-                  self.weights.repeats):
+                  self.weights.repeats, self.weights.package_waste):
             if w < 0:
                 raise ValueError("weights must not be negative (the search bounds rely on it)")
         if self.repeat_tolerance is not None and (isinstance(self.repeat_tolerance, bool)
                                                   or not isinstance(self.repeat_tolerance, int) or self.repeat_tolerance < 1):
             raise ValueError("repeat_tolerance must be a whole number of meals, at least 1")
+        self.packaging = tuple(self.packaging)
+        pools = [pk.pool for pk in self.packaging]
+        if len(set(pools)) != len(pools):
+            raise ValueError("a stock pool is given its packaging twice")
+        for pk in self.packaging:
+            if not pk.sizes or any(not size > 0 for size in pk.sizes):
+                raise ValueError(f"packaging for {pk.name or pk.pool!r} needs at least one size, each above 0 grams")
+            if pk.keeps_days is not None and not pk.keeps_days >= 0:
+                raise ValueError(f"packaging for {pk.name or pk.pool!r}: keeps_days must be 0 or more, or None")
         if self.max_difficulty is not None and self.max_difficulty not in DIFFICULTY_ORDER:
             raise ValueError(f"max_difficulty must be one of {DIFFICULTY_ORDER}")
 

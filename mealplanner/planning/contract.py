@@ -9,7 +9,9 @@ chose, by slot, in the problem's own terms.
 As JSON: a time is ISO 8601 with its offset, a set is a sorted list, candidates are a list in the
 problem's order (which breaks ties in the search), and everything else is as the dataclasses in
 model.py name it. FORMAT is the contract's version: a problem of another version is refused, never
-guessed at.
+guessed at. Format 2 (2026-11-23) added what the week's foods are bought in (`packaging`) and its
+weight (`weights.package_waste`); a format 1 problem, which has neither, is still read, as the problem
+it was: no packaging, weighed at 0.
 """
 
 from __future__ import annotations
@@ -17,10 +19,11 @@ from __future__ import annotations
 from datetime import datetime
 
 from mealplanner.planning.evaluate import initial_partial
-from mealplanner.planning.model import (Candidate, Fixed, Lot, Pick, PlanningProblem, PrepSession, Request, Slot, Target,
-                                        Weights)
+from mealplanner.planning.model import (Candidate, Fixed, Lot, Packaging, Pick, PlanningProblem, PrepSession, Request, Slot,
+                                        Target, Weights)
 
-FORMAT = 1
+FORMAT = 2
+READS = (1, 2)          # the formats read: 1 is 2 without packaging
 
 
 class ContractError(ValueError):
@@ -92,7 +95,12 @@ def _lot(lot: Lot) -> dict:
 
 def _weights(w: Weights) -> dict:
     return {"time": w.time, "variety": w.variety, "stock": w.stock, "waste": w.waste,
-            "time_budget_minutes": w.time_budget_minutes, "cooking_time": w.cooking_time, "repeats": w.repeats}
+            "time_budget_minutes": w.time_budget_minutes, "cooking_time": w.cooking_time, "repeats": w.repeats,
+            "package_waste": w.package_waste}
+
+
+def _packaging(pk: Packaging) -> dict:
+    return {"pool": pk.pool, "sizes": list(pk.sizes), "keeps_days": pk.keeps_days, "name": pk.name}
 
 
 def _prep(p: PrepSession) -> dict:
@@ -127,13 +135,16 @@ def problem_to_json(p: PlanningProblem) -> dict:
         "requests": [_request(r) for r in p.requests],
         "preps": [_prep(s) for s in p.preps],
         "repeat_tolerance": p.repeat_tolerance,
+        "packaging": [_packaging(pk) for pk in p.packaging],
     }
 
 
 def problem_from_json(d: dict) -> PlanningProblem:
-    """The problem again, checked by PlanningProblem as any problem is. Refuses another FORMAT."""
-    if d.get("format") != FORMAT:
-        raise ContractError(f"a problem of format {d.get('format')!r}; this planner reads format {FORMAT}")
+    """The problem again, checked by PlanningProblem as any problem is. Refuses a format it does not read."""
+    if d.get("format") not in READS:
+        raise ContractError(f"a problem of format {d.get('format')!r}; this planner reads formats {READS[0]} to {READS[-1]}")
+    if d["format"] == 1 and ("packaging" in d or "package_waste" in d["weights"]):
+        raise ContractError("a problem of format 1 has no packaging: one that does is format 2")
     candidates = [_from_candidate(c) for c in d["candidates"]]
     return PlanningProblem(
         slots=tuple(_from_slot(s) for s in d["slots"]),
@@ -157,6 +168,8 @@ def problem_from_json(d: dict) -> PlanningProblem:
         preps=tuple(PrepSession(key=s["key"], start=_parse_time(s["start"]), minutes=s["minutes"], dishes=s["dishes"])
                     for s in d["preps"]),
         repeat_tolerance=d["repeat_tolerance"],
+        packaging=tuple(Packaging(pool=x["pool"], sizes=tuple(x["sizes"]), keeps_days=x["keeps_days"], name=x["name"])
+                        for x in d.get("packaging", [])),
     )
 
 
@@ -180,8 +193,8 @@ def plan_to_json(p: PlanningProblem, picks, *, objective: float, legal: bool, pr
 
 def picks_from_json(p: PlanningProblem, d: dict) -> list:
     """The picks of a plan_to_json result, for the problem it was made for (checked against its slots)."""
-    if d.get("format") != FORMAT:
-        raise ContractError(f"a plan of format {d.get('format')!r}; this planner reads format {FORMAT}")
+    if d.get("format") not in READS:
+        raise ContractError(f"a plan of format {d.get('format')!r}; this planner reads formats {READS[0]} to {READS[-1]}")
     keys = [s.key for s in p.slots]
     if [c["slot"] for c in d["picks"]] != keys:
         raise ContractError("the plan's slots are not this problem's")

@@ -32,8 +32,9 @@ private/week.toml:
     shortlist_above = 60                # optional: a larger recipe book is searched through a shortlist
                                         # of the best fits to the week (mealplanner/planning/shortlist.py)
     prices = "Home prices"              # optional: report the week's cost at this price level
-    packages = "Home packages"          # optional, for tools/shopping_list.py: the package level it rounds up to
-                                        # (default "Home packages" where there is one, else "US supermarket")
+    packages = "Home packages"          # optional: the package level tools/shopping_list.py rounds up to, and
+                                        # [weights] package_waste reads its sizes at (default "Home packages"
+                                        # where there is one, else "US supermarket")
     cook = ["Adobo loco steak", { recipe = "Balsamic fig chicken", on = "Wed Dinner" }]
                                         # optional: recipes to cook this week, each at least once (twice if
                                         # listed twice); the planner picks the meal, portions and leftovers,
@@ -59,6 +60,10 @@ private/week.toml:
                                         # way, they steer the free meals to what was bought for skipped ones
     repeats = 1                         # this week only, not written: points off per meal over repeat_tolerance;
                                         # 1 weighs a meal over about as cooking_time = 1 weighs an hour of work
+    package_waste = 1                   # this week only, not written: points off per package's worth that the
+                                        # week's purchases leave to spoil (half a can of tomatoes opened Monday
+                                        # and thrown out is 0.5); 0 (the default) ignores it. What keeps a week
+                                        # past the last meal costs nothing (docs/packages.md, stage 4)
     cooking_time = 1                    # this week only, not written: points off per hour of the week's
                                         # cooking. 0 (the default) ignores it; about 0.5 a little, 1 a busy
                                         # week, 2-4 a very busy one (measured: 610 min of cooking fell to
@@ -93,7 +98,7 @@ from mealplanner.connection import connect
 from mealplanner.household import latest_plan as household_latest_plan
 from mealplanner.profiles import ProfileError
 from mealplanner.nutrition_scope import active_entries, eaten_instead_entries, entry_start, nutrition_report
-from mealplanner.planning.extract import ReadChangedError, RequestError, SlotSpec
+from mealplanner.planning.extract import PackageLevelError, ReadChangedError, RequestError, SlotSpec
 from mealplanner.planning.model import PrepSession
 from mealplanner.planning.nutrients import describe_nutrients
 from mealplanner.planning.plan import plan_week
@@ -176,6 +181,12 @@ def read_week(path: str) -> dict:
         value = week.get("weights", {}).get(key, 0)
         if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
             problems.append(f"[weights] {key} is a weight, 0 or more, like 0.5, not {value!r}")
+    package_waste = week.get("weights", {}).get("package_waste", 0)
+    if isinstance(package_waste, bool) or not isinstance(package_waste, (int, float)) or package_waste < 0:
+        problems.append(f"[weights] package_waste is points off per package's worth left to spoil, 0 or more, like 1, "
+                        f"not {package_waste!r}")
+    if "packages" in week and not isinstance(week["packages"], str):
+        problems.append(f"packages is the name of a package level, like \"Home packages\", not {week['packages']!r}")
     tolerance = week.get("repeat_tolerance")
     if tolerance is not None and (isinstance(tolerance, bool) or not isinstance(tolerance, int) or tolerance < 1):
         problems.append(f"repeat_tolerance is how many meals of the week one recipe may be, like 2, not {tolerance!r}")
@@ -382,8 +393,10 @@ def main(argv=None) -> int:
                            cooking_time=float(week.get("weights", {}).get("cooking_time", 0)),
                            repeat_tolerance=week.get("repeat_tolerance"),
                            repeat_weight=float(week.get("weights", {}).get("repeats", 1)),
+                           package_waste=float(week.get("weights", {}).get("package_waste", 0)),
+                           package_level=week.get("packages"),
                            **limits, **({"shortlist_above": week["shortlist_above"]} if "shortlist_above" in week else {}))
-    except (RequestError, ReadChangedError, OtherWeeksMealError) as exc:
+    except (RequestError, ReadChangedError, OtherWeeksMealError, PackageLevelError) as exc:
         print(f"problem: {exc}")
         return 1
     except ProposalError as exc:
