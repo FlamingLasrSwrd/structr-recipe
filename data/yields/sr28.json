@@ -1,0 +1,136 @@
+{
+ "source": {
+  "release": "SR28 (2015, revised 2018)",
+  "url": "https://www.ars.usda.gov/ARSUserFiles/80400535/DATA/SR/sr28/dnload/sr28asc.zip",
+  "file": "FOOD_DES.txt",
+  "note": "Refuse: the percentage of the food as purchased that is not eaten (SR28 documentation)"
+ },
+ "foods": {
+  "167746": {
+   "ndb": "09150",
+   "description": "Lemons, raw, without peel",
+   "refuse": 47.0,
+   "what": "45% peel, 2% seeds"
+  },
+  "167762": {
+   "ndb": "09316",
+   "description": "Strawberries, raw",
+   "refuse": 6.0,
+   "what": "Caps and stems"
+  },
+  "168155": {
+   "ndb": "09159",
+   "description": "Limes, raw",
+   "refuse": 16.0,
+   "what": "Peel and seeds"
+  },
+  "168482": {
+   "ndb": "11507",
+   "description": "Sweet potato, raw, unprepared",
+   "refuse": 28.0,
+   "what": "Parings and trimmings"
+  },
+  "169097": {
+   "ndb": "09200",
+   "description": "Oranges, raw, all commercial varieties",
+   "refuse": 27.0,
+   "what": "Peel and seeds"
+  },
+  "169105": {
+   "ndb": "09218",
+   "description": "Tangerines, (mandarin oranges), raw",
+   "refuse": 26.0,
+   "what": "Peel and seeds"
+  },
+  "169118": {
+   "ndb": "09252",
+   "description": "Pears, raw",
+   "refuse": 10.0,
+   "what": "Stem, core and seeds"
+  },
+  "169124": {
+   "ndb": "09266",
+   "description": "Pineapple, raw, all varieties",
+   "refuse": 49.0,
+   "what": "8% core, 16% crown, 26% parings"
+  },
+  "169230": {
+   "ndb": "11215",
+   "description": "Garlic, raw",
+   "refuse": 13.0,
+   "what": "Knob and skin"
+  },
+  "169231": {
+   "ndb": "11216",
+   "description": "Ginger root, raw",
+   "refuse": 7.0,
+   "what": "Scrapings"
+  },
+  "169291": {
+   "ndb": "11477",
+   "description": "Squash, summer, zucchini, includes skin, raw",
+   "refuse": 5.0,
+   "what": "Ends"
+  },
+  "169961": {
+   "ndb": "11052",
+   "description": "Beans, snap, green, raw",
+   "refuse": 12.0,
+   "what": "Ends, strings, trimmings"
+  },
+  "169975": {
+   "ndb": "11109",
+   "description": "Cabbage, raw",
+   "refuse": 20.0,
+   "what": "Outer leaves and core"
+  },
+  "169988": {
+   "ndb": "11143",
+   "description": "Celery, raw",
+   "refuse": 11.0,
+   "what": "Roots and trimmings"
+  },
+  "170000": {
+   "ndb": "11282",
+   "description": "Onions, raw",
+   "refuse": 10.0,
+   "what": "Stem ends, sprouts and defects"
+  },
+  "170108": {
+   "ndb": "11821",
+   "description": "Peppers, sweet, red, raw",
+   "refuse": 18.0,
+   "what": "Stem ends, seed and core"
+  },
+  "170393": {
+   "ndb": "11124",
+   "description": "Carrots, raw",
+   "refuse": 11.0,
+   "what": "Crown, tops and scrapings"
+  },
+  "170427": {
+   "ndb": "11333",
+   "description": "Peppers, sweet, green, raw",
+   "refuse": 18.0,
+   "what": "Stem ends, seeds and core"
+  },
+  "171688": {
+   "ndb": "09003",
+   "description": "Apples, raw, with skin",
+   "refuse": 10.0,
+   "what": "Core and stem"
+  },
+  "171706": {
+   "ndb": "09038",
+   "description": "Avocados, raw, California",
+   "refuse": 33.0,
+   "what": "Seed and skin"
+  },
+  "173944": {
+   "ndb": "09040",
+   "description": "Bananas, raw",
+   "refuse": 36.0,
+   "what": "Skin"
+  }
+ }
+}
