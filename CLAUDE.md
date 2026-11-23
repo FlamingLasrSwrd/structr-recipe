@@ -108,7 +108,7 @@ STRUCTR_URL=http://localhost:8085 python3 tools/plan_week.py private/week.toml  
 python3 tools/plan_problem.py private/week.problem.json   # the planner as a worker: a problem file (plan_week.py --export-problem) in, a plan file out; no Structr
 STRUCTR_URL=http://localhost:8085 python3 tools/import_products.py private/products.toml   # products: barcodes and package sizes (docs/pantry.md); --check reads only
 python3 tools/import_grocy.py private/grocy/ --map private/grocy-map.toml --check   # a Grocy export: what it would book (docs/imports.md)
-python3 tools/install_pages.py && python3 tools/install_methods.py   # the pages and the Structr methods (methods/): code, safe on any instance
+python3 tools/install_pages.py && python3 tools/install_methods.py   # the pages (and pages/files/) and the Structr methods (methods/): code, safe on any instance
 python3 tools/check_households.py   # dev only: two test households book and read as themselves through the methods, kept apart (docs/methods.md)
 python3 tools/check_instructions.py # the recipe page writes instructions word for word as mealplanner/instructions.py (any instance)
 python3 tools/fdc_extract.py        # after adding a food: re-pins data/fdc/ from the datasets in .cache/fdc/ (loads the FNDDS JSON, ~450 MB)

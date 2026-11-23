@@ -19,5 +19,7 @@ form.inline input, form.inline select, form.inline button { padding: 3px 6px; } 
 details summary { cursor: pointer; color: var(--accent); } details.buy { margin: 8px 0 12px; }
 p.problem { background: var(--over); padding: 6px 10px; border-radius: 4px; } p.booked { background: var(--ok); padding: 6px 10px; border-radius: 4px; }
 p.scanned { background: var(--unknown); padding: 6px 10px; border-radius: 4px; } details.product { margin: 0 0 12px; }
+div.camera { margin: 4px 0 8px; } div.camera video { display: block; width: 100%; max-width: 480px; border-radius: 4px; background: #000; }
+div.camera video[hidden], div.camera [hidden] { display: none; }
 tr.skipped td { color: var(--muted); } span.skipped { text-decoration: line-through; }
 details.change { display: inline-block; margin-left: 6px; } details.change summary { cursor: pointer; font-size: 0.9em; color: var(--muted); }
