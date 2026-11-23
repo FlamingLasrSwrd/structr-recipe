@@ -65,6 +65,17 @@ class Upsert(unittest.TestCase):
         self.assertEqual(c.upsert("Role", "name", "r", {"a": 1}), "abc")
         self.assertEqual([(w[0], w[1]) for w in c.writes], [("PATCH", "/structr/rest/Role/abc")])
 
+    def test_a_new_node_states_its_visibility_and_a_patched_one_keeps_its_own(self):
+        """Hard rule 4 for what it creates; a node made a household's since (scripts/50a) must not become
+        everyone's again because a tool wrote it once more."""
+        made = Recording([])
+        made.upsert("Role", "name", "r", {"a": 1})
+        self.assertEqual({k: made.writes[0][2][k] for k in ("visibleToAuthenticatedUsers", "visibleToPublicUsers")},
+                         {"visibleToAuthenticatedUsers": True, "visibleToPublicUsers": False})
+        patched = Recording([{"id": "abc"}])
+        patched.upsert("Role", "name", "r", {"a": 1})
+        self.assertEqual(patched.writes[0][2], {"a": 1, "name": "r"})
+
     def test_several_matches_is_an_error_and_writes_nothing(self):
         c = Recording([{"id": "abc"}, {"id": "def"}])
         with self.assertRaises(DuplicateMatchError) as caught:

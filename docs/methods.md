@@ -3,7 +3,9 @@
 **Status: a guide, as built** (2026-10-26), for stages 1 and 2 of Path S (`architecture-decision.md`
 §7a). What a request does is moving into Structr's JavaScript methods, run as the person who calls
 them, with Structr's own access control keeping households apart. Python keeps the planner's search
-and the batch work. Two methods exist so far; the pages still do the rest, as the superuser.
+and the batch work. Since stage 5 (2026-11-23) the pages book as the person signed in too, through the
+same engine code, and the instance's existing data is its household's (`claimHousehold`, below;
+`verification-and-sharing.md` §3.4a).
 
 ## Methods as code
 
@@ -49,6 +51,7 @@ script. So a method runs the engine code the pages run, not a copy of it.
 | `writeInstructions` | `steps` (plain data, `instructions.as_data`), `bearers` (for each capability the steps name, the tools that can give it) | the sentences the recipe page writes for them; reads nothing (`tools/check_instructions.py` compares it with Python's) |
 | `nutritionReport` | `week` (a MealPlan's id) | `{week, rows}`: every target judged at its scope, per person, then each daily target's days added up, as the nutrition page shows them |
 | `shoppingList` | `week`, `prices` (a price level, default "Home prices"), `packages` (a package level, default "Home packages", else "US supermarket") | `{week, priced, packages, cooks, leftovers, buy, covered, unquantified, not_bought, unpriced, total, left_total}`, as the shopping page lists them, a line with the packages bought, their weight as bought (`as_bought`), what it is bought to make (`made`), what is left and until when it keeps; for a household's member, only the household's own stock counts against the need |
+| `claimHousehold` | `household` (its id), `shared` (the public recipes' names), `levels` (the household's own price and package levels), `limit` (default 500), `check` | for the tools' admin account only: makes what is the instance's one household's private to it and each person's to them, at most `limit` nodes a call, `{household, changed, remaining, owned, counts, problem}`; with `check`, what it would change. Called by `scripts/50a` and the tools that write a household's data, through `mealplanner/ownership.py` (`verification-and-sharing.md` §3.4a) |
 
 A method that takes a `week` answers a member of a household for their household's own week only
 (`callerWeek`): another household's is "no such week", one every signed-in user sees "not your
@@ -64,12 +67,17 @@ are also Structr `User`s (data-model K1, K2).
   household (a caller in none, or in several, is refused). Every node it makes is visible to no one
   by its flags and is granted (read, write, delete) to the household's Group, so each member reads and
   changes it and no one else sees it. A portion of another household is "no such portion", because the
-  caller cannot read it. Each Process it writes is meant to name the caller as who made it (`wasAssociatedWith`
+  caller cannot read it. Each Process it writes names the caller as who made it (`wasAssociatedWith`
   their Person, `docs/pantry.md`), through the same `bookProcess` that names whoever is signed in on a
-  page. That a method's booking does was not yet checked on an instance (2026-11-04): the pages' was,
-  by `tools/check_bookings.py`, and `tools/check_households.py` does not look at it yet.
-- **It never makes shared vocabulary.** A pantry operation's kind ("Purchase", "Use") must already
-  exist. The pages, as the superuser, still make one on first use.
+  page; `tools/check_households.py` checks it for the pantry page's bookings by a member (2026-11-23).
+- **It never makes shared vocabulary.** A pantry operation's kind ("Purchase", "Use", "Discarding",
+  "Stock take", "Opening", "Move") must already exist: `scripts/50a` and `tools/instantiate_household.py`
+  make them on an instance with a household (`ownership.ensure_operations`). A page's booking by an
+  account in no household, as the superuser, still makes one on first use.
+- **The pages book the same way** (2026-11-23): a Person signed in who is in one household books from a
+  page as themselves, for it, through `bookOnce` with their household, not `$.doPrivileged`
+  (`pages/common.js`). The one exception is adding a product on the pantry page, which is shared knowledge
+  every user gets at once, so it is written as the superuser.
 - **It acts on the household's own data only.** Stock, a meal or a week that every signed-in user
   sees belongs to no household: the data made before households kept theirs apart. So:
   - a household's booking neither books on such stock ("not your household's stock") nor draws on it
@@ -79,8 +87,8 @@ are also Structr `User`s (data-model K1, K2).
     own, so a request for a week makes the household's own "Week of ..." beside a shared one of that
     name.
 
-  Until the real data is marked as each household's (stage 5), a household on an instance with older
-  data starts with nothing of its own.
+  On an instance whose older data `scripts/50a` has made its household's, that data is the household's
+  own like the rest; a household on an instance with older data not moved over starts with nothing.
 - **Shared data stays readable to every member and changeable by none.** A member's attempt to change
   a shared `DomainType` is a 403.
 - **Bookings for one household take turns.** Each first writes `Household.bookingTurn` (`scripts/40a`),
@@ -88,9 +96,9 @@ are also Structr `User`s (data-model K1, K2).
   commits, so a second booking for the same household waits there, then finds what the first made.
   Households do not wait on each other.
 
-  The pages' bookings still lock with a Cypher write until they too book as a household (stage 5).
-  A Cypher write could not serve here: while one ran, other methods called at the same moment answered
-  404.
+  A page's booking by a household's member takes the same turn; one by an account in no household still
+  locks with a Cypher write. A Cypher write could not serve the methods: while one ran, other methods
+  called at the same moment answered 404.
 
 ## The gate: `tools/check_households.py`
 
@@ -118,6 +126,9 @@ Then it checks, removing everything at the end:
   it, A1 undoes it once the recipe instead is skipped, and A1 cooks the dinner from A's own stock, B's
   untouched;
 - a recipe asked for one week by each household makes a week of that name for each;
+- (2026-11-23) A1's buy, use, count, open and move on the pantry page book as A1 for household A, not as the
+  superuser: every node they write is private to A, each Process names A1, and the first use opens the
+  sealed portion; A1's page cannot book on stock everyone sees, and B1's cannot reach A's portion;
 - no booking acts on the data every signed-in user sees;
 - `nutritionReport` and `shoppingList` for A's week, as A1, are Python's, the list counting A's own
   stock only (550 g against 500 g needed, with 300 g everyone sees left out); B1 gets "no such week",
@@ -145,6 +156,10 @@ one.
 | The 22 nodes the bookings made | each read by its household, a 404 to the other |
 | A member changing shared vocabulary | 403, unchanged |
 | Grams and days, method against Python | both portions 450 g, 5.00 days, both ways |
+
+**2026-11-23 (Structr 7.1.0, the development stack):** every check passed, the pantry page's five bookings by
+A1 among them (17 nodes, each private to A). With the page booking as the superuser again, as before
+stage 5, the check failed at once: A1's purchase was `privileged` and no household's.
 
 **Broken on purpose, each caught:**
 - the household's nodes written visible to everyone: 47 failures, B1 could book on A's portion;
@@ -178,6 +193,7 @@ All recorded in `structr-cheatsheet.md` §3a:
 ## Not done yet
 
 - The planner's JSON contract (stage 4).
-- The real data marked shared or private, and the pages and tools acting as their household (stage 5).
-  Until then, the existing data on any instance is visible to every signed-in user, as before.
+- The tools acting as a household's member or a curator. They still sign in as the tools' account and
+  make what a household's is afterwards (`mealplanner/ownership.py`), which works for an instance of one
+  household only (`verification-and-sharing.md` §3.4a).
 - Permission propagation along relationships is not used. Grants are per node, made by the writer.

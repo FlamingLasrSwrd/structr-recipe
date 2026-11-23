@@ -11,10 +11,12 @@ Sec 5, Sec 5.5), so the inventory engine (inventory.py) needs nothing new to cou
              Measurement: current magnitude subtracts it from then on.
   discard    the same with a Discarding Process, for everything left: physical stock goes to none,
              and what was thrown away stays on record (Sec 9's waste feedback).
-  stock take a new `observed` Measurement of the portion's mass: a recount is not a revision
-             (Sec 4.1.1), so the weighing simply becomes the latest baseline.
-  open       the portion's container's opened status set to Opened.
-  move       the container's storage condition set (Freezer to freeze). Storage condition is a
+  stock take a Stock take Process with the portion its participant, and a new `observed` Measurement
+             of the portion's mass: a recount is not a revision (Sec 4.1.1), so the weighing simply
+             becomes the latest baseline.
+  open       an Opening Process, and the portion's container's opened status set to Opened. The first
+             use of a sealed portion, or a cook's draw on one, that leaves some of it opens it too.
+  move       a Move Process, and the container's storage condition set (Freezer to freeze). Storage condition is a
              static tag (CLAUDE.md, out of scope), so a portion's shelf life is read as if it had
              always been kept there.
   cook       a Process that concretizes the entry's Plan, drawing each ingredient the recipe buys
@@ -28,8 +30,8 @@ its visibility (hard rule 4).
 
 Each booking's Process names who made it, `wasAssociatedWith` a Person (PROV; data-model.md K1), when
 `by` gives one: the pages give the signed-in Person (`$.me`), the tool the Person it signs in as or
-the one `--by` names (`signed_in_person`, `person_named`). A stock take, an opening and a move write
-no Process, so they name no one.
+the one `--by` names (`signed_in_person`, `person_named`). A stock take, an opening and a move each
+write a Process too (2026-11-23), so every booking names who made it.
 """
 
 from __future__ import annotations
@@ -44,10 +46,11 @@ from mealplanner.nutrition_scope import raw_inputs
 from mealplanner.typetree import dt
 from mealplanner.unit_conversion import convert_to_grams
 from structr_client import ReadCache
-from structr_client.client import UNSAFE_EXACT_MATCH_CHARS
+from structr_client.client import UNSAFE_EXACT_MATCH_CHARS, StructrError
 
 OPERATIONS = "Pantry Operation"                   # the TypeHierarchy of the Processes' kinds
 PURCHASE, USE, DISCARDING = "Purchase", "Use", "Discarding"
+STOCK_TAKE, OPENING, MOVE = "Stock take", "Opening", "Move"
 STORAGE = ("Fridge", "Freezer", "Pantry")
 # Less than this on hand shows as 0 g, and counts as used up. A Use typed as the rounded amount shown ("996 g",
 # of what 32 fl oz converts to, 996.0005 g) leaves a crumb that would otherwise stay in the pantry for good,
@@ -136,6 +139,17 @@ def _portion(client, portion_id: str) -> dict:
     return portion
 
 
+def _portion_or_none(client, node_id: str) -> dict | None:
+    """The PortionOfSubstance of this id, or None for a lot of another kind (a DiscreteWholeItem)."""
+    try:
+        node = client.get_all("PortionOfSubstance", node_id)["result"]
+    except StructrError as exc:
+        if exc.status == 404:
+            return None
+        raise
+    return node if node and node.get("type") == "PortionOfSubstance" else None
+
+
 def _grams(client, food_id: str, food: str, amount: float, unit: str) -> float:
     if amount is None or not math.isfinite(amount) or amount <= 0:
         raise PantryError(f"{food}: an amount must be a number more than 0")
@@ -218,6 +232,8 @@ def use(client, portion_id: str, amount: float, unit: str, when: datetime, token
     booking = Booking()
     w = _Writer(client, booking)
     _draw(w, _process(w, USE, f"Use {token}", when, by), portion, grams, when, portion["name"])
+    if grams < have:
+        _opened_by_use(client, w, portion)
     return booking
 
 
@@ -233,7 +249,8 @@ def discard(client, portion_id: str, when: datetime, token: str, *, by: str | No
     return booking
 
 
-def stock_take(client, portion_id: str, amount: float, unit: str, when: datetime, token: str) -> Booking:
+def stock_take(client, portion_id: str, amount: float, unit: str, when: datetime, token: str, *,
+               by: str | None = None) -> Booking:
     """Book a recount: what the portion holds now, weighed or counted. 0 is allowed: it is used up."""
     portion = _portion(client, portion_id)
     food = portion.get("instanceOf") or {}
@@ -246,9 +263,9 @@ def stock_take(client, portion_id: str, amount: float, unit: str, when: datetime
     quality = mass_quality(client, portion)
     quality_id = quality["id"] if quality else w.ensure("Quality", f"{portion['name']} mass Quality", {
         "hasKind": dt(client, "Mass"), "inheresIn": portion["id"]})
+    _process(w, STOCK_TAKE, f"Stock take {token}", when, by, hasParticipant=[portion["id"]])
     w.ensure("Measurement", f"{portion['name']} stock take {token}", {
         "value": amount, "unit": unit, "status": "observed", "hasTime": _time(when), "isAboutQuality": quality_id})
-    booking.process = f"{portion['name']} counted"
     return booking
 
 
@@ -263,20 +280,30 @@ def _container(client, w: _Writer, portion: dict) -> str:
     return box
 
 
-def open_portion(client, portion_id: str) -> Booking:
+def _opened_by_use(client, w: _Writer, portion: dict) -> None:
+    """The first use of a sealed portion opens it (the owner's rule, 2026-11-23): its Opened shelf life
+    applies from then on. A use that leaves none needs no opening, so callers do not call this then."""
+    box = _container(client, w, portion)
+    if container_opened_status(client, {**portion, "locatedIn": {"id": box}}) != "Opened":
+        client.patch(f"/structr/rest/ContainerObject/{box}", {"hasOpenedStatus": dt(client, "Opened")})
+        w.booking.notes.append(f"{portion['name']}: opened by this use")
+
+
+def open_portion(client, portion_id: str, when: datetime, token: str, *, by: str | None = None) -> Booking:
     """Mark the portion's container opened: its Opened shelf life applies from then on (from purchase,
     as storage does: docs/pantry.md)."""
     portion = _portion(client, portion_id)
     booking = Booking()
     w = _Writer(client, booking)
     box = _container(client, w, portion)
+    _process(w, OPENING, f"Open {token}", when, by, hasParticipant=[portion["id"]])
     if container_opened_status(client, {**portion, "locatedIn": {"id": box}}) != "Opened":
         client.patch(f"/structr/rest/ContainerObject/{box}", {"hasOpenedStatus": dt(client, "Opened")})
         booking.notes.append(f"{portion['name']}: opened")
     return booking
 
 
-def move(client, portion_id: str, storage: str) -> Booking:
+def move(client, portion_id: str, storage: str, when: datetime, token: str, *, by: str | None = None) -> Booking:
     """Keep the portion in `storage` (Freezer to freeze it)."""
     if storage not in STORAGE:
         raise PantryError(f"storage must be one of {', '.join(STORAGE)}, not {storage!r}")
@@ -284,6 +311,7 @@ def move(client, portion_id: str, storage: str) -> Booking:
     booking = Booking()
     w = _Writer(client, booking)
     box = _container(client, w, portion)
+    _process(w, MOVE, f"Move {token}", when, by, hasParticipant=[portion["id"]])
     client.patch(f"/structr/rest/ContainerObject/{box}", {"hasStorageCondition": dt(client, storage)})
     booking.notes.append(f"{portion['name']}: kept in the {storage.lower()}")
     return booking
@@ -354,5 +382,13 @@ def cook(client, entry_id: str, when: datetime, token: str, *, by: str | None = 
             left -= take
         if left > 1e-6:
             short.append(Shortfall(food.get("name"), need, need - left))
+    # a draw that leaves some of a sealed portion opens it, as a use does; a whole item (no portion) is left be
+    for lots in stock.values():
+        for lot in lots:
+            if 0 < taken.get(lot.portion_id, 0.0) < lot.grams - 1e-9:
+                portion = _portion_or_none(client, lot.portion_id)
+                if portion is not None:
+                    _opened_by_use(client, w, portion)
+                taken.pop(lot.portion_id)           # once, though it is under two foods
     client.patch(f"/structr/rest/MealPlanEntry/{entry_id}", {"fulfilledBy": process})
     return booking, short

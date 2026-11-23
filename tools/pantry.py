@@ -30,11 +30,13 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mealplanner import pantry, products
+from mealplanner import ownership, pantry, products
 from mealplanner.connection import connect
 from mealplanner.inventory import instance_expiration
 from mealplanner.unit_conversion import QuantityError
 from mealplanner.nutrition_scope import FMT, active_entries
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def find_portion(client, ref: str) -> str:
@@ -147,11 +149,11 @@ def main(argv=None) -> int:
         elif args.action == "use":
             report(pantry.use(client, find_portion(client, a[0]), float(a[1]), a[2], now, token, by=by))
         elif args.action == "count":
-            report(pantry.stock_take(client, find_portion(client, a[0]), float(a[1]), a[2], now, token))
+            report(pantry.stock_take(client, find_portion(client, a[0]), float(a[1]), a[2], now, token, by=by))
         elif args.action == "open":
-            report(pantry.open_portion(client, find_portion(client, a[0])))
+            report(pantry.open_portion(client, find_portion(client, a[0]), now, token, by=by))
         elif args.action == "move":
-            report(pantry.move(client, find_portion(client, a[0]), a[1]))
+            report(pantry.move(client, find_portion(client, a[0]), a[1], now, token, by=by))
         elif args.action == "discard":
             report(pantry.discard(client, find_portion(client, a[0]), now, token, by=by))
         elif args.action == "cook":
@@ -161,6 +163,8 @@ def main(argv=None) -> int:
                 print(f"not in the pantry: {s.food}, {s.needed - s.drawn:,.0f} g of the {s.needed:,.0f} g it took")
     except (pantry.PantryError, LookupError) as exc:
         print(f"problem: {exc}")
+        return 1
+    if args.action not in ("list", "meals") and not ownership.settle(client, ROOT):   # what it booked is the household's
         return 1
     return 0
 

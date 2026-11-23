@@ -229,7 +229,12 @@ Each stage ends in a check against what is there now, as the pages were built ag
    two methods come after stage 3, since they need its engines.
 5. **Access control on the real data:** a migration script marking shared and private data
    (`verification-and-sharing.md` §3.4) and granting each household its own; `ResourceAccess` grants; the
-   pages without `$.doPrivileged`; the tools acting as a household's member or a curator.
+   pages without `$.doPrivileged`; the tools acting as a household's member or a curator. *Built
+   2026-11-23* (`verification-and-sharing.md` §3.4a): the rule as a method (`claimHousehold`), the
+   migration (`scripts/50a`), the pages booking as the member signed in (a product, shared knowledge, still
+   as the superuser), and the tools making what they wrote the household's afterwards, for an instance of
+   one household. The tools acting as a member, and an instance of several households, are left for
+   stage 6. No `ResourceAccess` grant is needed for the pages, which a member reads as themselves.
 6. **The Python request-time engines retire:** the tools call methods; those engines' offline tests
    become live checks, and the Python goes once nothing calls it.
 7. **The offerings:** self-hosted (one compose file, a household on first run) and hosted (sign-up,

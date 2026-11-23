@@ -26,6 +26,7 @@ import tomllib
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from mealplanner import ownership
 from mealplanner.connection import connect
 from mealplanner.profiles import (
     EQUIPMENT_HIERARCHY, ProfileError, dietary_targets, instantiate_kitchen, instantiate_nutrition, instantiate_pantry,
@@ -35,6 +36,8 @@ from mealplanner.packages import instantiate_packages, package_table
 from mealplanner.prices import instantiate_prices, price_table
 from mealplanner.products import product_ids
 from mealplanner.vocabulary_import import FOOD_HIERARCHY
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def show_targets(client, profile: str) -> None:
@@ -147,7 +150,7 @@ def main(argv=None) -> int:
                "pantry": "a cook used it or it was weighed", "prices": "", "packages": ""}[args.what]
     for line in report.refused:
         print(f"  not removed, {history}: {line}")
-    return 0
+    return 0 if ownership.settle(client, ROOT) else 1      # what was instantiated is the household's
 
 
 if __name__ == "__main__":

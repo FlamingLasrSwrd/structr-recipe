@@ -175,6 +175,15 @@ const WEEK_ACTIONS = {
       }
       if (left > 1e-6) booking.notes.push("Not in the pantry: " + food.name + ", " + number(left, 0) + " g of the " + number(need, 0) + " g it took.");
     }
+    // as pantry.cook: a draw that leaves some of a sealed portion opens it, as a use does; a whole item is left be
+    for (const id of Object.keys(stock)) {
+      for (const lot of stock[id]) {
+        const had = taken[lot.portion.id] || 0;
+        if (!(had > 0 && had < lot.grams - 1e-9)) continue;
+        if (lot.portion.type === "PortionOfSubstance") openedByUse(booking, lot.portion);
+        delete taken[lot.portion.id];             // once, though it is under two foods
+      }
+    }
     entry.fulfilledBy = process;
   },
 };

@@ -1,6 +1,7 @@
 # Verification and sharing: a proposal
 
-**Status: accepted in part, 2026-09-28** (§6): the Person and household designs are now the model's (data-model.md §19), and built: the schema (`scripts/34a`), a household's people with their own targets and baselines (`tools/instantiate_household.py`), and planning a shared week with a portion per person. Checks, purchases, curation and access control are still a proposal. Part of it
+**Status: accepted in part, 2026-09-28** (§6): the Person and household designs are now the model's (data-model.md §19), and built: the schema (`scripts/34a`), a household's people with their own targets and baselines (`tools/instantiate_household.py`), and planning a shared week with a portion per person. Access control is built too (2026-11-23, §3.4a): a household's data is
+private to it, a person's to them, and the pages book as the person signed in. Checks, purchases and curation are still a proposal. Part of it
 reverses a decision CLAUDE.md records ("Person/Agent: single-user by design"), and CLAUDE.md says to
 stop and ask before adding a structural type. Sections 6 and 7 are the decisions to make.
 
@@ -122,6 +123,56 @@ Mechanically, multi-user touches everything that reads or writes:
   free; under the superuser they would mix households.
 - **Migration.** The owner's instance holds shared and private data in one graph. Moving to this
   means marking which is which, which the table above makes mechanical.
+
+### 3.4a Who owns what, as built (2026-11-23)
+
+The owner, 2026-11-23: "Everything that can be specific to a user, should be", and "I want data to
+propagate to everyone who uses it when appropriate." So there are three owners, and the rule that says
+which node is whose is worked out from the graph each time (`methods/claimHousehold.js`), never stored
+apart from the visibility and grants it leaves:
+
+| Whose | What | Who may do what |
+|---|---|---|
+| **A person's** | their nutrition targets and exclusions (`forPerson`), their baseline recipes (`hasBaseline`), and what those hold (a target's range; a recipe's versions, steps, ingredients and amounts) | the person reads, changes and removes them; the rest of the household reads them, since a shared meal must meet everyone's targets |
+| **The household's** | its weeks (MealPlan) and all they hold (meals, shares, servings, times); every booking and cook (`Process`) with its draws and their amounts; its stock (portions, containers, their masses and weighings); its kitchen (UtensilSet and equipment); its pantry's levels (StockPolicy); its shopping lists; every target that names no person; its own price and package levels (a level in those hierarchies that is not a public one) with their figures; and every recipe that is not one of the public ones in `data/recipes/`, with all it holds (source, versions, steps, amounts, stored nutrition) | every member reads, changes and removes them; nobody else sees them |
+| **Everyone's** | the vocabulary (foods, methods, equipment, nutrients, shelf lives, densities), the profiles, the public price and package levels, the public recipes, and products with their barcodes and package sizes | every signed-in user reads them; only the tools' account (and, for a product, the pantry page) adds to them |
+
+"What those hold" follows only the relationships that make one node part of another (a week's meals, a
+step's ingredients, a portion's mass): a reference to shared knowledge, such as the food a portion is or
+the recipe a week cooks, is never followed. A value a shared default holds stays shared even when a
+household's node refers to it.
+
+**Mechanically**, as the methods' bookings already wrote (`docs/methods.md`): a node is visible to no one by
+its flags, and granted to its owners. Structr's own access control then keeps households apart: a member's
+page or method reads only what their household may read, and a 404 is all anyone else gets.
+
+- **The pages book as the person signed in** (`pages/common.js`), for their one household, through the same
+  `bookOnce` as the methods: what they write is private to the household and owned by them (who made it is
+  also each booking's `wasAssociatedWith`), and they act on the household's own data only. An account in no
+  household (the development checks') still books as the superuser, as before.
+- **Every pantry booking now names who made it**: a stock take, an opening and a move write a Process of
+  their own (*Stock take*, *Opening*, *Move*, in the *Pantry Operation* hierarchy), with the portion as its
+  participant, where they wrote none. **The first use of a sealed portion opens it** (the owner's rule), as a
+  cook that leaves some of it does.
+- **New shared knowledge reaches everyone at once** when it overrides nothing: a barcode saved with its food,
+  package size and unit for the first time is every user's product from then on (the pantry page adds it as
+  the superuser, the one booking that does). Changing a shared figure someone else relies on stays a
+  curated suggestion (§3.6); a household's own level (its prices, its package sizes) applies to it at once.
+- **Remembered amounts** (how much one usually takes of a food, for scanning as it is used: planned with the
+  time study, not built yet) are to resolve as prices do, nearest level first: the person's own, then the household's, then
+  the food's, learned across all users. The person's and the household's levels fall under this rule as
+  "a person's" and "the household's"; the food's is everyone's.
+- **The tools** write as the tools' account, which makes nodes everyone sees, so each tool that writes a
+  household's data (`import_recipe.py`, `calculate_recipe_nutrition.py`, `instantiate_profile.py`,
+  `instantiate_household.py`, `plan_week.py --commit`, `pantry.py`, `import_grocy.py`) applies the rule when
+  it is done (`mealplanner/ownership.py`), and `client.upsert` no longer makes a private node everyone's
+  again by writing it.
+- **The existing data** moved over with `scripts/50a_household_ownership.py`, once per instance.
+
+**For an instance of one household.** Which household older data belongs to cannot be read off the graph
+once there are several (it was made before households kept theirs apart), so the rule refuses an instance of
+two. With several, every writer must write privately itself, as the pages and methods already do; the tools'
+next step is to act as a household's member or a curator (`architecture-decision.md` §7a, stage 6).
 
 ### 3.5 Households: separate profiles, shared meals
 

@@ -21,6 +21,9 @@ booking may not make itself. Then, each member as themselves:
   household A's week (set up as committing a planned week will make it) is skipped with a recipe instead,
   undone and cooked by A's members, and B's member cannot touch it; A's cook draws on A's own stock only;
   a recipe asked for the same week by each household makes a week of that name for each;
+  the pantry page books as a household's member (Path S stage 5): A1's buy, use, count, open and move
+  write only what is private to A, each Process names A1, the first use opens the sealed portion, and
+  neither A1's page nor B1's reaches what is not theirs;
   and none of them acts on what every signed-in user sees (the data made before households kept theirs
   apart): a portion expiring sooner than A's, which A's cook must not draw on and A cannot book on, a
   meal A cannot change, and a week of that name A's request must not add to.
@@ -56,7 +59,7 @@ from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mealplanner import pantry
+from mealplanner import ownership, pantry
 from mealplanner.connection import connect
 from mealplanner.inventory import instance_expiration
 from mealplanner.nutrition_scope import (
@@ -95,7 +98,7 @@ WEEK_SETUP = """{
                                                  hasTargetRange: range, hasTimeScope: "daily", dayBoundaryRule: "midnight", strictness: "hard"})];
   return {week: week.id, dinner: dinner.id, lunch: lunch.id};
 }"""
-OPERATIONS = ("Purchase", "Use")
+OPERATIONS = ownership.KINDS     # every pantry booking's kind, which a household's booking finds and never makes
 SHARED_TOKEN = "e0e0e0"         # the start of the token of the stock everyone sees that the check buys, so a sweep finds it
 STORED = "TEST -- check households -- "     # the start of the name of a recipe figure the check stores (store_figures)
 
@@ -378,6 +381,7 @@ def main(argv=None) -> int:
         own_a = [bought["A"]] + [r["id"] for t, r in check.named(f"Purchase {token['race']} -- {args.food}") if t == "PortionOfSubstance"]
         week_check(check, client, m, args.food, args.keeps, bought, shared, own_a)
         request_check(check, client, m, shared)
+        page_check(check, client, m, args.food, args.keeps, shared)     # after the week's list, which counts A's stock
 
         mass = [d for d in client.get("/structr/rest/DomainType", params={"name": "Mass"})["result"] if d.get("type") == "DomainType"][0]
         before = client.get_all("DomainType", mass["id"])["result"].get("isLookupBearing")
@@ -431,6 +435,68 @@ def everyones(check: Check, client, food: str, keeps: str) -> dict:
                                         "isSkipped": False, "references": plan["id"], "hasPlannedServings": 2.0, "isAbout": region, **SEEN})
     asked = check.make("MealPlan", {"name": "Week of 2099-12-28", **SEEN})
     return {"portion": portion, "meal": meal, "meals_week": week, "week": asked}
+
+
+def page(member: Member, path: str, **params) -> dict:
+    """A page's booking, as the member signed in: what it records of it (pages/common.js, booking-data)."""
+    r = member.session.get(f"{member.client.base_url}/structr/html/{path}", params=params, timeout=member.client.timeout)
+    r.raise_for_status()
+    found = re.search(r'<script type="application/json" id="booking-data">(.*?)</script>', r.text, re.S)
+    if not found:
+        raise RuntimeError(f"{member.name}: /structr/html/{path}?do={params.get('do')} printed no booking data")
+    return json.loads(found.group(1))
+
+
+def page_check(check: Check, client, m: dict, food: str, keeps: str, shared: dict) -> None:
+    """The pantry page as a household's member (Path S stage 5): A1's buy, use, count, open and move book as
+    A1, for household A, not as the superuser; every node they write is private to A; each names A1 as who
+    made it; the first use opens the sealed portion; and A1's page, like the methods, neither books on stock
+    every signed-in user sees nor reaches B's."""
+    a1 = [r for r in client.get("/structr/rest/Person", params={"name": "TEST -- member A1"})["result"]][0]["id"]
+    token = {k: secrets.token_hex(4) for k in ("buy", "use", "count", "open", "move", "everyone", "steal")}
+    got = page(m["A1"], "pantry", do="buy", food=food, amount="500", unit="g", storage="Fridge", keeps=keeps, token=token["buy"])
+    check.remember(got.get("created") or [])
+    if got.get("problem") or got.get("privileged") or got.get("household") != "TEST -- household A":
+        check.fail(f"A1's purchase on the pantry page: {got}")
+        return
+    portion = [r for t, r in check.named(f"Purchase {token['buy']} -- {food}") if t == "PortionOfSubstance"][0]["id"]
+    names, processes = list(got.get("created") or []), [got.get("process")]
+    for action, extra in (("use", {"amount": "100", "unit": "g"}), ("count", {"amount": "380", "unit": "g"}), ("open", {}),
+                          ("move", {"storage": "Freezer"})):
+        got = page(m["A1"], "pantry", do=action, portion=portion, token=token[action], **extra)
+        check.remember(got.get("created") or [])
+        if got.get("problem") or got.get("privileged") or not got.get("created"):
+            check.fail(f"A1's {action} on the pantry page: {got}")
+            continue
+        if action == "use" and not any("opened by this use" in n for n in got.get("notes") or []):
+            check.fail(f"A1's first use of a sealed portion did not open it: {got.get('notes')}")
+        names += got["created"]
+        processes.append(got.get("process"))
+    container = client.get_all("PortionOfSubstance", portion)["result"].get("locatedIn") or {}
+    box = client.get_all("ContainerObject", container["id"])["result"] if container else {}
+    if ((box.get("hasOpenedStatus") or {}).get("name"), (box.get("hasStorageCondition") or {}).get("name")) != ("Opened", "Freezer"):
+        check.fail(f"A1's portion after use, open and move: {(box.get('hasOpenedStatus') or {}).get('name')}, "
+                   f"{(box.get('hasStorageCondition') or {}).get('name')}")
+    who = {}
+    for name in processes:
+        rows = [r for t, r in check.named(name) if t == "Process"] if name else []
+        who[name] = [x["id"] for x in client.get_all("Process", rows[0]["id"])["result"].get("wasAssociatedWith") or []] if rows else None
+    if any(v != [a1] for v in who.values()) or len(who) != 5:
+        check.fail(f"the pantry page's Processes for A1 name {who}, not A1 on each of five")
+    bad = private_to(check, client, m, names, "A")
+    if not bad and len(who) == 5:
+        print(f"  A1's buy, use, count, open and move on the pantry page: booked as A1 for A, {len(names)} nodes private "
+              "to A, each Process naming A1; the first use opened the portion")
+    got = page(m["A1"], "pantry", do="use", portion=shared["portion"], amount="10", unit="g", token=token["everyone"])
+    check.remember(got.get("created") or [])
+    if not (got.get("problem") or "").endswith("not your household's stock") or got.get("created"):
+        check.fail(f"A1's page booking on stock every signed-in user sees was not refused: {got}")
+    got = page(m["B1"], "pantry", do="count", portion=portion, amount="1", unit="g", token=token["steal"])
+    check.remember(got.get("created") or [])
+    if got.get("problem") != "no such portion" or got.get("created"):
+        check.fail(f"B1's pantry page counting A's portion was not refused as no such portion: {got}")
+    else:
+        print("  A1's page cannot book on stock everyone sees, and B1's cannot reach A's portion")
 
 
 def private_to(check: Check, client, m: dict, names, side: str) -> int:

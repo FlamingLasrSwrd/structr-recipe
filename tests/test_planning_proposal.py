@@ -118,6 +118,7 @@ class TheTool(unittest.TestCase):
                 mock.patch.object(self.tool, "requests_elsewhere", return_value=[]), \
                 mock.patch.object(self.tool, "plan_week", fake_plan), mock.patch.object(self.tool, "history", return_value=""), \
                 mock.patch.object(self.tool, "describe_nutrients", return_value=""), \
+                mock.patch.object(self.tool.ownership, "settle", return_value=True), \
                 mock.patch.object(self.tool, "to_data", return_value={"format": 1, "week": "2026-10-26", "meals": []}), \
                 mock.patch("builtins.print"):
             return self.tool.main([week, *argv]), os.path.join(folder, "week.proposal.json")

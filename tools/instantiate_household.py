@@ -14,6 +14,7 @@ import tomllib
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from mealplanner import ownership
 from mealplanner.connection import connect
 from mealplanner.household import instantiate_household
 from mealplanner.profiles import ProfileError
@@ -49,7 +50,7 @@ def main(argv=None) -> int:
         for refused in r.refused:
             print(f"    not removed, a meal plan uses it: {refused}")
     print("people and household: " + ", ".join(f"{k} {v}" for k, v in report.counts.items()))
-    return 0
+    return 0 if ownership.settle(client, ROOT) else 1      # each person's targets and baseline are theirs
 
 
 if __name__ == "__main__":

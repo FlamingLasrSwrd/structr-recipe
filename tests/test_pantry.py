@@ -29,7 +29,7 @@ class Graph(WritableGraph):
     RELATIONS = WritableGraph.RELATIONS | {
         "process", "hasActualQuantity", "occupiesTemporalRegion", "beginsToExistDuring", "locatedIn",
         "hasStorageCondition", "hasOpenedStatus", "hasPerishabilityType", "concretizes", "fulfills", "fulfilledBy",
-        "isAbout", "wasAssociatedWith"}
+        "isAbout", "wasAssociatedWith", "hasParticipant"}
     REVERSES = {**WritableGraph.REVERSES, "isAbout": "allocationsAbout", "process": "qualifiedUsage"}
 
 
@@ -127,18 +127,32 @@ class UseAndCount(unittest.TestCase):
 
     def test_opened_and_frozen_change_the_shelf_life(self):
         portion = lambda: self.g.get_all("PortionOfSubstance", self.eggs)["result"]
-        open_portion(self.g, self.eggs)
+        open_portion(self.g, self.eggs, when(26, 8), "o1")
         self.assertEqual(instance_expiration(self.g, portion(), when(26, 12)), (False, 1.0))   # 2 days opened
-        open_portion(self.g, self.eggs)                                                         # again: no change
+        open_portion(self.g, self.eggs, when(26, 9), "o2")                                      # again: no change
         g = pantry()
         buy(g, "Eggs", 600, "g", NOW, "t1", keeps="Fresh Meat")
         frozen = portion_named(g, "Purchase t1 -- Eggs")
-        move(g, frozen, "Freezer")
+        move(g, frozen, "Freezer", when(26, 8), "m1")
         self.assertEqual(instance_expiration(g, g.get_all("PortionOfSubstance", frozen)["result"], when(26, 12)), (False, 179.0))
+
+    def test_the_first_use_of_a_sealed_portion_opens_it(self):
+        """The owner's rule, 2026-11-23: 2 days opened from purchase, where it kept 5 sealed."""
+        portion = lambda: self.g.get_all("PortionOfSubstance", self.eggs)["result"]
+        self.assertEqual(instance_expiration(self.g, portion(), when(26, 12))[1], 4.0)
+        booking = use(self.g, self.eggs, 150, "g", when(26, 8), "u1")
+        self.assertEqual(instance_expiration(self.g, portion(), when(26, 12)), (False, 1.0))
+        self.assertIn("opened by this use", " ".join(booking.notes))
+        self.assertEqual(use(self.g, self.eggs, 50, "g", when(26, 9), "u2").notes, [])     # opened already
+
+    def test_a_use_of_all_of_it_opens_nothing(self):
+        use(self.g, self.eggs, 600, "g", when(26, 8), "u1")
+        box = self.g.get_all("ContainerObject", self.g.nodes[self.eggs]["locatedIn"].id)["result"]
+        self.assertEqual(box["hasOpenedStatus"]["name"], "Sealed")
 
     def test_a_portion_in_no_container_gets_one_kept_as_it_was_taken_to_be(self):
         add_portion(self.g, "old eggs", "Eggs", 200.0, at(25, 0))
-        open_portion(self.g, "old eggs")
+        open_portion(self.g, "old eggs", when(26, 8), "o1")
         box = self.g.get_all("ContainerObject", self.g.nodes["old eggs"]["locatedIn"].id)["result"]
         self.assertEqual((box["hasStorageCondition"]["name"], box["hasOpenedStatus"]["name"]), ("Fridge", "Opened"))
 
@@ -237,6 +251,20 @@ class WhoBooked(unittest.TestCase):
         booking, _ = cook(self.g, "e1", when(25, 15), "c1", by="Alex")
         self.assertEqual([self.who(name) for name in ("Purchase t1", "Use u1", "Discard d1", booking.process)],
                          [["Jamie"], ["Alex"], ["Jamie"], ["Alex"]])
+
+    def test_a_stock_take_an_opening_and_a_move_name_who_made_them_too(self):
+        """Each writes a Process of its kind with the portion its participant (2026-11-23), where they wrote
+        none and so named no one."""
+        buy(self.g, "Eggs", 600, "g", NOW, "t1", keeps="Fresh Meat", by="Jamie")
+        eggs = portion_named(self.g, "Purchase t1 -- Eggs")
+        stock_take(self.g, eggs, 500, "g", when(25, 13), "s1", by="Alex")
+        open_portion(self.g, eggs, when(25, 14), "o1", by="Jamie")
+        move(self.g, eggs, "Freezer", when(25, 15), "m1", by="Alex")
+        self.assertEqual([self.who(name) for name in ("Stock take s1", "Open o1", "Move m1")], [["Alex"], ["Jamie"], ["Alex"]])
+        for name, kind in (("Stock take s1", "Stock take"), ("Open o1", "Opening"), ("Move m1", "Move")):
+            (row,) = [n for n in self.g.nodes.values() if n["type"] == "Process" and n["name"] == name]
+            self.assertEqual((self.g.nodes[row["hasKind"].id]["name"], [r.id for r in row["hasParticipant"]]), (kind, [eggs]))
+        self.assertEqual(grams(self.g, eggs, when(25, 16)), 500.0)          # a participant is not a draw
 
     def test_no_one_given_names_no_one(self):
         buy(self.g, "Eggs", 600, "g", NOW, "t1")

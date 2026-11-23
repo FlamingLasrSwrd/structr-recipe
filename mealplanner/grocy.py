@@ -496,7 +496,7 @@ def book(client, the_plan: Plan, zone: ZoneInfo) -> list[Booked]:
                         if r.get("name") == item.portion()]
                 if len(rows) != 1:
                     raise pantry.PantryError(f"{item.portion()}: expected one portion after the purchase, found {len(rows)}")
-                pantry.open_portion(client, rows[0]["id"])
+                pantry.open_portion(client, rows[0]["id"], item.when(zone), item.token)
             out.append(Booked(item, created))
         except (pantry.PantryError, LookupError) as exc:
             out.append(Booked(item, 0, str(exc)))

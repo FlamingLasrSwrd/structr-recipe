@@ -41,6 +41,15 @@ function lastPerishability(food) {
   return best ? best[1] : null;
 }
 
+// pantry._opened_by_use: the first use of a sealed portion opens it (the owner's rule, 2026-11-23), so its
+// Opened shelf life applies from then on; one that is used up needs no opening
+function openedByUse(booking, portion) {
+  const box = containerOf(booking, portion);
+  if (box.hasOpenedStatus && box.hasOpenedStatus.name === "Opened") return;
+  box.hasOpenedStatus = typeNamed("Opened");
+  booking.notes.push(portion.name + ": opened by this use.");
+}
+
 // pantry._container
 function containerOf(booking, portion) {
   if (portion.locatedIn) return portion.locatedIn;
@@ -87,6 +96,7 @@ const PANTRY_ACTIONS = {
     if (have - grams >= -USED_UP_G && have - grams < USED_UP_G) take = have;   // the amount shown, or one leaving a crumb: all of it
     else if (grams > have) throw new BookingError(portion.name + ": " + number(grams, 0) + " g is more than the " + number(have, 0) + " g on hand");
     bookDraw(booking, bookProcess(booking, "Use", "Use " + token, NOW), portion, take, NOW, portion.name);
+    if (take < have) openedByUse(booking, portion);
   },
   // pantry.discard
   discard: (booking, r, token) => {
@@ -102,23 +112,25 @@ const PANTRY_ACTIONS = {
     if (amount > 0) bookingGrams(portion.instanceOf, amount, unit);
     const quality = massQuality(portion) || ensureNode(booking, "Quality", portion.name + " mass Quality", {
       hasKind: typeNamed("Mass"), inheresIn: portion});
+    bookProcess(booking, "Stock take", "Stock take " + token, NOW, {hasParticipant: [portion]});
     ensureNode(booking, "Measurement", portion.name + " stock take " + token, {value: amount, unit: unit, status: "observed",
                                                                                 hasTime: stamp(NOW), isAboutQuality: quality});
-    booking.process = portion.name + " counted";
   },
   // pantry.open_portion
-  open: (booking, r) => {
+  open: (booking, r, token) => {
     const portion = portionFrom(r, booking), box = containerOf(booking, portion);
+    bookProcess(booking, "Opening", "Open " + token, NOW, {hasParticipant: [portion]});
     if (!box.hasOpenedStatus || box.hasOpenedStatus.name !== "Opened") {
       box.hasOpenedStatus = typeNamed("Opened");
       booking.notes.push(portion.name + ": opened.");
     }
   },
   // pantry.move
-  move: (booking, r) => {
+  move: (booking, r, token) => {
     const storage = String(r.storage || "");
     if (STORAGE.indexOf(storage) < 0) throw new BookingError("storage must be one of " + STORAGE.join(", "));
     const portion = portionFrom(r, booking), box = containerOf(booking, portion);
+    bookProcess(booking, "Move", "Move " + token, NOW, {hasParticipant: [portion]});
     box.hasStorageCondition = typeNamed(storage);
     booking.notes.push(portion.name + ": kept in the " + storage.toLowerCase() + ".");
   },

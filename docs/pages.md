@@ -39,8 +39,11 @@ python3 tools/check_pages.py        # what they show, against Python
 before it draws itself, as `mealplanner/pantry.py` does, function by function (`pages/lib/40_bookings.js`,
 `50_pantry.js`, `55_products.js`, `60_requests.js`; `pages/week.js`). Every node is found by name before it is
 created, so a form sent twice, or the page reloaded, writes nothing new; the page then clears the
-address. It writes as the superuser through Structr's `$.doPrivileged`, so a household member's
-booking needs no write grant of its own, and every node states its visibility. Each booking prints a
+address. A Person signed in who is in one household books as themselves, for it (since 2026-11-23,
+Path S stage 5): what the booking writes is private to the household, and it acts on the household's own
+data only, as the methods do (`docs/methods.md`). Anyone else, such as the development checks' accounts,
+books as the superuser through Structr's `$.doPrivileged`, as every booking did before; so does adding a
+product, which is shared knowledge. Every node states its visibility. Each booking prints a
 data block (`<script id="booking-data">`) saying what it wrote. `tools/check_bookings.py` is the guard
 for these, on a development or throwaway instance only (it writes, then removes what it wrote): it
 makes every booking once through the page and once through Python and compares the nodes, field by
@@ -185,7 +188,8 @@ of a two-serving braise drawing 500 g of chicken; and, later that day, a recipe 
 skipped with takeout instead) on two weeks alike, the same both ways. The nutrition page and
 `nutrition_report` agreed on a meal eaten instead (the day unknown) and on one skipped with nothing
 instead (the day short), once the development instance had stored figures per serving. `$.doPrivileged` exists on Structr 6.0.0, so the
-pages book as the superuser for whoever is signed in.
+pages booked as the superuser for whoever was signed in, until a household's member began booking as
+themselves (2026-11-23).
 
 **One booking at a time (2026-10-26, the third review's #9, first in its order of work).** Until then a page's write
 committed a moment (about 0.3 s) after the page answered, in the page's own transaction, and two bookings
