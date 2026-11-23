@@ -148,8 +148,11 @@ page or method reads only what their household may read, and a 404 is all anyone
 
 - **The pages book as the person signed in** (`pages/common.js`), for their one household, through the same
   `bookOnce` as the methods: what they write is private to the household and owned by them (who made it is
-  also each booking's `wasAssociatedWith`), and they act on the household's own data only. An account in no
-  household (the development checks') still books as the superuser, as before.
+  also each booking's `wasAssociatedWith`), and they act on the household's own data only. On an instance
+  with no household yet (the development stack, whose checks book as a Person in none) a page still books as
+  the superuser, as before. On one with households, anyone signed in who is in none, or in several, is
+  refused: the migration test on an owner-style instance found such an account counting a household's
+  portion it could not even see, as the superuser (2026-11-23).
 - **Every pantry booking now names who made it**: a stock take, an opening and a move write a Process of
   their own (*Stock take*, *Opening*, *Move*, in the *Pantry Operation* hierarchy), with the portion as its
   participant, where they wrote none. **The first use of a sealed portion opens it** (the owner's rule), as a

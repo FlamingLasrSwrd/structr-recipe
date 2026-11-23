@@ -72,12 +72,13 @@ are also Structr `User`s (data-model K1, K2).
   page; `tools/check_households.py` checks it for the pantry page's bookings by a member (2026-11-23).
 - **It never makes shared vocabulary.** A pantry operation's kind ("Purchase", "Use", "Discarding",
   "Stock take", "Opening", "Move") must already exist: `scripts/50a` and `tools/instantiate_household.py`
-  make them on an instance with a household (`ownership.ensure_operations`). A page's booking by an
-  account in no household, as the superuser, still makes one on first use.
+  make them on an instance with a household (`ownership.ensure_operations`). A page's booking on an
+  instance with no household yet, as the superuser, still makes one on first use.
 - **The pages book the same way** (2026-11-23): a Person signed in who is in one household books from a
   page as themselves, for it, through `bookOnce` with their household, not `$.doPrivileged`
   (`pages/common.js`). The one exception is adding a product on the pantry page, which is shared knowledge
-  every user gets at once, so it is written as the superuser.
+  every user gets at once, so it is written as the superuser. Once the instance has a household, anyone
+  signed in who is in none (or in several) is refused a page's booking instead of booking as the superuser.
 - **It acts on the household's own data only.** Stock, a meal or a week that every signed-in user
   sees belongs to no household: the data made before households kept theirs apart. So:
   - a household's booking neither books on such stock ("not your household's stock") nor draws on it

@@ -189,7 +189,8 @@ skipped with takeout instead) on two weeks alike, the same both ways. The nutrit
 `nutrition_report` agreed on a meal eaten instead (the day unknown) and on one skipped with nothing
 instead (the day short), once the development instance had stored figures per serving. `$.doPrivileged` exists on Structr 6.0.0, so the
 pages booked as the superuser for whoever was signed in, until a household's member began booking as
-themselves (2026-11-23).
+themselves (2026-11-23). Once an instance has a household, an account in none is refused a booking rather
+than booking as the superuser; adding a product, which is everyone's, still runs as the superuser.
 
 **One booking at a time (2026-10-26, the third review's #9, first in its order of work).** Until then a page's write
 committed a moment (about 0.3 s) after the page answered, in the page's own transaction, and two bookings

@@ -23,7 +23,8 @@ booking may not make itself. Then, each member as themselves:
   a recipe asked for the same week by each household makes a week of that name for each;
   the pantry page books as a household's member (Path S stage 5): A1's buy, use, count, open and move
   write only what is private to A, each Process names A1, the first use opens the sealed portion, and
-  neither A1's page nor B1's reaches what is not theirs;
+  neither A1's page nor B1's reaches what is not theirs, and C, signed in but in no household, is refused
+  rather than booking as the superuser;
   and none of them acts on what every signed-in user sees (the data made before households kept theirs
   apart): a portion expiring sooner than A's, which A's cook must not draw on and A cannot book on, a
   meal A cannot change, and a week of that name A's request must not add to.
@@ -239,15 +240,17 @@ def at_once(member: Member, method: str, arguments: dict, n: int) -> list:
 def sweep(client) -> int:
     """What an interrupted run left: whatever its test members own or its test households were granted,
     the weeks it names, its stock everyone sees, the recipe figures it stored, its setup method, and
-    the people and households; and first, everything its record says it made (Record), which is the
-    only way to find the grants and the shared pantry operations it made."""
+    the people and households; and everything its record says it made (Record), which is the only way to
+    find the grants and the shared pantry operations it made. The record is cleared after the bookings are
+    found, since it names the test members and households: deleting them first left what they owned with
+    no owner and no grant to know it by (found 2026-11-23, after a run Structr was killed during)."""
     def ours(row: dict) -> bool:
         name = row.get("name") or ""
         return ((row.get("owner") or {}).get("name") or "").startswith("TEST -- member") \
             or any((g.get("name") or "").startswith("TEST -- household") for g in row.get("grantees") or []) \
             or name.startswith(("CHECK household A week", "CHECK everyone's week", f"Purchase {SHARED_TOKEN}")) \
             or name == "Week of 2099-12-28"
-    gone = Record(client).clear()
+    gone = 0
     for type_name in WRITTEN:
         for row in client.get_all(type_name)["result"]:
             if row.get("type") == type_name and ours(row):
@@ -264,6 +267,7 @@ def sweep(client) -> int:
         if m.get("name") == "testcheckhouseholdweek":
             client.delete(f"/structr/rest/SchemaMethod/{m['id']}")
             gone += 1
+    gone += Record(client).clear()
     for type_name, prefix in (("Household", "TEST -- household"), ("Person", "TEST -- member")):
         for row in client.get_all(type_name)["result"]:
             if (row.get("name") or "").startswith(prefix):
@@ -282,6 +286,9 @@ def setup(check: Check, client) -> dict:
             ids.append(check.make("Person", {"name": name, "password": password, "isAdmin": False, **PRIVATE}))
             members[who] = Member(client, name, password)
         check.make("Household", {"name": f"TEST -- household {household}", "members": ids, **PRIVATE})
+    name, password = "TEST -- member C", secrets.token_urlsafe(18)       # signed in, in no household
+    check.make("Person", {"name": name, "password": password, "isAdmin": False, **PRIVATE})
+    members["C"] = Member(client, name, password)
     for signature in GRANTS:
         if not client.get("/structr/rest/ResourceAccess", params={"signature": signature})["result"]:
             check.make("ResourceAccess", {"signature": signature, "flags": 255, **SEEN})
@@ -497,6 +504,13 @@ def page_check(check: Check, client, m: dict, food: str, keeps: str, shared: dic
         check.fail(f"B1's pantry page counting A's portion was not refused as no such portion: {got}")
     else:
         print("  A1's page cannot book on stock everyone sees, and B1's cannot reach A's portion")
+    # C, signed in but in no household, must not fall back to booking as the superuser on A's stock
+    got = page(m["C"], "pantry", do="count", portion=portion, amount="1", unit="g", token=secrets.token_hex(4))
+    check.remember(got.get("created") or [])
+    if got.get("problem") != "not in a household" or got.get("privileged") or got.get("created"):
+        check.fail(f"C's pantry page, in no household, counting A's portion was not refused: {got}")
+    else:
+        print("  C, signed in but in no household, is refused a booking on the pantry page")
 
 
 def private_to(check: Check, client, m: dict, names, side: str) -> int:

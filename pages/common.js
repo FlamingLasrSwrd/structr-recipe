@@ -29,10 +29,13 @@ function weekPicker(page, current) {
 
 // Run a booking from the page's address (?do=...); a message saying what it did. A Person signed in who is
 // in one household books as themselves, for it (Path S stage 5, docs/methods.md): what it writes is private
-// to the household, and it acts on the household's own data only, as the methods do. Anyone else (the
-// development checks' accounts, in no household) books as the superuser, as every booking did before.
+// to the household, and it acts on the household's own data only, as the methods do. On an instance with no
+// household yet (the development stack, whose checks book as a Person in none) a booking runs as the
+// superuser, as every booking did before. On one with households, anyone in none (or in several) is
+// refused: running as the superuser would let them book on a household's stock they cannot even see.
 // A booking in SHARED_BOOKINGS adds shared knowledge (a product and its barcode: every user has it at once,
-// the owner's rule of 2026-11-23), which a member may not write as themselves, so it runs as the superuser.
+// the owner's rule of 2026-11-23), which no one may write as themselves, so it runs as the superuser for
+// anyone signed in.
 // BOOKED then holds the booking's action and its problem (null once it was booked)
 let BOOKED = null;
 const SHARED_BOOKINGS = {product: true};
@@ -43,7 +46,20 @@ function runBooking(actions) {
   const token = String($.request.token || "");
   if (!/^[0-9a-f]{4,16}$/.test(token)) return "<p class=\"problem\">Problem: the form had no token; reload the page and try again.</p>";
   const households = $.me && $.me.type === "Person" ? ($.me.groups || []).filter((g) => g.type === "Household") : [];
-  const household = !SHARED_BOOKINGS[action] && households.length === 1 ? households[0] : null;
+  const shared = !!SHARED_BOOKINGS[action];
+  const household = !shared && households.length === 1 ? households[0] : null;
+  let anyHousehold = false;
+  if (!shared && !household) {
+    const look = () => { anyHousehold = $.find("Household").length > 0; };
+    if (typeof $.doPrivileged === "function") $.doPrivileged(look); else look();
+  }
+  if (anyHousehold) {
+    BOOKED = {action: action, problem: "not in a household"};
+    return "<p class=\"problem\">Problem: " + (households.length ? "you are in more than one household, so whose this "
+      + "booking is cannot be told" : "you are in no household, so there is no stock of yours to book on") + ".</p>"
+      + "<script type=\"application/json\" id=\"booking-data\">" + JSON.stringify({action: action, privileged: false,
+        household: null, problem: BOOKED.problem, process: null, created: [], notes: []}) + "</script>";
+  }
   let done = null;
   const run = () => { done = bookOnce(actions, action, $.request, token, household); };
   const privileged = !household && typeof $.doPrivileged === "function";
