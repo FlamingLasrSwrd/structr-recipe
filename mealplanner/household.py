@@ -6,6 +6,7 @@
     nutrition = "private/nutrition.toml"   # their dietary selection (docs/profiles.md)
     baseline = ["Daily supplements"]       # what they take every day (recipe files with baseline = true)
     adopts = true                          # the targets set up before there were people are theirs
+    measure = "weight"                     # recipes' amounts shown as weights (default "written"; scripts/49a)
     [[person]]
     name = "Alex"
     nutrition = "private/nutrition-alex.toml"
@@ -23,6 +24,8 @@ import os
 import tomllib
 from dataclasses import dataclass, field
 
+from mealplanner import measure_schema
+from mealplanner.measure_schema import MEASURES
 from mealplanner.profiles import ProfileError, Report, _name_ok, instantiate_nutrition
 from mealplanner.vocabulary_import import Sync
 
@@ -74,7 +77,11 @@ def parse_household(selection: dict, root: str) -> tuple[str, list[dict]]:
         baseline = raw.get("baseline", [])
         if not isinstance(baseline, list) or not all(isinstance(b, str) for b in baseline):
             problems.append(f"{where}: baseline is a list of names")
-        people.append({"name": raw["name"], "nutrition": nutrition, "baseline": baseline, "adopts": bool(raw.get("adopts"))})
+        measure = raw.get("measure")
+        if measure is not None and measure not in MEASURES:
+            problems.append(f"{where}: measure is one of {list(MEASURES)}, not {measure!r}")
+        people.append({"name": raw["name"], "nutrition": nutrition, "baseline": baseline, "adopts": bool(raw.get("adopts")),
+                       "measure": measure})
     if not people:
         problems.append("a household needs at least one [[person]]")
     if len(adopters) > 1:
@@ -88,8 +95,12 @@ def instantiate_household(client, selection: dict, root: str, *, reset: bool = F
     """The household, its people, and each person's targets and baseline (see the module)."""
     name, people = parse_household(selection, root)
     baselines = {p["name"]: [latest_plan(client, b)["id"] for b in p["baseline"]] for p in people}
+    if any(p["measure"] for p in people) and not measure_schema.schema_ready(client):
+        raise ProfileError(["this instance cannot hold a person's preferred measure yet: run scripts/49a_preferred_measure_schema.py"])
     sync = Sync(client)
-    ids = {p["name"]: sync.ensure("Person", p["name"], {"hasBaseline": sorted(baselines[p["name"]])}) for p in people}
+    ids = {p["name"]: sync.ensure("Person", p["name"], {"hasBaseline": sorted(baselines[p["name"]]),
+                                                        **({measure_schema.PROPERTY: p["measure"]} if p["measure"] else {})})
+           for p in people}
     household = sync.ensure("Household", name, {"members": sorted(ids.values())})
     report = HouseholdReport(name, household, members=[p["name"] for p in people])
     for p in people:

@@ -289,6 +289,13 @@
   "propertyType": "String",
   "unique": false
  },
+ "@schema | property Person.preferredMeasure": {
+  "format": "written,weight",
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Enum",
+  "unique": false
+ },
  "@schema | property Plan.difficultyRating": {
   "format": "easy,medium,hard",
   "indexed": false,

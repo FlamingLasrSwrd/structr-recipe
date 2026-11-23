@@ -6,7 +6,8 @@
 Generates steps with every kind of fact (methods the verb list knows and does not, labels, amounts,
 units, optional and "to taste" ingredients, substitutes with a ratio or ruled out, what earlier steps made,
 capabilities named instead of tools, with any number of tools that can give them, tools with a temperature or a heat
-level or none, working and waiting minutes, the steps before, doneness in words and inside), sends them
+level or none, working and waiting minutes, the steps before, doneness in words and inside), half of them
+with amounts as weights (each food with or without a density, a weight per item and a usual serving), sends them
 to the writeInstructions method, and compares each sentence with mealplanner/instructions.py's. It reads
 nothing of the instance, so it may be run on any. tools/check_pages.py compares each recipe page's
 instructions, read from the graph, with Python's for the same Plan. Exits 1 on any difference.
@@ -23,12 +24,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mealplanner.connection import connect
 from mealplanner.instructions import VERBS, as_data, instructions
 from mealplanner.recipe_import import HEAT_LEVELS, Heat, Ingredient, StepDoc, Substitute
+from mealplanner.weights import FoodWeights
 
 FOODS = ["Rice", "Chicken Breast (raw)", "Garlic", "Jalapeño", "Olive Oil", "Salt", "Crème Fraîche", "Black Pepper"]
 TOOLS = ["Oven", "Skillet", "Saucepan", "Wok", "Tongs", "Sheet Pan"]
 CAPABILITIES = ["Oven heat", "Broiler heat", "Puréeing"]
 BEARERS = ["Oven", "Toaster oven", "Grill", "Air fryer", "Food processor", "Évier"]
-UNITS = ["g", "kg", "tbsp", "tsp", "cup", "each", "whole", "oz", "pinch"]
+UNITS = ["g", "kg", "tbsp", "tsp", "cup", "each", "whole", "oz", "pinch", "lb", "ml", "fl_oz"]
 NUMBERS = [1, 2, 0.5, 0.125, 0.0625, 1 / 3, 2.5, 283.9056, 400, 1.75, 12, 0.333]
 
 
@@ -81,6 +83,16 @@ def random_bearers(rng: random.Random) -> dict:
     return {c: tuple(sorted(rng.sample(BEARERS, rng.choice([0, 1, 2, 3])))) for c in CAPABILITIES}
 
 
+def random_weights(rng: random.Random) -> dict | None:
+    """For half the recipes, each food's weights (any of them missing), so amounts are written as weights."""
+    if rng.random() < 0.5:
+        return None
+    pick = lambda values: rng.choice([None] + values)
+    return {food: FoodWeights(pick([0.53, 1.0, 0.91, 0.2135, 1.37]), pick([50.0, 5.0, 150.0, 215.0, 0.3, 12000.0]),
+                              pick([30.0, 14.0, 240.0, 85.0, 0.5, 110.0]))
+            for food in FOODS + ["Margarine", "Olive Oil", "Greek Yogurt", "Lemon"]}
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--count", type=int, default=400, help="how many recipes' worth of steps to compare")
@@ -90,10 +102,11 @@ def main(argv=None) -> int:
     rng = random.Random(35)
     differences = compared = 0
     for n in range(args.count):
-        steps, bearers = random_steps(rng), random_bearers(rng)
-        want = instructions(steps, bearers)
+        steps, bearers, weights = random_steps(rng), random_bearers(rng), random_weights(rng)
+        want = instructions(steps, bearers, weights)
         r = client.request("POST", "/structr/rest/writeInstructions",
-                           json={"steps": as_data(steps), "bearers": {c: list(b) for c, b in bearers.items()}})
+                           json={"steps": as_data(steps), "bearers": {c: list(b) for c, b in bearers.items()},
+                                 "weights": None if weights is None else {f: vars(w) for f, w in weights.items()}})
         if r.status_code == 404:
             print("problem: the writeInstructions method is not installed here (tools/install_methods.py)")
             return 1
