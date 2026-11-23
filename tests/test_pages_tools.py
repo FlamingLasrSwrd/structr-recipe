@@ -4,6 +4,7 @@ What the pages show is checked against Python by tools/check_pages.py on a live 
 import importlib.util
 import io
 import os
+import pathlib
 import unittest
 from contextlib import redirect_stdout
 from unittest import mock
@@ -32,6 +33,18 @@ class PageGraph:
 
     def delete(self, path):
         del self.nodes[path.rsplit("/", 1)[-1]]
+
+    def patch(self, path, payload):
+        self.nodes[path.rsplit("/", 1)[-1]].update(payload)
+
+    def request(self, method, path, files=None, data=None, headers=None):
+        """POST /structr/upload: a File in the parent folder, owner-only, its id answered as plain text."""
+        assert (method, path, headers) == ("POST", "/structr/upload", {"Content-Type": None})
+        name, body, _ = files["file"]
+        folder = self.nodes[data["parent"]]
+        node_id = self.post("/structr/rest/File", {"name": name, "parentId": folder["id"], "body": body,
+                                                    "path": f"/{folder['name']}/{name}"})["result"][0]
+        return mock.Mock(status_code=201, text=node_id + "\n")
 
     def of(self, type_name):
         return [n for n in self.nodes.values() if n["type"] == type_name or (type_name == "DOMNode" and n["type"] in ELEMENTS)]
@@ -94,6 +107,31 @@ class InstallPages(unittest.TestCase):
         self.assertTrue(all(n["visibleToPublicUsers"] for n in g.of("DOMNode") if n["pageId"] == login["id"]))
         run(self.tool, ["--remove"], g)
         self.assertEqual(g.nodes, {})
+
+
+class ServedFiles(unittest.TestCase):
+    """The files the pantry page loads (pages/files/), put in /mealplanner/ for signed-in users only."""
+    tool = load()
+
+    def test_each_file_is_uploaded_whole_and_seen_by_signed_in_users_only(self):
+        g = PageGraph()
+        run(self.tool, [], g)
+        run(self.tool, [], g)                                                   # again: replaced, not added
+        (folder,) = g.of("Folder")
+        files = sorted(g.of("File"), key=lambda f: f["name"])
+        self.assertEqual([f["name"] for f in files], ["mealplanner-camera.js", "zxing-library-0.23.0.min.js"])
+        root = os.path.join(os.path.dirname(__file__), "..", "pages", "files")
+        for f in files:
+            with open(os.path.join(root, f["name"]), "rb") as fh:
+                self.assertEqual(f["body"], fh.read())
+            self.assertEqual((f["parentId"], f["path"], f["contentType"]), (folder["id"], f"/mealplanner/{f['name']}", "text/javascript"))
+            self.assertEqual((f["visibleToAuthenticatedUsers"], f["visibleToPublicUsers"]), (True, False))
+        self.assertEqual((folder["name"], folder["visibleToAuthenticatedUsers"], folder["visibleToPublicUsers"]),
+                         ("mealplanner", True, False))
+
+    def test_the_page_names_the_files_installed(self):
+        lib = (pathlib.Path(__file__).resolve().parents[1] / "pages" / "lib" / "55_products.js").read_text()
+        self.assertIn(f'const CAMERA_FILE = "{self.tool.served_files()[0]}", READER_FILE = "{self.tool.served_files()[1]}";', lib)
 
 
 class OneScriptPerPage(unittest.TestCase):

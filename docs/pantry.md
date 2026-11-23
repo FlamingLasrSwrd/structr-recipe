@@ -75,7 +75,8 @@ named with " #2", the next " #3" (2026-11-22; before that only the first was wri
 The owner asked (2026-11-13) for barcode scanning to stock the pantry, as Grocy has, with scanning
 optional: "A user should be able to set the specific brand/barcode if they want or default use a
 generic version." Its first step was the data, what a barcode means here; the second, 2026-11-23, a
-barcode box on the pantry page ("Scanning on the pantry page", below). The steps still to come are in
+barcode box on the pantry page ("Scanning on the pantry page", below); the third, the same day, a
+phone's camera feeding that box ("Scanning with a phone's camera"). The steps still to come are in
 `docs/todo.md`, "Barcode scanning for the pantry".
 
 **A product is a packaged food**, written with what the schema has had since `scripts/29a`, so no
@@ -178,7 +179,37 @@ Checked: `tests/test_pantry_scan.py` runs the page over a stand-in graph (and re
 same form again and two refusals, compares what each wrote field by field, and scans each barcode;
 `tools/check_pages.py` scans every product's barcodes, as stored and as printed, against `products.find`.
 
-What is left, each in `docs/todo.md`: a phone's camera (step 3); an unknown barcode looked up (Open Food
+### Scanning with a phone's camera
+
+Step 3 (2026-11-23; the owner, 2026-11-13: "I definitely want to be able to scan using a phone camera").
+Next to the barcode box, **Scan with camera** opens the phone's back camera on the page. Each frame is
+read until a product's barcode (EAN-13, EAN-8, UPC-A or UPC-E) is found twice in a row with a right
+check digit; the camera then stops, and the barcode goes into the box and is sent, as a scanner that
+types would send it. Everything after is the box's: Buy filled in, or "Add a product". **Stop camera**
+(the same button) or **Close** stops it, and so does leaving the page.
+
+- **What reads the frames:** the browser's own `BarcodeDetector` where it reads these formats (Chrome on
+  Android), else the ZXing reader (`@zxing/library` 0.23.0, Apache 2.0), which the page loads only then.
+  Both are files on the instance, not a CDN (`pages/files/`, served at `/mealplanner/` to signed-in
+  users only by `tools/install_pages.py`), so scanning works without the internet and tells no one what
+  was scanned.
+- **HTTPS:** a browser gives a page its camera only over HTTPS or on localhost, so on a phone the pantry
+  must be opened at the HTTPS address (`docs/pages.md`, "HTTPS"). Opened over plain HTTP, or with the
+  camera refused, the page says why and offers **Photo of the barcode** instead: the phone's camera app
+  takes a picture, and the same reader reads it.
+- The button appears only where the browser runs the camera script and the two files are installed;
+  without them the page is as it was.
+
+Checked: `tests/test_pantry_camera.py` runs the page in Chromium (through Playwright, where node has it)
+with a barcode drawn from the EAN-13 tables standing in for the camera: ZXing reads it and the page
+sends it through the box; a stand-in `BarcodeDetector` is used where it reads product barcodes, and
+ZXing is then not loaded; a code with a wrong check digit is not sent; over `http://` a photo is read
+instead. Breaking each of those on purpose failed its test. On a rebuilt instance the files were served
+to a signed-in user byte for byte and to no one signed out, and Chromium's stand-in camera on the real
+pantry page read the barcode and came back with "No product has barcode 4006381333931 yet". Not tried:
+a real phone.
+
+What is left, each in `docs/todo.md`: an unknown barcode looked up (Open Food
 Facts) and matched to a food by the user; a product's own label nutrition (FDC's branded foods carry
 the same GTINs); where a product is kept by default (a scan books to the fridge unless `--storage` says
 otherwise, as Buy does); and a shop's own weighed packs.
@@ -211,9 +242,8 @@ These are findings, recorded rather than worked around (CLAUDE.md, "When somethi
    leftover portion; leftovers stay where the planner keeps them, as leftover entries of the week.
 6. **Not built yet:** undoing a booking (Grocy's journal), a journal on the page, prices paid
    (`PriceObservation` exists in the schema but nothing writes one: J27), minimum stock on the page
-   (StockPolicy target levels are applied by `tools/shopping_list.py` only), and a phone's camera: a product
-   can be scanned on the pantry page with a scanner that types, or by barcode from the terminal
-   ("Products and barcodes", above), but not yet through a phone's camera.
+   (StockPolicy target levels are applied by `tools/shopping_list.py` only), and a product's best-before date
+   scanned or read from its label (point 3).
 
 An Allocation's amount is an `observed` Measurement about no Quality, as in data-model.md §10 and
 `scripts/15e`: about the portion's mass Quality it would be read as a new weighing. Invariant 2

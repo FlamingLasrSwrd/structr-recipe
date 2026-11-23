@@ -4,6 +4,9 @@
 const GTIN_SCHEME = "GTIN", IDENTIFIER_SCHEME = "Identifier Scheme";
 const PAGE_SOURCE = "the package, as entered on the pantry page";       // products.PAGE_SOURCE
 const SHOP_PREFIXES = ["02", "04", "2"];
+// The pantry page's camera and the barcode reader it loads where the browser has none (pages/files/, served
+// from /mealplanner/ by tools/install_pages.py)
+const CAMERA_FILE = "mealplanner-camera.js", READER_FILE = "zxing-library-0.23.0.min.js";
 
 // products.check_digit: from the right, the other digits weigh 3, 1, 3, ...
 function checkDigit(digits) {

@@ -13,6 +13,10 @@ visible to signed-in users only. Two pages are for anyone, and neither holds dat
 sign-in page, and the one Structr shows as its 404 page, which sends a signed-out visitor to sign in
 (pages/signed-out.js).
 
+It also puts every pages/files/*.js in Structr's folder /mealplanner/, served at /mealplanner/<name> to
+signed-in users only: the pantry page's camera and the barcode reader it loads (docs/pantry.md,
+"Scanning with a phone's camera"). Like the pages, each run replaces each file whole.
+
 Before the pages, it makes the one node their bookings lock so that they run one at a time
 (ensure_booking_lock; pages/lib/40_bookings.js). Pages are code: each run replaces each page whole. Its elements are deleted first, since deleting a
 Page leaves them behind (verified on Structr 6.0.0), and every element states its `tag`, without which
@@ -40,6 +44,8 @@ PAGES = {                    # name: (title, script)
     "pantry": ("Pantry", "pantry.js"),
     "shopping": ("Shopping list", "shopping.js"),
 }
+FILES_DIR = os.path.join(PAGES_DIR, "files")
+FOLDER = "mealplanner"           # where the files are served from: /mealplanner/<name>
 LOCK_PAGE = "booking-lock"     # made, read once and removed: the bookings' lock (ensure_booking_lock)
 LOCK_SCRIPT = """${{
 $.cypher("MATCH (l:MealPlannerBookingLock) WITH l ORDER BY elementId(l) SKIP 1 DELETE l");
@@ -115,6 +121,43 @@ def ensure_booking_lock(client) -> None:
         remove_page(client, LOCK_PAGE)
 
 
+def served_files() -> list[str]:
+    """The files the pages load, by name: every pages/files/*.js (its licence beside it is not served)."""
+    return sorted(f for f in os.listdir(FILES_DIR) if f.endswith(".js"))
+
+
+def remove_files(client) -> int:
+    """Delete every file in the /mealplanner/ folder, and the folder. Returns how many nodes went."""
+    gone = 0
+    for folder in client.get("/structr/rest/Folder", params={"name": FOLDER})["result"]:
+        if folder.get("path") not in (None, f"/{FOLDER}"):
+            continue
+        for row in client.get("/structr/rest/File", params={"parentId": folder["id"]})["result"]:
+            client.delete(f"/structr/rest/File/{row['id']}")
+            gone += 1
+        client.delete(f"/structr/rest/Folder/{folder['id']}")
+        gone += 1
+    return gone
+
+
+def install_files(client) -> list[str]:
+    """Each served file put in /mealplanner/ again, whole, visible to signed-in users only (an upload is
+    owner-only until its visibility is set: docs/structr-cheatsheet.md §5). Returns their paths."""
+    remove_files(client)
+    folder = client.post("/structr/rest/Folder", {"name": FOLDER, **PRIVATE})["result"][0]
+    paths = []
+    for name in served_files():
+        with open(os.path.join(FILES_DIR, name), "rb") as fh:
+            body = fh.read()
+        r = client.request("POST", "/structr/upload", files={"file": (name, body, "text/javascript")},
+                           data={"parent": folder}, headers={"Content-Type": None})
+        if r.status_code >= 400:
+            raise RuntimeError(f"uploading {name}: {r.status_code} {r.text[:300]}")
+        client.patch(f"/structr/rest/File/{r.text.strip()}", {"contentType": "text/javascript", **PRIVATE})
+        paths.append(f"/{FOLDER}/{name}")
+    return paths
+
+
 def login_grants(client) -> list[dict]:
     return client.get("/structr/rest/ResourceAccess", params={"signature": LOGIN_GRANT["signature"]})["result"]
 
@@ -129,12 +172,15 @@ def main(argv=None) -> int:
     if args.remove:
         for name in [*PAGES, LOGIN, SIGNED_OUT]:
             print(f"{name}: removed {remove_page(client, name)} node(s)")
+        print(f"/{FOLDER}/: removed {remove_files(client)} node(s)")
         for grant in login_grants(client):
             client.delete(f"/structr/rest/ResourceAccess/{grant['id']}")
             print("removed the anonymous login grant")
         return 0
     ensure_booking_lock(client)
     print("bookings: one lock node")
+    for path in install_files(client):
+        print(f"{path}: installed")
     for name, (title, page_file) in PAGES.items():
         removed = remove_page(client, name)
         build_page(client, name, title, script(page_file))

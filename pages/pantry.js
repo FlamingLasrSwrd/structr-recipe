@@ -10,7 +10,9 @@
 // fills Buy in with the product it names and what one package holds, as products.find reads it; a
 // barcode no product has opens "Add a product" with it, which writes what products.add_product writes
 // (do=product, pages/lib/55_products.js: the page's alone) and then fills Buy in with the new product.
-// A USB or Bluetooth scanner types into the box as a keyboard does, and its Enter sends it.
+// A USB or Bluetooth scanner types into the box as a keyboard does, and its Enter sends it; a phone's
+// camera does the same through "Scan with camera" (/mealplanner/mealplanner-camera.js, pages/files/),
+// which shows only where that file is installed and the browser runs it.
 
 const said = runBooking(Object.assign({}, PANTRY_ACTIONS, PRODUCT_ACTIONS));
 
@@ -92,10 +94,27 @@ const draft = retry ? {barcode: given($.request.barcode), name: given($.request.
 if (unknown) scanSaid = "<p class=\"note\">No product has barcode " + esc(asked) + " yet: add it below, "
   + "or buy its food by name.</p>";
 
+// A file tools/install_pages.py put in the /mealplanner/ folder: its address, changed whenever its content is,
+// so a browser does not keep an old copy; null where it is not installed
+function servedFile(name) {
+  const file = $.find("File", {name: name}).filter((f) => f.path === "/mealplanner/" + name)[0];
+  if (!file) return null;
+  const stamp = file.lastModifiedDate ? new Date(file.lastModifiedDate).getTime() : 0;
+  return file.path + "?v=" + (file.checksum || stamp);
+}
+const cameraScript = servedFile(CAMERA_FILE), barcodeReader = servedFile(READER_FILE);
+const camera = cameraScript && barcodeReader
+  ? "<button type=\"button\" class=\"camera\" hidden data-reader=\"" + esc(barcodeReader) + "\">Scan with camera</button>" : "";
+const cameraPanel = !camera ? "" : "<div id=\"camera\" class=\"camera\" hidden><video playsinline muted hidden></video>"
+  + "<p class=\"camera-note note\"></p><label class=\"camera-photo\" hidden>Photo of the barcode "
+  + "<input type=\"file\" accept=\"image/*\" capture=\"environment\"></label> <button type=\"button\" class=\"camera-stop\">Close</button></div>"
+  + "<script src=\"" + esc(cameraScript) + "\" defer></script>";
+
 let html = nav("pantry") + "<h1>Pantry</h1>" + said
   + "<details class=\"buy\" open><summary>Buy</summary>"
   + "<form class=\"inline scan\" action=\"/structr/html/pantry\"><input name=\"scan\" inputmode=\"numeric\" autocomplete=\"off\""
-  + " required size=\"16\" placeholder=\"scan or type a barcode\"" + (scanning && !unknown ? " autofocus" : "") + "><button>Look up</button></form>"
+  + " required size=\"16\" placeholder=\"scan or type a barcode\"" + (scanning && !unknown ? " autofocus" : "") + "><button>Look up</button>"
+  + camera + "</form>" + cameraPanel
   + scanSaid
   + form("buy", scan && scan.product ? {scanning: "1"} : {}, "<input name=\"food\" list=\"foods\" required placeholder=\"food\" size=\"24\""
     + (fill.food ? " value=\"" + esc(fill.food) + "\"" : "") + ">" + amountInputs(fill.unit, fill.amount)
