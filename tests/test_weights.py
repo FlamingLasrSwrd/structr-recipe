@@ -264,6 +264,45 @@ class Vocabulary(unittest.TestCase):
             return False
         self.assertEqual([n for n in foods if not stepped(n) and n != "Dietary supplement"], [])
 
+    def test_each_cited_reference_amount_is_a_row_of_the_pinned_table(self):
+        """A serving that cites Table 2 of 21 CFR 101.12, 9 CFR 317.312 or 9 CFR 381.412 quotes a row of
+        data/racc/table2.tsv (the start of its category, or its start and a later part around " ... "),
+        and a `sourced` one states an amount that row gives, read from the TSV and the TOML directly."""
+        import re
+        import tomllib
+        with open(ROOT / "data" / "racc" / "table2.tsv", encoding="utf-8") as f:
+            header, *lines = f.read().splitlines()
+        rows = [dict(zip(header.split("\t"), line.split("\t"))) for line in lines]
+        with open(ROOT / "data" / "vocabulary.toml", "rb") as f:
+            foods = tomllib.load(f)["food"]
+        problems, cited = [], 0
+        for food in foods:
+            serving = food.get("serving")
+            m = re.match(r'(\d+ CFR [\d.]+ Table 2): "([^"]+)"', serving["source"]) if serving else None
+            if not m:
+                continue
+            cited += 1
+            table, quote = m.groups()
+            first, *rest = quote.split(" ... ")
+            matches = [r for r in rows if r["table"] == table and r["category"].startswith(first)
+                       and all(part in r["category"] for part in rest)]
+            exact = [r for r in matches if r["category"] == quote]
+            matches = exact or matches
+            if not matches:
+                problems.append(f"{food['name']}: no row of {table} reads {quote!r}")
+                continue
+            if serving.get("status") != "sourced":
+                continue
+            amount = {0.25: "1/4", 0.5: "0.5", 0.6: "0.6"}.get(serving["amount"], str(serving["amount"]))
+            unit = {"ml": "mL"}.get(serving["unit"], serving["unit"])
+            stated = re.compile(rf"(?<![\d/.]){re.escape(amount)} ?{re.escape(unit)}\b")
+            amounts = [r["reference_amount"] + " " + (r["label_statement_or_ready_to_cook"] if r["table"].startswith("9 CFR") else "")
+                       for r in matches]
+            if not any(stated.search(a) for a in amounts):
+                problems.append(f"{food['name']}: {amount} {unit} is not what {quote!r} gives: {amounts}")
+        self.assertEqual(problems, [])
+        self.assertGreater(cited, 150)                     # the check reached the servings at all
+
 
 class Household(unittest.TestCase):
     def setUp(self):
