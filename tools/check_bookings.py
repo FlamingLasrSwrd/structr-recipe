@@ -393,7 +393,7 @@ def product_check(check: Check, client, food: str) -> None:
     their barcodes are demonstration ones, so the sweep finds what an interrupted run left."""
     tok, pytok = new_token(), new_token()
     mine, theirs = f"TEST -- product {tok}", f"TEST -- product {pytok}"
-    codes = [demo_barcode() for _ in range(5)]
+    codes = [demo_barcode() for _ in range(7)]
     gtins = [products.normalize(c) for c in codes]
 
     def python_names(name, gtin, new=True):
@@ -410,6 +410,16 @@ def product_check(check: Check, client, food: str) -> None:
     if py["created"] != 4:
         check.fail(f"add a product through Python: {py}")
     check.same_nodes("add a product", got["created"], [tok, gtins[0]], python_names(theirs, gtins[1]), [pytok, gtins[1]])
+
+    offtok, offpytok = new_token(), new_token()      # a package size kept from Open Food Facts: sourced there
+    off = check.page("pantry", **dict(form, token=new_token(), barcode=codes[5], name=f"TEST -- product {offtok}", source="off"))
+    check.remember(off["created"])
+    py = products.add_product(client, f"TEST -- product {offpytok}", food, codes[6], 500, "g", from_off=True)
+    check.remember(python_names(f"TEST -- product {offpytok}", gtins[6]))
+    if off["problem"] or py["created"] != 4:
+        check.fail(f"add a product sized from Open Food Facts: the page said {off['problem']!r}, Python {py}")
+    check.same_nodes("a product sized from Open Food Facts", off["created"], [offtok, gtins[5]],
+                     python_names(f"TEST -- product {offpytok}", gtins[6]), [offpytok, gtins[6]])
 
     second = check.page("pantry", **dict(form, token=new_token(), barcode=codes[2]))
     check.remember(second["created"])
@@ -447,7 +457,8 @@ def product_check(check: Check, client, food: str) -> None:
                 "amount": found and found.amount, "unit": found and found.unit}
         if shown != want:
             check.fail(f"scanning {code}: the page names {shown}, products.find {want}")
-    print(f"  a product of {food} and a second barcode, the same both ways; refused alike; four scans as products.find reads them")
+    print(f"  a product of {food}, one sized from Open Food Facts, and a second barcode, the same both ways; refused alike; "
+          "four scans as products.find reads them")
 
 
 def cook_check(check: Check, client, t: dict, food: str, keeps: str) -> None:
