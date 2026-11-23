@@ -119,7 +119,7 @@ class ServedFiles(unittest.TestCase):
         run(self.tool, [], g)                                                   # again: replaced, not added
         (folder,) = g.of("Folder")
         files = sorted(g.of("File"), key=lambda f: f["name"])
-        self.assertEqual([f["name"] for f in files], ["mealplanner-camera.js", "mealplanner-lookup.js",
+        self.assertEqual([f["name"] for f in files], ["mealplanner-camera.js", "mealplanner-foods.js", "mealplanner-lookup.js",
                                                          "zxing-library-0.23.0.min.js"])
         root = os.path.join(os.path.dirname(__file__), "..", "pages", "files")
         for f in files:
@@ -132,9 +132,19 @@ class ServedFiles(unittest.TestCase):
 
     def test_the_page_names_the_files_installed(self):
         lib = (pathlib.Path(__file__).resolve().parents[1] / "pages" / "lib" / "55_products.js").read_text()
-        camera, lookup, reader = self.tool.served_files()
+        camera, picker, lookup, reader = self.tool.served_files()
         self.assertIn(f'const CAMERA_FILE = "{camera}", READER_FILE = "{reader}";', lib)
         self.assertIn(f'const LOOKUP_FILE = "{lookup}";', lib)
+        self.assertIn(f'const FOODS_FILE = "{picker}";', lib)
+
+    def test_this_projects_files_are_plain_ascii(self):
+        """So each reads the same whatever charset it is served with. Structr 7.1 serves them as utf-8, but a
+        server that names none (the browser tests' stand-in did) has them read as Latin-1, and then a multiplication
+        sign in a regular expression no longer matches and an accent range is no longer a range (found 2026-11-23)."""
+        root = pathlib.Path(__file__).resolve().parents[1] / "pages" / "files"
+        for name in self.tool.served_files():
+            if name.startswith("mealplanner-"):
+                self.assertTrue((root / name).read_bytes().isascii(), name)
 
 
 class OneScriptPerPage(unittest.TestCase):
