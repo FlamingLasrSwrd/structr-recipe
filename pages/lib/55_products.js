@@ -9,6 +9,8 @@ const SHOP_PREFIXES = ["02", "04", "2"];
 const CAMERA_FILE = "mealplanner-camera.js", READER_FILE = "zxing-library-0.23.0.min.js";
 // and its look-up of an unknown barcode on Open Food Facts (docs/pantry.md, "Looking up an unknown barcode")
 const LOOKUP_FILE = "mealplanner-lookup.js";
+// and its food picker, which searches the foods a box takes as you type (docs/pantry.md, "Choosing the food")
+const FOODS_FILE = "mealplanner-foods.js";
 
 // products.off_source: where a package size taken from Open Food Facts on the pantry page is sourced
 const offSource = (gtin) => "Open Food Facts, barcode " + gtin + ", as checked on the pantry page";

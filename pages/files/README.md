@@ -6,6 +6,7 @@
 | File | What | Source |
 |---|---|---|
 | `mealplanner-camera.js` | the pantry page's "Scan with camera" (`docs/pantry.md`, "Scanning with a phone's camera") | this project |
+| `mealplanner-foods.js` | the pantry page's food picker: its food boxes search as you type (`docs/pantry.md`, "Choosing the food") | this project |
 | `mealplanner-lookup.js` | the pantry page's look-up of an unknown barcode on Open Food Facts (`docs/pantry.md`, "Looking up an unknown barcode") | this project |
 | `zxing-library-0.23.0.min.js` | the ZXing barcode reader, loaded by the camera only where the browser has no reader of its own (Safari, a desktop) | `@zxing/library` 0.23.0 from npm, `umd/index.min.js`, unchanged; sha256 `3ede94153fb0c5b67a12d7adff6decd827c2b22714fdc6faecf27a8f20937ea6`. Apache License 2.0, in `zxing-LICENSE.txt` |
 

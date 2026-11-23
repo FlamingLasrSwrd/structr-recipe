@@ -159,8 +159,8 @@ works as before.
   package, choose where it is kept, and **Add to pantry**: that is the ordinary purchase. A unit Buy does
   not offer is given in grams, or left for the hand where it does not convert.
 - **A barcode no product has** opens **Add a product** with it: a name as on the package, the food it is
-  a kind of (offered as typed: any food Buy offers that is no product itself), and what one package
-  holds. Adding writes what `products.add_product` writes, which is what the products file would write for
+  a kind of (any food Buy offers that is no product itself, found as typed: "Choosing the food", below),
+  and what one package holds. Adding writes what `products.add_product` writes, which is what the products file would write for
   that product, its package size sourced to the page ("the package, as entered on the pantry page"), and
   Buy is then filled in with it. The same name with a new barcode adds the barcode to that product, and
   writes nothing else: it must be of the same food and hold the same, since a package of another size is
@@ -224,7 +224,8 @@ before, and the page asks Open Food Facts what it knows of that barcode
   from its own figure in grams or millilitres, in a unit Buy offers;
 - **never the food.** Which food a product is a kind of is a judgment (J19), so it is left to the user,
   with the categories Open Food Facts files the product under shown as a hint ("it files it under
-  Chickpeas; Legumes"), and a link to its page there.
+  Chickpeas; Legumes"), a link to its page there, and the foods it most likely is offered to tap
+  ("Choosing the food", below).
 
 A name typed while the answer was on its way is kept. Where Open Food Facts does not know the barcode,
 gives no size the page can use, or does not answer within 10 seconds, the page says so and the form is
@@ -262,6 +263,36 @@ with Open Food Facts stood in for, filled the form in, sent the barcode alone, a
 the product with its size sourced there. Not tried: the real Open Food Facts, whose site the cloud
 session that built this could not reach, so whether it answers a browser's cross-site request (it is
 documented to) is to be seen on the owner's phone.
+
+### Choosing the food
+
+The owner, 2026-11-23, adding a product: the food box asks for "the food it is", and "that's impossible
+to guess". A food is named exactly as this instance names it ("Chickpeas (canned)", "Peanut butter
+(creamy)"), and the page is sent with that name or it is refused. The box used to leave the choice to the
+browser's own list of every name (a datalist), which a phone shows poorly, if at all, for some 300 foods.
+
+Both food boxes, Buy's and "Add a product"'s, now search as you type (`pages/files/mealplanner-foods.js`):
+each word typed may be the start of any word of a name, in any order, in any case, singular or plural, so
+"chick" finds the chicken and the chickpeas and "canned chickpea" or "TOMATOES DICED" finds the one. Up
+to eight are shown under the box, a name that begins as typed first, then shorter names; a tap puts the
+name in the box (in Buy it then picks the unit, as choosing from the list did), and Enter takes the first.
+A whole name typed in other letter case is put right when the form is sent; anything else is sent as typed
+and refused as before. Without the script, the browser's list is left as it was.
+
+Under "Add a product", a product Open Food Facts knows also shows **Likely:** and the foods it most likely
+is, to tap. A food is offered when each word of its name outside brackets is a word of the product's
+categories or its name (singular or plural); one is likelier with more such words, when the categories
+hold them all, and with each word in its brackets they hold ("canned" in "Chickpeas (canned)"), and one far
+less likely than the likeliest is left out ("Butter (salted)" beside "Peanut butter (creamy)"). It is a
+list to tap, never a choice made: the box stays empty until the user taps or types, since a wrong food
+would give the product that food's nutrition and shelf life.
+
+Checked: `tests/test_pantry_foods.py` runs the search and the guess in node over names chosen for it, each
+expected value worked out by hand from the rules above, and the page in Chromium: typing in Buy finds a
+product and a tap fills it in and picks its unit; "Add a product" offers only foods a product may be, and
+says when nothing matches; Enter takes the first; a name in other case is sent as the instance spells it;
+a looked-up product's likely foods are offered and the box left empty until one is tapped, and none are
+offered when Open Food Facts cannot be reached. Breaking each of those on purpose failed its test.
 
 What is left, each in `docs/todo.md`: a product's own label nutrition (FDC's branded foods carry
 the same GTINs); where a product is kept by default (a scan books to the fridge unless `--storage` says

@@ -34,7 +34,8 @@ UNKNOWN, GTIN, OFF_CODE = "04252614", "00042100005264", "0042100005264"
 INSTALLED = """
 node("File", "mealplanner-camera.js", {path: "/mealplanner/mealplanner-camera.js", checksum: 11});
 node("File", "zxing-library-0.23.0.min.js", {path: "/mealplanner/zxing-library-0.23.0.min.js", checksum: 22});
-node("File", "mealplanner-lookup.js", {path: "/mealplanner/mealplanner-lookup.js", checksum: 33});"""
+node("File", "mealplanner-lookup.js", {path: "/mealplanner/mealplanner-lookup.js", checksum: 33});
+node("File", "mealplanner-foods.js", {path: "/mealplanner/mealplanner-foods.js", checksum: 44});"""
 
 
 def lookup(call: str):
@@ -72,18 +73,20 @@ class WhatItReads(unittest.TestCase):
             ({"product_name": "Chickpeas", "brands": "Brand X, Parent Co", "quantity": "400 g",
               "categories_tags": ["en:plant-based-foods", "en:legumes", "en:chickpeas", "fr:pois-chiches"]},
              {"name": "Brand X Chickpeas 400 g", "amount": 400, "unit": "g",
-              "categories": ["Chickpeas", "Legumes", "Plant based foods"]}),          # most specific first, English only
+              "categories": ["Chickpeas", "Legumes", "Plant based foods"],            # most specific first, English only
+              "title": "Chickpeas", "tags": ["Chickpeas", "Legumes", "Plant based foods"]}),
             ({"product_name": "Brand X chickpeas, salted", "brands": "brand x", "quantity": "400g"},
-             {"name": "Brand X chickpeas salted 400 g", "amount": 400, "unit": "g", "categories": []}),  # brand named once
+             {"name": "Brand X chickpeas salted 400 g", "amount": 400, "unit": "g", "categories": [],     # brand named once
+              "title": "Brand X chickpeas salted", "tags": []}),
             ({"product_name": "Oat drink 1L", "product_name_en": "Oat drink 1L", "quantity": "1 l"},
-             {"name": "Oat drink 1L", "amount": 1, "unit": "l", "categories": []}),  # its size named already
+             {"name": "Oat drink 1L", "amount": 1, "unit": "l", "categories": [], "title": "Oat drink 1L", "tags": []}),
             ({"product_name": "Haferdrink", "product_name_en": "Oat drink", "product_quantity": "750", "product_quantity_unit": "ml"},
-             {"name": "Oat drink 750 ml", "amount": 750, "unit": "ml", "categories": []}),
+             {"name": "Oat drink 750 ml", "amount": 750, "unit": "ml", "categories": [], "title": "Oat drink", "tags": []}),
             ({"product_name": "Tea; green", "product_quantity": 454},
-             {"name": "Tea green 454 g", "amount": 454, "unit": "g", "categories": []}),    # grams where no unit is given
+             {"name": "Tea green 454 g", "amount": 454, "unit": "g", "categories": [], "title": "Tea green", "tags": []}),
             ({"product_name": "Crackers", "quantity": "a box"},
-             {"name": "Crackers", "amount": None, "unit": None, "categories": []}),
-            ({}, {"name": None, "amount": None, "unit": None, "categories": []}),
+             {"name": "Crackers", "amount": None, "unit": None, "categories": [], "title": "Crackers", "tags": []}),
+            ({}, {"name": None, "amount": None, "unit": None, "categories": [], "title": None, "tags": []}),
         ]
         got = lookup(f"{json.dumps([p for p, _ in products])}.map(api.fromOff)")
         for (product, want), seen in zip(products, got):

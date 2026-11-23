@@ -15,8 +15,8 @@ sign-in page, and the one Structr shows as its 404 page, which sends a signed-ou
 
 It also puts every pages/files/*.js in Structr's folder /mealplanner/, served at /mealplanner/<name> to
 signed-in users only: the pantry page's camera and the barcode reader it loads (docs/pantry.md,
-"Scanning with a phone's camera"), and its look-up of an unknown barcode on Open Food Facts ("Looking up an
-unknown barcode"). Like the pages, each run replaces each file whole.
+"Scanning with a phone's camera"), its look-up of an unknown barcode on Open Food Facts ("Looking up an
+unknown barcode"), and its food picker ("Choosing the food"). Like the pages, each run replaces each file whole.
 
 Before the pages, it makes the one node their bookings lock so that they run one at a time
 (ensure_booking_lock; pages/lib/40_bookings.js). Pages are code: each run replaces each page whole. Its elements are deleted first, since deleting a
