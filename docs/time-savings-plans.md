@@ -12,9 +12,9 @@ minutes a week once most barcodes are known.
 
 | # | Plan | Saves (A, B, C) | Size | Schema change | Waits on the owner for |
 |---|---|---|---|---|---|
-| 1 | A shopping-list tick books the purchase | 6, 9, 15 | medium | no | what an untick does |
+| 1 | A shopping-list tick books the purchase: **to build** (the owner, 2026-11-23) | 6, 9, 15 | medium | no | how an undo is recorded (`docs/todo.md`, "Undo a booking") |
 | 2 | Bookings without a page reload | 3, 5, 8 | medium | no | none: bookings for the household, naming who (decided 2026-11-23) |
-| 8 | Scanning an item as it is used | 1, 2, 4 | medium, after 2 | no | how a used amount is offered |
+| 8 | Scanning an item as it is used | 1, 2, 4 | medium, after 2 | no | none: decided 2026-11-23 |
 | 6a | The shopping list in store order | 5, 10, 15 | small | no | the order of the owner's shop |
 | 3 | The food for a new product chosen, not typed | 2, 3, 4 (7, 13, 23 in week 1) | mostly done | no | whether the FDC table is worth it |
 | 4 | "Plan the week" on a page | 5, 7, 10 | large | probably not | where the planner runs (options below); proposals in the graph |
@@ -110,7 +110,8 @@ closes with every reload.
     accounts and access control; Python keeps the planner's search and the batch imports). Stages 1 to 3
     are built; **stage 5**, access control on the real data (a migration marking the owner's data as the
     household's, the pages without `$.doPrivileged`), is not. Booking through the methods here is a step
-    of stage 5; the migration of what is already there comes with it, so the instance does not hold
+    of stage 5 (the owner, 2026-11-23: "Everything that can be specific to a user, should be"; being built
+    in its own thread); the migration of what is already there comes with it, so the instance does not hold
     bookings made both ways for long. Each member needs the method's grant.
 - **Files:** `pages/pantry.js` and a new script in `pages/files/`, `methods/findProduct.js`, the grants in
   `tools/install_methods.py`.
@@ -312,5 +313,9 @@ upkeep cost in the time study, and today booking it means finding the row on the
 - **Checks:** `tools/check_bookings.py` books "30 ml of milk" from a scan both ways and compares the
   nodes, and the portion chosen when one is opened and another is not; the browser test scans in Use as
   `tests/test_pantry_camera.py` scans in Buy; the amounts offered tested over a hand-made history.
-- **The owner's decision:** whether the first Use opens a portion, and whether amounts used before are
-  offered per person or for the household.
+- **Decided by the owner, 2026-11-23:** the first Use of a sealed item marks it opened. The amounts
+  offered are the person's own, and where the person has none, their household's, then the food's across
+  every user ("the remembered amount should be available as a user, household, and food with inheritance
+  across all users"): three levels resolved the way defaults are (`mealplanner/defaults.py`), the food's
+  level shared with everyone, as a new product is (`docs/todo.md`, "New shared data reaches every user at
+  once"). It needs the per-person and per-household data of Path S stage 5, being built in its own thread.
