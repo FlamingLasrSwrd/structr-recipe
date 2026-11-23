@@ -47,7 +47,7 @@ still wanted, chiefly the escaping, is the owner's call before any session ports
 | Item (`todo.md`) | The decision it waits on |
 |---|---|
 | Usable measurements | "not to be built yet" (2026-10-31); the rounding of a weight is open |
-| What ingredients are sold in, stages 3 and 4 | stages 1 and 2 built 2026-11-22 (`docs/packages.md`), touching S4's files (`pages/shopping.js`, `pages/lib/90_shopping.js`, `methods/shoppingList.js`); stage 3 is a modeling question, stage 4 an objective change |
+| What ingredients are sold in, stages 3 and 4 | stages 1 and 2 built 2026-11-22 (`docs/packages.md`), touching S4's files (`pages/shopping.js`, `pages/lib/90_shopping.js`, `methods/shoppingList.js`); stage 3 built 2026-11-23 for the owner to review (its modeling choice, data-model.md J41), stage 4 an objective change |
 | Releasing it for self-hosting; one backend for the pages; bookings from the terminal under the pages' lock | `docs/architecture-decision.md` |
 | Batches 5 and 6 of the Structr features | the architecture decision (Batch 5); whether to build Batch 6, and which form |
 | Weights as shares of the score; waste and cost in the objective | objective changes |

@@ -26,6 +26,10 @@ Central foods (mealplanner/fdc.py) or a stated source. Loading it
   RetentionFactor      USDA's, keyed by nutrient and method, on a retention class
                        (a food Type its members sit under), and 1.0 on "Food" for
                        each method that applies no heat (J30)
+  Yield                a food's trim (Trimming, its target itself: what of it as bought a
+                       recipe weighs) and what another food yields of it (Juicing, Separating:
+                       a Yield on the food bought, its target this one), the purchased form
+                       a shopping list buys (mealplanner/yields.py, data-model.md J41)
   Transformation methods and Equipment Types, with their parents
   Capabilities         Function types in the Capability hierarchy, with their parents,
                        and on each Equipment Type the ones its tools can give
@@ -57,6 +61,9 @@ from mealplanner.capability_schema import CAPABILITY_HIERARCHY
 from mealplanner.identifier_schema import FDC_ID, SCHEME
 from mealplanner.nutrition_scope import NUTRIENT_UNITS
 from mealplanner.unit_conversion import UNIT_TABLE
+from mealplanner.yields import (
+    TRIM_METHOD, TRIM_SUFFIX, YIELD_KIND, Trim, YieldFrom, parse_trim, parse_yield_from, yield_name,
+)
 from structr_client.client import UNSAFE_EXACT_MATCH_CHARS
 
 VOCABULARY = "data/vocabulary.toml"
@@ -142,6 +149,8 @@ class Food:
     retention: tuple[tuple[str, str], ...] = ()   # (method, USDA row code): a retention class's factors
     keeps: tuple[int, bool] | None = None         # (FoodKeeper product id, a proxy): how long it keeps (J31)
     serving: Serving | None = None                # a usual serving: what a weight is rounded by
+    trim: Trim | None = None                      # what of it as bought is cut away before a recipe weighs it
+    yield_from: YieldFrom | None = None           # the food it is bought as, and what a gram of that gives
 
     @property
     def fdc(self) -> int | None:
@@ -430,11 +439,13 @@ def _serving(raw, where: str, problems: list[str]) -> Serving | None:
     return Serving(float(amount), unit, raw.get("source", ""), status)
 
 
-def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None, shelf_table: dict | None = None) -> Vocabulary:
+def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None, shelf_table: dict | None = None,
+                     trim_table: dict | None = None) -> Vocabulary:
     """A Vocabulary, or VocabularyError naming every problem. With `fdc` (the
     pinned subsets merged), every FDC id and portion label is checked against it;
     with `table` (the pinned USDA retention rows), every row a food names; with
-    `shelf_table` (the pinned FoodKeeper products), every product a food names."""
+    `shelf_table` (the pinned FoodKeeper products), every product a food names; with
+    `trim_table` (SR28's refuse, data/yields/sr28.json), a trim's figure where it has the food's."""
     problems: list[str] = []
 
     def name_ok(where, value) -> bool:
@@ -481,7 +492,7 @@ def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None, sh
 
     foods = []
     allowed = {"name", "parent", "fdc", "proxy", "sources", "each", "volume", "note", "label", "retention", "foodkeeper",
-               "serving"}
+               "serving", "trim", "yield_from"}
     for i, raw in enumerate(data.get("food", []), 1):
         where = f"food {i}"
         for key in sorted(set(raw) - allowed):
@@ -511,8 +522,11 @@ def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None, sh
         for method in sorted(set(rows) - {m.name for m in methods}):
             problems.append(f"{where} retention: {method!r} is not a method in the file")
         keeps = _keeps(raw.get("foodkeeper"), where, shelf_table, problems)
+        fid = sources[0].ids[0] if sources and len(sources[0].ids) == 1 else None
         food = Food(raw["name"], raw.get("parent", ROOT_FOOD), tuple(sources), each, volume, label,
-                    tuple(sorted(rows.items())), keeps, _serving(raw.get("serving"), where, problems))
+                    tuple(sorted(rows.items())), keeps, _serving(raw.get("serving"), where, problems),
+                    parse_trim(raw.get("trim"), where, fid, trim_table, problems),
+                    parse_yield_from(raw.get("yield_from"), where, problems))
         if fdc is not None:
             for fid in sorted(Vocabulary((), (food,), (), (), ()).ids()):
                 if str(fid) not in fdc["foods"]:
@@ -529,6 +543,7 @@ def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None, sh
         problems.append(f"food {dup!r} is listed twice")
     if ROOT_FOOD in names:
         problems.append(f"{ROOT_FOOD!r} is the root and is not listed")
+    _check_yields(foods, methods, fdc, problems)
 
     retention_cfg = data.get("retention") or {}
     kept = [str(k) for k in retention_cfg.get("kept_in_cooking", [])]
@@ -555,6 +570,48 @@ def parse_vocabulary(data: dict, fdc: dict | None, table: dict | None = None, sh
         raise VocabularyError(problems)
     return Vocabulary(tuple(subsets), tuple(foods), methods, equipment, tuple(kept), fdc, retention, shelf_table,
                       capabilities)
+
+
+def _check_yields(foods: list[Food], methods: tuple[Named, ...], fdc: dict | None, problems: list[str]) -> None:
+    """A trim needs the method Trimming; a yield from another food needs that food, a method in the file
+    and, worked out from a portion, the portion in this food's FDC record and a weight per item for the
+    food bought, which the portion is the yield of one of."""
+    by_name = {f.name: f for f in foods}
+    method_names = {m.name for m in methods}
+    if any(f.trim for f in foods) and TRIM_METHOD not in method_names:
+        problems.append(f"a food has a trim, and the file has no method {TRIM_METHOD!r}")
+    for food in foods:
+        y = food.yield_from
+        if not y:
+            continue
+        where = f"food {food.name!r} yield_from"
+        if y.food == food.name or y.food not in by_name:
+            problems.append(f"{where}: {y.food!r} is not another food in the file")
+            continue
+        if y.method not in method_names or y.method == TRIM_METHOD:
+            problems.append(f"{where}: {y.method!r} is not a method in the file (nor {TRIM_METHOD!r}, a food's own trim)")
+        if y.portion is None:
+            continue
+        if not by_name[y.food].each:
+            problems.append(f"{where}: {y.food!r} has no weight per item (each), which the portion is the yield of one of")
+        if food.fdc is None:
+            problems.append(f"{where}: a portion needs the food's own single FDC record")
+        elif fdc is not None and str(food.fdc) in fdc["foods"] and _portion(fdc, food.fdc, y.portion) is None:
+            problems.append(f"{where}: FDC {food.fdc} has no single portion {y.portion!r}")
+
+
+def yield_figure(fdc: dict, food: Food, foods: dict[str, Food]) -> tuple[float, str, str]:
+    """(factor, provenance, source) of a food's yield from another: stated, or the portion's grams over
+    the bought food's weight per item."""
+    y = food.yield_from
+    if y.factor is not None:
+        return y.factor, y.status, y.source
+    portion = _portion(fdc, food.fdc, y.portion)
+    each = measure_value(fdc, foods[y.food].each)
+    grams = portion["grams"] / portion["amount"]
+    return round(grams / each, 6), "calculated", (
+        f"{_describe(fdc, food.fdc)} {y.portion!r} {grams:g} g, over {y.food}'s weight per item "
+        f"{each:g} g ({measure_source(fdc, foods[y.food].each)})")
 
 
 def _keeps(raw, where: str, shelf_table: dict | None, problems: list[str]) -> tuple[int, bool] | None:
@@ -622,8 +679,12 @@ def read_vocabulary(path: str, *, check_subset: bool = True, check_table: bool =
     table (check_table, which needs check_subset)."""
     with open(path, "rb") as fh:
         data = tomllib.load(fh)
-    fdc = table = shelf_table = None
+    fdc = table = shelf_table = trim_table = None
     root = os.path.dirname(os.path.dirname(os.path.abspath(path)))
+    pinned = (data.get("yields") or {}).get("table")
+    if pinned and os.path.exists(os.path.join(root, pinned)):      # made by tools/yield_extract.py, where SR28 is reachable
+        with open(os.path.join(root, pinned)) as fh:
+            trim_table = json.load(fh)
     if check_subset:
         cfg = data.get("source") or {}
         subsets = []
@@ -639,7 +700,7 @@ def read_vocabulary(path: str, *, check_subset: bool = True, check_table: bool =
         if check_table and pinned:
             with open(os.path.join(root, pinned)) as fh:
                 shelf_table = json.load(fh)
-    return parse_vocabulary(data, fdc, table, shelf_table)
+    return parse_vocabulary(data, fdc, table, shelf_table, trim_table)
 
 
 # -- writing ---------------------------------------------------------------
@@ -863,6 +924,7 @@ def import_vocabulary(client, vocabulary: Vocabulary) -> Imported:
         _write_retention(sync, vocabulary, food_ids, method_ids, nutrient_ids, kinds["RetentionFactor"])
     if vocabulary.shelf_table:
         _write_shelf_lives(sync, vocabulary, food_ids)
+    _write_yields(sync, client, vocabulary, food_ids, method_ids)
     return Imported(sync.counts, sync.affected)
 
 
@@ -879,6 +941,52 @@ def _retire_superseded_measures(sync: Sync, measures: dict[tuple[str, str], str]
             continue
         sync.delete("DefaultSpecification", spec, key[0])
         value = sync.rows("QuantitySpecification").get((spec.get("hasValue") or {}).get("name"))
+        if value:
+            sync.delete("QuantitySpecification", value)
+
+
+def _write_yields(sync: Sync, client, vocabulary: Vocabulary, food_ids: dict, method_ids: dict) -> None:
+    """Each food's trim and yield from another food as Yield defaults (mealplanner/yields.py, J41). They
+    change what a shopping list buys, not a recipe's nutrition, so they mark no food as changed. A
+    default of either shape on a food of the file that the file no longer gives is deleted, with its
+    value. Nothing is made when no food has either, and none is there to remove."""
+    in_file = {food_ids[f.name] for f in vocabulary.foods}
+    have = sync.rows("DomainType").get(YIELD_KIND)
+    if not have and not any(f.trim or f.yield_from for f in vocabulary.foods):
+        return
+    kind = have["id"] if have else sync.ensure("DomainType", YIELD_KIND, {"hierarchy": _hierarchy(client, "Default Kind")})
+    foods = {f.name: f for f in vocabulary.foods}
+    wanted: set[str] = set()
+    for food in vocabulary.foods:
+        fid = food_ids[food.name]
+        if food.trim:
+            t = food.trim
+            name = f"{food.name}{TRIM_SUFFIX}"
+            wanted.add(name)
+            qty = sync.ensure("QuantitySpecification", f"{name} value", {"value": t.factor, "unit": "ratio", "status": "default"})
+            sync.ensure("DefaultSpecification", name, {
+                "forType": fid, "hasKind": kind, "hasValue": qty, "keyedBy": [method_ids[TRIM_METHOD]], "targetType": fid,
+                "provenance": t.status, "source": f"{t.source}; {t.factor:g} of the food as bought is what a recipe weighs; "
+                                                  f"cut away: {t.what}"})
+        if food.yield_from:
+            y = food.yield_from
+            factor, status, source = yield_figure(vocabulary.fdc, food, foods)
+            name = yield_name(y.food, y.method, food.name)
+            wanted.add(name)
+            qty = sync.ensure("QuantitySpecification", f"{name} value", {"value": factor, "unit": "ratio", "status": "default"})
+            sync.ensure("DefaultSpecification", name, {
+                "forType": food_ids[y.food], "hasKind": kind, "hasValue": qty, "keyedBy": [method_ids[y.method]],
+                "targetType": fid, "provenance": status, "source": f"{source}: a gram of {y.food} gives {factor:g} g of {food.name}"})
+    methods = {m.name for m in vocabulary.methods}
+    for spec in list(sync.rows("DefaultSpecification").values()):
+        name = spec["name"]
+        parts = name.split(" -- ")
+        ours = name.endswith(TRIM_SUFFIX) or (len(parts) == 3 and parts[1] in methods)
+        if ((spec.get("hasKind") or {}).get("id") != kind or (spec.get("forType") or {}).get("id") not in in_file
+                or name in wanted or not ours or not spec.get("targetType")):
+            continue
+        sync.delete("DefaultSpecification", spec)
+        value = sync.rows("QuantitySpecification").get(f"{name} value")
         if value:
             sync.delete("QuantitySpecification", value)
 

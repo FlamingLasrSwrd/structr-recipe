@@ -112,6 +112,7 @@ python3 tools/install_pages.py && python3 tools/install_methods.py   # the pages
 python3 tools/check_households.py   # dev only: two test households book and read as themselves through the methods, kept apart (docs/methods.md)
 python3 tools/check_instructions.py # the recipe page writes instructions word for word as mealplanner/instructions.py (any instance)
 python3 tools/fdc_extract.py        # after adding a food: re-pins data/fdc/ from the datasets in .cache/fdc/ (loads the FNDDS JSON, ~450 MB)
+python3 tools/yield_extract.py --fetch  # pins USDA SR28's refuse for the foods with a trim into data/yields/sr28.json (ars.usda.gov; blocked from the cloud)
 python3 tools/price_extract.py      # after changing data/prices.toml: re-pins data/prices/ (--fetch asks the BLS API first)
 ```
 

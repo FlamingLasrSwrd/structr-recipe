@@ -33,9 +33,28 @@
 #   parent   default "Food", the root every food sits under; a food USDA's retention factors apply
 #            to sits under its retention class
 #   [food.retention]  on a retention class: the USDA row for each heat method (J30)
+#   trim     what of the food as bought is cut away before a recipe weighs it (J41; mealplanner/yields.py):
+#            { refuse = percent of the food as bought, what = "skin and ends", source, status }. A recipe and
+#            FDC weigh the edible part; a shop sells the onion with its skin, so a shopping list buys what
+#            it needs divided by (1 - refuse) where it buys by weight. USDA SR28 gives each SR food's
+#            refuse, but its file (FOOD_DES) was not reachable from the session that wrote these
+#            (2026-11-23): each is Claude's recollection of SR28's figure for the food's FDC record,
+#            `estimated`, to be reviewed. tools/yield_extract.py pins SR28's own into [yields] table, and
+#            a pinned figure replaces the estimate, `sourced`.
+#   yield_from  the food this one is bought as, and how much a gram of that gives (J41):
+#            { food, method, portion }, the portion of this food's own FDC record that one item of `food`
+#            yields ("lemon yields" 48 g), over `food`'s weight per item: `calculated`; or { food,
+#            method, factor, source, status }. A shopping list buys `food` for it, unless a package
+#            level sells this food in a size of its own.
 
 [source]
 subsets = ["data/fdc/sr_legacy.json", "data/fdc/foundation.json", "data/fdc/fndds.json", "data/fdc/branded.json"]
+
+[yields]
+# USDA SR28's refuse for the foods with a trim, pinned by tools/yield_extract.py from SR28's FOOD_DES file
+# (ars.usda.gov, public domain). Not there yet: SR28's host was not reachable from the session that
+# added trims (2026-11-23), so each trim's own figure, an estimate, stands until it is.
+table = "data/yields/sr28.json"
 
 [shelf_life]
 # USDA FSIS FoodKeeper data (fsis.usda.gov/shared/data/EN/foodkeeper.json, CC0 1.0): how long a food
@@ -78,7 +97,8 @@ nutrients = [1087, 1089, 1090, 1091, 1092, 1093, 1095, 1106, 1162, 1165, 1166, 1
 stand_ins = { 1106 = 392, 1190 = 417 }
 # Methods that apply no heat: every nutrient above is kept whole (a factor of 1 on "Food").
 no_heat = ["No-Heat Method", "Soaking", "Marinating", "Mixing",
-           "Mechanical Method", "Chopping", "Dicing", "Mincing", "Slicing", "Grating", "Peeling", "Mashing"]
+           "Mechanical Method", "Chopping", "Dicing", "Mincing", "Slicing", "Grating", "Peeling", "Mashing",
+           "Trimming", "Juicing", "Separating"]
 
 # -- methods, parents before children --------------------------------------------------------
 
@@ -159,6 +179,21 @@ parent = "Mechanical Method"
 
 [[method]]
 name = "Mashing"
+parent = "Mechanical Method"
+
+# What a purchased form becomes (J41): a food's trim, keyed by Trimming, and the yield of one food from
+# another (juice from a lemon, whites from eggs). A recipe weighs the edible part already, so no step of
+# one trims; a step that juices or separates may name its method, and its yield is then the input's.
+[[method]]
+name = "Trimming"
+parent = "Mechanical Method"
+
+[[method]]
+name = "Juicing"
+parent = "Mechanical Method"
+
+[[method]]
+name = "Separating"
 parent = "Mechanical Method"
 
 [[method]]
@@ -1225,6 +1260,7 @@ volume = "cup, chopped"
 
 [[food]]
 name = "Garlic"
+trim = { refuse = 13, what = "knob and skin", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 foodkeeper = 285
 parent = "Root vegetables"
 fdc = 169230                    # SR: Garlic, raw
@@ -1262,6 +1298,7 @@ volume = "tsp"
 
 [[food]]
 name = "Lime"
+trim = { refuse = 16, what = "peel and seeds", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 foodkeeper = 256
 parent = "Citrus fruits"
 fdc = 168155                    # SR: Limes, raw
@@ -1319,6 +1356,7 @@ volume = "tbsp"
 
 [[food]]
 name = "Yellow Onion"
+trim = { refuse = 10, what = "skin and ends", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 foodkeeper = 294
 parent = "Root vegetables"
 fdc = 170000                    # SR: Onions, raw
@@ -1491,6 +1529,7 @@ each = 'Potato medium (2-1/4" to 3-1/4" dia)'
 
 [[food]]
 name = "Sweet potato"
+trim = { refuse = 28, what = "parings and trimmings", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 foodkeeper = 422
 parent = "Sweet potatoes"
 fdc = 168482                    # SR: Sweet potato, raw, unprepared
@@ -1512,6 +1551,7 @@ sources = [{ fdc = 170379, status = "estimated", note = "SR Broccoli raw: what t
 
 [[food]]
 name = "Lemon"
+trim = { refuse = 47, what = "peel and seeds", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 foodkeeper = 256
 parent = "Citrus fruits"
 fdc = 167746                    # SR: Lemons, raw, without peel
@@ -1540,6 +1580,7 @@ each = { fdc = 2709784, portion = "miniature" }               # FNDDS Cucumber r
 
 [[food]]
 name = "Ginger"
+trim = { refuse = 7, what = "scrapings", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 serving = { amount = 4, unit = "g", source = "FDA reference amount (21 CFR 101.12): vegetables used for garnish or flavor (the nearest category)" }
 foodkeeper = 286
 parent = "Root vegetables"
@@ -1548,6 +1589,7 @@ volume = "tsp"
 
 [[food]]
 name = "Red onion"
+trim = { refuse = 10, what = "skin and ends", source = "as Yellow Onion's (SR28's Onions, raw): its own FDC record is a Foundation food, with no refuse" }
 foodkeeper = 294
 parent = "Root vegetables"
 fdc = 790577                    # Foundation: Onions, red, raw
@@ -1579,6 +1621,7 @@ each = "plum tomato"
 
 [[food]]
 name = "Red bell pepper"
+trim = { refuse = 18, what = "stem ends, seeds and core", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 foodkeeper = 296
 parent = "Other vegetables"
 fdc = 170108                    # SR: Peppers, sweet, red, raw
@@ -1587,6 +1630,7 @@ volume = "cup, chopped"   # added 2026-10-31 for the basic recipe set: its own F
 
 [[food]]
 name = "Green bell pepper"
+trim = { refuse = 18, what = "stem ends, seeds and core", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 foodkeeper = 296
 parent = "Other vegetables"
 fdc = 170427                    # SR: Peppers, sweet, green, raw
@@ -1610,6 +1654,7 @@ each = "pepper"
 
 [[food]]
 name = "Avocado"
+trim = { refuse = 33, what = "seed and skin", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 foodkeeper = 250
 parent = "Fresh fruits"
 fdc = 171706                    # SR: Avocados, raw, California (Hass)
@@ -1617,6 +1662,7 @@ each = "fruit, without skin and seed"
 
 [[food]]
 name = "Apple"
+trim = { refuse = 10, what = "core and stem", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 foodkeeper = 248
 parent = "Fresh fruits"
 fdc = 171688                    # SR: Apples, raw, with skin
@@ -1630,6 +1676,7 @@ fdc = 174683                    # SR: Grapes, red or green (European type), raw
 
 [[food]]
 name = "Orange"
+trim = { refuse = 27, what = "peel and seeds", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 foodkeeper = 256
 parent = "Citrus fruits"
 fdc = 169097                    # SR: Oranges, raw, all commercial varieties
@@ -1637,6 +1684,7 @@ each = 'fruit (2-5/8" dia)'
 
 [[food]]
 name = "Orange juice (fresh)"
+yield_from = { food = "Orange", method = "Juicing", portion = "fruit yields" }
 serving = { amount = 240, unit = "ml", source = "FDA reference amount (21 CFR 101.12): fruit juices" }
 foodkeeper = 457
 parent = "Citrus fruits"
@@ -2265,6 +2313,7 @@ sources = [{ fdc = 2707357, status = "estimated", moisture = true, note = "FNDDS
 
 [[food]]
 name = "Carrot"
+trim = { refuse = 11, what = "crown, tops and scrapings", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 foodkeeper = 279
 parent = "Root vegetables"
 fdc = 170393                    # SR: Carrots, raw
@@ -2644,6 +2693,7 @@ volume = "cup, chopped"
 
 [[food]]
 name = "Banana"
+trim = { refuse = 36, what = "skin", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 foodkeeper = 251
 parent = "Fresh fruits"
 fdc = 173944                    # SR: Bananas, raw
@@ -2742,6 +2792,7 @@ volume = "cup"
 
 [[food]]
 name = "Egg white"
+yield_from = { food = "Egg", method = "Separating", portion = "large" }
 foodkeeper = { id = 21, proxy = true }   # the eggs' keeping time, in the shell
 parent = "Eggs"
 fdc = 172183                    # SR: Egg, white, raw, fresh
@@ -2749,6 +2800,7 @@ each = "large"
 
 [[food]]
 name = "Strawberries"
+trim = { refuse = 6, what = "caps and stems", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 foodkeeper = { id = 482, proxy = true }  # raspberries'
 parent = "Fresh fruits"
 fdc = 167762                    # SR: Strawberries, raw
@@ -2764,6 +2816,7 @@ volume = "cup"
 
 [[food]]
 name = "Pineapple"
+trim = { refuse = 49, what = "crown, parings and core", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 parent = "Fresh fruits"
 fdc = 169124                    # SR: Pineapple, raw, all varieties
 volume = "cup, chunks"
@@ -2777,6 +2830,7 @@ volume = "cup, crushed, sliced, or chunks"
 
 [[food]]
 name = "Tangerine"
+trim = { refuse = 26, what = "peel and seeds", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 foodkeeper = 256
 parent = "Citrus fruits"
 fdc = 169105                    # SR: Tangerines, (mandarin oranges), raw
@@ -2791,6 +2845,7 @@ volume = "cup slices"
 
 [[food]]
 name = "Pear"
+trim = { refuse = 10, what = "core and stem", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 parent = "Fresh fruits"
 fdc = 169118                    # SR: Pears, raw
 each = "medium"
@@ -2805,6 +2860,7 @@ volume = "cup (not packed)"
 
 [[food]]
 name = "Lemon juice"
+yield_from = { food = "Lemon", method = "Juicing", portion = "lemon yields" }
 serving = { amount = 5, unit = "ml", source = "FDA reference amount (21 CFR 101.12): lemon and lime juice" }
 foodkeeper = { id = 457, proxy = true }  # fresh orange juice's
 fdc = 167747                    # SR: Lemon juice, raw
@@ -2812,6 +2868,7 @@ volume = "cup"
 
 [[food]]
 name = "Lime juice"
+yield_from = { food = "Lime", method = "Juicing", portion = "lime yields" }
 serving = { amount = 5, unit = "ml", source = "FDA reference amount (21 CFR 101.12): lemon and lime juice" }
 foodkeeper = { id = 457, proxy = true }  # fresh orange juice's
 fdc = 168156                    # SR: Lime juice, raw
@@ -2859,6 +2916,7 @@ volume = "cup shredded"
 
 [[food]]
 name = "Green cabbage"
+trim = { refuse = 20, what = "outer leaves and core", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 parent = "Other vegetables"
 fdc = 169975                    # SR: Cabbage, raw
 volume = "cup, shredded"
@@ -2871,12 +2929,14 @@ volume = "cup chopped (1/2\" pieces)"
 
 [[food]]
 name = "Green beans"
+trim = { refuse = 12, what = "ends, strings and trimmings", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 parent = "Other vegetables"
 fdc = 169961                    # SR: Beans, snap, green, raw
 volume = "cup 1/2\" pieces"
 
 [[food]]
 name = "Zucchini"
+trim = { refuse = 5, what = "ends", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 parent = "Other vegetables"
 fdc = 169291                    # SR: Squash, summer, zucchini, includes skin, raw
 each = "medium"
@@ -2884,6 +2944,7 @@ volume = "cup, sliced"
 
 [[food]]
 name = "Celery"
+trim = { refuse = 11, what = "root, leaves and trimmings", source = "Claude's recollection of USDA SR28's refuse for this FDC record (FOOD_DES), not checked against the file" }
 parent = "Other vegetables"
 fdc = 169988                    # SR: Celery, raw
 each = "stalk, medium (7-1/2\" - 8\" long)"

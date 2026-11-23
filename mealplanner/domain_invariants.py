@@ -102,10 +102,9 @@ import re
 #   own formula (data-model.md's Recipes/plans/policies table),
 #   including a documented resolution of an ambiguity in how it reads
 #   ("StockPolicy shortfalls... - eligible on-hand" would double-
-#   subtract on-hand taken literally) and a documented scope cut
-#   (purchased-form vs. required-form yield division, not built --
-#   no vocabulary exists yet for a Type's purchased form). See that
-#   module's docstring for both.
+#   subtract on-hand taken literally). The purchased-form vs.
+#   required-form yield division is the shopping list's
+#   (mealplanner/shopping.py and yields.py, data-model.md J41).
 #
 # 29: "A cooking output's NutrientContent is always derived."
 #   Measurement.onCreate: if isAboutQuality's hasKind sits in the

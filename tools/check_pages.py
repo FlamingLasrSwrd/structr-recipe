@@ -19,7 +19,8 @@ session) and compares the data block each prints (#page-data) with Python's answ
               Buy offers (#buy-data), against products.buyable, and the unit it picks (#buy-units), buy_unit;
               and what its barcode box names (#scan-data) for every product's barcode, against products.find
   shopping    shopping.shopping_list: each food to buy, what is needed and on hand, the packages it is
-              bought in at the default package level (packages.default_level), what is left of them,
+              bought in at the default package level (packages.default_level) and their weight as
+              bought, what it is bought to make (a food another is bought as), what is left of them,
               its cost and until when it keeps, the cost at "Home prices" where it exists, and what
               the pantry covers; a food a StockPolicy tops up is left out, since the page applies no
               policy (and says so)
@@ -310,9 +311,13 @@ def check_shopping(client, week: dict, problems: list[str], shown=None, who: str
         if row is None:
             continue
         for key, value in (("buy", line.buy), ("need", line.need), ("have", line.have), ("cost", line.cost),
-                           ("bought", line.bought), ("left", line.left), ("left_cost", line.left_cost)):
+                           ("bought", line.bought), ("left", line.left), ("left_cost", line.left_cost),
+                           ("as_bought", line.as_bought)):
             if not close(row[key], value):
                 problems.append(f"shopping {week['name']!r}, {line.food}: {key} by {who} {row[key]!r}, is {value!r}")
+        made, want_made = sorted((food, grams) for food, grams in row["made"]), sorted(line.made)  # the two walk foods in their own order
+        if [f for f, _ in made] != [f for f, _ in want_made] or not all(close(a, b) for (_, a), (_, b) in zip(made, want_made)):
+            problems.append(f"shopping {week['name']!r}, {line.food}: bought to make {made!r} by {who}, is {line.made!r}")
         if [(p["count"], p["label"]) for p in row["packages"]] != line.packages or row["keeps_opened"] != line.keeps_opened:
             problems.append(f"shopping {week['name']!r}, {line.food}: packages by {who} {row['packages']!r} "
                             f"(opened {row['keeps_opened']!r}), are {line.packages!r} (opened {line.keeps_opened!r})")

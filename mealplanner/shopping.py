@@ -14,9 +14,19 @@ in: the packages that leave least over, and what will be left of them beyond wha
 cost, and until when it keeps (left_over). A food the recipes count and no level gives a size is
 bought in whole items; anything else is bought as much as is needed. The cost is of what is bought.
 
-Known limits, as the model's: amounts are in the form the recipe needs them, not the form bought
-(net_requirements' note on trimming; docs/todo.md, "What ingredients are sold in", stage 3). Leftover
-meals add nothing: they eat what an earlier cook made.
+What is bought is the form a shop sells (mealplanner/yields.py, data-model.md J41, stage 3 of
+docs/todo.md's "What ingredients are sold in"). A food another food yields (lemon juice, egg whites),
+and that the package level sells in no size of its own, is bought as that food: what the pantry does
+not cover of it, divided by the yield, joins that food's line, and stock of that food counts against
+it. A food with a trim (an onion's skin) is bought by weight as it is sold: a package by weight or
+volume holds that fraction of what a recipe weighs, and a need bought loose is divided by it, so the
+grams a line buys, has left over and is priced by stay those a recipe weighs. A count of items is of
+the edible part already. Leftover meals add nothing: they eat what an earlier cook made.
+
+Known limits: one step of yield only (a food yielded by a food yielded by another is not followed);
+a price is read per gram as a recipe weighs it, as Purchase to Plate's are, so an owner's price for a
+trimmed food, stated per gram as bought, prices it a little low; and the pantry books what is bought
+as it is weighed, so stock of a trimmed food bought by weight is counted with its trimmings.
 """
 
 from __future__ import annotations
@@ -33,6 +43,7 @@ from mealplanner.packages import choose, food_packages
 from mealplanner.prices import food_price
 from mealplanner.reservation import acquisition, resolve_stock_policy
 from mealplanner.unit_conversion import UNIT_TABLE, convert_to_grams
+from mealplanner.yields import edible_fraction, made_from
 from structr_client import ReadCache
 
 GRAMS_PER_LB = 453.592
@@ -69,15 +80,21 @@ class Line:
     left_cost: float | None = None  # dollars of what is left over
     keeps_until: datetime | None = None   # when what is left over is past its shelf life
     keeps_opened: bool = False      # ...as an opened package (else unopened); both from its first use
+    made: list[tuple[str, float]] = field(default_factory=list)   # (food, grams of it): what this is bought to make
+    edible: float = 1.0             # of a gram as bought, what a recipe weighs (its trim)
+    trimmed: str = ""               # what the trim cuts away
+    as_bought: float | None = None  # grams as bought: the packages' weight, the items', or the loose need over `edible`
 
     def amount(self) -> str:
         if self.packages:
             sizes = " + ".join(f"{n} x {label}" for n, label in self.packages)
-            return f"{sizes} (about {self.bought:,.0f} g)"
+            return f"{sizes} (about {self.as_bought if self.as_bought is not None else self.bought:,.0f} g)"
         grams = self.buy if self.buy > 0 else self.need
         if self.each:
             count = math.ceil(grams / self.each - 1e-9)
             return f"{count} (about {self.bought or grams:,.0f} g)"
+        if self.as_bought is not None and self.edible < 1:
+            return f"{_grams_text(self.as_bought)} as bought"
         return _grams_text(grams)
 
 
@@ -132,21 +149,30 @@ def left_over_keeps(client, food_id: str, first_use: datetime) -> tuple[datetime
 
 def _round_up(client, line: Line, root: str, packages: dict | None) -> None:
     """Set what is bought of a line to buy: whole packages of the sizes its food is sold in (choose),
-    or whole items for a food the recipes count, or as much as is needed."""
-    sizes = []
+    or whole items for a food the recipes count, or as much as is needed. A food with a trim is
+    bought as it is sold: a package by weight or volume holds `edible` of its weight as a recipe
+    weighs it, and a loose need is bought over `edible`; a count of items is of the edible part.
+    `bought` and `left` are in grams as a recipe weighs them, `as_bought` as the shop weighs them."""
+    found = []
     for p in (food_packages(client, packages, root) if packages is not None else ()):
         grams = convert_to_grams(client, root, p.amount, p.unit)
         if grams:
-            sizes.append((grams, p))
+            found.append((grams, p, UNIT_TABLE[p.unit][0] == "count"))
+    if any(not counted for _, _, counted in found) or not (found or line.each):    # bought by weight
+        line.edible, line.trimmed = edible_fraction(client, root)
+    sizes = [(grams if counted else grams * line.edible, grams, p) for grams, p, counted in found]
     if sizes:
-        counts = choose([g for g, _ in sizes], line.buy)
-        line.packages = [(n, p.label) for n, (_, p) in zip(counts, sizes) if n]
-        line.estimated_size = any(p.estimated for n, (_, p) in zip(counts, sizes) if n)
-        line.bought = sum(n * g for n, (g, _) in zip(counts, sizes))
+        counts = choose([held for held, _, _ in sizes], line.buy)
+        line.packages = [(n, p.label) for n, (_, _, p) in zip(counts, sizes) if n]
+        line.estimated_size = any(p.estimated for n, (_, _, p) in zip(counts, sizes) if n)
+        line.bought = sum(n * held for n, (held, _, _) in zip(counts, sizes))
+        line.as_bought = sum(n * grams for n, (_, grams, _) in zip(counts, sizes))
     elif line.each:
         line.bought = math.ceil(line.buy / line.each - 1e-9) * line.each
+        line.as_bought = line.bought
     else:
         line.bought = line.buy
+        line.as_bought = line.buy / line.edible
     line.left = max(0.0, line.bought - line.buy)
 
 
@@ -192,15 +218,48 @@ def shopping_list(client, meal_plan_id: str, now: datetime, prices: dict | None 
             if start is not None and (d["first"] is None or start < d["first"]):
                 d["first"] = start
             d["optional"] = d["optional"] and bool(spec.get("isOptional"))
+    # A food another yields, and that no package level sells in a size of its own, is bought as that
+    # food (yields.made_from): its pool still counts its own stock first, and what that leaves joins
+    # the other food's line, over the yield, where the other food's stock counts against it.
+    bought_as = {}
+    for root in details:
+        if packages is not None and food_packages(client, packages, root):
+            continue
+        made = made_from(client, root)
+        if made is not None:
+            bought_as[root] = (made, _pool_root(client, made.source))
+    sources = {src for _, src in bought_as.values()}
+    bought_as = {root: v for root, v in bought_as.items() if root not in sources}     # one step: a source is bought as itself
+    needs = acquisition(client, meal_plan_id, now, also=sorted({src for _, src in bought_as.values()}))
+    extra: dict[str, float] = {}
+    made_for: dict[str, list[tuple[str, float]]] = {}
+    for root, (made, src) in bought_as.items():
+        need = needs.get(root)
+        if need is None or need.net < SHORT_G:
+            continue                               # its own stock covers it: on the list as covered
+        name = client.get_all("DomainType", root)["result"].get("name") or root
+        extra[src] = extra.get(src, 0.0) + need.net / made.factor
+        made_for.setdefault(src, []).append((name, need.net))
+        d, s = details[root], details.setdefault(src, {"recipes": [], "first": None, "optional": True, "counted": False})
+        s["recipes"] += [r for r in d["recipes"] if r not in s["recipes"]]
+        if d["first"] is not None and (s["first"] is None or d["first"] < s["first"]):
+            s["first"] = d["first"]
+        s["optional"] = s["optional"] and d["optional"]
+        s["counted"] = s["counted"] or bool(convert_to_grams(client, src, 1, "each"))   # lemons, eggs: whole items
     to_buy, covered, unpriced, not_bought = [], [], [], []
-    for root, need in acquisition(client, meal_plan_id, now).items():
-        if need.demand <= 0 and need.net <= 0:
+    for root, need in needs.items():
+        if root in bought_as and need.net >= SHORT_G:
+            continue                               # bought as another food: on that food's line
+        demand = need.demand + extra.get(root, 0.0)
+        net = max(0.0, demand + need.target - need.eligible)
+        if demand <= 0 and net <= 0:
             continue                               # a policy's pool with nothing to do this week
         d = details.get(root, {"recipes": [], "first": None, "optional": False, "counted": False})
         name = client.get_all("DomainType", root)["result"].get("name") or root
         each = convert_to_grams(client, root, 1, "each") if d["counted"] else None
-        buy = need.net if need.net >= SHORT_G else 0.0
-        line = Line(name, buy, need.demand, need.eligible, need.target, d["first"], d["recipes"], d["optional"], each)
+        buy = net if net >= SHORT_G else 0.0
+        line = Line(name, buy, demand, need.eligible, need.target, d["first"], d["recipes"], d["optional"], each)
+        line.made = made_for.get(root, [])
         if line.buy > 0:
             price = food_price(client, prices, root) if prices is not None else None
             if price is not None and price.quantity.get("value") == 0:
@@ -218,8 +277,9 @@ def shopping_list(client, meal_plan_id: str, now: datetime, prices: dict | None 
             to_buy.append(line)
         else:
             covered.append(line)
+    made_names = {food for line in to_buy for food, _ in line.made}
     for food in list(unquantified):
-        if any(line.food == food for line in to_buy + covered) or food in not_bought:
+        if any(line.food == food for line in to_buy + covered) or food in not_bought or food in made_names:
             del unquantified[food]                 # some recipe gives it an amount: it is on the list already
     covered.sort(key=lambda line: line.food)
     return ShoppingList(meal_plan.get("name") or meal_plan_id, cooks, leftovers, to_buy, covered, unquantified,
@@ -263,6 +323,10 @@ def describe(shopping: ShoppingList, zone, level: str | None = None, package_lev
             extra.append(f"keeps {line.target:,.0f} g in stock")
         if line.optional:
             extra.append("optional")
+        if line.made:
+            extra.append("for " + ", ".join(f"{food} ({grams:,.0f} g)" for food, grams in line.made))
+        if line.edible < 1 and not (line.each and not line.packages):
+            extra.append(f"{line.edible:.0%} of it as bought is used" + (f" (less {line.trimmed})" if line.trimmed else ""))
         extra.append(", ".join(line.recipes) if line.recipes else "the pantry's level")
         amount = line.amount() + ("+" if line.estimated_size else "")
         lines.append(f"  {line.food:<{width}}  {amount:<24} {cost:>8}   {'; '.join(extra)}")
