@@ -74,8 +74,9 @@ named with " #2", the next " #3" (2026-11-22; before that only the first was wri
 
 The owner asked (2026-11-13) for barcode scanning to stock the pantry, as Grocy has, with scanning
 optional: "A user should be able to set the specific brand/barcode if they want or default use a
-generic version." This is its first step, the data: what a barcode means here. Nothing scans yet
-(`docs/todo.md`, "Barcode scanning for the pantry").
+generic version." Its first step was the data, what a barcode means here; the second, 2026-11-23, a
+barcode box on the pantry page ("Scanning on the pantry page", below). The steps still to come are in
+`docs/todo.md`, "Barcode scanning for the pantry".
 
 **A product is a packaged food**, written with what the schema has had since `scripts/29a`, so no
 instance needs a migration (data-model.md §3, §6, §10: "a GTIN denotes a packaged-offering Type";
@@ -113,8 +114,8 @@ scanner. A wrong check digit is refused as misread. So is a number a shop gives 
 starting 2 or 4): it is no product's, and on meat, cheese or produce weighed in the shop it holds
 that pack's weight or price.
 
-Products come from a file. Which products a household buys is its own data, so the owner's is
-`private/products.toml`, which git ignores:
+Products are added on the pantry page as they are scanned (below), or come from a file. Which products a
+household buys is its own data, so the owner's file is `private/products.toml`, which git ignores:
 
 ```toml
 [[product]]
@@ -145,11 +146,42 @@ again with nothing written; two dozen eggs scanned were 1,200 g of Egg on hand, 
 page's old rule put back on purpose, named the two foods it then dropped; `check_bookings.py` found the
 pages' bookings unchanged.
 
-What this step leaves, each in `docs/todo.md`: a scan box on the pantry page and a phone's camera; an
-unknown barcode looked up (Open Food Facts) and matched to a food by the user; a product's own label
-nutrition (FDC's branded foods carry the same GTINs); where a product is kept by default (a scan
-books to the fridge unless `--storage` says otherwise, as Buy does); a product added from the page
-rather than a file; and a shop's own weighed packs.
+### Scanning on the pantry page
+
+Step 2 (2026-11-23). Buy has a barcode box. A USB or Bluetooth scanner types into it as a keyboard does
+and ends with Enter, which sends it; a barcode can also be typed. Scanning stays optional: Buy by name
+works as before.
+
+- **A barcode a product has** fills Buy in with the product and what one package holds (12 each, 400 g),
+  read as `products.find` reads it, whatever length is printed. Change the amount for more than one
+  package, choose where it is kept, and **Add to pantry**: that is the ordinary purchase. A unit Buy does
+  not offer is given in grams, or left for the hand where it does not convert.
+- **A barcode no product has** opens **Add a product** with it: a name as on the package, the food it is
+  a kind of (offered as typed: any food Buy offers that is no product itself), and what one package
+  holds. Adding writes what `products.add_product` writes, which is what the products file would write for
+  that product, its package size sourced to the page ("the package, as entered on the pantry page"), and
+  Buy is then filled in with it. The same name with a new barcode adds the barcode to that product, and
+  writes nothing else: it must be of the same food and hold the same, since a package of another size is
+  another product. Nothing is ever taken away from the page; the products file still does that.
+- **A misread barcode**, or a shop's own number for a weighed pack, is named as the problem it is.
+
+After a scan the barcode box keeps the cursor, so the next package can be scanned at once; on a plain
+visit it does not, so a phone does not open its keyboard every time.
+
+Adding a product writes shared vocabulary (a Type in the Food Identity hierarchy), so it is the page's
+alone: the `bookPantry` method, which books for a household as the caller, does not offer it. Like every
+page booking it runs once per form (its token) and after the bookings' lock.
+
+Checked: `tests/test_pantry_scan.py` runs the page over a stand-in graph (and reads 400 random barcodes as
+`products.normalize` does); `tests/test_products.py` tests `add_product`. On an instance,
+`tools/check_bookings.py` adds a product through the page and through Python, a second barcode, the
+same form again and two refusals, compares what each wrote field by field, and scans each barcode;
+`tools/check_pages.py` scans every product's barcodes, as stored and as printed, against `products.find`.
+
+What is left, each in `docs/todo.md`: a phone's camera (step 3); an unknown barcode looked up (Open Food
+Facts) and matched to a food by the user; a product's own label nutrition (FDC's branded foods carry
+the same GTINs); where a product is kept by default (a scan books to the fridge unless `--storage` says
+otherwise, as Buy does); and a shop's own weighed packs.
 
 ## What does not fit yet
 
@@ -179,9 +211,9 @@ These are findings, recorded rather than worked around (CLAUDE.md, "When somethi
    leftover portion; leftovers stay where the planner keeps them, as leftover entries of the week.
 6. **Not built yet:** undoing a booking (Grocy's journal), a journal on the page, prices paid
    (`PriceObservation` exists in the schema but nothing writes one: J27), minimum stock on the page
-   (StockPolicy target levels are applied by `tools/shopping_list.py` only), and scanning: a product
-   and its barcodes can be recorded and bought by barcode from the terminal ("Products and barcodes",
-   above), but no page scans one yet.
+   (StockPolicy target levels are applied by `tools/shopping_list.py` only), and a phone's camera: a product
+   can be scanned on the pantry page with a scanner that types, or by barcode from the terminal
+   ("Products and barcodes", above), but not yet through a phone's camera.
 
 An Allocation's amount is an `observed` Measurement about no Quality, as in data-model.md §10 and
 `scripts/15e`: about the portion's mass Quality it would be read as a new weighing. Invariant 2

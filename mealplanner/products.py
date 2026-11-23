@@ -61,6 +61,7 @@ from structr_client.client import UNSAFE_EXACT_MATCH_CHARS
 
 PACKAGE_SIZE = "PurchaseQuantity"       # the Default-Kind Type (seed_vocabulary.py, data-model.md Sec 8)
 SOURCE = "the package, as the products file states it"
+PAGE_SOURCE = "the package, as entered on the pantry page"     # add_product, and pages/lib/55_products.js
 # The first digits of a GTIN-13 that GS1 leaves to each shop for its own packs (restricted circulation).
 SHOP_PREFIXES = ("02", "04", "2")
 # The units the pantry page's Buy offers, in its order (pages/lib/50_pantry.js UNITS).
@@ -195,7 +196,7 @@ def read_products(path: str) -> list[Product]:
         return parse_products(tomllib.load(fh), path)
 
 
-def _gtin_identifiers(client) -> list[dict]:
+def gtin_identifiers(client) -> list[dict]:
     """Every Identifier of the GTIN scheme, fully loaded."""
     return [row for row in client.get_all("Identifier")["result"]
             if row.get("type") == "Identifier" and (row.get("identifierScheme") or {}).get("name") == GTIN]
@@ -203,7 +204,7 @@ def _gtin_identifiers(client) -> list[dict]:
 
 def product_ids(client) -> set[str]:
     """The Types a GTIN denotes: the products."""
-    return {row["denotesType"]["id"] for row in _gtin_identifiers(client) if row.get("denotesType")}
+    return {row["denotesType"]["id"] for row in gtin_identifiers(client) if row.get("denotesType")}
 
 
 def _foods(client) -> list[dict]:
@@ -243,11 +244,11 @@ def buy_units(client) -> dict[str, str]:
     return {t["name"]: buy_unit(client, t["id"], packages) for t in _foods(client) if t["name"] in offered}
 
 
-def import_products(client, products: list[Product]) -> dict[str, int]:
+def import_products(client, products: list[Product], source: str = SOURCE) -> dict[str, int]:
     """Write the products, or raise ProductError naming every problem before anything is written."""
     sync = Sync(client)
     types = sync.rows("DomainType")
-    in_scheme = {row["identifierValue"]: row for row in _gtin_identifiers(client)}
+    in_scheme = {row["identifierValue"]: row for row in gtin_identifiers(client)}
     is_product = {row["denotesType"]["id"] for row in in_scheme.values() if row.get("denotesType")}
     in_file = {p.name for p in products}
     problems: list[str] = []
@@ -295,7 +296,50 @@ def import_products(client, products: list[Product]) -> dict[str, int]:
             "value": p.amount, "unit": p.unit, "status": "default"})
         sync.ensure("DefaultSpecification", f"{p.name} package size", {
             "forType": product, "hasKind": types[PACKAGE_SIZE]["id"], "hasValue": size, "provenance": "sourced",
-            "source": SOURCE})
+            "source": source})
+    return sync.counts
+
+
+def add_product(client, name: str, food: str, barcode, amount, unit: str) -> dict[str, int]:
+    """One barcode added from the pantry page (pages/lib/55_products.js PRODUCT_ACTIONS; docs/pantry.md):
+    the product of this name gets it, made below `food`, holding `amount` `unit`, if it is new. Writes what
+    import_products writes for a file naming that product, with PAGE_SOURCE, except that it never takes a
+    barcode away and changes nothing of a product that exists: one already of this name must be of the
+    same food and hold the same, since a package of another size is another product. ProductError naming
+    every problem, before anything is written. tools/check_bookings.py compares the page with this."""
+    try:
+        (product,) = parse_products({"product": [{"name": name, "food": food, "barcodes": [barcode],
+                                                  "amount": amount, "unit": unit}]}, "the product")
+    except ProductError as exc:
+        raise ProductError(exc.problems) from None
+    gtin = product.barcodes[0]
+    existing = [row for row in client.get("/structr/rest/DomainType", params={"name": name})["result"]
+                if row.get("type") == "DomainType"]
+    is_product = product_ids(client)
+    mine = client.get_all("DomainType", existing[0]["id"])["result"] if existing and existing[0]["id"] in is_product else None
+    if mine is None:
+        return import_products(client, [product], PAGE_SOURCE)
+    problems = []
+    if (mine.get("parent") or {}).get("name") != product.food:
+        problems.append(f"{name}: it is a product of {(mine.get('parent') or {}).get('name')!r} already, not of {product.food!r}")
+    size = resolve_default(client, mine["id"], dt(client, PACKAGE_SIZE))
+    held = (size.quantity.get("value"), size.quantity.get("unit")) if size else None
+    if held is None:
+        problems.append(f"{name}: no package size is known for it")
+    elif held != (product.amount, product.unit):
+        problems.append(f"{name}: one package of it holds {held[0]:g} {held[1]} already; a package of another size is "
+                        "another product, so name it apart")
+    for row in gtin_identifiers(client):
+        owner = row.get("denotesType")
+        if row.get("identifierValue") == gtin and owner and owner["id"] != mine["id"]:
+            problems.append(f"{name}: barcode {gtin} already belongs to {owner['name']!r}")
+    if problems:
+        raise ProductError(problems)
+    sync = Sync(client)
+    scheme = sync.ensure("ConceptScheme", SCHEME, {})
+    gtin_scheme = sync.ensure("Concept", GTIN, {"inScheme": scheme})
+    sync.ensure("Identifier", f"{GTIN} {gtin}", {"identifierValue": gtin, "identifierScheme": gtin_scheme,
+                                                 "denotesType": mine["id"]})
     return sync.counts
 
 
