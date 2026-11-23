@@ -1,6 +1,6 @@
 # Plans for the time study's suggestions
 
-**Status: plans, for the owner to choose from (2026-11-23).** The owner asked, after reading
+**Status: plans, for the owner to choose from (2026-11-23; revised the same day on the owner's answers).** The owner asked, after reading
 `docs/time-study.md`: "Make a plan for each of the suggestions." Nothing here is built. Each plan says
 what it would do, in what stages, which files it touches, whether it changes the schema, how it would be
 checked (the project's rule: the pages and Python do the same thing, and a check compares them), what the
@@ -12,28 +12,20 @@ minutes a week once most barcodes are known.
 
 | # | Plan | Saves (A, B, C) | Size | Schema change | Waits on the owner for |
 |---|---|---|---|---|---|
-| 0 | Measure one real week first | | an hour of the owner's time | no | doing it |
 | 1 | A shopping-list tick books the purchase | 6, 9, 15 | medium | no | what an untick does |
-| 2 | Bookings without a page reload | 3, 5, 8 | medium | no | bookings written as the signed-in person |
+| 2 | Bookings without a page reload | 3, 5, 8 | medium | no | none: bookings for the household, naming who (decided 2026-11-23) |
+| 8 | Scanning an item as it is used | 1, 2, 4 | medium, after 2 | no | how a used amount is offered |
 | 6a | The shopping list in store order | 5, 10, 15 | small | no | the order of the owner's shop |
 | 3 | The food for a new product chosen, not typed | 2, 3, 4 (7, 13, 23 in week 1) | mostly done | no | whether the FDC table is worth it |
-| 4 | "Plan the week" on a page | 5, 7, 10 | large | probably not | where the planner runs; proposals in the graph |
-| 6b | Online grocery ordering | 20, 45, 85 | staged: small to large | no | which shop; sending the list out |
+| 4 | "Plan the week" on a page | 5, 7, 10 | large | probably not | where the planner runs (options below); proposals in the graph |
 | 5 | Use and Count in packages, and the daily baseline drawn from stock | 2, 4, 8 | medium | no | what "as planned" books |
 | 7 | The week's cooking time weighed | cooking: 0, 145, 150 | none to small | no | the objective (the owner's call) |
+| 6b | Online grocery ordering: **later** (the owner, 2026-11-23: "not a priority") | 20, 45, 85 | staged: small to large | no | which shop; sending the list out |
 
-1 and 2 belong together: both change how food gets into the pantry, and 2 makes 1's taps instant. 6a is
-cheap and independent. 6b's first stage is cheap too, and its later stages make 1's ticks unnecessary for
-an order placed online.
+1 and 2 belong together: both change how food gets into the pantry, and 2 makes 1's taps instant. 8
+builds on 2 for food going out. 6a is cheap and independent. 6b waits (the owner, 2026-11-23).
 
-## 0. Measure one real week first
-
-Every per-item time in the study is an estimate. Before building, the owner books one week's shopping
-from the phone with a stopwatch (or a screen recording), writing down, for a handful of each: a product
-the instance knows, a new product (with the type-ahead picker of PR #13 installed), and food bought by
-name; and for the week, how many lines were new, how many Uses and Counts were needed, and how long the
-planning took. That replaces the study's guesses with the owner's own numbers and may reorder this list.
-A small form to record it in (`private/`) is enough; nothing to build.
+**Measuring first was dropped:** the owner, 2026-11-23: "Estimates are fine for now."
 
 ## 1. A shopping-list tick books the purchase
 
@@ -52,10 +44,29 @@ the shopping page is only remembered in that browser, and every item is entered 
   stored, except a product's own choice.
 - **Stage 2: "Put everything ticked into the pantry"**, one button, for a list ticked in the shop (ticks
   remembered as now, then booked together, each line with its own token).
-- **Untick.** Undoing a purchase needs the journal that is not built (`docs/todo.md`, "A pantry journal,
-  and undoing a booking"). Until then: an untick within a few minutes removes what that booking made (it
-  has its token, and nothing has drawn on it yet); later, a Use or a Count corrects it. **The owner's
-  decision.**
+- **How a purchase is recorded now** (`docs/pantry.md`, "What each action writes here"; data-model.md
+  §4.1.1, §5): a `Process` of kind *Purchase* at a `TemporalRegion`, naming the Person who booked it
+  (`wasAssociatedWith`); a `PortionOfSubstance` that begins to exist during it, `locatedIn` a
+  `ContainerObject` with its storage condition and *Sealed*; and the portion's Mass `Quality` with an
+  `observed` `Measurement` of the amount bought. Five or six nodes, every one named after the booking's
+  token ("Purchase 3f9a -- Milk"), which is what makes a form sent twice write nothing new.
+- **Can it be undone?** Not today: nothing on the pages or in the tools takes a booking back. The model
+  leaves that to the application (data-model.md §12: "Application-level undo is edit history, not domain
+  semantics"). Because every node a purchase made carries its token, **undoing a purchase that nothing has
+  drawn on yet is easy**: delete the nodes of that token, once no Use, cook, discard or Count refers to its
+  portion. After something has drawn on it, the purchase happened and stays; a Use or a Count corrects
+  the amount, which is the compensating booking `docs/todo.md` describes ("A pantry journal, and undoing
+  a booking"). So an untick soon after the tick removes that purchase; a later one is refused with the
+  reason, and points to Use, Count or Discard. **The owner's decision.**
+- **An alternative to ticking: scanning the receipt** (the owner, 2026-11-23; `docs/todo.md`, "Scanning a
+  grocery receipt", a later build). A photo of the receipt, read as text, each line matched to a product or
+  food and booked as plan 1's "book everything" does. It catches what was bought off the list too, and
+  each line's price paid (`PriceObservation`, J27, which nothing writes yet). What makes it hard: a
+  receipt names items in a shop's own abbreviations ("GV WHL MLK 1G"), so each line is matched by hand the
+  first time and remembered for that shop after, the same falling curve as barcodes; reading the text
+  well needs either a reader in the browser (Tesseract.js, as the camera's reader is served from the
+  instance) or a vision service, which sends the receipt out. A shop's emailed or in-app receipt, where it
+  carries full names or barcodes, is easier than a photo.
 - **Files:** `mealplanner/pantry.py` (a `buy_line` from a shopping line) and its twin in
   `pages/lib/50_pantry.js` and `90_shopping.js`, `pages/shopping.js`; a storage rule shared by the
   pantry's Buy, which would then default to it too.
@@ -84,10 +95,23 @@ closes with every reload.
 - **Stage 3: a lighter page.** The list of every food Buy offers (499 foods, most of the 158 KB) moves into
   a file served once and kept by the browser, as the camera's files are (`pages/files/`), so a page that
   is drawn again sends a fraction of it.
-- **The decision:** the method books **as the signed-in person**, so what it writes belongs to their
-  household and is visible to it, where the page books as the superuser (`docs/pages.md`). That is the
-  direction of Path S (`docs/architecture-decision.md`), and `tools/check_households.py` already checks it,
-  but the owner's instance would then hold bookings made both ways. Each member needs the method's grant.
+- **Households and people** (the owner, 2026-11-23: "Bookings need to be specific to the household, but
+  tracking users would be better"). Both, and this is the way to both:
+  - *Who booked it* is recorded already for a purchase, a use, a discard and a cook: each `Process` is
+    `wasAssociatedWith` the signed-in Person (since 2026-11-04, pages and methods alike). A Count, an
+    Open and a Move write no Process, so they name no one; giving each a Process of its own
+    (`docs/verification-and-sharing.md` §3.1) closes that.
+  - *Whose it is:* today a page books as the superuser (`$.doPrivileged`) and marks what it writes visible
+    to every signed-in user, so on one instance every account sees every household's pantry. The methods
+    (`bookPantry` and the rest) book **as the caller**, private to the caller's household and granted to
+    its Group; `tools/check_households.py` checks two test households cannot see or book on each
+    other's. That is **Path S** (`docs/architecture-decision.md`, the owner's decision of 2026-10-26: the
+    work a request does runs in Structr's JavaScript methods next to the data, under Structr's own
+    accounts and access control; Python keeps the planner's search and the batch imports). Stages 1 to 3
+    are built; **stage 5**, access control on the real data (a migration marking the owner's data as the
+    household's, the pages without `$.doPrivileged`), is not. Booking through the methods here is a step
+    of stage 5; the migration of what is already there comes with it, so the instance does not hold
+    bookings made both ways for long. Each member needs the method's grant.
 - **Files:** `pages/pantry.js` and a new script in `pages/files/`, `methods/findProduct.js`, the grants in
   `tools/install_methods.py`.
 - **Checks:** the browser tests run the page in Chromium as `tests/test_pantry_camera.py` does, with the
@@ -132,8 +156,27 @@ step 3). Today planning needs a terminal on the computer that runs Structr: edit
   can read it: the simplest is the proposal file the tool already writes (`planning/proposal.py`), kept as a
   Structr file beside the week, so no schema change; proposed entries in the graph would be another
   modeling question.
-- **Decisions:** where the planner runs; who may ask for a plan (each request records who asked, checked
-  when it runs: `docs/self-hosting.md`'s table); whether a proposal lives in the graph.
+- **Where the planner runs.** Not on a phone or in a browser: CP-SAT is native code, and a week takes
+  about five minutes of search with several hundred megabytes. So on a server, and the planner already has
+  a seam for it: `tools/plan_problem.py` plans from a problem file (the JSON contract) and touches no graph,
+  so the search can run anywhere a problem can be sent. The options (from `docs/self-hosting.md` step 3 and
+  "Security of the backend choices"):
+
+  | Option | How | For | Against |
+  |---|---|---|---|
+  | **A watcher beside Structr** (recommended) | a container in the same compose file, or a service on the computer, notices a request in the graph, plans, writes the proposal back | no open port, no credentials between services; the household's data never leaves the computer; nothing to pay; the computer already has to be on for the pages (8 cores, 24 GB: a solve fits beside the stack) | the request waits for the watcher's next look (seconds); one solve at a time |
+  | A planner web service the page calls | Python on the stack's own network, called by Structr | an answer in the same request | a five-minute call holds a page open; a second service to secure (a shared secret, its own account) |
+  | Structr runs a registered script (`exec()`) | Python, the repository and OR-tools inside Structr's image | no extra container | a Python process per call; changing Structr's image; arguments from a page are an injection risk |
+  | Structr's scheduler | a fixed job, say Sunday evening plans next week | nothing to press | runs as an admin with no permission check; no request from a person |
+  | A worker elsewhere | the problem file sent to a cloud machine or function, the plan sent back | for a weak home computer, and the shape a hosted service would use (a queue of workers) | the problem holds the household's data, which then leaves the house; costs money; a network path to secure |
+  | The search in JavaScript inside Structr | a port | no Python at all | CP-SAT has no JavaScript form; the dependency-free search alone is weaker; its 256 tests would have to be redone |
+
+  The watcher first, with the scheduler as an option on top (a standing request every Sunday). Under Path
+  S it calls an `exportWeek` method for the problem and a `commitWeek` method to write the plan, as the
+  person who asked (`docs/architecture-decision.md` §5a; stage 4's JavaScript half, not built); until those
+  exist it can use the Python extract and commit, as `tools/plan_week.py` does.
+- **Decisions:** the watcher or another option; who may ask for a plan (each request records who asked,
+  checked when it runs: `docs/self-hosting.md`'s table); whether a proposal lives in the graph.
 - **Checks:** a request through the page and the same week through `tools/plan_week.py` give the same
   problem (the planner's JSON contract, `planning/contract.py`, makes that comparable); the watcher's own
   tests with a stand-in instance.
@@ -181,9 +224,10 @@ The list is ordered by the day each food is first needed, which suits cooking an
 - **Saves** about 5, 10 and 15 minutes a week of walking back across the shop (an estimate). Not needed for
   an order placed online.
 
-## 6b. Online grocery ordering
+## 6b. Online grocery ordering (later)
 
-Asked for 2026-11-23 ("Add online grocery ordering integration to the todo list"; `docs/todo.md`). The
+**Not a priority** (the owner, 2026-11-23: "Add it as a feature to be built later and move on"). Kept here
+as planned. Asked for 2026-11-23 ("Add online grocery ordering integration to the todo list"; `docs/todo.md`). The
 largest saving in the study: the app knows exactly what to buy, in whole packages, and only prints it.
 Ordering online turns 30 to 95 minutes in the shop into about 10 of checking an order, and pickup or
 delivery cuts the trip.
@@ -230,3 +274,43 @@ objective change, and the owner's call; nothing here proposes doing that silentl
   §4.5).
 - **Saves** up to about 145 minutes a week of cooking for two people, the largest figure here, at no cost in
   overhead.
+
+## 8. Scanning an item as it is used
+
+Asked to be looked into by the owner (2026-11-23): "if I add a splash of milk to my coffee this morning, I
+can scan the barcode and select '30 ml' from the use menu." Food eaten off the plan is the pantry's
+upkeep cost in the time study, and today booking it means finding the row on the pantry page, opening
+**Change**, and typing grams.
+
+- **What the scan box would do.** A switch beside it, **Buy** or **Use** (it stays on the last one chosen).
+  In Use, a scan reads the product as now (`findProduct`), and shows a small card: the food, which portion
+  it draws from, a row of amounts to tap, and **Use**. Nothing about a product changes: a product is stock
+  of its food, so a scan of any package of that food finds it.
+- **Which portion.** The opened one first, then the soonest to expire, then the oldest, as Grocy does
+  (the carton being poured is the open one; a cook draws soonest to expire, which agrees once one is
+  open). The card names it, and a tap changes it.
+- **The amounts offered:** the ones this household used before for that food (worked out from its earlier
+  Uses, computed, not stored: the second time, "30 ml" is there to tap), then the food's usual serving
+  (240 ml for milk, from `serving` in `data/vocabulary.toml`), then kitchen measures (a teaspoon, a
+  tablespoon, a quarter cup) and "the rest". A volume is weighed through the food's density, as Buy
+  already converts; a food with none is offered in its own units only.
+- **Opened as it is used.** The first Use of a sealed portion marks it *Opened* (Grocy does the same), so
+  the expiry changes to the opened shelf life without a separate **Open**. Expiry still runs from the
+  purchase (`docs/pantry.md`, finding 2).
+- **A barcode no product has**, scanned in Use: "Add a product" as now, or "use it as" a food chosen
+  from the picker, without making a product.
+- **A food with no barcode** (a banana, the butcher's mince): the same card, reached from a short list of
+  the foods used most often lately, with no scan at all; for the most frequent, that list may well be
+  faster than a scan.
+- **Time:** a scan and two taps, about 8 s per use with plan 2's bookings without a reload (about 15 s with
+  today's), against about 25 s through **Change** now, and against nothing when it is left to a monthly
+  Count, which then costs its own time and leaves the pantry and the shopping list wrong in between. For
+  household B's eight uses a week, about 1 minute instead of 3, and a pantry that is right.
+- **Files:** `pages/pantry.js` and the scan script in `pages/files/`; `pages/lib/50_pantry.js` and
+  `mealplanner/pantry.py` (a Use of a food, choosing its portion, the amounts used before); plan 2's
+  method calls. No schema change: a Use writes what it writes now.
+- **Checks:** `tools/check_bookings.py` books "30 ml of milk" from a scan both ways and compares the
+  nodes, and the portion chosen when one is opened and another is not; the browser test scans in Use as
+  `tests/test_pantry_camera.py` scans in Buy; the amounts offered tested over a hand-made history.
+- **The owner's decision:** whether the first Use opens a portion, and whether amounts used before are
+  offered per person or for the household.
