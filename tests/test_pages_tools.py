@@ -119,7 +119,8 @@ class ServedFiles(unittest.TestCase):
         run(self.tool, [], g)                                                   # again: replaced, not added
         (folder,) = g.of("Folder")
         files = sorted(g.of("File"), key=lambda f: f["name"])
-        self.assertEqual([f["name"] for f in files], ["mealplanner-camera.js", "zxing-library-0.23.0.min.js"])
+        self.assertEqual([f["name"] for f in files], ["mealplanner-camera.js", "mealplanner-lookup.js",
+                                                         "zxing-library-0.23.0.min.js"])
         root = os.path.join(os.path.dirname(__file__), "..", "pages", "files")
         for f in files:
             with open(os.path.join(root, f["name"]), "rb") as fh:
@@ -131,7 +132,9 @@ class ServedFiles(unittest.TestCase):
 
     def test_the_page_names_the_files_installed(self):
         lib = (pathlib.Path(__file__).resolve().parents[1] / "pages" / "lib" / "55_products.js").read_text()
-        self.assertIn(f'const CAMERA_FILE = "{self.tool.served_files()[0]}", READER_FILE = "{self.tool.served_files()[1]}";', lib)
+        camera, lookup, reader = self.tool.served_files()
+        self.assertIn(f'const CAMERA_FILE = "{camera}", READER_FILE = "{reader}";', lib)
+        self.assertIn(f'const LOOKUP_FILE = "{lookup}";', lib)
 
 
 class OneScriptPerPage(unittest.TestCase):

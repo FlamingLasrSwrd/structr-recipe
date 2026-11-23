@@ -7,6 +7,11 @@ const SHOP_PREFIXES = ["02", "04", "2"];
 // The pantry page's camera and the barcode reader it loads where the browser has none (pages/files/, served
 // from /mealplanner/ by tools/install_pages.py)
 const CAMERA_FILE = "mealplanner-camera.js", READER_FILE = "zxing-library-0.23.0.min.js";
+// and its look-up of an unknown barcode on Open Food Facts (docs/pantry.md, "Looking up an unknown barcode")
+const LOOKUP_FILE = "mealplanner-lookup.js";
+
+// products.off_source: where a package size taken from Open Food Facts on the pantry page is sourced
+const offSource = (gtin) => "Open Food Facts, barcode " + gtin + ", as checked on the pantry page";
 
 // products.check_digit: from the right, the other digits weigh 3, 1, 3, ...
 function checkDigit(digits) {
@@ -158,7 +163,7 @@ const PRODUCT_ACTIONS = {
                                                                                              status: "default"});
       ensureNode(booking, "DefaultSpecification", name + " package size", {forType: product, hasKind: typeNamed(PACKAGE_KIND),
                                                                            hasValue: size, provenance: "sourced",
-                                                                           source: PAGE_SOURCE});
+                                                                           source: r.source === "off" ? offSource(gtin) : PAGE_SOURCE});  // add_product's from_off
     }
     booking.notes.push(booking.created.length ? name + " (" + foodName + ", " + amount + " " + unit + " a package) has barcode " + gtin + "."
                                               : name + " had barcode " + gtin + " already, so nothing new was written.");

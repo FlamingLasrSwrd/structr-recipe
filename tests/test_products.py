@@ -294,6 +294,12 @@ class AddFromThePage(unittest.TestCase):
         self.assertEqual((g.nodes[size]["source"], h.nodes[size]["source"]), (PAGE_SOURCE, SOURCE))
         self.assertEqual(find(g, UPC_A).amount, 12.0)
 
+    def test_a_size_kept_from_open_food_facts_is_sourced_there(self):
+        g = kitchen()
+        add_product(g, "Farm eggs dozen", "Eggs", "0 36000 29145 2", 12, "each", from_off=True)
+        self.assertEqual(g.nodes["DefaultSpecification:Farm eggs dozen package size"]["source"],
+                         "Open Food Facts, barcode 00036000291452, as checked on the pantry page")
+
     def test_another_barcode_of_a_product_is_added_and_none_taken_away(self):
         g = kitchen()
         import_products(g, [DOZEN])

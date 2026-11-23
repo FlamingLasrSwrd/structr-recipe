@@ -62,6 +62,14 @@ from structr_client.client import UNSAFE_EXACT_MATCH_CHARS
 PACKAGE_SIZE = "PurchaseQuantity"       # the Default-Kind Type (seed_vocabulary.py, data-model.md Sec 8)
 SOURCE = "the package, as the products file states it"
 PAGE_SOURCE = "the package, as entered on the pantry page"     # add_product, and pages/lib/55_products.js
+
+
+def off_source(gtin: str) -> str:
+    """Where a package size taken from Open Food Facts on the pantry page is sourced (pages/lib/55_products.js
+    offSource; docs/pantry.md, "Looking up an unknown barcode")."""
+    return f"Open Food Facts, barcode {gtin}, as checked on the pantry page"
+
+
 # The first digits of a GTIN-13 that GS1 leaves to each shop for its own packs (restricted circulation).
 SHOP_PREFIXES = ("02", "04", "2")
 # The units the pantry page's Buy offers, in its order (pages/lib/50_pantry.js UNITS).
@@ -300,13 +308,15 @@ def import_products(client, products: list[Product], source: str = SOURCE) -> di
     return sync.counts
 
 
-def add_product(client, name: str, food: str, barcode, amount, unit: str) -> dict[str, int]:
+def add_product(client, name: str, food: str, barcode, amount, unit: str, from_off: bool = False) -> dict[str, int]:
     """One barcode added from the pantry page (pages/lib/55_products.js PRODUCT_ACTIONS; docs/pantry.md):
     the product of this name gets it, made below `food`, holding `amount` `unit`, if it is new. Writes what
     import_products writes for a file naming that product, with PAGE_SOURCE, except that it never takes a
     barcode away and changes nothing of a product that exists: one already of this name must be of the
     same food and hold the same, since a package of another size is another product. ProductError naming
-    every problem, before anything is written. tools/check_bookings.py compares the page with this."""
+    every problem, before anything is written. With `from_off`, a new product's package size is sourced to
+    Open Food Facts (off_source), as the page records one it kept from there (source=off).
+    tools/check_bookings.py compares the page with this."""
     try:
         (product,) = parse_products({"product": [{"name": name, "food": food, "barcodes": [barcode],
                                                   "amount": amount, "unit": unit}]}, "the product")
@@ -318,7 +328,7 @@ def add_product(client, name: str, food: str, barcode, amount, unit: str) -> dic
     is_product = product_ids(client)
     mine = client.get_all("DomainType", existing[0]["id"])["result"] if existing and existing[0]["id"] in is_product else None
     if mine is None:
-        return import_products(client, [product], PAGE_SOURCE)
+        return import_products(client, [product], off_source(gtin) if from_off else PAGE_SOURCE)
     problems = []
     if (mine.get("parent") or {}).get("name") != product.food:
         problems.append(f"{name}: it is a product of {(mine.get('parent') or {}).get('name')!r} already, not of {product.food!r}")

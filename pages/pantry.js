@@ -12,7 +12,9 @@
 // (do=product, pages/lib/55_products.js: the page's alone) and then fills Buy in with the new product.
 // A USB or Bluetooth scanner types into the box as a keyboard does, and its Enter sends it; a phone's
 // camera does the same through "Scan with camera" (/mealplanner/mealplanner-camera.js, pages/files/),
-// which shows only where that file is installed and the browser runs it.
+// which shows only where that file is installed and the browser runs it. A barcode no product has is looked
+// up on Open Food Facts from the browser (/mealplanner/mealplanner-lookup.js), which fills in the name and
+// what one package holds, never the food; a package size kept from there is sourced there (source=off).
 
 const said = runBooking(Object.assign({}, PANTRY_ACTIONS, PRODUCT_ACTIONS));
 
@@ -89,8 +91,9 @@ else if (scan && scan.product) {
 const retry = BOOKED && BOOKED.action === "product" && BOOKED.problem;
 const unknown = scan && !scan.problem && !scan.product;
 const draft = retry ? {barcode: given($.request.barcode), name: given($.request.name), food: given($.request.food),
-                       amount: given($.request.amount) || null, unit: given($.request.unit) || "g"}
-  : {barcode: unknown ? asked : "", name: "", food: "", amount: null, unit: "g"};
+                       amount: given($.request.amount) || null, unit: given($.request.unit) || "g",
+                       source: $.request.source === "off" ? "off" : ""}
+  : {barcode: unknown ? asked : "", name: "", food: "", amount: null, unit: "g", source: ""};
 if (unknown) scanSaid = "<p class=\"note\">No product has barcode " + esc(asked) + " yet: add it below, "
   + "or buy its food by name.</p>";
 
@@ -102,7 +105,10 @@ function servedFile(name) {
   const stamp = file.lastModifiedDate ? new Date(file.lastModifiedDate).getTime() : 0;
   return file.path + "?v=" + (file.checksum || stamp);
 }
-const cameraScript = servedFile(CAMERA_FILE), barcodeReader = servedFile(READER_FILE);
+const cameraScript = servedFile(CAMERA_FILE), barcodeReader = servedFile(READER_FILE), lookupScript = servedFile(LOOKUP_FILE);
+// the barcode to look up on Open Food Facts, where no product has it and the look-up is installed
+const lookup = !lookupScript ? "" : (unknown ? "<p class=\"lookup note\" data-lookup=\"" + esc(scan.gtin) + "\" hidden></p>" : "")
+  + "<script src=\"" + esc(lookupScript) + "\" defer></script>";
 const camera = cameraScript && barcodeReader
   ? "<button type=\"button\" class=\"camera\" hidden data-reader=\"" + esc(barcodeReader) + "\">Scan with camera</button>" : "";
 const cameraPanel = !camera ? "" : "<div id=\"camera\" class=\"camera\" hidden><video playsinline muted hidden></video>"
@@ -125,7 +131,8 @@ let html = nav("pantry") + "<h1>Pantry</h1>" + said
   + "<details class=\"product\"" + (unknown || retry ? " open" : "") + "><summary>Add a product</summary>"
   + "<p class=\"note\">A product is a packaged food with a barcode, bought as many packages of what one holds. It is "
   + "stock of its food, and keeps and weighs as that food does. A package of another size is another product.</p>"
-  + form("product", {scanning: "1"}, "<input name=\"barcode\" inputmode=\"numeric\" autocomplete=\"off\" required size=\"16\" placeholder=\"barcode\""
+  + lookup
+  + form("product", {scanning: "1", source: draft.source}, "<input name=\"barcode\" inputmode=\"numeric\" autocomplete=\"off\" required size=\"16\" placeholder=\"barcode\""
     + (draft.barcode ? " value=\"" + esc(draft.barcode) + "\"" : "") + ">"
     + "<input name=\"name\" required size=\"24\" placeholder=\"name, as on the package\"" + (draft.name ? " value=\"" + esc(draft.name) + "\"" : "")
     + (unknown ? " autofocus" : "") + ">"
