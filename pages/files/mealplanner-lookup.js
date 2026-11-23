@@ -60,7 +60,7 @@
   // "12 eggs"): {amount, unit} in the page's units, or null where no amount with a unit is in it
   function parseQuantity(text) {
     if (text == null) return null;
-    var t = String(text).toLowerCase().replace(/×/g, "x").replace(/fl\.?\s*oz\.?/g, "floz");
+    var t = String(text).toLowerCase().replace(/\u00d7/g, "x").replace(/fl\.?\s*oz\.?/g, "floz");
     var m = MULTI.exec(t);
     if (m) {
       var each = WORD[m[3]];
@@ -83,6 +83,8 @@
 
   // What the form is filled in with from Open Food Facts' product: {name, amount, unit, categories}, each
   // null (or empty) where it gives none. A name holds no comma or semicolon (products.parse_products).
+  // For guessing the food (mealplanner-foods.js guess): title, its name without brand or size, and tags,
+  // every category in English, most particular first.
   function fromOff(product) {
     product = product || {};
     var title = clean(product.product_name_en || product.product_name || product.generic_name_en || product.generic_name);
@@ -98,7 +100,7 @@
     var categories = (product.categories_tags || []).filter(function (c) { return /^en:/.test(c); })
       .map(function (c) { var w = c.slice(3).replace(/-/g, " "); return w.charAt(0).toUpperCase() + w.slice(1); });
     return {name: name.slice(0, 100) || null, amount: size ? size.amount : null, unit: size ? size.unit : null,
-            categories: categories.slice(-3).reverse()};
+            categories: categories.slice(-3).reverse(), title: title || null, tags: categories.slice().reverse()};
   }
 
   var api = {API: API, FIELDS: FIELDS, offCode: offCode, parseQuantity: parseQuantity, fromOff: fromOff};
@@ -168,6 +170,11 @@
       link.textContent = "Its page there";
       note.appendChild(link);
       note.hidden = false;
+      // the foods it likely is, to tap (mealplanner-foods.js), where none is chosen yet
+      var foods = window.mealplannerFoods;
+      if (foods && foodBox && !foodBox.value.trim()) {
+        foods.offer(foodBox, foods.guess(foods.namesOf(foodBox), {name: got.title, categories: got.tags}));
+      }
       if (!typed && got.name && document.activeElement === nameBox && foodBox) foodBox.focus();
     })
     .catch(function (e) {

@@ -15,6 +15,8 @@
 // which shows only where that file is installed and the browser runs it. A barcode no product has is looked
 // up on Open Food Facts from the browser (/mealplanner/mealplanner-lookup.js), which fills in the name and
 // what one package holds, never the food; a package size kept from there is sourced there (source=off).
+// The food boxes search the names they take as you type (/mealplanner/mealplanner-foods.js), and offer the
+// foods a looked-up product likely is, to tap; without it, each keeps its datalist.
 
 const said = runBooking(Object.assign({}, PANTRY_ACTIONS, PRODUCT_ACTIONS));
 
@@ -106,6 +108,9 @@ function servedFile(name) {
   return file.path + "?v=" + (file.checksum || stamp);
 }
 const cameraScript = servedFile(CAMERA_FILE), barcodeReader = servedFile(READER_FILE), lookupScript = servedFile(LOOKUP_FILE);
+// the food picker, before the look-up that offers it the foods a product likely is
+const foodsScript = servedFile(FOODS_FILE);
+const picker = foodsScript ? "<script src=\"" + esc(foodsScript) + "\" defer></script>" : "";
 // the barcode to look up on Open Food Facts, where no product has it and the look-up is installed
 const lookup = !lookupScript ? "" : (unknown ? "<p class=\"lookup note\" data-lookup=\"" + esc(scan.gtin) + "\" hidden></p>" : "")
   + "<script src=\"" + esc(lookupScript) + "\" defer></script>";
@@ -131,7 +136,7 @@ let html = nav("pantry") + "<h1>Pantry</h1>" + said
   + "<details class=\"product\"" + (unknown || retry ? " open" : "") + "><summary>Add a product</summary>"
   + "<p class=\"note\">A product is a packaged food with a barcode, bought as many packages of what one holds. It is "
   + "stock of its food, and keeps and weighs as that food does. A package of another size is another product.</p>"
-  + lookup
+  + picker + lookup
   + form("product", {scanning: "1", source: draft.source}, "<input name=\"barcode\" inputmode=\"numeric\" autocomplete=\"off\" required size=\"16\" placeholder=\"barcode\""
     + (draft.barcode ? " value=\"" + esc(draft.barcode) + "\"" : "") + ">"
     + "<input name=\"name\" required size=\"24\" placeholder=\"name, as on the package\"" + (draft.name ? " value=\"" + esc(draft.name) + "\"" : "")
