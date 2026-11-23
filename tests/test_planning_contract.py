@@ -10,7 +10,7 @@ from datetime import timedelta, timezone
 from mealplanner.planning.contract import (FORMAT, ContractError, picks_from_json, plan_to_json, problem_from_json,
                                            problem_to_json)
 from mealplanner.planning.evaluate import evaluate
-from mealplanner.planning.model import Fixed, Lot, PlanningProblem, PrepSession, Request, Target, Weights
+from mealplanner.planning.model import Fixed, Lot, Packaging, PlanningProblem, PrepSession, Request, Target, Weights
 from mealplanner.planning.search import oracle
 from tests.planning_fixtures import cand, problem, slot, when
 from tests.test_planning_search import SEEDS, random_problem
@@ -38,14 +38,15 @@ def everything() -> PlanningProblem:
         slots=tuple(slots), candidates={c.id: c for c in (soup, oats, toast)},
         targets=(Target("protein", "protein", "daily", 50.0, 150.0, True, 0.5, "Protein", "midnight America/Edmonton", jamie),),
         lots=(Lot("chicken", 500.0, when(30, 12), "chicken breast"),),
-        weights=Weights(0.6, 0.3, 0.2, 0.1, 45.0, 2.0, 1.5),
+        weights=Weights(0.6, 0.3, 0.2, 0.1, 45.0, 2.0, 1.5, 0.8),
         now=when(27, 9), max_difficulty="medium", servings_eaten=1.5, notes=["a note"],
         baseline={"protein": 5.0}, units={"protein": "g"}, portions=(1.0, 1.5),
         eaters=(jamie, alex), eater_portions={jamie: (1.0, 2.0)}, baselines={jamie: {"protein": 10.0, "fibre": None}},
         eater_names={jamie: "Jamie", alex: "Alex"}, book_size=40,
         requests=(Request("soup", frozenset({"soup"}), 3),),
         preps=(PrepSession("Sun prep", when(27, 14), 120.0, 3),),
-        repeat_tolerance=2)
+        repeat_tolerance=2,
+        packaging=(Packaging("chicken", (450.0, 900.0), 2.0, "Chicken breast"),))
 
 
 class TheProblem(unittest.TestCase):
@@ -63,7 +64,7 @@ class TheProblem(unittest.TestCase):
             default = f.default if f.default is not dataclasses.MISSING else (f.default_factory() if f.default_factory is not dataclasses.MISSING else None)
             self.assertNotEqual(getattr(p, f.name), default, f"everything() leaves {f.name} at its default")
         held = [*p.slots, *(s.fixed for s in p.slots if s.fixed), *p.candidates.values(), *p.targets, *p.lots, p.weights,
-                *p.requests, *p.preps]
+                *p.requests, *p.preps, *p.packaging]
         for kind in {type(h) for h in held}:
             of_kind = [h for h in held if type(h) is kind]
             for f in dataclasses.fields(kind):
@@ -95,6 +96,15 @@ class TheProblem(unittest.TestCase):
         bad["requests"][0]["candidates"] = ["no such recipe"]
         with self.assertRaises(ValueError):                        # checked as any problem is
             problem_from_json(bad)
+
+    def test_a_format_1_problem_is_read_as_one_without_packaging(self):
+        """Format 2 added packaging and its weight; a problem written before them is the same problem."""
+        p = random_problem(3)
+        data = problem_to_json(p)
+        del data["packaging"], data["weights"]["package_waste"]
+        self.assertEqual(problem_from_json({**data, "format": 1}), p)
+        with self.assertRaises(ContractError):                     # format 1 never had packaging
+            problem_from_json({**problem_to_json(everything()), "format": 1})
 
 
 class ThePlan(unittest.TestCase):

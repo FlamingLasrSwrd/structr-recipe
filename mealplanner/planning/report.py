@@ -56,6 +56,27 @@ def describe_plan(problem: PlanningProblem, evaluation: Evaluation) -> str:
         lines.append(f"  repeats: {problem.repeat_tolerance} meal(s) of one recipe tolerated this week; the most, {most}: "
                      + ", ".join(names[:3]) + (f" and {len(names) - 3} more" if len(names) > 3 else "")
                      + (f"; {over} meal(s) over, {problem.weights.repeats * over:g} point(s) off" if over else ""))
+    if problem.weights.package_waste and problem.packaging:
+        lines.extend(describe_leftovers(problem, evaluation))
     terms = ", ".join(f"{name} {value:+.3f}" for name, value in evaluation.terms.items() if abs(value) > 1e-12)
     lines.append(f"  score {evaluation.objective:.3f} ({terms or 'no weighted terms'})")
     return "\n".join(lines)
+
+
+def describe_leftovers(problem: PlanningProblem, evaluation: Evaluation) -> list[str]:
+    """What the week's purchases leave over (evaluate.package_leftovers): what spoils, a line a food,
+    and how many purchases leave something that keeps past the week, which costs nothing."""
+    spoils = [lo for lo in evaluation.package_leftovers if lo.share > 0]
+    keeps = [lo for lo in evaluation.package_leftovers if lo.share <= 0]
+    total = sum(lo.packages for lo in spoils)
+    lines = [f"  package waste: {total:.2f} package(s)' worth left to spoil, at {problem.weights.package_waste:g} a point each"
+             + (f" ({len(problem.packaging)} foods have package sizes)" if not spoils else ":")]
+    for lo in sorted(spoils, key=lambda lo: (-lo.packages, lo.name)):
+        until = lo.expires.strftime("%a %d %b") if lo.expires is not None else "?"
+        counted = "all of it" if lo.share >= 1 else f"{lo.share:.0%} of it, as it keeps past the week"
+        lines.append(f"    {lo.name}: {lo.left:,.0f} g left of {lo.bought:,.0f} g bought {lo.opened.strftime('%a')}, "
+                     f"keeps to {until} ({counted}): {lo.packages:.2f}")
+    if keeps:
+        lines.append(f"    and {len(keeps)} purchase(s) leave something that keeps a week past the last meal or more, "
+                     "or has no keeping time known: not counted")
+    return lines

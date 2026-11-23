@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 from mealplanner.nutrition_scope import calendar_day, day_zone
+from mealplanner.packages import choose
 from mealplanner.planning.model import DIFFICULTY_ORDER, Pick, PlanningProblem, Target
 from mealplanner.scoring import NEUTRAL, nutrition_fit_score, time_fit_score, variety_bonus, waste_urgency
 
@@ -548,7 +549,8 @@ def variety_bonuses(problem: PlanningProblem, resolved) -> dict[int, float]:
     return out
 
 
-def allocate_stock(problem: PlanningProblem, resolved, cooked) -> dict[int, tuple[float | None, float]]:
+def allocate_stock(problem: PlanningProblem, resolved, cooked,
+                   short: dict | None = None) -> dict[int, tuple[float | None, float]]:
     """{slot: (stock coverage, waste urgency)} for every assigned cook slot.
 
     Cooks are served in time order, each from the eligible lots that are still
@@ -556,8 +558,13 @@ def allocate_stock(problem: PlanningProblem, resolved, cooked) -> dict[int, tupl
     to outlive them, that order maximises what stock can cover. Coverage is the
     mean over the recipe's pools of the fraction of its need met (the selector
     averages per ingredient the same way); urgency is the selector's, taken from
-    the soonest-expiring lot still good at the cook's start."""
-    if not problem.lots:
+    the soonest-expiring lot still good at the cook's start.
+
+    `short`, when given, is filled with what stock leaves each cook to buy, for the
+    pools in it: {pool: [(cook start, grams), ...]}, in the order they are cooked.
+    With no stock at all there is nothing to cover or to use up: no slot is
+    returned, and `short` holds each cook's whole need."""
+    if not problem.lots and short is None:
         return {}
     pools: dict[str, list] = {}
     for lot in problem.lots:
@@ -588,7 +595,94 @@ def allocate_stock(problem: PlanningProblem, resolved, cooked) -> dict[int, tupl
                 if need - got <= EPS:
                     break
             coverages.append(min(1.0, got / need))
+            if short is not None and pool in short and need - got > EPS:
+                short[pool].append((start, need - got))
         out[i] = (sum(coverages) / len(coverages) if coverages else None, urgency)
+    return out if problem.lots else {}
+
+
+# ---------------------------------------------------------------- package waste
+
+GRACE_DAYS = 7.0       # what keeps past the week's last meal counts less the longer it keeps, nothing from a week on
+LEFT_G = 0.5           # less than this left of a purchase is nothing left (shopping.LEFT_G)
+
+
+@dataclass(frozen=True)
+class PackageLeftover:
+    """What one purchase of a food leaves beyond what the week's cooks use (docs/packages.md stage 4).
+
+    A purchase is made at a cook that needs more of the food than stock and the packages already open
+    hold; it serves that cook and every later one while it keeps (`keeps_days` from `opened`), and is
+    whole packages (packages.choose) of what they need. `share` is how much of what is left counts as
+    waste: all of it when it is past keeping before the week's last meal, less the longer it keeps
+    beyond that, nothing from GRACE_DAYS on, and nothing when no keeping time is known. `packages` is
+    what Weights.package_waste is paid on: the share of what is left, in the food's smallest size."""
+
+    pool: str
+    name: str
+    opened: datetime
+    bought: float
+    left: float
+    expires: datetime | None
+    share: float
+    packages: float
+
+
+def week_end(problem: PlanningProblem) -> datetime | None:
+    """The start of the week's last meal: what is left of a purchase after it waits for next week."""
+    return problem.slots[-1].start if problem.slots else None
+
+
+def _bought(problem: PlanningProblem, pk, need: float) -> float:
+    key = ("bought", pk.pool, round(need, 6))
+    if key not in problem._cache:
+        counts = choose(list(pk.sizes), need)
+        problem._cache[key] = sum(n * size for n, size in zip(counts, pk.sizes))
+    return problem._cache[key]
+
+
+def spoiled_share(problem: PlanningProblem, expires: datetime | None) -> float:
+    """How much of what is left of a purchase that keeps until `expires` counts as waste."""
+    end = week_end(problem)
+    if expires is None or end is None:
+        return 0.0
+    beyond = (expires - end).total_seconds() / 86400.0
+    return 1.0 if beyond <= 0 else max(0.0, 1.0 - beyond / GRACE_DAYS)
+
+
+def package_leftovers(problem: PlanningProblem, resolved, cooked) -> list[PackageLeftover]:
+    """What the week's purchases leave over, one PackageLeftover a purchase, for the pools the problem gives
+    packaging (empty without). Cooks already past (`now`) were bought for before the plan, and stock
+    serves the cooks first, as allocate_stock does; what each cook still needs is bought at it, unless
+    a purchase made at an earlier cook still keeps, and then that purchase was made to cover it too."""
+    if not problem.packaging:
+        return []
+    short = {pk.pool: [] for pk in problem.packaging}
+    allocate_stock(problem, resolved, cooked, short)
+    return purchases_left(problem, short)
+
+
+def purchases_left(problem: PlanningProblem, short: dict) -> list[PackageLeftover]:
+    """package_leftovers from what stock leaves each cook to buy (allocate_stock's `short`)."""
+    out = []
+    for pk in problem.packaging:
+        uses = sorted(((start, grams) for start, grams in short[pk.pool]
+                       if problem.now is None or start >= problem.now), key=lambda use: use[0])
+        k = 0
+        while k < len(uses):
+            opened = uses[k][0]
+            expires = None if pk.keeps_days is None else opened + timedelta(days=pk.keeps_days)
+            need = 0.0
+            while k < len(uses) and (expires is None or uses[k][0] <= expires):
+                need += uses[k][1]
+                k += 1
+            bought = _bought(problem, pk, need)
+            left = max(0.0, bought - need)
+            if left < LEFT_G:
+                continue
+            share = spoiled_share(problem, expires)
+            out.append(PackageLeftover(pk.pool, pk.name or pk.pool, opened, bought, left, expires, share,
+                                share * left / min(pk.sizes)))
     return out
 
 
@@ -615,6 +709,7 @@ class Evaluation:
     objective: float
     terms: dict
     slot_details: list = field(default_factory=list)
+    package_leftovers: list = field(default_factory=list)   # PackageLeftover, when package waste is weighed
 
     @property
     def feasible(self) -> bool:
@@ -738,7 +833,9 @@ def evaluate(problem: PlanningProblem, picks) -> Evaluation:
     groups = group_states(problem, resolved)
     violations = _violations(problem, groups) + _request_violations(problem, picks)
     bonuses = variety_bonuses(problem, resolved)
-    stock = allocate_stock(problem, resolved, cooked)
+    weigh_packages = bool(weights.package_waste and problem.packaging)
+    short = {pk.pool: [] for pk in problem.packaging} if weigh_packages else None
+    stock = allocate_stock(problem, resolved, cooked, short)
 
     terms = {"time": 0.0, "variety": 0.0, "nutrition": 0.0, "stock": 0.0, "waste": 0.0, "soft_exclusion": 0.0}
     details = []
@@ -767,13 +864,16 @@ def evaluate(problem: PlanningProblem, picks) -> Evaluation:
             details[-1]["shares"] = {e: servings for e, servings in r.shares}
     if problem.repeat_tolerance is not None and weights.repeats:
         terms["repeats"] = -weights.repeats * meals_over(problem, resolved)
+    leftovers = purchases_left(problem, short) if weigh_packages else []
+    if weigh_packages:
+        terms["package_waste"] = -weights.package_waste * sum(lo.packages for lo in leftovers) or 0.0
     for g in groups:
         if g.has_open:
             terms["nutrition"] += g.target.weight * soft_fit(g)
     return Evaluation(
         picks=picks, legal=not problems, problems=problems, violations=violations,
         violation_measure=sum(v.measure for v in violations), objective=sum(terms.values()),
-        terms=terms, slot_details=details,
+        terms=terms, slot_details=details, package_leftovers=leftovers,
     )
 
 
@@ -792,8 +892,10 @@ def prefix_bound(problem: PlanningProblem, partial) -> Bound:
     only shrink as uses are added, and every term of an unplaced slot is at most
     its weight. Stock and waste are bounded by their weights rather than
     computed, because a later leftover slot changes how much an earlier cook
-    must produce. tests/test_planning_search.py checks the bound against
-    evaluate() on every prefix of random assignments."""
+    must produce. Package waste is bounded by nothing off: a later cook may use
+    up what an earlier purchase leaves, so what a prefix leaves can shrink, and
+    the term is never above 0. tests/test_planning_search.py checks the bound
+    against evaluate() on every prefix of random assignments."""
     resolved, _ = resolve(problem, partial)
     groups = group_states(problem, resolved)
     weights = problem.weights
