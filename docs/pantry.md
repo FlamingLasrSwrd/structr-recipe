@@ -76,7 +76,8 @@ The owner asked (2026-11-13) for barcode scanning to stock the pantry, as Grocy 
 optional: "A user should be able to set the specific brand/barcode if they want or default use a
 generic version." Its first step was the data, what a barcode means here; the second, 2026-11-23, a
 barcode box on the pantry page ("Scanning on the pantry page", below); the third, the same day, a
-phone's camera feeding that box ("Scanning with a phone's camera"). The steps still to come are in
+phone's camera feeding that box ("Scanning with a phone's camera"); the fourth, an unknown barcode
+looked up on Open Food Facts ("Looking up an unknown barcode"). The steps still to come are in
 `docs/todo.md`, "Barcode scanning for the pantry".
 
 **A product is a packaged food**, written with what the schema has had since `scripts/29a`, so no
@@ -209,8 +210,60 @@ to a signed-in user byte for byte and to no one signed out, and Chromium's stand
 pantry page read the barcode and came back with "No product has barcode 4006381333931 yet". Not tried:
 a real phone.
 
-What is left, each in `docs/todo.md`: an unknown barcode looked up (Open Food
-Facts) and matched to a food by the user; a product's own label nutrition (FDC's branded foods carry
+### Looking up an unknown barcode
+
+Step 4 (2026-11-23). When a barcode scanned or typed is no product's, "Add a product" opens with it as
+before, and the page asks Open Food Facts what it knows of that barcode
+(`pages/files/mealplanner-lookup.js`). It fills in what is still empty:
+
+- **the name**, as the products file names one: the first brand, the product's name (its English name
+  where it has one), and the size, "Brand X Chickpeas 400 g", with no brand twice, no size twice, and
+  no comma or semicolon (a name cannot hold them);
+- **what one package holds**, read from the label's words as Open Food Facts records them ("400 g",
+  "6 x 330 ml" is 1,980 ml, "75 cl" is 750 ml, "16 oz (1 lb) 454 g" is 16 oz, "12 eggs" is 12 each), else
+  from its own figure in grams or millilitres, in a unit Buy offers;
+- **never the food.** Which food a product is a kind of is a judgment (J19), so it is left to the user,
+  with the categories Open Food Facts files the product under shown as a hint ("it files it under
+  Chickpeas; Legumes"), and a link to its page there.
+
+A name typed while the answer was on its way is kept. Where Open Food Facts does not know the barcode,
+gives no size the page can use, or does not answer within 10 seconds, the page says so and the form is
+filled in by hand, as before. Nothing is written until **Add product**, which writes what it always
+has (`products.add_product`), with one difference: a package size kept as Open Food Facts gave it is
+sourced there ("Open Food Facts, barcode 00012345678905, as checked on the pantry page"), not to the
+package as entered on the page. Changing the amount, the unit or the barcode by hand makes it the page's again
+(the form's `source` field; `add_product(..., from_off=True)` in Python).
+
+**What is sent, and to whom.** The look-up runs in the browser, not on Structr, so the instance needs no
+internet and never calls out; the phone does, once per unknown barcode, to
+`world.openfoodfacts.org/api/v2/product/<barcode>.json` with the fields it reads. It sends the
+barcode and nothing of the instance: no cookie, no referrer (the browser still sends its own address
+and, as every cross-site request does, the instance's address as its origin). A barcode a product
+already has, a plain visit, and a refused form send nothing. So scanning a known product still tells
+no one; adding a new one tells Open Food Facts that someone looked its barcode up.
+
+**Its data.** Open Food Facts is a crowd-sourced database under the Open Database License (ODbL). What a
+look-up fills in is one product's name and size, written to this instance only (never to the
+repository), checked by the user, and credited by its `source`; the share-alike terms bind a
+substantial extract, such as the pinned file `docs/packages.md` declined.
+
+Checked: `tests/test_pantry_lookup.py` reads label sizes and builds names in node, each expected value
+worked out by hand; draws the page over a stand-in graph (the barcode marked for a look-up only where no
+product has it and the file is installed; a size kept from Open Food Facts sourced there, any other
+`source` the page's); and runs the page in Chromium with Open Food Facts answered by the test: what is
+filled in and what is left (the food, a name typed while waiting), a size or barcode changed by hand, a product
+with no size and with HTML in its name (shown as words), an unknown barcode, no answer, and that the one
+request carries the barcode alone, with no cookie and no referrer, and that no request is made for a
+known barcode or a plain visit. Breaking each of those on purpose failed its test. On a rebuilt
+instance, `tools/check_bookings.py` adds a product sized from Open Food Facts through the page and
+through `add_product(from_off=True)` and compares them field by field (with Python's side not sourced to
+Open Food Facts on purpose, it named the `source` that differed); and Chromium on the real pantry page,
+with Open Food Facts stood in for, filled the form in, sent the barcode alone, and **Add product** wrote
+the product with its size sourced there. Not tried: the real Open Food Facts, whose site the cloud
+session that built this could not reach, so whether it answers a browser's cross-site request (it is
+documented to) is to be seen on the owner's phone.
+
+What is left, each in `docs/todo.md`: a product's own label nutrition (FDC's branded foods carry
 the same GTINs); where a product is kept by default (a scan books to the fridge unless `--storage` says
 otherwise, as Buy does); and a shop's own weighed packs.
 
