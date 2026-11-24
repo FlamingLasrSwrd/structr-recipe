@@ -41,8 +41,11 @@ services:
     # init (tini) signals the whole process group instead, and Java's shutdown hook runs.
     init: true
     stop_grace_period: 2m
+    # This computer only, unless STRUCTR_BIND says otherwise: a development or throwaway stack (a backup's
+    # check restores the owner's data and accounts into one) has no reason to answer the home network.
+    # tools/owner_stack.sh sets it for the owner's stack, which other devices reach (OWNER_BIND there).
     ports:
-      - "${STRUCTR_PORT:-8083}:8082"
+      - "${STRUCTR_BIND:-127.0.0.1}:${STRUCTR_PORT:-8083}:8082"
     # Ready once Structr serves requests: 503 while it starts, stops or deploys, and no credentials
     # needed (docs/structr-features.md, the health spike). `docker compose ps` shows it;
     # tools/wait_for_structr.sh still makes an authenticated read, which also proves the password.

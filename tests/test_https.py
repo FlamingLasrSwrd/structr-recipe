@@ -205,7 +205,8 @@ class OwnerStack(unittest.TestCase):
             (self.root / "tools" / name).write_text("exit 0\n")
         (self.root / "bin").mkdir()
         self.log = self.root / "docker.log"
-        for name, body in (("docker", f'#!/bin/sh\necho "$@" >> "{self.log}"\n'),
+        self.bind = self.root / "bind.log"
+        for name, body in (("docker", f'#!/bin/sh\necho "$@" >> "{self.log}"\necho "${{STRUCTR_BIND-unset}}" >> "{self.bind}"\n'),
                            ("openssl", '#!/bin/sh\nexit "${EXPIRY_STATUS:-0}"\n')):
             fake = self.root / "bin" / name
             fake.write_text(body)
@@ -228,6 +229,14 @@ class OwnerStack(unittest.TestCase):
         done, asked = self.run_stack("up")
         self.assertEqual((done.returncode, asked), (0, "compose -p mealplanner-owner up -d\n"))
         self.assertNotIn("https://", done.stdout)
+
+    def test_its_http_port_answers_the_network_unless_owner_bind_says_otherwise(self):
+        """The owner's choice (2026-11-22) stays as it was; OWNER_BIND=127.0.0.1 keeps plain HTTP to this computer."""
+        self.run_stack("up")
+        self.assertEqual(self.bind.read_text(), "0.0.0.0\n")
+        self.bind.unlink()
+        self.run_stack("up", OWNER_BIND="127.0.0.1")
+        self.assertEqual(self.bind.read_text(), "127.0.0.1\n")
 
     def test_with_one_up_adds_the_https_file(self):
         self.certificate("ca.crt", "keystore.p12", "structr.env")
@@ -299,6 +308,12 @@ class ComposeFile(unittest.TestCase):
         self.assertIn('- "${STRUCTR_HTTPS_PORT:-8443}:8443"', text)
         self.assertIn("- ./private/https/keystore.p12:/var/lib/structr/https/keystore.p12:ro", text)
         self.assertIn("- ./private/https/structr.env", text)
+
+    def test_every_other_stack_answers_this_computer_only(self):
+        base = (ROOT / "docker-compose.yml").read_text()
+        self.assertIn('- "${STRUCTR_BIND:-127.0.0.1}:${STRUCTR_PORT:-8083}:8082"', base)
+        self.assertEqual(base.count(":8082\""), 1)          # no other way in to Structr's port
+        self.assertNotIn("7687:", base)                      # nor to Neo4j's
 
     def test_every_other_stack_is_left_without_it(self):
         base = (ROOT / "docker-compose.yml").read_text()

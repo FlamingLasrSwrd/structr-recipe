@@ -48,11 +48,12 @@ var document = {{getElementById: function (id) {{
   if (!seen[id]) {{ seen[id] = {{hidden: true, textContent: "", addEventListener: function (e, f) {{ submit = f; }}}}; }}
   return seen[id];
 }}}};
-var fetch = function () {{ return {{then: function (f) {{ f({{ok: {json.dumps(ok)}}}); }}}}; }};
+var fetch = function () {{ seen.sent = true; return {{then: function (f) {{ f({{ok: {json.dumps(ok)}}}); }}}}; }};
 {script}
 submit({{preventDefault: function () {{}}, target: {{name: {{value: "Jamie"}}, password: {{value: "not-a-password"}}}}}});
 var result = {{to: window.location, insecure: seen.insecure && !seen.insecure.hidden ? seen.insecure.textContent : null,
-              unsaved: !!(seen.unsaved && !seen.unsaved.hidden), message: seen.message ? seen.message.textContent : ""}};""")
+              unsaved: !!(seen.unsaved && !seen.unsaved.hidden), message: seen.message ? seen.message.textContent : "",
+              sent: !!seen.sent}};""")
 
 
 class Installed(unittest.TestCase):
@@ -158,6 +159,14 @@ class SignIn(unittest.TestCase):
     def test_an_address_where_signing_in_cannot_last_says_so(self):
         self.assertIn("https://192.0.2.8:8443" + LOGIN, sign_in(secure=False)["insecure"])
         self.assertIsNone(sign_in(secure=True)["insecure"])
+
+    def test_a_password_is_never_sent_in_the_clear(self):
+        """Over plain HTTP from another device (port 8085) the session would not last anyway (its cookie is
+        Secure), so sending the password would only show it to the network."""
+        seen = sign_in("?next=%2Fstructr%2Fhtml%2Fpantry", secure=False)
+        self.assertEqual((seen["sent"], seen["to"]), (False, None))
+        self.assertIn("not sent", seen["insecure"])
+        self.assertTrue(sign_in("?next=%2Fstructr%2Fhtml%2Fpantry", secure=True)["sent"])
 
 
 if __name__ == "__main__":

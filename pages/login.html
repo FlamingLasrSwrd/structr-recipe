@@ -22,10 +22,11 @@ function tell(id, text) {
   note.hidden = false;
 }
 // Not at localhost and not over HTTPS: the browser drops Structr's Secure session cookie, so signing in
-// here only leads back here (docs/pages.md, "HTTPS")
+// here only leads back here (docs/pages.md, "HTTPS"), and the password would cross the network readable by
+// anyone on it. So it is not sent at all.
 if (!window.isSecureContext) {
-  tell("insecure", "Signing in does not last at this address, because it is not HTTPS. "
-    + "Use the HTTPS address (usually https://" + location.hostname + ":8443/structr/html/login).");
+  tell("insecure", "Signing in does not work at this address, because it is not HTTPS, so your password is not "
+    + "sent from here. Use the HTTPS address (usually https://" + location.hostname + ":8443/structr/html/login).");
 }
 if (/[?&]unsaved=1(&|$)/.test(location.search)) {
   tell("unsaved", "You were signed out, so your last change was not saved. Sign in, then make it again.");
@@ -33,6 +34,7 @@ if (/[?&]unsaved=1(&|$)/.test(location.search)) {
 // Structr's login takes JSON only, so the form posts it with fetch (structr-cheatsheet.md, Authentication)
 document.getElementById("login").addEventListener("submit", function (event) {
   event.preventDefault();
+  if (!window.isSecureContext) { return; }      // said above: a password is never sent in the clear
   var form = event.target;
   fetch("/structr/rest/login", {method: "POST", headers: {"Content-Type": "application/json"},
     body: JSON.stringify({name: form.name.value, password: form.password.value})})

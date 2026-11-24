@@ -178,5 +178,17 @@ class TheCamera(unittest.TestCase):
         self.assertEqual(got["scans"], [CODE])
 
 
+class TheVendoredReader(unittest.TestCase):
+    def test_it_is_npms_published_file_unchanged(self):
+        """Every signed-in browser runs it, so a changed byte is a change to review: the sha256 of @zxing/library
+        0.23.0's umd/index.min.js as npm publishes it (checked against the registry's tarball, whose sha512
+        matched its published integrity, 2026-11-24), as pages/files/README.md states."""
+        import hashlib
+        reader = ROOT / "pages" / "files" / "zxing-library-0.23.0.min.js"
+        pinned = "3ede94153fb0c5b67a12d7adff6decd827c2b22714fdc6faecf27a8f20937ea6"
+        self.assertEqual(hashlib.sha256(reader.read_bytes()).hexdigest(), pinned)
+        self.assertIn(pinned, (ROOT / "pages" / "files" / "README.md").read_text())
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -9,8 +9,9 @@ local and behind a firewall. A name of one of the household's people (a `Person`
 Structr account, data-model.md K1) gives that person a password, so they sign in as themselves:
 the owner's choice for Elijah, the same day. Any other name is a Structr `User` of its own. The
 password is typed without being shown and is stored nowhere but in Structr, as Structr stores
-passwords. For the same name again, it sets a new password. Needs STRUCTR_TOOLS_PASSWORD and
-STRUCTR_URL.
+passwords. For the same name again, it sets a new password and opens the account again: Structr locks an
+account after four wrong passwords in a row (security.passwordpolicy.maxfailedattempts), and anyone who
+can reach the sign-in page and knows a name can lock it. Needs STRUCTR_TOOLS_PASSWORD and STRUCTR_URL.
 """
 
 import argparse
@@ -47,12 +48,12 @@ def main(argv=None, ask=input, ask_secret=getpass.getpass) -> int:
         print(f"problem: {len(persons)} people are named {name!r}; nothing was changed")
         return 1
     if persons:
-        client.patch(f"/structr/rest/Person/{persons[0]['id']}", {"password": password})
+        client.patch(f"/structr/rest/Person/{persons[0]['id']}", {"password": password, "passwordAttempts": 0})
         print(f"{name}: a person of the household, who can now sign in at {client.base_url}/structr/html/login")
         return 0
     users = client.get("/structr/rest/User", params={"name": name})["result"]
     if users:
-        client.patch(f"/structr/rest/User/{users[0]['id']}", {"password": password})
+        client.patch(f"/structr/rest/User/{users[0]['id']}", {"password": password, "passwordAttempts": 0})
         print(f"{name}: a new password is set")
     else:
         client.post("/structr/rest/User", {"name": name, "password": password, "isAdmin": False, **UNSEEN})

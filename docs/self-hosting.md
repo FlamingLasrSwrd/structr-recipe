@@ -28,13 +28,17 @@ planner's search and the batch work.
   - **The whole home network reaches it, not only this machine.** `docker-compose.yml` publishes
     Structr's port on every interface (`"8085:8082"`, not `"127.0.0.1:8085:8082"`), so any device on
     the network reaches the sign-in page and the REST API, where the superuser password opens
-    everything. Neo4j is not published.
+    everything. Neo4j is not published. **Since 2026-11-24** every stack but the owner's answers this
+    computer only (`STRUCTR_BIND`), and the owner's HTTP port does too with `OWNER_BIND=127.0.0.1`
+    (`docs/pages.md`, "HTTPS"); the owner keeps it open for now, by choice (2026-11-22).
   - **A page on another site can book through a signed-in browser.** A booking is a link, and the page
     accepts any hex token: it is not tied to the session. Visiting a page on the internet while signed
     in could send the browser to such a link, and browsers' default cookie rule (SameSite=Lax) sends
     the session cookie with that kind of navigation, unless Structr sets a stricter one (not checked).
     The browser is inside the firewall, so the firewall does not help. A purchase needs no node id to
-    forge; the other bookings need one.
+    forge; the other bookings need one. **Fixed 2026-11-24** (`docs/pages.md`, "Bookings from another
+    site"): Structr does set Lax, which sends the cookie with such a link, and a page now books only what
+    the browser says came from one of its own pages.
 
   Passwords cross the network unencrypted on the HTTP port (HTTPS was built 2026-11-22 as an opt-in
   beside it, `docs/pages.md`), and backups are plain archives that include `private/`, the HTTPS key
@@ -83,8 +87,10 @@ Each step says what is done when it is done.
    credentials between services, and a long run holds no request open.)
 4. **Security.** In order of cost:
    - *Cheap, and worth it even behind a firewall:* Structr's port bound to the machine
-     (`127.0.0.1:`) unless other devices are meant to reach it; bookings as form posts carrying a
-     token tied to the session and checked, in place of links with any token; HTTPS (built 2026-11-22
+     (`127.0.0.1:`) unless other devices are meant to reach it (every stack but the owner's since
+     2026-11-24, the owner's with `OWNER_BIND`); bookings refused unless they come from the instance's own
+     pages (built 2026-11-24 from the browser's `Sec-Fetch-Site` and `Referer`, in place of a token tied to
+     the session: `docs/pages.md`); HTTPS (built 2026-11-22
      for a home network, by Structr itself: `docs/pages.md`; a hosted one needs a public certificate).
    - *With a planner or backend service (step 3; the next section):* the service not published,
      reachable only from Structr on the stack's own network; calls to it proven to come from Structr
