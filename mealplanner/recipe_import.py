@@ -638,6 +638,8 @@ def _rules(client, spec: dict) -> tuple[Substitute, ...]:
     rules = []
     for ref in spec.get("hasSubstitutionRule") or []:
         rule = client.get_all("SubstitutionRule", ref["id"])["result"]
+        if rule.get("isOneOff"):
+            continue                      # made for some meals of a week (substitutes.py), not the recipe's
         k = int(rule["name"].rsplit(" or ", 1)[1].split(" ", 1)[0])
         ratio = rule.get("substitutionRatio")
         rules.append((k, Substitute((rule.get("candidateType") or {}).get("name"), 1.0 if ratio is None else float(ratio),
@@ -825,7 +827,8 @@ def _write(client, type_name: str, name: str, fields: dict) -> str:
 
 def _substitution_rules(client, spec_id: str, spec_name: str, ing: Ingredient, type_of: dict) -> None:
     """An input Specification's SubstitutionRules, one per substitute, named "<spec> or <k> <food>" in the
-    file's order; any other rule of the Specification is deleted (J36)."""
+    file's order; any other rule of the Specification is deleted (J36), but for a one-off rule, made for the
+    meals of a week that use it (substitutes.py, J42), which is not the recipe's."""
     keep = set()
     for k, sub in enumerate(ing.substitutes, 1):
         keep.add(_write(client, "SubstitutionRule", f"{spec_name} or {k} {sub.food}", {
@@ -833,7 +836,7 @@ def _substitution_rules(client, spec_id: str, spec_name: str, ing: Ingredient, t
             "isExcluded": sub.never}))
     spec = client.get_all("Specification", spec_id)["result"]
     for ref in spec.get("hasSubstitutionRule") or []:
-        if ref["id"] not in keep:
+        if ref["id"] not in keep and not client.get_all("SubstitutionRule", ref["id"])["result"].get("isOneOff"):
             client.delete(f"/structr/rest/SubstitutionRule/{ref['id']}")
 
 

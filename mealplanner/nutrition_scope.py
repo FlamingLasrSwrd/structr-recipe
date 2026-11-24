@@ -518,6 +518,15 @@ def entry_nutrient_figure(client, entry: dict, nutrient_id: str, unit: str = "g"
     figure = serving_nutrient_figure(client, plan, nutrient_id, unit)
     if figure.amount is None:
         return None, False, False
+    from mealplanner.substitutes import source_entry, swap_delta
+    cook = source_entry(client, entry)
+    if cook is not None and cook.get("usesSubstitution"):
+        # a food bought instead is what is eaten (substitutes.py): its share in place of the recipe's food
+        servings_made = recipe_servings_strict(client, plan)
+        delta, estimated = swap_delta(client, cook, plan, nutrient_id, unit, servings_made) if servings_made else (None, False)
+        if delta is None:
+            return None, False, False
+        return (figure.amount + delta) * servings, assumed, figure.estimated or estimated
     return figure.amount * servings, assumed, figure.estimated
 
 

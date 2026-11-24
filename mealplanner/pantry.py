@@ -43,6 +43,7 @@ from datetime import datetime
 from mealplanner.inventory import FMT, container_opened_status, eligible_lots, mass_quality, shelf_life_days
 from mealplanner.inventory import _magnitude as magnitude_of
 from mealplanner.nutrition_scope import raw_inputs
+from mealplanner.substitutes import entry_swaps, swapped_grams
 from mealplanner.typetree import dt
 from mealplanner.unit_conversion import convert_to_grams
 from structr_client import ReadCache
@@ -205,12 +206,13 @@ def last_perishability(client, food_id: str) -> str | None:
     return best[1] if best else None
 
 
-def _draw(w: _Writer, process: str, portion: dict, grams: float, when: datetime, label: str, spec: str | None = None) -> None:
+def _draw(w: _Writer, process: str, portion: dict, grams: float, when: datetime, label: str, spec: str | None = None,
+          via: str | None = None) -> None:
     name = f"{w.booking.process} -- {label}"
     qty = w.ensure("Measurement", f"{name} amount", {"value": round(grams, 6), "unit": "g", "status": "observed",
                                                      "hasTime": _time(when)})
     w.ensure("Allocation", name, {"isAbout": portion["id"], "hasParticipationRole": "input", "hasActualQuantity": qty,
-                                  "process": process, "fulfills": spec})
+                                  "process": process, "fulfills": spec, "viaSubstitution": via})
 
 
 def use(client, portion_id: str, amount: float, unit: str, when: datetime, token: str, *, by: str | None = None) -> Booking:
@@ -353,14 +355,21 @@ def cook(client, entry_id: str, when: datetime, token: str, *, by: str | None = 
     # may be one food, or a food and one below it. Each use is an Allocation of its own, so a second draw
     # of a food from one portion is numbered: named alike, it was found by name and never written.
     reads = ReadCache(client)          # read once each, all before the first draw is written
-    stock = {f: eligible_lots(reads, f, when) for f in {spec["specifies"]["id"] for _, spec in inputs}}
+    # a meal using a food bought instead draws on that food, by the rule it uses (substitutes.py, invariant 18)
+    swaps = entry_swaps(client, entry) if entry.get("usesSubstitution") else {}
+    taken_food = {spec["id"]: ({"id": swaps[spec["id"]].food, "name": swaps[spec["id"]].food_name} if spec["id"] in swaps
+                               else spec["specifies"]) for _, spec in inputs}
+    stock = {f: eligible_lots(reads, f, when) for f in {food["id"] for food in taken_food.values()}}
     taken: dict[str, float] = {}
     drawn: dict[str, int] = {}
     for step, spec in inputs:
-        food = spec["specifies"]
+        food, swap = taken_food[spec["id"]], swaps.get(spec["id"])
         qty_ref = spec.get("hasSpecifiedQuantity")
         qty = client.get_all("QuantitySpecification", qty_ref["id"])["result"] if qty_ref else {}
-        grams = convert_to_grams(client, food["id"], qty.get("value"), qty.get("unit")) if qty.get("value") else None
+        if swap is not None:
+            grams = swapped_grams(client, spec["specifies"]["id"], qty, swap) if qty.get("value") else None
+        else:
+            grams = convert_to_grams(client, food["id"], qty.get("value"), qty.get("unit")) if qty.get("value") else None
         if not grams:
             booking.notes.append(f"{food.get('name')}: no amount in the recipe, so none is drawn")
             continue
@@ -377,7 +386,7 @@ def cook(client, entry_id: str, when: datetime, token: str, *, by: str | None = 
             if drawn[label] > 1:
                 label += f" #{drawn[label]}"
             # a lot may be a DiscreteWholeItem, which is no PortionOfSubstance: only its id is needed
-            _draw(w, process, {"id": lot.portion_id}, take, when, label, spec["id"])
+            _draw(w, process, {"id": lot.portion_id}, take, when, label, spec["id"], swap.rule if swap else None)
             taken[lot.portion_id] = taken.get(lot.portion_id, 0.0) + take
             left -= take
         if left > 1e-6:
