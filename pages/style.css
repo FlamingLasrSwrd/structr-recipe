@@ -25,3 +25,4 @@ tr.skipped td { color: var(--muted); } span.skipped { text-decoration: line-thro
 details.change { display: inline-block; margin-left: 6px; } details.change summary { cursor: pointer; font-size: 0.9em; color: var(--muted); }
 div.picks { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; color: var(--muted); font-size: 0.9em; }
 div.picks[hidden] { display: none; } div.picks button { padding: 3px 8px; }
+table.pantry td:nth-child(4) { white-space: nowrap; }

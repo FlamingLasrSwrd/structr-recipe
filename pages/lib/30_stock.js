@@ -95,8 +95,7 @@ function daysUntilExpiry(portion) {
   const kept = stated || assumedStorage(portion);
   const days = portionShelfLife(portion, [typeId(kept), typeId(opened)]);
   const where = kept + ", " + opened + (stated ? "" : ", assumed");
-  if (days == null) return [null, "no shelf life is known for it " + (opened === "Opened" ? "once opened, " : "") + "in the " + kept.toLowerCase()
-                              + (stated ? "" : " (where it is kept was not recorded)")];
+  if (days == null) return [null, "no shelf life is known for it " + (opened === "Opened" ? "once opened, " : "") + "in the " + kept.toLowerCase()];
   return [(started.getTime() + days * 86400e3 - NOW.getTime()) / 86400e3, where];
 }
 

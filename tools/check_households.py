@@ -479,7 +479,7 @@ def page_check(check: Check, client, m: dict, food: str, keeps: str, shared: dic
         if got.get("problem") or got.get("privileged") or not got.get("created"):
             check.fail(f"A1's {action} on the pantry page: {got}")
             continue
-        if action == "use" and not any("opened by this use" in n for n in got.get("notes") or []):
+        if action == "use" and not any("is marked opened now" in n for n in got.get("notes") or []):
             check.fail(f"A1's first use of a sealed portion did not open it: {got.get('notes')}")
         names += got["created"]
         processes.append(got.get("process"))
