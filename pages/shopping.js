@@ -94,10 +94,11 @@ if (!week) {
     + (data.unpriced.length ? "; not priced: " + esc(data.unpriced.sort().join(", ")) : "") + ".</p>";
   else html += "<p class=\"note\">No price level named " + esc(levelName) + ": add <code>?prices=</code> with one.</p>";
   if (data.not_bought.length) html += "<p class=\"note\">Not bought: " + esc(data.not_bought.sort().join(", ")) + ".</p>";
-  if (covered.length) html += "<p class=\"note\">The pantry covers: " + covered.map((l) => esc(l.food) + " (" + number(l.need, 0) + " of " + number(l.have, 0) + " g)").join(", ") + ".</p>";
+  if (covered.length) html += "<p class=\"note\">The pantry covers: " + covered.map((l) => esc(l.food) + " (" + number(l.need, 0) + " of " + number(l.have, 0) + " g"
+    + (l.instead && l.instead.length ? ", in place of " + esc(l.instead.join(", ")) : "") + ")").join(", ") + ".</p>";
   const loose = Object.keys(n.unquantified).sort();
   if (loose.length) html += "<p class=\"note\">No amount in the recipe, so check there is some: " + loose.map((f) => esc(f) + " (" + esc(n.unquantified[f].join(", ")) + ")").join(", ") + ".</p>";
-  data.covered = covered.map((l) => ({food: l.food, need: l.need, have: l.have}));
+  data.covered = covered.map((l) => ({food: l.food, need: l.need, have: l.have, instead: l.instead || []}));
   data.unquantified = n.unquantified;
   html += "<script>document.querySelectorAll('input[data-item]').forEach(function (box) {"
     + "try { box.checked = localStorage.getItem('shop:' + box.dataset.item) === '1'; } catch (e) {}"

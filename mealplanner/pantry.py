@@ -21,7 +21,9 @@ Sec 5, Sec 5.5), so the inventory engine (inventory.py) needs nothing new to cou
              always been kept there.
   cook       a Process that concretizes the entry's Plan, drawing each ingredient the recipe buys
              (the ones nutrition counts, nutrition_scope.raw_inputs) for the servings planned,
-             from eligible stock, soonest to expire first; the entry is then fulfilledBy it.
+             from eligible stock, soonest to expire first; the entry is then fulfilledBy it. A meal using
+             a food bought instead (substitutes.py) draws on that food by the rule it uses, and each such
+             draw says which rule it followed (viaSubstitution, invariant 18's via_substitution).
 
 A booking is named by a token the caller chooses (a page form makes one per form, the tool one per
 run), and every node it writes is found by name before it is created, so repeating a booking (a

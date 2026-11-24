@@ -12,12 +12,13 @@ Prices per 100 g: noodles $0.50, spaghetti $0.40, rice noodles $1.00.
 
 import unittest
 from types import SimpleNamespace
+from zoneinfo import ZoneInfo
 
 from mealplanner.alternatives import alternatives, describe
 from mealplanner.nutrition_scope import entry_nutrient_figure
 from mealplanner.pantry import buy, cook
 from mealplanner.recipe_import import _rules
-from mealplanner.shopping import shopping_list
+from mealplanner.shopping import describe as describe_list, shopping_list
 from mealplanner.substitutes import SwapError, entry_swaps, stop_using, use_instead
 from tests.fakegraph import Ref, at, when
 from tests.planning_graph import add_entry, add_portion, add_type
@@ -96,6 +97,14 @@ class BoughtInstead(unittest.TestCase):
         self.assertEqual((made["isOneOff"], made["substitutionRatio"], made["candidateType"].id), (True, 1.0, "Spaghetti"))
         self.assertEqual(lines(g), {"Eggs": (450.0, []), "Spaghetti": (200.0, ["Noodles"])})
         self.assertEqual(g.nodes["in0 pasta"]["specifies"].id, "Noodles")         # the recipe is left as it is
+
+    def test_a_food_bought_instead_that_the_pantry_covers_says_what_it_is_in_place_of(self):
+        g = kitchen()
+        use_instead(g, "week", "Noodles", "Spaghetti")
+        add_portion(g, "spaghetti on hand", "Spaghetti", 300.0)
+        shopping = shopping_list(g, "week", NOW)
+        self.assertEqual([(line.food, line.need, line.instead) for line in shopping.covered], [("Spaghetti", 200.0, ["Noodles"])])
+        self.assertIn("Spaghetti (200 of 300 g, in place of Noodles)", describe_list(shopping, ZoneInfo("America/Edmonton")))
 
     def test_the_recipes_own_rule_is_used_with_its_ratio(self):
         g = kitchen()

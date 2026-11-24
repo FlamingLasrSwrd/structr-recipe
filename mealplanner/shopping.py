@@ -353,7 +353,8 @@ def describe(shopping: ShoppingList, zone, level: str | None = None, package_lev
     if shopping.not_bought:
         lines.append("\nNot bought: " + ", ".join(shopping.not_bought))
     if shopping.covered:
-        lines.append("\nThe pantry covers: " + ", ".join(f"{line.food} ({line.need:,.0f} of {line.have:,.0f} g)"
+        instead = lambda line: f", in place of {', '.join(line.instead)}" if line.instead else ""
+        lines.append("\nThe pantry covers: " + ", ".join(f"{line.food} ({line.need:,.0f} of {line.have:,.0f} g{instead(line)})"
                                                           for line in shopping.covered))
     if shopping.unquantified:
         lines.append("\nNo amount in the recipe, so check there is some: " + ", ".join(
