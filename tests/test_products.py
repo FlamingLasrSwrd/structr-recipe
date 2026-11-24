@@ -120,8 +120,8 @@ class Barcodes(unittest.TestCase):
         self.assertEqual(normalize("01234572"), "00012345000072")
 
     def test_what_is_not_a_products_barcode(self):
-        for barcode, why in (("036000291453", "its last digit should be 2"), ("03600029145", "has 11 digits"),
-                             ("03600029145x", "is not a number"), ("", "is not a number"),
+        for barcode, why in (("036000291453", "its last digit should be 2. Scan or type it again"), ("03600029145", "has 11 digits"),
+                             ("03600029145x", "should be digits only"), ("", "should be digits only"),
                              ("212345678992", "a shop's own number"), ("412345678903", "a shop's own number"),
                              ("2012345678903", "a shop's own number"), ("20123451", "a shop's own number"),
                              (36000291452, "has 11 digits")):       # unquoted in the file, its leading zero is lost
@@ -155,8 +155,8 @@ class TheFile(unittest.TestCase):
         ]
         problems = problems_of(parse_products, {"product": rows, "shop": {}})
         for expected in ("sections it does not use: shop", "Farm eggs dozen: it lists no barcode",
-                         "Eggs: a product is named apart from its food", "Six eggs: what a package holds (amount) must be more than 0",
-                         "Bad unit: barcode '036000291452' is also Six eggs's", "Bad unit: unit 'box' is not one of",
+                         "Eggs: give it a name of its own, not its food's name", "Six eggs: say how much one package holds (more than 0)",
+                         "Bad unit: barcode '036000291452' is also Six eggs's", "Bad unit: unit 'box' isn't one the planner knows",
                          "A, B: a name cannot hold a comma", "Misread: barcode '036000291453' is misread or mistyped",
                          "Misread: it has fields it does not use: shelf", "a product has no name"):
             self.assertTrue(any(expected in p for p in problems), (expected, problems))
@@ -240,13 +240,13 @@ class Load(unittest.TestCase):
             Product("Purchase kind", "PurchaseQuantity", ("00012340000053",), 1.0, "g"),  # not in the Food Identity hierarchy
         ]
         problems = problems_of(import_products, g, bad)
-        for expected in ("Shop eggs six: 'Egg' is not a food of this instance",
-                         "Tinned beans: 'Beans' is a group of foods (Black beans, Chickpeas), not a food that is bought",
-                         "Half dozen: 'Farm eggs dozen' is a product itself",
-                         "Milk: that name is already a food here, not a product",
+        for expected in ("Shop eggs six: 'Egg' isn't a food the planner knows; check the spelling",
+                         "Tinned beans: 'Beans' is a group of foods (Black beans, Chickpeas); name the one it is",
+                         "Half dozen: 'Farm eggs dozen' is a product, not a food",
+                         "Milk: that name is already a food's; give the product another name",
                          "Other eggs: barcode 00036000291452 already belongs to 'Farm eggs dozen', which this file does not name",
-                         "Noodle nests: 6 each of Noodles does not convert to grams",
-                         "Purchase kind: 'PurchaseQuantity' is not a food of this instance"):
+                         "Noodle nests: the weight of 6 each of Noodles isn't known",
+                         "Purchase kind: 'PurchaseQuantity' isn't a food the planner knows; check the spelling"):
             self.assertTrue(any(p.startswith(expected) for p in problems), (expected, problems))
         self.assertEqual(len(problems), 7, problems)
         self.assertEqual((g.posts, g.patches), (posts, patches))
@@ -325,7 +325,7 @@ class AddFromThePage(unittest.TestCase):
         for args, expected in (
             (("Farm eggs dozen", "Eggs", UPC_E, 6, "each"),
              ["Farm eggs dozen: one package of it holds 12 each already; a package of another size is another product, "
-              "so name it apart"]),
+              "so give it another name"]),
             (("Farm eggs dozen", "Milk", UPC_E, 12, "each"),
              ["Farm eggs dozen: it is a product of 'Eggs' already, not of 'Milk'"]),
             (("Farm eggs dozen", "Eggs", EAN_8, 12, "each"),
@@ -333,11 +333,11 @@ class AddFromThePage(unittest.TestCase):
             (("Other eggs", "Eggs", UPC_A, 6, "each"),
              ["Other eggs: barcode 00036000291452 already belongs to 'Farm eggs dozen', which this file does not name"]),
             (("Tinned beans", "Beans", UPC_E, 400, "g"),
-             ["Tinned beans: 'Beans' is a group of foods (Black beans, Chickpeas), not a food that is bought"]),
-            (("Milk", "Eggs", UPC_E, 6, "each"), ["Milk: that name is already a food here, not a product"]),
+             ["Tinned beans: 'Beans' is a group of foods (Black beans, Chickpeas); name the one it is"]),
+            (("Milk", "Eggs", UPC_E, 6, "each"), ["Milk: that name is already a food's; give the product another name"]),
             (("Six eggs", "Eggs", "036000291453", 0, "each"),
-             ["Six eggs: what a package holds (amount) must be more than 0",
-              "Six eggs: barcode '036000291453' is misread or mistyped: its last digit should be 2"]),
+             ["Six eggs: say how much one package holds (more than 0)",
+              "Six eggs: barcode '036000291453' is misread or mistyped: its last digit should be 2. Scan or type it again"]),
         ):
             self.assertEqual(problems_of(add_product, g, *args), expected, args)
         self.assertEqual((g.posts, g.patches), (posts, patches))
@@ -368,7 +368,7 @@ class Find(unittest.TestCase):
     def test_a_barcode_two_products_share_is_a_problem(self):
         self.g.post("/structr/rest/Identifier", {"name": "a copy", "identifierValue": "00036000291452",
                                                  "identifierScheme": "Concept:GTIN", "denotesType": "DomainType:Dairy milk 1 L"})
-        self.assertIn("names 2 products: Dairy milk 1 L, Farm eggs dozen", problems_of(find, self.g, UPC_A)[0])
+        self.assertIn("belongs to 2 products, so which one this is can't be told: Dairy milk 1 L, Farm eggs dozen", problems_of(find, self.g, UPC_A)[0])
 
 
 class InThePantry(unittest.TestCase):
@@ -473,7 +473,7 @@ class TheTool(unittest.TestCase):
         self.assertIn("problem: Farm eggs dozen: 'Beans' is a group of foods", said)
         code, said = self.run_tool(None, "FILE", "--check", text=self.FILE.replace("29145 2", "29145 3"))
         self.assertEqual((code, said), (1, "problem: Farm eggs dozen: barcode '0 36000 29145 3' is misread or mistyped: "
-                                           "its last digit should be 2\n"))
+                                           "its last digit should be 2. Scan or type it again\n"))
         self.assertEqual(self.run_tool(None, "--find", "12")[0], 1)
 
 

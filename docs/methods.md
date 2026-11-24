@@ -66,8 +66,8 @@ are also Structr `User`s (data-model K1, K2).
 - **What a household's booking writes is private to it.** `bookPantry` books for the caller's one
   household (a caller in none, or in several, is refused). Every node it makes is visible to no one
   by its flags and is granted (read, write, delete) to the household's Group, so each member reads and
-  changes it and no one else sees it. A portion of another household is "no such portion", because the
-  caller cannot read it. Each Process it writes names the caller as who made it (`wasAssociatedWith`
+  changes it and no one else sees it. A portion of another household "isn't in your pantry" (the
+  booking's words since 2026-11-24, once "no such portion"), because the caller cannot read it. Each Process it writes names the caller as who made it (`wasAssociatedWith`
   their Person, `docs/pantry.md`), through the same `bookProcess` that names whoever is signed in on a
   page; `tools/check_households.py` checks it for the pantry page's bookings by a member (2026-11-23).
 - **It never makes shared vocabulary.** A pantry operation's kind ("Purchase", "Use", "Discarding",
@@ -81,9 +81,9 @@ are also Structr `User`s (data-model K1, K2).
   signed in who is in none (or in several) is refused a page's booking instead of booking as the superuser.
 - **It acts on the household's own data only.** Stock, a meal or a week that every signed-in user
   sees belongs to no household: the data made before households kept theirs apart. So:
-  - a household's booking neither books on such stock ("not your household's stock") nor draws on it
+  - a household's booking neither books on such stock ("... is not in your household's pantry") nor draws on it
     when cooking, even when it would expire first;
-  - it does not change such a meal ("not your household's week");
+  - it does not change such a meal ("... is not in your household's week");
   - it does not add to such a week. Finding a node by name before making one, it looks only among its
     own, so a request for a week makes the household's own "Week of ..." beside a shared one of that
     name.
@@ -151,7 +151,7 @@ one.
 | Check | Result |
 |---|---|
 | Purchases, as each member | A1 600 g, B1 450 g; A1 then used 150 g |
-| B1 using A's portion | "no such portion", nothing written |
+| B1 using A's portion | "no such portion" (now "that item isn't in your pantry"), nothing written |
 | One purchase sent four times at once | one made, one said so |
 | What each household's member sees | its own portion, not the other's: 1.1 s and 0.7 s for `stockOnHand` |
 | The 22 nodes the bookings made | each read by its household, a 404 to the other |

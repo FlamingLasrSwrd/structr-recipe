@@ -29,7 +29,7 @@ function nextWeekStart() {
 function weekNamed(start, booking) {
   const found = $.find("MealPlan", {name: WEEK_PREFIX + start})
     .filter((m) => m.type === "MealPlan" && (!booking || !booking.household || m.visibleToAuthenticatedUsers === false));
-  if (found.length > 1) throw new BookingError("two MealPlans are named " + WEEK_PREFIX + start);
+  if (found.length > 1) throw new BookingError("two weeks are named " + WEEK_PREFIX + start + ", so nothing can be saved until one is removed");
   return found.length ? found[0] : null;
 }
 
@@ -44,14 +44,14 @@ const REQUEST_ACTIONS = {
   ask: (booking, r) => {
     const start = String(r.week || ""), recipe = $.find("RecipeIdentity", {id: String(r.recipe || "")});
     const identity = Array.isArray(recipe) ? recipe[0] : recipe;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) throw new BookingError("no week named");
-    if (!identity) throw new BookingError("no such recipe");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) throw new BookingError("the form names no week. Reload the page and try again");
+    if (!identity) throw new BookingError("that recipe isn't in the book any more. Reload the page");
     const week = weekNamed(start, booking) || ensureNode(booking, "MealPlan", WEEK_PREFIX + start,
                                                 booking.household ? {forHousehold: booking.household} : {});
     const current = (week.requestsRecipe || []).slice();
-    if (current.some((x) => x.id === identity.id)) { booking.notes.push(identity.name + " was asked for in the week of " + weekWords(start) + " already."); return; }
+    if (current.some((x) => x.id === identity.id)) { booking.notes.push(identity.name + " is on the list for the week of " + weekWords(start) + " already."); return; }
     week.requestsRecipe = current.concat([identity]);
-    booking.notes.push(identity.name + ": asked for in the week of " + weekWords(start) + ".");
+    booking.notes.push(identity.name + " is on the list for the week of " + weekWords(start) + ". The planner will fit it in.");
   },
   // requests.withdraw
   withdraw: (booking, r) => {
@@ -59,8 +59,8 @@ const REQUEST_ACTIONS = {
     const week = /^\d{4}-\d{2}-\d{2}$/.test(start) ? weekNamed(start, booking) : null;
     const current = week ? (week.requestsRecipe || []).slice() : [];
     const found = current.find((x) => x.id === recipeId);
-    if (!found) { booking.notes.push("It was not asked for that week."); return; }
+    if (!found) { booking.notes.push("It wasn't on the list for that week, so nothing changed."); return; }
     week.requestsRecipe = current.filter((x) => x.id !== recipeId);
-    booking.notes.push(found.name + ": no longer asked for in the week of " + weekWords(start) + ".");
+    booking.notes.push(found.name + " is off the list for the week of " + weekWords(start) + ".");
   },
 };

@@ -79,14 +79,14 @@ function portionShelfLife(portion, keys) {
 const typeId = (name) => { const t = $.find("DomainType", {name: name})[0]; return t ? t.id : null; };
 function daysUntilExpiry(portion) {
   const quality = massQuality(portion);
-  if (!quality || (!portion.instanceOf && !portion.hasPerishabilityType)) return [null, "no food or perishability"];
+  if (!quality || (!portion.instanceOf && !portion.hasPerishabilityType)) return [null, "no food is set for it"];
   const weighed = weighingsOf(quality).filter(([t]) => t <= NOW);
   if (!weighed.length) return [null, "not weighed yet"];
   let started = weighed[0][0];
   const origin = portion.beginsToExistDuring;
   if (origin) {
     const region = origin.occupiesTemporalRegion;
-    if (!region || !region.hasBeginning) return [null, "bought by a process with no date"];
+    if (!region || !region.hasBeginning) return [null, "its purchase has no date"];
     started = new Date(region.hasBeginning);
   }
   const box = portion.locatedIn;
@@ -95,7 +95,8 @@ function daysUntilExpiry(portion) {
   const kept = stated || assumedStorage(portion);
   const days = portionShelfLife(portion, [typeId(kept), typeId(opened)]);
   const where = kept + ", " + opened + (stated ? "" : ", assumed");
-  if (days == null) return [null, "no shelf life " + (kept === "Pantry" ? "in the pantry" : kept === "Fridge" ? "in the fridge" : "in the freezer") + " (" + where + ")"];
+  if (days == null) return [null, "no shelf life is known for it " + (opened === "Opened" ? "once opened, " : "") + "in the " + kept.toLowerCase()
+                              + (stated ? "" : " (where it is kept was not recorded)")];
   return [(started.getTime() + days * 86400e3 - NOW.getTime()) / 86400e3, where];
 }
 

@@ -29,7 +29,7 @@ function formText(line) {
   const out = [];
   if (line.made.length) out.push("for " + line.made.map((m) => m[0] + " (" + number(m[1], 0) + " g)").join(", "));
   if (line.edible < 1 && !(line.each && !line.packages.length)) {
-    out.push(Math.round(line.edible * 100) + "% of it as bought is used" + (line.trimmed ? " (less " + line.trimmed + ")" : ""));
+    out.push(Math.round(line.edible * 100) + "% of it is used" + (line.trimmed ? " (the rest is " + line.trimmed + ")" : ""));
   }
   return out.join("; ");
 }
@@ -39,7 +39,7 @@ const dateLabel = (d, zone) => new Intl.DateTimeFormat("en-US", {timeZone: zone,
 function leftText(line, zone) {
   if (line.left < LEFT_G) return "";
   return gramsText(line.left) + " left over" + (line.left_cost == null ? "" : " ($" + line.left_cost.toFixed(2) + ")")
-    + (line.keeps_until ? ", keeps to " + dateLabel(line.keeps_until, zone) + (line.keeps_opened ? " once opened" : " unopened") : ", no shelf life known");
+    + (line.keeps_until ? ", keeps until " + dateLabel(line.keeps_until, zone) + (line.keeps_opened ? " once opened" : " unopened") : ", use-by not known");
 }
 
 const week = chosenWeek();
@@ -48,7 +48,7 @@ const packageLevel = $.request.packages || defaultPackageLevel();
 let html = nav("shopping") + "<h1>Shopping list</h1>";
 const data = {to_buy: [], covered: [], unquantified: {}, not_bought: [], unpriced: []};
 if (!week) {
-  html += "<p>No week has been committed yet: <code>tools/plan_week.py --commit</code> writes one.</p>";
+  html += "<p>No week is planned yet. To plan one, run <code>tools/plan_week.py</code> with <code>--commit</code>.</p>";
 } else {
   const list = shoppingFor(week, levelName, false, packageLevel);
   const zone = list.zone, table = list.priced, n = {cooks: list.cooks, leftovers: list.leftovers, unquantified: list.unquantified};
@@ -57,11 +57,13 @@ if (!week) {
   data.unpriced = list.unpriced;
   const total = list.total;
   html += "<h2>" + esc(week.name) + "</h2>" + weekPicker("shopping", week)
-    + "<p class=\"note\">" + n.cooks + " meals to cook, " + n.leftovers + " of leftovers (which need nothing more). What the meals call for, "
-    + "less what the pantry holds; " + (list.packaged ? "rounded up to what is sold at " + esc(packageLevel) + " (italics: a size rests on an estimate)"
-                                                      : "amounts are what the recipes use, not package sizes" + (packageLevel ? " (no package level named " + esc(packageLevel) + ")" : ""))
-    + ". Tick items off as you go; the ticks stay in this browser.</p>";
-  if ($.find("StockPolicy").length) html += "<p class=\"note\">Stock policies are not applied on this page: <code>tools/shopping_list.py</code> adds their levels.</p>";
+    + "<p class=\"note\">" + n.cooks + " meal" + (n.cooks === 1 ? "" : "s") + " to cook and " + n.leftovers + " of leftovers. "
+    + "This is what those meals need, less what is in the pantry already, "
+    + (list.packaged ? "rounded up to whole packages (" + esc(packageLevel) + "). Package sizes in italics are estimates"
+                     : "in the amounts the recipes use, not in packages" + (packageLevel ? " (there are no package sizes called " + esc(packageLevel) + ")" : ""))
+    + ". Tick items off as you shop; the ticks are kept in this browser only.</p>";
+  if ($.find("StockPolicy").length) html += "<p class=\"note\">Foods you keep a stock of are not topped up on this list. "
+    + "<code>tools/shopping_list.py</code> adds them.</p>";
   let day = null;
   for (const l of buy) {
     const key = l.first ? dayKey(l.first, zone) : "none";
@@ -75,7 +77,7 @@ if (!week) {
       + "<td><label for=\"" + id + "\">" + esc(l.food) + (l.optional ? " <i>(optional)</i>" : "") + "</label></td>"
       + "<td class=\"num" + (l.estimated_size ? " estimated" : "") + "\">" + esc(amountText(l)) + "</td>"
       + "<td class=\"num" + (l.estimated ? " estimated" : "") + "\">" + (l.cost == null ? "" : "$" + l.cost.toFixed(2)) + "</td>"
-      + "<td class=\"note\">" + (l.have > 0 ? "have " + number(l.have, 0) + " g of " + number(l.need, 0) + " g; " : "")
+      + "<td class=\"note\">" + (l.have > 0 ? "have " + number(l.have, 0) + " g of the " + number(l.need, 0) + " g needed; " : "")
       + (formText(l) ? esc(formText(l)) + "; " : "") + esc(l.recipes.join(", "))
       + (leftText(l, zone) ? "<br>" + esc(leftText(l, zone)) : "") + "</td></tr>";
     data.to_buy.push({food: l.food, buy: l.buy, need: l.need, have: l.have, first: l.first ? l.first.toISOString() : null, cost: l.cost,
@@ -84,14 +86,14 @@ if (!week) {
   }
   html += day === null ? "<p>Nothing to buy: the pantry covers the week.</p>" : "</tbody></table>";
   if (table) html += "<p><b>About $" + total.toFixed(2) + "</b> at " + esc(levelName)
-    + (list.left_total >= 0.005 ? ", of which $" + list.left_total.toFixed(2) + " is left over" : "")
-    + (buy.some((l) => l.estimated) ? " (italics: priced from an estimate)" : "")
-    + (data.unpriced.length ? "; not priced: " + esc(data.unpriced.sort().join(", ")) : "") + ".</p>";
-  else html += "<p class=\"note\">No price level named " + esc(levelName) + ": add <code>?prices=</code> with one.</p>";
-  if (data.not_bought.length) html += "<p class=\"note\">Not bought: " + esc(data.not_bought.sort().join(", ")) + ".</p>";
-  if (covered.length) html += "<p class=\"note\">The pantry covers: " + covered.map((l) => esc(l.food) + " (" + number(l.need, 0) + " of " + number(l.have, 0) + " g)").join(", ") + ".</p>";
+    + (list.left_total >= 0.005 ? ", including $" + list.left_total.toFixed(2) + " of food left over" : "") + "."
+    + (buy.some((l) => l.estimated) ? " Prices in italics are estimates." : "")
+    + (data.unpriced.length ? " No price for: " + esc(data.unpriced.sort().join(", ")) + "." : "") + "</p>";
+  else html += "<p class=\"note\">There are no prices called " + esc(levelName) + ", so no costs are shown.</p>";
+  if (data.not_bought.length) html += "<p class=\"note\">Needed but free, so not on the list: " + esc(data.not_bought.sort().join(", ")) + ".</p>";
+  if (covered.length) html += "<p class=\"note\">In the pantry already: " + covered.map((l) => esc(l.food) + " (" + number(l.need, 0) + " g needed, " + number(l.have, 0) + " g there)").join(", ") + ".</p>";
   const loose = Object.keys(n.unquantified).sort();
-  if (loose.length) html += "<p class=\"note\">No amount in the recipe, so check there is some: " + loose.map((f) => esc(f) + " (" + esc(n.unquantified[f].join(", ")) + ")").join(", ") + ".</p>";
+  if (loose.length) html += "<p class=\"note\">Check you have some of these, as the recipe gives no amount: " + loose.map((f) => esc(f) + " (" + esc(n.unquantified[f].join(", ")) + ")").join(", ") + ".</p>";
   data.covered = covered.map((l) => ({food: l.food, need: l.need, have: l.have}));
   data.unquantified = n.unquantified;
   html += "<script>document.querySelectorAll('input[data-item]').forEach(function (box) {"

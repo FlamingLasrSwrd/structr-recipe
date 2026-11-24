@@ -130,8 +130,8 @@
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       reader();                               // load it while the photo is taken
       return offerPhoto(window.isSecureContext === false
-        ? "The browser opens the camera only for a page opened with https:// (docs/pages.md, \"HTTPS\")."
-        : "This browser cannot open the camera from a page.");
+        ? "The camera works only when this page is opened with an https:// address."
+        : "This browser can't open the camera from a page.");
     }
     say("Starting the camera...");
     button.textContent = "Stop camera";

@@ -27,6 +27,12 @@ function weekPicker(page, current) {
     .map((w) => "<a href=\"/structr/html/" + page + "/" + w.id + "\">" + esc(w.name) + "</a>").join(" · ") + "</p>";
 }
 
+// A problem said on a page, as a sentence: "Problem: " and the words, a full stop added where they have none
+function problemText(words) {
+  const text = String(words);
+  return "<p class=\"problem\">Problem: " + esc(text) + (/[.!?]$/.test(text) ? "" : ".") + "</p>";
+}
+
 // Run a booking from the page's address (?do=...); a message saying what it did. A Person signed in who is
 // in one household books as themselves, for it (Path S stage 5, docs/methods.md): what it writes is private
 // to the household, and it acts on the household's own data only, as the methods do. On an instance with no
@@ -42,9 +48,9 @@ const SHARED_BOOKINGS = {product: true};
 function runBooking(actions) {
   const action = $.request.do;
   if (!action) return "";
-  if (!actions[action]) return "<p class=\"problem\">Problem: no such booking: " + esc(action) + "</p>";
+  if (!actions[action]) return problemText("\"" + action + "\" isn't something this page can do");
   const token = String($.request.token || "");
-  if (!/^[0-9a-f]{4,16}$/.test(token)) return "<p class=\"problem\">Problem: the form had no token; reload the page and try again.</p>";
+  if (!/^[0-9a-f]{4,16}$/.test(token)) return problemText("this form is out of date. Reload the page and try again");
   const households = $.me && $.me.type === "Person" ? ($.me.groups || []).filter((g) => g.type === "Household") : [];
   const shared = !!SHARED_BOOKINGS[action];
   const household = !shared && households.length === 1 ? households[0] : null;
@@ -55,8 +61,7 @@ function runBooking(actions) {
   }
   if (anyHousehold) {
     BOOKED = {action: action, problem: "not in a household"};
-    return "<p class=\"problem\">Problem: " + (households.length ? "you are in more than one household, so whose this "
-      + "booking is cannot be told" : "you are in no household, so there is no stock of yours to book on") + ".</p>"
+    return problemText(householdProblem(households.length))
       + "<script type=\"application/json\" id=\"booking-data\">" + JSON.stringify({action: action, privileged: false,
         household: null, problem: BOOKED.problem, process: null, created: [], notes: []}) + "</script>";
   }
@@ -70,9 +75,9 @@ function runBooking(actions) {
   const record = "<script type=\"application/json\" id=\"booking-data\">" + JSON.stringify({
     action: action, privileged: privileged, household: household ? household.name : null, problem: problem, process: booking.process, created: booking.created,
     notes: booking.notes}).replace(/</g, "\\u003c") + "</script>";
-  if (problem) return "<p class=\"problem\">Problem: " + esc(problem) + "</p>" + record;
-  const said = booking.process ? (booking.created.length ? esc(booking.process) + ": booked."
-                                                          : esc(booking.process) + ": booked before, so nothing new was written.") : "";
+  if (problem) return problemText(problem) + record;
+  const said = booking.process ? (booking.created.length ? "Saved." : "This was saved already, so nothing changed.") : "";
   return "<p class=\"booked\">" + [said].concat(booking.notes.map(esc)).filter((x) => x).join(" ") + "</p>" + record
-    + "<script>history.replaceState(null, '', location.pathname);</script>";
+    + "<script>(function () { var keep = /[?&](sort=[^&]*)/.exec(location.search);"
+    + " history.replaceState(null, '', location.pathname + (keep ? '?' + keep[1] : '')); })();</script>";
 }

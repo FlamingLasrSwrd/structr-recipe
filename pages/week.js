@@ -74,7 +74,7 @@ function changeForm(entry, week) {
   if (entry.fulfilledBy) return "";
   const start = startOf(entry), past = start && start < NOW;
   return " <details class=\"change\"><summary>" + (past ? "Didn't make it" : "Won't make it") + "</summary>" + form("skip")
-    + "<input name=\"instead\" list=\"book\" size=\"28\" placeholder=\"" + (past ? "ate" : "eating") + " instead: a recipe, anything, or nothing\"> "
+    + "<input name=\"instead\" list=\"book\" size=\"28\" placeholder=\"what " + (past ? "you ate" : "you'll eat") + " instead, if anything\"> "
     + "<button>Skip it</button></form></details>";
 }
 
@@ -95,14 +95,15 @@ const week = chosenWeek();
 const data = week ? activeEntries(week).map(datum) : [];
 let html = nav("week") + "<h1>Week</h1>" + said;
 if (!week) {
-  html += "<p>No week has been committed yet: <code>tools/plan_week.py --commit</code> writes one.</p>";
+  html += "<p>No week is planned yet. To plan one, run <code>tools/plan_week.py</code> with <code>--commit</code>.</p>";
 } else {
   const zone = weekZone(week);
-  html += "<h2>" + esc(week.name) + "</h2>" + weekPicker("week", week) + "<p class=\"note\">Times in " + esc(zone) + ".</p>";
+  html += "<h2>" + esc(week.name) + "</h2>" + weekPicker("week", week) + "<p class=\"note\">Times are in " + esc(zone) + ". "
+    + "Mark a meal cooked to take its ingredients out of the pantry. If a meal didn't happen, say what was eaten instead.</p>";
   const free = allEntries(week).filter((e) => e.isSkipped && !e.eatenInstead && startOf(e) && startOf(e) > NOW && !heldBy(e));
-  if (free.length) html += "<p class=\"note\">" + free.length + " meal" + (free.length === 1 ? " is" : "s are")
-    + " free from now on: run <code>tools/plan_week.py</code> with this week's file to plan " + (free.length === 1 ? "it" : "them")
-    + ", then <code>--commit</code>.</p>";
+  if (free.length) html += "<p class=\"note\">" + free.length + " meal" + (free.length === 1 ? "" : "s") + " still to come "
+    + (free.length === 1 ? "has" : "have") + " nothing planned. To fill " + (free.length === 1 ? "it" : "them")
+    + ", run <code>tools/plan_week.py</code> with this week's file, then <code>--commit</code>.</p>";
   html += bookList();
   let day = null;
   for (const entry of allEntries(week)) {

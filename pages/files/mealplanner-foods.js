@@ -125,7 +125,7 @@
       var hits = search(names, typed);
       chooser(box, hits, found);
       if (!hits.length) {
-        found.textContent = "No food here is named like that: try a shorter or other word.";
+        found.textContent = "No food matches that. Try a shorter or different word.";
         found.hidden = false;
       }
     }

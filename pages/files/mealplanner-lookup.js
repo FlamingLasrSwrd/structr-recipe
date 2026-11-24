@@ -144,7 +144,7 @@
     .then(function (data) {
       clearTimeout(timer);
       if (!data || data.status !== 1 || !data.product) {
-        say("Open Food Facts does not know barcode " + code + ": fill it in from the package.");
+        say("Open Food Facts doesn't know barcode " + code + ". Fill in the details from the package.");
         return;
       }
       var got = fromOff(data.product), typed = nameBox.value.trim() !== "";

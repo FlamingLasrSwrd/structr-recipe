@@ -126,17 +126,17 @@ def normalize(barcode) -> str:
     """A barcode as its GTIN in 14 digits, or ValueError saying what is wrong with it."""
     text = str(barcode).replace(" ", "").replace("-", "")
     if not (text.isascii() and text.isdigit()):
-        raise ValueError(f"barcode {barcode!r} is not a number")
+        raise ValueError(f"barcode {barcode!r} should be digits only. Check it and try again")
     if len(text) not in (8, 12, 13, 14):
-        raise ValueError(f"barcode {barcode!r} has {len(text)} digits: a product's has 8, 12, 13 or 14")
+        raise ValueError(f"barcode {barcode!r} has {len(text)} digits, but a product's barcode has 8, 12, 13 or 14. Check it and try again")
     if len(text) == 8 and text[0] in "01":
         text = _upc_a_of(text)
     if check_digit(text[:-1]) != int(text[-1]):
-        raise ValueError(f"barcode {barcode!r} is misread or mistyped: its last digit should be {check_digit(text[:-1])}")
+        raise ValueError(f"barcode {barcode!r} is misread or mistyped: its last digit should be {check_digit(text[:-1])}. Scan or type it again")
     gtin = text.zfill(14)
     if text.startswith("2") if len(text) == 8 else gtin[1:].startswith(SHOP_PREFIXES):
         raise ValueError(f"barcode {barcode!r} is a shop's own number for a pack (often with its weight or price in it), "
-                         "not a product's")
+                         "not a product's barcode. Buy it by name instead")
     return gtin
 
 
@@ -169,14 +169,14 @@ def parse_products(data: dict, where: str = "the products file") -> list[Product
         names.add(name)
         food = row.get("food")
         if not isinstance(food, str) or not food:
-            problems.append(f"{name}: it names no food")
+            problems.append(f"{name}: say which food it is")
         elif food == name:
-            problems.append(f"{name}: a product is named apart from its food")
+            problems.append(f"{name}: give it a name of its own, not its food's name")
         amount, unit = row.get("amount"), row.get("unit")
         if isinstance(amount, bool) or not isinstance(amount, (int, float)) or not math.isfinite(amount) or amount <= 0:
-            problems.append(f"{name}: what a package holds (amount) must be more than 0")
+            problems.append(f"{name}: say how much one package holds (more than 0)")
         if not isinstance(unit, str) or unit.strip().lower() not in UNIT_TABLE:
-            problems.append(f"{name}: unit {unit!r} is not one of {', '.join(sorted(UNIT_TABLE))}")
+            problems.append(f"{name}: unit {unit!r} isn't one the planner knows; use one of {', '.join(sorted(UNIT_TABLE))}")
         barcodes = row.get("barcodes")
         gtins: list[str] = []
         if not isinstance(barcodes, list) or not barcodes:
@@ -263,25 +263,25 @@ def import_products(client, products: list[Product], source: str = SOURCE) -> di
     for p in products:
         food = types.get(p.food)
         if food is None or (food.get("hierarchy") or {}).get("name") != FOOD_HIERARCHY:
-            problems.append(f"{p.name}: {p.food!r} is not a food of this instance")
+            problems.append(f"{p.name}: {p.food!r} isn't a food the planner knows; check the spelling")
             continue
         if food["id"] in is_product or p.food in in_file:
-            problems.append(f"{p.name}: {p.food!r} is a product itself; name the food it is a kind of")
+            problems.append(f"{p.name}: {p.food!r} is a product, not a food; name the food it is a kind of")
             continue
         others = sorted(c["name"] for c in food.get("children") or [] if c["id"] not in is_product and c["name"] not in in_file)
         if others:
             problems.append(f"{p.name}: {p.food!r} is a group of foods ({', '.join(others[:3])}"
-                            f"{', ...' if len(others) > 3 else ''}), not a food that is bought")
+                            f"{', ...' if len(others) > 3 else ''}); name the one it is")
         mine = types.get(p.name)
         if mine is not None and mine["id"] not in is_product:
-            problems.append(f"{p.name}: that name is already a food here, not a product")
+            problems.append(f"{p.name}: that name is already a food's; give the product another name")
         for gtin in p.barcodes:
             held = (in_scheme.get(gtin) or {}).get("denotesType")
             if held and held["name"] != p.name and held["name"] not in in_file:
                 problems.append(f"{p.name}: barcode {gtin} already belongs to {held['name']!r}, which this file does not name")
         if convert_to_grams(client, food["id"], p.amount, p.unit) is None:
-            problems.append(f"{p.name}: {p.amount:g} {p.unit} of {p.food} does not convert to grams "
-                            "(the food has no density or weight per item)")
+            problems.append(f"{p.name}: the weight of {p.amount:g} {p.unit} of {p.food} isn't known; "
+                            "give what one package holds by weight (g, kg, oz or lb)")
     if PACKAGE_SIZE not in types:
         problems.append(f"this instance has no {PACKAGE_SIZE!r} kind of default (scripts/05_seed_vocabulary.py makes it)")
     if problems:
@@ -338,7 +338,7 @@ def add_product(client, name: str, food: str, barcode, amount, unit: str, from_o
         problems.append(f"{name}: no package size is known for it")
     elif held != (product.amount, product.unit):
         problems.append(f"{name}: one package of it holds {held[0]:g} {held[1]} already; a package of another size is "
-                        "another product, so name it apart")
+                        "another product, so give it another name")
     for row in gtin_identifiers(client):
         owner = row.get("denotesType")
         if row.get("identifierValue") == gtin and owner and owner["id"] != mine["id"]:
@@ -365,7 +365,7 @@ def find(client, barcode) -> Found | None:
     if not rows:
         return None
     if len(rows) > 1:
-        raise ProductError([f"barcode {gtin} names {len(rows)} products: "
+        raise ProductError([f"barcode {gtin} belongs to {len(rows)} products, so which one this is can't be told: "
                             + ", ".join(sorted(r["denotesType"]["name"] for r in rows))])
     product = client.get_all("DomainType", rows[0]["denotesType"]["id"])["result"]
     size = resolve_default(client, product["id"], dt(client, PACKAGE_SIZE))

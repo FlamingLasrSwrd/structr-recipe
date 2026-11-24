@@ -107,7 +107,7 @@ function callerHousehold() {
 function callerWeek(id) {
   const found = $.find("MealPlan", {id: String(id || "")});
   const week = Array.isArray(found) ? found[0] : found;
-  if (!week || week.type !== "MealPlan") return {problem: "no such week"};
-  if (callerHousehold() && week.visibleToAuthenticatedUsers !== false) return {problem: week.name + ": not your household's week"};
+  if (!week || week.type !== "MealPlan") return {problem: "there is no such week"};
+  if (callerHousehold() && week.visibleToAuthenticatedUsers !== false) return {problem: week.name + " is not your household's week"};
   return {week: week};
 }
