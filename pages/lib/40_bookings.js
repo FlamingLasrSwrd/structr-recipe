@@ -84,13 +84,14 @@ function bookedBy() {
   return person ? [person] : null;
 }
 
-// pantry._draw: an input Allocation of `grams` from a portion, its amount an observed Measurement
-function bookDraw(booking, process, portion, grams, when, label, spec) {
+// pantry._draw: an input Allocation of `grams` from a portion, its amount an observed Measurement; `via` the
+// SubstitutionRule a cook's draw followed (substitutes.py), if any
+function bookDraw(booking, process, portion, grams, when, label, spec, via) {
   const name = process.name + " -- " + label;
   const amount = ensureNode(booking, "Measurement", name + " amount", {value: Math.round(grams * 1e6) / 1e6, unit: "g",
                                                                       status: "observed", hasTime: stamp(when)});
   ensureNode(booking, "Allocation", name, {isAbout: portion, hasParticipationRole: "input", hasActualQuantity: amount,
-                                           process: process, fulfills: spec || null});
+                                           process: process, fulfills: spec || null, viaSubstitution: via || null});
 }
 
 // One booking, in a transaction of its own, after the lock: its problem (or null) and what it wrote.

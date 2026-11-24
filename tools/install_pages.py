@@ -4,7 +4,7 @@
     python3 tools/install_pages.py --login    # also signing in: its page, its grant, and the page that sends the signed-out there
     python3 tools/install_pages.py --remove   # remove every page this installs, and the grant
 
-The pages, at /structr/html/<name>: week, shopping, recipes, recipe/<id>, nutrition and pantry. Each
+The pages, at /structr/html/<name>: week, shopping, alternatives/<week>, recipes, recipe/<id>, nutrition and pantry. Each
 is one server-side script (the engine code in pages/lib/, in name order, then pages/common.js, then
 pages/<name>.js) that reads the graph as the signed-in
 user and prints the page. They hold no data; the pantry and week pages' forms book pantry changes
@@ -44,6 +44,7 @@ PAGES = {                    # name: (title, script)
     "nutrition": ("Nutrition", "nutrition.js"),
     "pantry": ("Pantry", "pantry.js"),
     "shopping": ("Shopping list", "shopping.js"),
+    "alternatives": ("Alternatives", "alternatives.js"),
 }
 FILES_DIR = os.path.join(PAGES_DIR, "files")
 FOLDER = "mealplanner"           # where the files are served from: /mealplanner/<name>

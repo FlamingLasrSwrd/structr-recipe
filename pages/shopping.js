@@ -5,7 +5,8 @@
 // packages" where there is one, else "US supermarket"), with what will be left and until when, and a
 // cost at a price level. Stock policies' target levels are not applied here (the owner
 // has none, 2026-10-23); with one in the graph the page says so, and tools/shopping_list.py applies it.
-// The list itself is pages/lib/90_shopping.js (shoppingFor), which the shoppingList method returns.
+// The list itself is pages/lib/90_shopping.js (shoppingFor), which the shoppingList method returns. Each line
+// links to /structr/html/alternatives (pages/alternatives.js): what could take its place, and "bought instead".
 
 const GRAMS_PER_LB = 453.592, GRAMS_PER_OZ = 28.3495;
 
@@ -76,11 +77,15 @@ if (!week) {
       + "<td class=\"num" + (l.estimated_size ? " estimated" : "") + "\">" + esc(amountText(l)) + "</td>"
       + "<td class=\"num" + (l.estimated ? " estimated" : "") + "\">" + (l.cost == null ? "" : "$" + l.cost.toFixed(2)) + "</td>"
       + "<td class=\"note\">" + (l.have > 0 ? "have " + number(l.have, 0) + " g of " + number(l.need, 0) + " g; " : "")
-      + (formText(l) ? esc(formText(l)) + "; " : "") + esc(l.recipes.join(", "))
-      + (leftText(l, zone) ? "<br>" + esc(leftText(l, zone)) : "") + "</td></tr>";
+      + (formText(l) ? esc(formText(l)) + "; " : "") + (l.instead.length ? "bought in place of " + esc(l.instead.join(", ")) + "; " : "")
+      + esc(l.recipes.join(", "))
+      + (leftText(l, zone) ? "<br>" + esc(leftText(l, zone)) : "") + "</td>"
+      + "<td><a href=\"/structr/html/alternatives/" + esc(week.id) + "?food=" + encodeURIComponent(l.food) + "\" title=\"What could take its place, "
+      + "and buying something else instead\">Alternatives</a></td></tr>";
     data.to_buy.push({food: l.food, buy: l.buy, need: l.need, have: l.have, first: l.first ? l.first.toISOString() : null, cost: l.cost,
                       packages: l.packages, bought: l.bought, left: l.left, left_cost: l.left_cost, as_bought: l.as_bought, made: l.made,
-                      keeps_until: l.keeps_until ? l.keeps_until.toISOString() : null, keeps_opened: l.keeps_opened});
+                      keeps_until: l.keeps_until ? l.keeps_until.toISOString() : null, keeps_opened: l.keeps_opened,
+                      instead: l.instead});
   }
   html += day === null ? "<p>Nothing to buy: the pantry covers the week.</p>" : "</tbody></table>";
   if (table) html += "<p><b>About $" + total.toFixed(2) + "</b> at " + esc(levelName)

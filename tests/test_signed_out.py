@@ -3,10 +3,12 @@ that does it gives them nothing else. The scripts run in node or gjs, where eith
 a stand-in browser; the installation is checked without one."""
 
 import json
+import os
 import pathlib
 import re
 import shutil
 import subprocess
+import tempfile
 import unittest
 
 from tests.test_pages_tools import PageGraph, load, run
@@ -19,9 +21,14 @@ LOGIN = "/structr/html/login"
 
 def javascript(code: str):
     """What `code` leaves in `result`."""
-    flag = "-e" if pathlib.Path(ENGINE).name == "node" else "-c"
     program = code + '\n(typeof print === "function" ? print : console.log)(JSON.stringify(result));'
-    done = subprocess.run([ENGINE, flag, program], capture_output=True, text=True, timeout=30)
+    # from a file, not an argument: the pages' engine code passed 128 KiB, the most one argument may hold (Linux)
+    with tempfile.NamedTemporaryFile("w", suffix=".js", encoding="utf-8", delete=False) as fh:
+        fh.write(program)
+    try:
+        done = subprocess.run([ENGINE, fh.name], capture_output=True, text=True, timeout=30)
+    finally:
+        os.unlink(fh.name)
     if done.returncode:
         raise AssertionError(done.stderr)
     return json.loads(done.stdout.strip().splitlines()[-1])
@@ -78,7 +85,7 @@ class Installed(unittest.TestCase):
         public = {p["name"] for p in graph.of("Page") if p["visibleToPublicUsers"]}
         self.assertEqual(public, {"login", "signed-out"})
         private = {p["id"] for p in graph.of("Page") if p["name"] not in public}
-        self.assertEqual(len(private), 6)
+        self.assertEqual(len(private), 7)
         self.assertFalse(any(n["visibleToPublicUsers"] for n in graph.of("DOMNode") if n["pageId"] in private))
 
     def test_the_public_page_can_neither_read_nor_book(self):

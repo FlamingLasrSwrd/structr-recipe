@@ -2,7 +2,8 @@
 // words a proposed one: what to cook or eat from leftovers, each person's servings, and when to start
 // a dish made ahead (data-model.md J29). "Mark cooked" books a cook, as mealplanner/pantry.cook does;
 // "Skip" and "Undo" change the menu as the week goes, as mealplanner/menu_changes.py does. The bookings
-// themselves are in pages/lib/70_menu.js (WEEK_ACTIONS), shared with the bookWeek method.
+// themselves are in pages/lib/70_menu.js (WEEK_ACTIONS), shared with the bookWeek method. A meal using a food
+// bought instead (pages/alternatives.js) says so, with Undo (SWAP_ACTIONS.unswap, 92_substitutes.js).
 
 const recipeLink = (plan) => plan ? "<a href=\"/structr/html/recipe/" + plan.id + "\">" + esc(plan.name) + "</a>" : "?";
 
@@ -28,6 +29,7 @@ function what(entry, zone) {
       : " <form class=\"inline\" action=\"/structr/html/week/" + esc(entry.memberOf ? entry.memberOf.id : "") + "\">"
         + "<input type=\"hidden\" name=\"do\" value=\"cook\"><input type=\"hidden\" name=\"entry\" value=\"" + esc(entry.id) + "\">"
         + "<input type=\"hidden\" name=\"token\" value=\"" + newToken() + "\"><button title=\"Take its ingredients out of the pantry\">Mark cooked</button></form>";
+    text += swapsText(entry);
     const start = startOf(entry);
     if (plan && plan.makeAheadHours && start) {
       const by = new Date(start.getTime() - plan.makeAheadHours * 3600e3);
@@ -43,7 +45,23 @@ function what(entry, zone) {
   return esc(entry.name);
 }
 
-const said = runBooking(WEEK_ACTIONS);
+// The foods a meal uses in place of what its recipe names (92_substitutes.js), each with Undo while it is not cooked
+function swapLabels(entry) {
+  const swaps = entrySwaps(entry);
+  return Object.keys(swaps).map((id) => [swaps[id], swaps[id].food.name + " for " + (swaps[id].rule.forSpecification.specifies || {}).name])
+    .sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0));
+}
+function swapsText(entry) {
+  if (!(entry.usesSubstitution || []).length) return "";
+  return swapLabels(entry).map(([swap, label]) => "<div class=\"swap\">Using " + esc(label)
+    + (swap.oneOff ? " (bought instead)" : " (the recipe's own swap)")
+    + (entry.fulfilledBy ? "" : " <form class=\"inline\" action=\"/structr/html/week/" + esc(entry.memberOf ? entry.memberOf.id : "") + "\">"
+      + "<input type=\"hidden\" name=\"do\" value=\"unswap\"><input type=\"hidden\" name=\"entry\" value=\"" + esc(entry.id) + "\">"
+      + "<input type=\"hidden\" name=\"rule\" value=\"" + esc(swap.rule.id) + "\"><input type=\"hidden\" name=\"token\" value=\"" + newToken() + "\">"
+      + "<button title=\"Use what the recipe names again\">Undo</button></form>") + "</div>").join("");
+}
+
+const said = runBooking(Object.assign({}, WEEK_ACTIONS, {unswap: SWAP_ACTIONS.unswap}));
 
 // What the page shows, for tools/check_pages.py
 function datum(entry) {
@@ -53,6 +71,7 @@ function datum(entry) {
   return {entry: entry.name, kind: entry.references ? "cook" : "leftover", recipe: plan ? plan.name : null,
           cooked: entry.references ? entry.hasPlannedServings : null, eaten: servingsEaten(entry)[0], shares: shares,
           start: start ? start.toISOString() : null,
+          swaps: entry.references && (entry.usesSubstitution || []).length ? swapLabels(entry).map((x) => x[1]) : [],
           start_by: entry.references && plan && plan.makeAheadHours && start
             ? new Date(start.getTime() - plan.makeAheadHours * 3600e3).toISOString() : null};
 }

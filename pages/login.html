@@ -13,7 +13,7 @@
 function destination(search) {
   var given = /[?&]next=([^&]*)/.exec(search), path = "";
   try { path = given ? decodeURIComponent(given[1]) : ""; } catch (malformed) { path = ""; }
-  return /^\/structr\/html\/(week|shopping|recipes|recipe|nutrition|pantry)(\/[A-Za-z0-9_%-]+)?$/.test(path)
+  return /^\/structr\/html\/(week|shopping|alternatives|recipes|recipe|nutrition|pantry)(\/[A-Za-z0-9_%-]+)?$/.test(path)
     ? path : "/structr/html/week";
 }
 function tell(id, text) {
