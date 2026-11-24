@@ -39,12 +39,10 @@ function weekPicker(page, current) {
 // BOOKED then holds the booking's action and its problem (null once it was booked)
 let BOOKED = null;
 const SHARED_BOOKINGS = {product: true};
-function runBooking(actions) {
-  const action = $.request.do;
-  if (!action) return "";
-  if (!actions[action]) return "<p class=\"problem\">Problem: no such booking: " + esc(action) + "</p>";
-  const token = String($.request.token || "");
-  if (!/^[0-9a-f]{4,16}$/.test(token)) return "<p class=\"problem\">Problem: the form had no token; reload the page and try again.</p>";
+
+// Whose a booking from a page is: {household} for a Person in one household, {household: null} where it runs as the
+// superuser (a shared booking, or an instance with no household), or {refused: why} for anyone else
+function bookingHousehold(action) {
   const households = $.me && $.me.type === "Person" ? ($.me.groups || []).filter((g) => g.type === "Household") : [];
   const shared = !!SHARED_BOOKINGS[action];
   const household = !shared && households.length === 1 ? households[0] : null;
@@ -53,23 +51,44 @@ function runBooking(actions) {
     const look = () => { anyHousehold = $.find("Household").length > 0; };
     if (typeof $.doPrivileged === "function") $.doPrivileged(look); else look();
   }
-  if (anyHousehold) {
+  if (anyHousehold) return {refused: households.length ? "you are in more than one household, so whose this booking is cannot be told"
+                                                        : "you are in no household, so there is no stock of yours to book on"};
+  return {household: household};
+}
+
+// One booking from a page, as `whose` (bookingHousehold) says: {problem, booking, privileged}
+function bookFromPage(actions, action, request, token, whose) {
+  let done = null;
+  const run = () => { done = bookOnce(actions, action, request, token, whose.household); };
+  const privileged = !whose.household && typeof $.doPrivileged === "function";
+  if (privileged) $.doPrivileged(run); else run();
+  return {problem: done.problem, booking: done.booking, privileged: privileged};
+}
+
+// what was booked, for tools/check_bookings.py
+function bookingRecord(action, done, whose) {
+  return {action: action, privileged: done.privileged, household: whose.household ? whose.household.name : null, problem: done.problem,
+          process: done.booking.process, created: done.booking.created, notes: done.booking.notes, record: done.booking.record || null};
+}
+
+function runBooking(actions) {
+  const action = $.request.do;
+  if (!action) return "";
+  if (!actions[action]) return "<p class=\"problem\">Problem: no such booking: " + esc(action) + "</p>";
+  const token = String($.request.token || "");
+  if (!/^[0-9a-f]{4,16}$/.test(token)) return "<p class=\"problem\">Problem: the form had no token; reload the page and try again.</p>";
+  const whose = bookingHousehold(action);
+  if (whose.refused) {
     BOOKED = {action: action, problem: "not in a household"};
-    return "<p class=\"problem\">Problem: " + (households.length ? "you are in more than one household, so whose this "
-      + "booking is cannot be told" : "you are in no household, so there is no stock of yours to book on") + ".</p>"
+    return "<p class=\"problem\">Problem: " + whose.refused + ".</p>"
       + "<script type=\"application/json\" id=\"booking-data\">" + JSON.stringify({action: action, privileged: false,
         household: null, problem: BOOKED.problem, process: null, created: [], notes: []}) + "</script>";
   }
-  let done = null;
-  const run = () => { done = bookOnce(actions, action, $.request, token, household); };
-  const privileged = !household && typeof $.doPrivileged === "function";
-  if (privileged) $.doPrivileged(run); else run();
+  const done = bookFromPage(actions, action, $.request, token, whose);
   const problem = done.problem, booking = done.booking;
   BOOKED = {action: action, problem: problem};
-  // what was booked, for tools/check_bookings.py
-  const record = "<script type=\"application/json\" id=\"booking-data\">" + JSON.stringify({
-    action: action, privileged: privileged, household: household ? household.name : null, problem: problem, process: booking.process, created: booking.created,
-    notes: booking.notes}).replace(/</g, "\\u003c") + "</script>";
+  const record = "<script type=\"application/json\" id=\"booking-data\">" + JSON.stringify(bookingRecord(action, done, whose))
+    .replace(/</g, "\\u003c") + "</script>";
   if (problem) return "<p class=\"problem\">Problem: " + esc(problem) + "</p>" + record;
   const said = booking.process ? (booking.created.length ? esc(booking.process) + ": booked."
                                                           : esc(booking.process) + ": booked before, so nothing new was written.") : "";

@@ -64,7 +64,7 @@ FIELDS = {     # what a booking writes on each type
     "DefaultSpecification": ("forType", "hasKind", "hasValue", "provenance", "source"),
     "QuantitySpecification": ("value", "unit", "status"),
 }
-SWEPT = (*FIELDS, "MealPlan", "MealShare", "Person")   # every type the check and its bookings name
+SWEPT = (*FIELDS, "MealPlan", "MealShare", "Person", "File")   # every type the check and its bookings name
 MARK = "c4ecb00c"      # begins every token the check books with; a page's own token is 8 random hex digits
 # The barcodes the check adds products with: GS1 keeps the prefix 952 for demonstrations and examples, so
 # no package carries one. As GTINs of 14 digits they begin 0952.
@@ -336,6 +336,9 @@ def main(argv=None) -> int:
         print("change the menu: skip, eat something else instead, undo")
         menu_check(check, client, t)
 
+        print("tick the shopping list and put it into the pantry, then undo")
+        bought_check(check, client, t)
+
         print("bookings sent at the same moment")
         race_check(check, client, args.food, args.keeps)
     finally:
@@ -538,6 +541,170 @@ def cooks(check: Check, client, t: dict, plan: dict, week: str, week_name: str, 
     if not again["problem"] or "already cooked" not in again["problem"]:
         check.fail(f"cooking the same entry again: {again}")
     print(f"  {plan['name']}: drew {a or 'nothing'} both ways; short of {[s.food for s in short] or 'nothing'}")
+
+
+def shopping_week(check: Check, client, t: dict):
+    """A week made for the check with one meal next week, of a recipe with a yield in servings that gives at
+    least two foods amounts: (its id, its name), or None where there is none."""
+    plans = [p for p in client.get_all("Plan")["result"] if p.get("hasRecipeYield")
+             and client.get_all("QuantitySpecification", p["hasRecipeYield"]["id"])["result"].get("unit") == "servings"]
+    plan = next((p for p in plans if len([s for _, s in raw_inputs(client, p) if s.get("hasSpecifiedQuantity")]) >= 2), None)
+    if plan is None:
+        return None
+    name = f"CHECK shopping {t['week']}"
+
+    def make(type_name, node_name, fields):
+        node = client.post(f"/structr/rest/{type_name}", {"name": node_name, **fields, "visibleToAuthenticatedUsers": True,
+                                                          "visibleToPublicUsers": False})["result"][0]
+        check.made.append((type_name, node))
+        return node
+
+    week = make("MealPlan", name, {})
+    region = make("TemporalRegion", f"{name} region", {"hasBeginning": (datetime.now(timezone.utc) + timedelta(days=8)).strftime(FMT)})
+    make("MealPlanEntry", f"{name} entry", {"references": plan["id"], "hasPlannedServings": 40.0, "isAbout": region, "memberOf": week})
+    return week, name
+
+
+def record_of(client, name: str) -> dict | None:
+    """The record an undone purchase left (a File of this name), read back, or None."""
+    rows = [r for r in client.get("/structr/rest/File", params={"name": name})["result"] if r.get("type") == "File"]
+    if len(rows) != 1:
+        return None
+    r = client.request("GET", f"/{rows[0]['id']}")
+    return json.loads(r.text) if r.status_code == 200 else None
+
+
+def bought_check(check: Check, client, t: dict) -> None:
+    """The shopping page's "Put ticked items into the pantry" (pages/shopping.js, PANTRY_ACTIONS.bought) against
+    pantry.line_purchase and buy_line, and its Undo (do=unbuy) against pantry.unbuy, on a week made for the
+    check. The page's list (each line's packages, `pieces`) is compared with shopping.shopping_list first
+    (check_pages). Then three lines ticked in one form: one as listed, one with other grams and another place,
+    one bought as a product of its food; each booked by Python the same way, and the nodes compared. The form
+    sent again books nothing. An Undo of the page's first line and pantry.unbuy of Python's delete what each
+    wrote and leave the same record; an Undo of a line something has been used from is refused alike."""
+    from tools import check_pages
+    made = shopping_week(check, client, t)
+    if made is None:
+        print("  no recipe here gives two foods amounts and a yield in servings: the shopping list is not checked")
+        return
+    week, name = made
+    problems = []
+    check_pages.check_shopping(client, {"id": week, "name": name}, problems, who="the page")
+    for problem in problems:
+        check.fail(problem)
+    r = check.booker.get(f"{client.base_url}/structr/html/shopping/{week}", timeout=client.timeout)
+    r.raise_for_status()
+    lines = json.loads(PAGE_DATA.search(r.text).group(1))["to_buy"]
+    usable = [line for line in lines if line["pieces"] and len(line["pieces"]) <= 20]
+    if len(usable) < 2:
+        print(f"  the week's list has {len(usable)} line(s) to tick: the shopping list's bookings are not checked")
+        return
+    first, second = usable[0], usable[1]
+    third = next((line for line in usable[2:] if buyable_food(client, line["food"])), None)
+    product = None
+    if third is not None:                     # a product of the third line's food, 400 g a package
+        product = f"TEST -- product {new_token()}"
+        products.add_product(client, product, third["food"], demo_barcode(), 400, "g")
+        check.remember([product, f"{product} package size", f"{product} package size value"])
+        check.remember([f"GTIN {code['identifierValue']}" for code in products.gtin_identifiers(client)
+                        if (code.get("denotesType") or {}).get("name") == product])
+    asked = [dict(food=first["food"], pieces=",".join(repr(round(g, 6)) for g in first["pieces"]), buy=repr(first["buy"])),
+             dict(food=second["food"], pieces=",".join(repr(round(g, 6)) for g in second["pieces"]), buy=repr(second["buy"]),
+                  grams="250", storage="Freezer")]
+    if third is not None:
+        asked.append(dict(food=third["food"], pieces=",".join(repr(round(g, 6)) for g in third["pieces"]), buy="900",
+                          product=product))      # 900 g in 400 g packages: three
+    token = new_token()[:12]                  # MARK and four more: a line's number makes 15 of the 16 a booking takes
+    form = {"do": "bought", "token": token, "lines": str(len(asked))}
+    for i, line in enumerate(asked):
+        form[f"t{i}"] = "1"
+        form.update({f"{key}{i}": value for key, value in line.items()})
+    got = check.page(f"shopping/{week}", **form)
+    page_tokens = [token + format(i, "03x") for i in range(len(asked))]
+    py_tokens = [new_token() for _ in asked]
+    now = datetime.now(timezone.utc)
+    for i, line in enumerate(asked):
+        booked = next((b for b in got["bookings"] if b.get("line") == i), None)
+        what = f"line {i + 1} ({line['food']}" + (", other grams and place" if "grams" in line else ", a product" if "product" in line else "") + ")"
+        if booked is None or booked["problem"]:
+            check.fail(f"{what} through the page: {booked and booked['problem']}")
+            continue
+        check.remember(booked["created"])
+        check.booked_by_booker(what, booked["process"])
+        try:
+            food, pieces = pantry.line_purchase(client, line["food"], pieces=line.get("pieces"), product=line.get("product"),
+                                                count=line.get("count"), grams=line.get("grams"), buy=line.get("buy"))
+            py = pantry.buy_line(client, food, pieces, now, py_tokens[i], storage=line.get("storage"), by=check.booker_id)
+        except pantry.PantryError as exc:
+            check.fail(f"{what} through Python: {exc}")
+            continue
+        check.remember(py.created)
+        check.same_nodes(what, booked["created"], [page_tokens[i]], py.created, [py_tokens[i]])
+        portions = [n for n in booked["created"] if n.startswith(f"Purchase {page_tokens[i]} -- ") and " container" not in n
+                    and not n.endswith((" mass Quality", " mass bought"))]
+        print(f"  {what}: {len(portions)} portion(s), the same both ways")
+    again = check.page(f"shopping/{week}", **form)
+    if any(b["created"] for b in again["bookings"]):
+        check.fail(f"the same form sent again wrote {[b['created'] for b in again['bookings']]}")
+
+    # Undo: the page's first line and Python's
+    undo = check.page(f"shopping/{week}", do="unbuy", purchase=page_tokens[0], token=new_token())
+    booked = undo["bookings"][0]
+    try:
+        py = pantry.unbuy(client, py_tokens[0], datetime.now(timezone.utc), by=check.booker_id, keep=None)
+        py_record = pantry.undo_record(py_tokens[0], [], now, check.booker_id)
+        py_names = py.created
+    except pantry.PantryError as exc:
+        check.fail(f"undo through Python: {exc}")
+        return
+    if booked["problem"]:
+        check.fail(f"undo through the page: {booked['problem']}")
+        return
+    check.made.append(("File", by_name(client, "File", booked["record"])))
+    if sorted(masked(n, [page_tokens[0]]) for n in booked["created"]) != sorted(masked(n, [py_tokens[0]]) for n in py_names):
+        check.fail(f"undo: the page deleted {booked['created']}, Python {py_names}")
+    left = [n for n in booked["created"] + py_names if check.nodes(n)]
+    if left:
+        check.fail(f"undo left {left}")
+    record = record_of(client, booked["record"])
+    if record is None:
+        check.fail(f"undo: no record {booked['record']!r} to read back")
+    else:
+        names = sorted(masked(n["name"], [page_tokens[0]]) for n in record["nodes"])
+        if names != sorted(masked(n, [page_tokens[0]]) for n in booked["created"]) or record["by"] != check.booker_id \
+                or record["undone"] != f"Purchase {page_tokens[0]}" or set(py_record) != set(record):
+            check.fail(f"undo: the record says {record['undone']!r} by {record['by']!r} of {names}")
+        portion = next((n for n in record["nodes"] if n["type"] == "PortionOfSubstance"), None)
+        if not portion or (portion.get("instanceOf") or {}).get("name") != first["food"]:
+            check.fail(f"undo: the record's portion is {portion}")
+    again = check.page(f"shopping/{week}", do="unbuy", purchase=page_tokens[0], token=new_token())
+    if not again["bookings"][0]["problem"]:
+        check.fail("undo: taking back the same purchase again was not refused")
+
+    # an Undo is refused once something was used from the purchase
+    portion = by_name(client, "PortionOfSubstance", f"Purchase {page_tokens[1]} -- {second['food']}")
+    use = pantry.use(client, portion, 10, "g", datetime.now(timezone.utc), new_token())
+    check.remember(use.created)
+    refused = check.page(f"shopping/{week}", do="unbuy", purchase=page_tokens[1], token=new_token())["bookings"][0]
+    try:
+        pantry.unbuy(client, py_tokens[1], datetime.now(timezone.utc))
+        said = None                            # Python's has nothing used from it: taken back, as it should be
+    except pantry.PantryError as exc:
+        said = str(exc)
+    if not refused["problem"] or "used" not in refused["problem"] or refused["created"] or said is not None:
+        check.fail(f"undo after a use: the page said {refused['problem']!r}, Python {said!r}")
+    print("  undone alike, with the same record; refused once some of it was used")
+
+
+def buyable_food(client, name: str) -> bool:
+    """A food a product can be added below (products.add_product): a Food Identity type with no child but products."""
+    rows = [r for r in client.get("/structr/rest/DomainType", params={"name": name})["result"] if r.get("type") == "DomainType"]
+    if len(rows) != 1:
+        return False
+    food = client.get_all("DomainType", rows[0]["id"])["result"]
+    ids = products.product_ids(client)
+    return (food.get("hierarchy") or {}).get("name") == "Food Identity" and food["id"] not in ids \
+        and all(c["id"] in ids for c in food.get("children") or [])
 
 
 def menu_check(check: Check, client, t: dict) -> None:

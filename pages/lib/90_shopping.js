@@ -148,12 +148,15 @@ function roundUp(line, food, packages) {
     });
     line.bought = bought;
     line.as_bought = asBought;
+    line.pieces = [].concat(...counts.map((n, i) => Array(n).fill(sizes[i][0])));
   } else if (line.each) {
     line.bought = Math.ceil(line.buy / line.each - 1e-9) * line.each;
     line.as_bought = line.bought;
+    line.pieces = [line.bought];
   } else {
     line.bought = line.buy;
     line.as_bought = line.buy / line.edible;
+    line.pieces = [line.bought];
   }
   line.left = Math.max(0, line.bought - line.buy);
 }
@@ -216,7 +219,8 @@ function eligibleGrams(food, portions, pools) {
 // needed, then food), covered, unquantified, not_bought, unpriced, total, left_total}. A line: {food, need,
 // have, buy, first, recipes, optional, each, cost, estimated, packages ([{count, label}]), estimated_size,
 // bought, left, left_cost, keeps_until, keeps_opened, made ([[food, grams]]: what it is bought to make),
-// edible (of a gram as bought, what a recipe weighs), trimmed, as_bought (grams as the shop weighs them)}.
+// edible (of a gram as bought, what a recipe weighs), trimmed, as_bought (grams as the shop weighs them), pieces (the
+// grams of each package bought, as a recipe weighs them; one for a line bought loose or by count: what ticking it books)}.
 // ownOnly: only stock private to the caller counts (a household's own; ownStock in 50_pantry.js), as for a
 // household's method. packageLevel: a package
 // level's name, or null for none
@@ -262,7 +266,7 @@ function shoppingFor(week, levelName, ownOnly, packageLevel) {
     const line = {food: p.food.name, need: need, have: have[id], buy: short >= SHORT_G ? short : 0, first: p.first,
                   recipes: p.recipes, optional: p.optional, each: p.counted ? toGrams(p.food, 1, "each") : null, cost: null, estimated: false,
                   packages: [], estimated_size: false, bought: null, left: 0, left_cost: null, keeps_until: null, keeps_opened: false,
-                  made: madeFor[id] || [], edible: 1, trimmed: "", as_bought: null};
+                  made: madeFor[id] || [], edible: 1, trimmed: "", as_bought: null, pieces: []};
     if (line.buy > 0) {
       const price = table ? foodPrice(table, p.food) : null;
       const value = price && price.hasValue ? price.hasValue.value : null;

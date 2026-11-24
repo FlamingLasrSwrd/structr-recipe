@@ -20,7 +20,7 @@ session) and compares the data block each prints (#page-data) with Python's answ
               and what its barcode box names (#scan-data) for every product's barcode, against products.find
   shopping    shopping.shopping_list: each food to buy, what is needed and on hand, the packages it is
               bought in at the default package level (packages.default_level) and their weight as
-              bought, what it is bought to make (a food another is bought as), what is left of them,
+              bought, the grams of each package ticking it puts in the pantry, what it is bought to make (a food another is bought as), what is left of them,
               its cost and until when it keeps, the cost at "Home prices" where it exists, and what
               the pantry covers; a food a StockPolicy tops up is left out, since the page applies no
               policy (and says so)
@@ -318,6 +318,9 @@ def check_shopping(client, week: dict, problems: list[str], shown=None, who: str
         made, want_made = sorted((food, grams) for food, grams in row["made"]), sorted(line.made)  # the two walk foods in their own order
         if [f for f, _ in made] != [f for f, _ in want_made] or not all(close(a, b) for (_, a), (_, b) in zip(made, want_made)):
             problems.append(f"shopping {week['name']!r}, {line.food}: bought to make {made!r} by {who}, is {line.made!r}")
+        pieces = row.get("pieces")          # the page's, not the shoppingList method's, which has them too
+        if pieces is not None and (len(pieces) != len(line.pieces) or not all(close(a, b) for a, b in zip(pieces, line.pieces))):
+            problems.append(f"shopping {week['name']!r}, {line.food}: pieces put away by {who} {pieces!r}, are {line.pieces!r}")
         if [(p["count"], p["label"]) for p in row["packages"]] != line.packages or row["keeps_opened"] != line.keeps_opened:
             problems.append(f"shopping {week['name']!r}, {line.food}: packages by {who} {row['packages']!r} "
                             f"(opened {row['keeps_opened']!r}), are {line.packages!r} (opened {line.keeps_opened!r})")

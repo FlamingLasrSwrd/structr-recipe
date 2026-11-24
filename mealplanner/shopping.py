@@ -84,6 +84,9 @@ class Line:
     edible: float = 1.0             # of a gram as bought, what a recipe weighs (its trim)
     trimmed: str = ""               # what the trim cuts away
     as_bought: float | None = None  # grams as bought: the packages' weight, the items', or the loose need over `edible`
+    pieces: list[float] = field(default_factory=list)   # grams of each package bought, as a recipe weighs them,
+                                                        # one for a line bought loose or by count: what ticking
+                                                        # it puts in the pantry (pantry.buy_line)
 
     def amount(self) -> str:
         if self.packages:
@@ -174,12 +177,15 @@ def _round_up(client, line: Line, root: str, packages: dict | None) -> None:
         line.estimated_size = any(p.estimated for n, (_, _, p) in zip(counts, sizes) if n)
         line.bought = sum(n * held for n, (held, _, _) in zip(counts, sizes))
         line.as_bought = sum(n * grams for n, (_, grams, _) in zip(counts, sizes))
+        line.pieces = [held for n, (held, _, _) in zip(counts, sizes) for _ in range(n)]
     elif line.each:
         line.bought = math.ceil(line.buy / line.each - 1e-9) * line.each
         line.as_bought = line.bought
+        line.pieces = [line.bought]
     else:
         line.bought = line.buy
         line.as_bought = line.buy / line.edible
+        line.pieces = [line.bought]
     line.left = max(0.0, line.bought - line.buy)
 
 

@@ -36,14 +36,18 @@ write a Process too (2026-11-23), so every booking names who made it.
 
 from __future__ import annotations
 
+import json
 import math
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from mealplanner.inventory import FMT, container_opened_status, eligible_lots, mass_quality, shelf_life_days
+from mealplanner.defaults import resolve_default
+from mealplanner.inventory import (FMT, assumed_storage, container_opened_status, eligible_lots, mass_quality,
+                                   shelf_life_days)
 from mealplanner.inventory import _magnitude as magnitude_of
 from mealplanner.nutrition_scope import raw_inputs
-from mealplanner.typetree import dt
+from mealplanner.typetree import ancestors_or_self, dt
 from mealplanner.unit_conversion import convert_to_grams
 from structr_client import ReadCache
 from structr_client.client import UNSAFE_EXACT_MATCH_CHARS, StructrError
@@ -177,19 +181,214 @@ def buy(client, food: str, amount: float, unit: str, when: datetime, token: str,
     _grams(client, food_id, food, amount, unit)
     keeps_id = dt(client, keeps) if keeps else last_perishability(client, food_id)
     booking = Booking()
-    w = _Writer(client, booking)
-    process = _process(w, PURCHASE, f"Purchase {token}", when, by)
-    name = f"Purchase {token} -- {food}"
-    box = w.ensure("ContainerObject", f"{name} container", {
-        "hasStorageCondition": dt(client, storage), "hasOpenedStatus": dt(client, "Sealed")})
-    portion = w.ensure("PortionOfSubstance", name, {
-        "instanceOf": food_id, "beginsToExistDuring": process, "locatedIn": box, "hasPerishabilityType": keeps_id})
-    quality = w.ensure("Quality", f"{name} mass Quality", {"hasKind": dt(client, "Mass"), "inheresIn": portion})
-    w.ensure("Measurement", f"{name} mass bought", {
-        "value": amount, "unit": unit, "status": "observed", "hasTime": _time(when), "isAboutQuality": quality})
+    _purchase(client, _Writer(client, booking), food, food_id, [(amount, unit)], storage, keeps_id, when, token, by)
     if keeps_id is None and shelf_life_days(client, food_id, "Sealed", storage) is None:
         booking.notes.append(f"{food}: no shelf life known for it in the {storage.lower()}, so no expiry "
                              "(name a perishability class with --keeps)")
+    return booking
+
+
+def _purchase(client, w: _Writer, food: str, food_id: str, amounts: list[tuple[float, str]], storage: str,
+              keeps_id: str | None, when: datetime, token: str, by: str | None) -> list[str]:
+    """A Purchase Process and, for each (amount, unit), a sealed portion of the food in a container of its
+    own kept in `storage`, with its mass bought: the first named "Purchase <token> -- <food>", as Buy names
+    its one, the rest "... #2", "... #3". The portions' ids."""
+    process = _process(w, PURCHASE, f"Purchase {token}", when, by)
+    portions = []
+    for i, (amount, unit) in enumerate(amounts):
+        name = f"Purchase {token} -- {food}" + (f" #{i + 1}" if i else "")
+        box = w.ensure("ContainerObject", f"{name} container", {
+            "hasStorageCondition": dt(client, storage), "hasOpenedStatus": dt(client, "Sealed")})
+        portion = w.ensure("PortionOfSubstance", name, {
+            "instanceOf": food_id, "beginsToExistDuring": process, "locatedIn": box, "hasPerishabilityType": keeps_id})
+        quality = w.ensure("Quality", f"{name} mass Quality", {"hasKind": dt(client, "Mass"), "inheresIn": portion})
+        w.ensure("Measurement", f"{name} mass bought", {
+            "value": amount, "unit": unit, "status": "observed", "hasTime": _time(when), "isAboutQuality": quality})
+        portions.append(portion)
+    return portions
+
+
+# A food sold frozen, by its name or the name of a food above it ("Frozen green peas"): kept in the freezer
+FROZEN = re.compile(r"\bfrozen\b", re.IGNORECASE)
+MAX_PIECES = 99                 # more packages than this on one line is a mistake, not a shop
+
+
+def default_storage(client, food_id: str) -> str:
+    """Where a purchase from the shopping list is put away when the line does not say (docs/pantry.md,
+    "Ticking the shopping list"): in the freezer for a food sold frozen (its name, or a food's above it,
+    says so), else where the pantry takes a portion in no container to be kept (inventory.assumed_storage,
+    J31): of the fridge and the pantry, where its food keeps longest unopened, the fridge on a tie or with
+    neither. Not FoodKeeper's freezer figure alone, which it gives for milk and fresh tomatoes too, nor
+    any pantry figure, which it gives grapes for a day. A product has its food's."""
+    for type_id in ancestors_or_self(client, food_id):
+        if FROZEN.search(client.get_all("DomainType", type_id)["result"].get("name") or ""):
+            return "Freezer"
+    return assumed_storage(client, {"instanceOf": {"id": food_id}})
+
+
+def buy_line(client, food: str, pieces: list[float], when: datetime, token: str, *, storage: str | None = None,
+             by: str | None = None) -> Booking:
+    """Book what a line of the shopping list bought (pages/shopping.js, "Put ticked items into the pantry"):
+    `pieces` the grams of each package, as a recipe weighs them (shopping.Line.pieces), each a portion in a
+    container of its own, so that opening one package opens no other; a line bought loose or by count is
+    one piece. `food` is the line's food, or a product of it chosen instead. Kept in `storage`, else where
+    default_storage says. Its perishability class is the latest portion's of the food, as Buy's is."""
+    if storage is not None and storage not in STORAGE:
+        raise PantryError(f"storage must be one of {', '.join(STORAGE)}, not {storage!r}")
+    if not pieces:
+        raise PantryError(f"{food}: nothing to put away")
+    if len(pieces) > MAX_PIECES:
+        raise PantryError(f"{food}: {len(pieces)} packages on one line is more than {MAX_PIECES}")
+    for grams in pieces:
+        if grams is None or not isinstance(grams, (int, float)) or not math.isfinite(grams) or grams <= 0:
+            raise PantryError(f"{food}: each package must weigh a number of grams more than 0")
+    food_id = dt(client, food)
+    where = storage or default_storage(client, food_id)
+    keeps_id = last_perishability(client, food_id)
+    booking = Booking()
+    _purchase(client, _Writer(client, booking), food, food_id, [(round(g, 6), "g") for g in pieces], where, keeps_id,
+              when, token, by)
+    booking.notes.append(f"{food}: " + (f"{len(pieces)} packages, " if len(pieces) > 1 else "")
+                         + f"{sum(pieces):,.0f} g, kept in the {where.lower()}")
+    if keeps_id is None and shelf_life_days(client, food_id, "Sealed", where) is None:
+        booking.notes.append(f"{food}: no shelf life known for it in the {where.lower()}, so no expiry")
+    return booking
+
+
+def line_purchase(client, food: str, *, pieces=None, product: str | None = None, count=None, grams=None,
+                  buy=None) -> tuple[str, list[float]]:
+    """What a shopping line's form asks to book (pages/lib/50_pantry.js linePurchase): (the food or product, the
+    grams of each piece). The line's own packages (`pieces`), or `grams` bought instead, as one piece; or a
+    product of the line's food chosen instead, so many packages (`count`, else enough to cover `buy` grams)
+    of what one holds."""
+    from mealplanner.products import PACKAGE_SIZE, product_ids     # products reads the vocabulary module; only here
+    asked = lambda v: v is not None and str(v).strip() != ""      # noqa: E731
+    food_id = dt(client, food)
+    if asked(product):
+        product_id = dt(client, product)
+        if product_id not in product_ids(client) or food_id not in ancestors_or_self(client, product_id):
+            raise PantryError(f"{product}: not a product of {food}")
+        size = resolve_default(client, product_id, dt(client, PACKAGE_SIZE))
+        each = convert_to_grams(client, product_id, size.quantity.get("value"), size.quantity.get("unit")) if size else None
+        if not each or each <= 0:
+            raise PantryError(f"{product}: no package size is known for it, so give the grams bought instead")
+        if asked(count):
+            n = _number(count)
+            if not math.isfinite(n) or n < 1 or n != int(n):
+                raise PantryError(f"{product}: the number of packages is a whole number, 1 or more")
+            n = int(n)
+        else:
+            need = _number(buy) if asked(buy) else 0.0
+            n = max(1, math.ceil((need if math.isfinite(need) else 0.0) / each - 1e-9))
+        if n > MAX_PIECES:
+            raise PantryError(f"{product}: {n} packages on one line is more than {MAX_PIECES}")
+        return product, [each] * n
+    if asked(grams):
+        return food, [_number(grams)]
+    if isinstance(pieces, str):
+        pieces = [_number(p) for p in pieces.split(",") if p.strip()]
+    return food, list(pieces or [])
+
+
+def _number(value) -> float:
+    """A form's number, as JavaScript's Number() reads it: NaN where it is none, which buy_line then refuses."""
+    try:
+        return float(str(value).strip())
+    except ValueError:
+        return math.nan
+
+
+# What an undone purchase's record keeps of each node (unbuy): what _purchase wrote, so that it can be made again
+RECORD_KEYS = {
+    "TemporalRegion": ("hasBeginning",),
+    "Process": ("hasKind", "occupiesTemporalRegion", "wasAssociatedWith"),
+    "ContainerObject": ("hasStorageCondition", "hasOpenedStatus"),
+    "PortionOfSubstance": ("instanceOf", "beginsToExistDuring", "locatedIn", "hasPerishabilityType"),
+    "Quality": ("hasKind", "inheresIn"),
+    "Measurement": ("value", "unit", "status", "hasTime", "isAboutQuality"),
+}
+
+
+def _recorded(node: dict) -> dict:
+    """A node as an undo's record keeps it: its type, id, name and RECORD_KEYS, a reference as {id, name}."""
+    def ref(value):
+        if isinstance(value, list):
+            return [ref(v) for v in value]
+        if isinstance(value, dict):
+            return {"id": value.get("id"), "name": value.get("name")}
+        return value
+    out = {"type": node["type"], "id": node["id"], "name": node["name"]}
+    for key in RECORD_KEYS[node["type"]]:
+        value = node.get(key)
+        out[key] = ref(value) if value not in (None, []) else None
+    return out
+
+
+def purchase_nodes(client, token: str) -> list[dict]:
+    """What the purchase of this token wrote, in the order unbuy deletes it (each portion's Measurements,
+    its Quality, the portion, its container; then the Process and its time), or a PantryError saying why
+    it cannot be taken back: no such purchase, or something since rests on one of its portions (a use, a
+    discard, a cook or a reservation draws on it; a stock take weighed it; it was opened or moved). After
+    that the purchase stands, and Use, Count or Discard corrects it."""
+    found = [r for r in client.get("/structr/rest/Process", params={"name": f"Purchase {token}"})["result"]
+             if r.get("type") == "Process"]
+    if len(found) != 1:
+        raise PantryError(f"no purchase Purchase {token}" if not found else f"two purchases named Purchase {token}")
+    process = client.get_all("Process", found[0]["id"])["result"]
+    if (process.get("hasKind") or {}).get("name") != PURCHASE:
+        raise PantryError(f"Purchase {token} is not a purchase")
+    nodes = []
+    for ref in sorted(process.get("thingsBegunDuring") or [], key=lambda r: r.get("name") or ""):
+        if ref.get("type") != "PortionOfSubstance":
+            raise PantryError(f"Purchase {token}: {ref.get('name')} is no portion of food, so it is not undone here")
+        portion = client.get_all("PortionOfSubstance", ref["id"])["result"]
+        if portion.get("allocationsAbout"):
+            raise PantryError(f"{portion['name']}: some of it has been used, so it stays (use Count or Discard instead)")
+        if portion.get("processesWithParticipant"):
+            raise PantryError(f"{portion['name']}: weighed, opened or moved since, so it stays (use Count or Discard instead)")
+        quality = mass_quality(client, portion)
+        measurements = [client.get_all("Measurement", m["id"])["result"] for m in (quality or {}).get("measurements", [])]
+        if any(m["name"] != f"{portion['name']} mass bought" for m in measurements):
+            raise PantryError(f"{portion['name']}: weighed since, so it stays (use Count or Discard instead)")
+        nodes += measurements
+        if quality:
+            nodes.append(quality)
+        nodes.append(portion)
+        if portion.get("locatedIn"):
+            box = client.get_all("ContainerObject", portion["locatedIn"]["id"])["result"]
+            if box["name"] == f"{portion['name']} container":
+                nodes.append(box)               # its own; one shared with other portions stays
+    nodes.append(process)
+    region = process.get("occupiesTemporalRegion")
+    if region and region.get("name") == f"Purchase {token} time":
+        nodes.append(client.get_all("TemporalRegion", region["id"])["result"])
+    return nodes
+
+
+def undo_record(token: str, nodes: list[dict], when: datetime, by: str | None) -> dict:
+    """The record an undone purchase leaves (the owner's decision, 2026-11-23, docs/todo.md "Undo a booking"):
+    every node it deleted, as text, so that it can be made again."""
+    return {"undone": f"Purchase {token}", "at": _time(when), "by": by, "nodes": [_recorded(n) for n in nodes]}
+
+
+def record_name(token: str, when: datetime) -> str:
+    return f"undone Purchase {token} {when.strftime('%Y%m%dT%H%M%S')}.json"
+
+
+def unbuy(client, token: str, when: datetime, *, by: str | None = None, keep=None) -> Booking:
+    """Take back the purchase of this token while nothing rests on it (purchase_nodes): a record of what it
+    wrote is kept first, by `keep(name, text)` (tools/pantry.py stores it as a file on the instance), then
+    every node it wrote is deleted. The Booking lists what was deleted, as `created` lists what a booking
+    wrote."""
+    nodes = purchase_nodes(client, token)
+    record = undo_record(token, nodes, when, by)
+    if keep is not None:
+        keep(record_name(token, when), json.dumps(record, indent=1, sort_keys=True))
+    booking = Booking(process=f"Purchase {token}")
+    for node in nodes:
+        client.delete(f"/structr/rest/{node['type']}/{node['id']}")
+        booking.created.append(node["name"])
+    booking.notes.append(f"Purchase {token}: taken back")
     return booking
 
 
