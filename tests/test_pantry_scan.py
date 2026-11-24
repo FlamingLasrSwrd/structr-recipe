@@ -36,7 +36,6 @@ var $ = {request: REQUEST, me: {name: "Jamie"}, current: null, out: "",
   find: function (type, f) { return (N[type] || []).filter(function (n) { return !f || Object.keys(f).every(function (k) { return n[k] === f[k]; }); }); },
   print: function (s) { $.out += s; },
   cypher: function () { return [{n: 1}]; },
-  getRequestHeader: function (h) { return h === "Sec-Fetch-Site" ? "same-origin" : null; },   // a form sent from the page
   doPrivileged: function (f) { f(); },
   doInNewTransaction: function (work, failed) { try { work(); } catch (e) { failed(e); } },
   create: function (type, fields) { written.push(type + " " + fields.name); return node(type, fields.name, fields); }};

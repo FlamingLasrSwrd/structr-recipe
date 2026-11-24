@@ -195,16 +195,6 @@ class CreateLogin(unittest.TestCase):
         self.assertEqual([n for n in g.nodes.values() if n["type"] == "User"], [])     # no second account
         self.assertIn("can now sign in", out)
 
-    def test_a_new_password_opens_a_locked_account(self):
-        """Four wrong passwords lock a Structr account; setting a new one with this tool opens it again."""
-        from tests.fakegraph import WritableGraph
-        g = WritableGraph()
-        g.add("Person", "p-jamie", "Jamie", passwordAttempts=5)
-        g.add("User", "u-kitchen", "kitchen", passwordAttempts=4)
-        for name, node in (("Jamie", "p-jamie"), ("kitchen", "u-kitchen")):
-            self.assertEqual(self.create(g, name, "longenough", "longenough")[0], 0)
-            self.assertEqual(g.nodes[node]["passwordAttempts"], 0, name)
-
     def test_short_or_mismatched_passwords_are_refused(self):
         from tests.fakegraph import WritableGraph
         g = WritableGraph()

@@ -17,8 +17,7 @@
 # `up` also serves HTTPS on port 8443 once tools/make_https_cert.py has made private/https/
 # (docs/pages.md, "HTTPS"). It then names its compose files, so a docker-compose.override.yml is not read.
 #
-# Optional: OWNER_PORT (default 8085), OWNER_BIND (default 0.0.0.0: every interface; 127.0.0.1 keeps the HTTP
-# port to this computer), STRUCTR_HTTPS_PORT (default 8443).
+# Optional: OWNER_PORT (default 8085), STRUCTR_HTTPS_PORT (default 8443).
 set -eu
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$here"
@@ -27,9 +26,7 @@ port="${OWNER_PORT:-8085}"
 url="http://localhost:$port"
 
 https_files=()
-# Its HTTP port answers the home network unless OWNER_BIND (here or in .env) is 127.0.0.1, the address the
-# tools use: then other devices reach it over HTTPS alone (docs/pages.md, "HTTPS"). HTTPS always answers it.
-compose() { STRUCTR_PORT="$port" STRUCTR_BIND="${OWNER_BIND:-0.0.0.0}" docker compose -p "$project" ${https_files[@]+"${https_files[@]}"} "$@"; }
+compose() { STRUCTR_PORT="$port" docker compose -p "$project" ${https_files[@]+"${https_files[@]}"} "$@"; }
 use_https() {
   [ -e private/https ] || return 0
   # Structr told to serve HTTPS from a keystore it cannot read may not start at all, HTTP included
@@ -87,7 +84,7 @@ case "${1:-}" in
     echo "$url"
     ;;
   *)
-    sed -n '2,21p' "$0"
+    sed -n '2,20p' "$0"
     exit 2
     ;;
 esac

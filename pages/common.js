@@ -39,39 +39,12 @@ function weekPicker(page, current) {
 // BOOKED then holds the booking's action and its problem (null once it was booked)
 let BOOKED = null;
 const SHARED_BOOKINGS = {product: true};
-
-// Whether a booking came from one of this instance's own pages (docs/pages.md, "Bookings from another
-// site"). A booking is a link (?do=...), and the browser sends the session cookie with a link followed
-// from another site (SameSite=Lax), so without this a page anywhere on the internet, opened while signed
-// in, could book on the household's pantry. The browser says where a request came from: Sec-Fetch-Site
-// (every current browser), else the Referer, whose host must be this one; a request that says neither is
-// refused, failing closed. A request signed in by its own headers (the tools' X-User, or a session token
-// sent as X-StructrSessionToken) carries no cookie a browser added for it, so it is not checked: another
-// site cannot make a browser send those headers to this one, and could not fill them in if it could.
-function fromOwnPage() {
-  const header = (name) => {
-    try { const v = $.getRequestHeader(name); return v == null ? "" : String(v); } catch (e) { return ""; }
-  };
-  if (header("X-User") || header("X-StructrSessionToken")) return true;
-  const site = header("Sec-Fetch-Site").toLowerCase();
-  if (site) return site === "same-origin";
-  const from = /^https?:\/\/([^\/?#]+)/i.exec(header("Referer")), host = header("Host").toLowerCase();
-  return !!(from && host && from[1].toLowerCase() === host);
-}
-
 function runBooking(actions) {
   const action = $.request.do;
   if (!action) return "";
   if (!actions[action]) return "<p class=\"problem\">Problem: no such booking: " + esc(action) + "</p>";
   const token = String($.request.token || "");
   if (!/^[0-9a-f]{4,16}$/.test(token)) return "<p class=\"problem\">Problem: the form had no token; reload the page and try again.</p>";
-  if (!fromOwnPage()) {
-    BOOKED = {action: action, problem: "not from this site"};
-    return "<p class=\"problem\">Problem: this change did not come from one of the planner's own pages (a link from "
-      + "another site or app, or a bookmark), so it was not saved. If you meant it, make it again on this page.</p>"
-      + "<script type=\"application/json\" id=\"booking-data\">" + JSON.stringify({action: action, privileged: false,
-        household: null, problem: BOOKED.problem, process: null, created: [], notes: []}) + "</script>";
-  }
   const households = $.me && $.me.type === "Person" ? ($.me.groups || []).filter((g) => g.type === "Household") : [];
   const shared = !!SHARED_BOOKINGS[action];
   const household = !shared && households.length === 1 ? households[0] : null;

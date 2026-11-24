@@ -53,20 +53,6 @@ field, and what the inventory engine then says of both portions.
 python3 tools/check_bookings.py     # the pages' bookings, against Python's (not on the owner's instance)
 ```
 
-**Bookings from another site** (2026-11-24, the security review, `REVIEW.md`). A booking is a link, and
-a browser sends the session cookie (SameSite=Lax) with a link followed from another site, so until then
-a page anywhere on the internet, opened while signed in, could buy, use or discard on the household's
-pantry. A page now books only a request that came from one of the instance's own pages
-(`fromOwnPage` in `pages/common.js`): the browser's `Sec-Fetch-Site` must say `same-origin` (every current
-browser sends it), else the `Referer` must name this host; a request saying neither is refused. A
-bookmark, a typed address and a link from a chat app are refused the same way, with a message that the
-change was not saved and to make it again on the page. A request signed in by its own headers (the
-tools' `X-User`, or a session token as `X-StructrSessionToken`) is not checked: a browser adds no such
-header for another site. Structr 7.1 offers the header (`$.getRequestHeader`); without it every page
-booking is refused. Seen on a throwaway 7.1: a purchase sent as a link from another site booked before,
-and is refused now; sent from the page it books (`tests/test_booking_origin.py` holds the gate offline).
-The methods need no such check: they take a POST, which the Lax cookie is not sent with from another site.
-
 Two things the pages do not do that Python does:
 - **A recipe with no stored figure** shows none; Python would work it out from the ingredients.
   `tools/calculate_recipe_nutrition.py` stores them, and the importers keep them current (J28).
@@ -100,8 +86,7 @@ Then sign in at `/structr/html/login`; it goes on to the week. **From another de
 (next section). Structr marks the session cookie `Secure`, and a browser drops such a cookie from a
 plain-HTTP address other than localhost: the sign-in answers 200, then every page 404 (found 2026-11-22,
 when the owner first signed in from the network). The sign-in page says so when it is opened at such an
-address, and does not send the password from there (2026-11-24): it would cross the network readable,
-for a session that could not last. Structr's own admin interface on that port still sends it. A session idle for 30 minutes (`application.session.timeout`) ends.
+address. A session idle for 30 minutes (`application.session.timeout`) ends.
 
 **Signed out, a page sends the browser to sign in, and back to that page afterwards** (2026-11-22, the
 owner's request; installed by `--login`). The pages stay private and still answer 404: Structr shows a
@@ -150,14 +135,10 @@ Sign in at `https://<address>:8443/structr/html/login`. The tools keep `http://l
 - **Prefer the address to a name.** Structr sends `Strict-Transport-Security: max-age=60`, which browsers
   apply to names and not to addresses: `http://<name>:8085` would fail for a minute after each HTTPS visit.
 - **Back to HTTP only:** move `private/https/` away, then up. Sign-in then works at localhost alone.
-- **What it does not fix:** port 8085 still takes passwords and API requests unencrypted from the network
-  (the pages' sign-in no longer sends one there; Structr's admin interface and the REST API's `X-Password`
-  still do), and the admin interface is on both ports. `OWNER_BIND=127.0.0.1` (in `.env` or before
-  `tools/owner_stack.sh up`) keeps port 8085 to this computer, where the tools use it, so other devices
-  reach the instance over HTTPS alone; the owner's to choose, since the laptop reaches the admin interface
-  at `http://<address>:8085/structr` today (`https://<address>:8443/structr` works instead). Every other
-  stack answers this computer only since 2026-11-24. A booking sent from another site is refused since
-  the same day (above).
+- **What it does not fix:** port 8085 still takes passwords and API requests unencrypted, the admin
+  interface is on both ports, and a booking is still a link another site could send a signed-in browser
+  to (`docs/self-hosting.md`), which now reaches every device that can sign in. The security review of
+  2026-11-24 suggests a fix for each (`docs/security-review.md`, none adopted while development is local).
 
 **Run on a throwaway Structr 7.1** (2026-11-22, by that day's review, 21 of 21 checks): by address and by
 name, a client trusting the authority signed in, kept the `Secure` cookie and opened five pages; a wrong

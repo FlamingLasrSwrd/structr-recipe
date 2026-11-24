@@ -45,7 +45,7 @@ requests once the model met real recipes and a real household. In order of how m
   pantry profiles, public prices; the owner's data in its own instance, out of reach of the demos
   (`tools/owner_stack.sh`); memory caps after the 8 GB laptop froze; backups of that instance, checked
   by restoring them (`tools/backup.py`, `docs/backups.md`).
-- **Testing:** 1284 offline tests (72 when the second review's fixes landed), three mutation sweeps
+- **Testing:** 1273 offline tests (72 when the second review's fixes landed), three mutation sweeps
   (below), and checks of the pages against Python on real Structr.
 
 ## What is being reviewed
@@ -85,7 +85,7 @@ describe a known posture rather than a regression.
 ## Running it
 
 ```bash
-python3 -m unittest discover -s tests -t .            # 1284 offline tests, no Structr (30 skip without OR-tools, 58 without node or gjs, 19 more without node and its Playwright Chromium)
+python3 -m unittest discover -s tests -t .            # 1273 offline tests, no Structr (30 skip without OR-tools, 51 without node or gjs, 19 more without node and its Playwright Chromium)
 .venv/bin/python -m unittest discover -s tests -t .   # the same with OR-tools (requirements-solver.txt)
 python3 tools/check_names.py                          # undefined names and unused imports (no pyflakes here)
 python3 scripts/23a_schema_drift_test.py              # offline: the schema helpers against a drifted schema
@@ -305,59 +305,11 @@ deleted those four nodes) wrote 595.
 
 ### Our own security review of 2026-11-24
 
-Of the stack as the household uses it after the per-household migration: phones on the home network over
-HTTPS (8443), port 8085 open to the network over plain HTTP by the owner's choice, households kept apart
-by Structr's grants, the pages, the methods and the files they load. Read from the code and from Structr
-7.1.0's own classes (its image), and tried on a throwaway Structr 7.1 rebuilt from the scripts in the
-cloud, never on the owner's instance. Each fix has a test that fails on the code before it; the first was
-also seen live before and after. `check_bookings` and `check_households` pass with the fixes.
-
-| # | Finding | Rank | What became of it |
-|---|---|---|---|
-| 1 | **A page on another site could book through a signed-in browser.** A booking is a link with any hex token, and Structr's session cookie is `SameSite=Lax`, which a browser sends with a link followed from another site. Seen live: a purchase sent with the session cookie alone and `Sec-Fetch-Site: cross-site` booked | High | **Fixed.** A page books only what the browser says came from one of its own pages (`Sec-Fetch-Site: same-origin`, else a `Referer` naming this host); a request saying neither is refused (`pages/common.js`, `tests/test_booking_origin.py`). Seen live after: refused from another site, a bookmark or no headers; booked from the page. The methods are POSTs, which the Lax cookie does not go with, and need nothing |
-| 2 | **Development, throwaway and backup-check stacks answered the whole home network.** `docker-compose.yml` published Structr on every interface; a backup's check restores the owner's data and accounts into one | Medium | **Fixed.** Every stack answers this computer only (`STRUCTR_BIND`, default `127.0.0.1`); `tools/owner_stack.sh` keeps the owner's on every interface as before (`OWNER_BIND`, `tests/test_https.py`) |
-| 3 | **The sign-in page sent the password over plain HTTP** from another device on port 8085, for a session the browser then drops (the cookie is `Secure`) | Medium | **Fixed.** At an address that is not HTTPS or localhost it sends nothing and says to use HTTPS (`pages/login.html`, `tests/test_signed_out.py`). Structr's admin interface and the REST API still take passwords on 8085: below |
-| 4 | **Four wrong passwords lock an account** (`security.passwordpolicy.maxfailedattempts`, 4 in 7.1), so anyone on the network who knows a name can lock a household member out; `tools/create_login.py` set a new password but left the account locked | Low | **Fixed** what was ours: a new password from `create_login.py` opens the account (`tests/test_pages_tools.py`). The lock itself stays: it is what stops guessing |
-| 5 | **The vendored ZXing reader was trusted by its README's word** | Low | **Checked and pinned.** It is byte for byte `@zxing/library` 0.23.0's `umd/index.min.js` from npm (the registry tarball's sha512 matches its published integrity); a test now fails on any change to it (`tests/test_pantry_camera.py`) |
-
-**Looked at and found sound**, each tried live where it says so: a household member's REST requests
-answer 401 everywhere, the methods included, since the owner's instance grants none but sign-in (live);
-a member cannot make themselves an admin (live, 401); households read and book apart through the pages
-and the methods (`check_households`, live); a member's upload (any signed-in user may upload, by
-Structr's design) lands in a folder no one else sees, cannot set `isTemplate`, cannot reach the pages'
-folder, and Structr 7.1 serves an upload not made by an admin as a download in a sandbox, so it cannot run
-script on this site (live); the pages escape what they print and their data blocks escape `<`; the
-sign-in page goes on only to the planner's own pages; pages are sent `X-Frame-Options: SAMEORIGIN` and
-`nosniff` by Structr's defaults (live), and a framed page from another site would be signed out (Lax);
-since the migration a page books as the household member signed in, and `$.doPrivileged` is left only
-for adding a product (shared knowledge, the owner's rule) and on an instance with no household, where an
-account in none is refused once one exists (`check_households`, live); the Open Food Facts look-up sends only the barcode, with no cookie or referrer; the StructrScript
-validators are built only from constants in the repository, never from what a user typed; neither the
-changelog nor the logs held a password after a member signed in and uploaded (live); the HTTPS key is
-`0600` and its authority's key was deleted after signing; Neo4j is not published.
-
-**For the owner to decide** (`docs/todo.md`, "A security review"):
-
-- **Port 8085 over plain HTTP from the network** (the owner's choice of 2026-11-22). Every password typed
-  into Structr's admin interface there, and every REST request with `X-Password` from another device,
-  crosses the network readable. `OWNER_BIND=127.0.0.1` closes it, the tools keep working at localhost,
-  and the laptop would use `https://192.168.1.8:8443/structr` for the admin interface. Not changed.
-- **The admin interface on the network** (both ports). No setting limits it by address in 7.1; the
-  superuser's own lock (3 wrong passwords block it for 15 minutes) and the tools account's (4) stand
-  between a guesser and everything. Choices: leave it; or reach it only from the computer (an SSH tunnel
-  from the laptop) once 8085 is closed and 8443 is kept for the pages, which Structr cannot separate on
-  one port; or turn on Structr's second factor for admin accounts (`security.twofactorauthentication`).
-- **Sign-in lock-outs as a nuisance.** Raising `security.passwordpolicy.maxfailedattempts`, or turning on
-  Structr's rate limiting on sign-in (`httpservice.ratelimiting.*`, off by default, 5 a second when on),
-  trades guessing for lock-outs. Not changed: requests from the computer reach Structr from Docker's
-  gateway, not loopback, so the tools' bulk imports would be limited too unless that address is excluded,
-  which was not tried.
-- **Backups** are plain archives on the one computer, holding the database with every password hash and
-  `private/`, the HTTPS key with it; their folders are readable by other accounts on the computer
-  (`0755`). Encrypting them and keeping a copy elsewhere needs a place and a key the owner picks.
-- **Uploads by any signed-in user** are Structr's own design. They are harmless as tried, but take disk
-  (`uploadservlet.maxfilesize`); a lifecycle rule refusing a non-admin's upload would be a schema change
-  on the owner's instance, so it is offered, not made.
+Of the stack as the household uses it, after the per-household migration. Written up in
+`docs/security-review.md`: nine findings, the worst that a page on another site can book through a
+signed-in browser (seen on a throwaway Structr 7.1), each with a fix suggested, and what a hosted platform
+would need. None is fixed: the owner's word is that no extra security is added while development is local.
+The fixes written for the first four are kept in commit `74c8c2d`.
 
 ## Open items
 
