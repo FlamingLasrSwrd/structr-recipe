@@ -24,7 +24,7 @@ count everything else.
 
 | Action | Grocy | Written | Read back as |
 |---|---|---|---|
-| **Buy** | purchase | a `Process` of kind *Purchase* at a `TemporalRegion`; a `PortionOfSubstance` that `beginsToExistDuring` it, `locatedIn` a `ContainerObject` with its storage condition and *Sealed*; its Mass `Quality`, with an `observed` `Measurement` of the amount bought; its Perishability Class, if one is chosen or an earlier portion of the food had one | stock from that moment; expiry from the purchase (§5.5) |
+| **Buy** (and a ticked shopping line: below, "Ticking the shopping list") | purchase | a `Process` of kind *Purchase* at a `TemporalRegion`; a `PortionOfSubstance` that `beginsToExistDuring` it, `locatedIn` a `ContainerObject` with its storage condition and *Sealed*; its Mass `Quality`, with an `observed` `Measurement` of the amount bought; its Perishability Class, if one is chosen or an earlier portion of the food had one | stock from that moment; expiry from the purchase (§5.5) |
 | **Use** | consume | a `Process` of kind *Use* with an input `Allocation` about the portion, its amount an `observed` `Measurement` | current magnitude less the amount, from then on (§4.1.1) |
 | **Count** | inventory | a new `observed` `Measurement` of the portion's mass | the new baseline: a recount is not a revision (§4.1.1) |
 | **Open** | open | the container's opened status set to *Opened* (a container made for a portion in none, kept in the fridge and sealed, which is what one in none is taken to be) | the *Opened* shelf life |
@@ -303,6 +303,73 @@ offered when Open Food Facts cannot be reached. Breaking each of those on purpos
 What is left, each in `docs/todo.md`: a product's own label nutrition (FDC's branded foods carry
 the same GTINs); where a product is kept by default (a scan books to the fridge unless `--storage` says
 otherwise, as Buy does); and a shop's own weighed packs.
+
+## Ticking the shopping list
+
+Built 2026-11-24 (`docs/todo.md`, "A grocery item checked off goes into the pantry"; plan 1 of
+`docs/time-savings-plans.md`, which the owner approved to build on 2026-11-23). The time study found that
+entering every purchase a second time on the pantry page was the app's biggest time cost.
+
+**How it works.** The shopping page's tick boxes are still kept in the browser, so a list can be ticked in
+the shop without a connection. One button, **Put ticked items into the pantry** (above and below the list),
+then books every ticked line as a purchase. Each line is booked on its own, with a token of its own (the
+form's and the line's number), so one line that cannot be booked does not stop the rest, and a form sent
+twice books nothing twice. Booked lines leave the list, since the pantry now covers them, and their ticks
+are cleared.
+
+**What a line books** (`pantry.buy_line`, `PANTRY_ACTIONS.bought` in `pages/lib/50_pantry.js`):
+
+- **Its whole packages, each a portion of its own**, in a container of its own (the line's `pieces`,
+  `shopping.Line.pieces`): two cans of tomatoes are two portions, so that opening one (the owner's
+  first-use rule) does not open the other. A line bought loose or by count (300 g of onion, 2 lemons) is
+  one portion. The first portion is named as Buy names one, `Purchase <token> -- <food>`; the others
+  `... #2`, `... #3`.
+- **At the grams a recipe weighs them.** A bag of onions goes in as its edible part (a 1 lb bag as 408 g
+  at a 10% trim), so stock bought from the list no longer counts the skins, as Buy by weight still does
+  (`docs/packages.md`).
+- **Kept where the food keeps** (`pantry.default_storage`, `storageFor`): in the freezer for a food sold
+  frozen (its name, or the name of a food above it, says so: *Frozen green peas*); otherwise where the
+  pantry already takes a portion in no container to be kept (J31): of the fridge and the pantry, where its
+  food keeps longest unopened by FoodKeeper, the fridge on a tie or with neither. So potatoes, garlic,
+  bread and flour go to the pantry, and milk, grapes and herbs to the fridge.
+  The plan's first wording (frozen foods where FoodKeeper gives only a freezer time; the pantry where it
+  gives any pantry time) was not used: the pinned FoodKeeper rows give whole milk and fresh tomatoes only a
+  freezer time, and give grapes a pantry time of one day, so it would have frozen the milk and left the
+  grapes out. **For the owner to confirm.**
+- **Its perishability class** as Buy takes one: the latest portion's of the food.
+
+**Changing a line first.** Each line has a **Change** with: a product of the line's food (one with a
+package size), and how many packages of it (left empty, enough to cover what the line needs); or other
+grams in all, as one portion; and where it is kept. A product bought is stock of its food (J38), so the
+week's meals draw on it as they would on the food.
+
+**Taking a purchase back** (`pantry.unbuy`, `PANTRY_ACTIONS.unbuy`). Each line booked shows **Undo**, and
+the page lists what that browser has put away from the week's list for 14 days, each with **Undo**. An undo
+is refused, with the reason, once anything rests on the purchase: some of it used (a Use, a cook, a
+discard, a reservation's draw), weighed again, opened or moved. After that a Use, a Count or a Discard
+corrects it. Otherwise, as the owner decided on 2026-11-23 (`docs/todo.md`, "Undo a booking"), **a record
+of every node the purchase wrote is kept first**, as JSON in a Structr file named `undone Purchase
+<token> <time>.json`, private to the household (readable by its members, by no other household), and then
+the nodes are deleted. Each node is recorded with its type, id, name and the fields the purchase wrote
+(`pantry.RECORD_KEYS`), so it can be made again. A household member may undo another member's purchase,
+since a household's bookings are granted to its Group with delete; making that the household's own setting
+is part of "Undo a booking". A purchase made on the pantry page's Buy can be undone the same way by its
+token (`tools/pantry.py unbuy TOKEN`), though only the shopping page offers the button.
+
+**Checked** (2026-11-24, on a cloud throwaway stack): `tests/test_pantry_bought.py` (16 tests: the pieces,
+where each food is kept, a product's packages, what is refused, an undo and its record, an undo refused after
+a use, a count or a move; breaking the frozen rule, the separate containers, the undo's check for a use, or
+the pieces each failed them); the pieces in `tests/test_packages.py` and `tests/test_yields.py`;
+`tools/check_bookings.py` books three ticked lines through the page and through Python (one as listed, one
+with other grams and the freezer, one as a product in three packages), compares every node, sends the form
+again, and undoes one each way, comparing what was deleted and the record (renaming the page's second
+package failed it); `tools/check_pages.py` compares each line's pieces with Python's;
+`tools/check_households.py` books a ticked line as a member of household A (private to A), refuses B's
+member taking it back, lets A's other member, and keeps the record A's. Seen in a browser at phone width.
+
+**Not yet:** scanning a barcode on the shopping page to match a line; a product's own default place (barcode
+step 6); ticks shared between a household's phones (they are kept in each browser); and the bookings without
+a page reload (plan 2).
 
 ## What does not fit yet
 

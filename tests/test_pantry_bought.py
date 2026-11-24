@@ -13,9 +13,11 @@ Expected values worked out by hand:
     340.194 = 2.65, up); 2 when two are asked for.
 """
 
+import io
 import json
 import math
 import unittest
+from contextlib import redirect_stdout
 
 from mealplanner.pantry import (PantryError, buy, buy_line, default_storage, line_purchase, purchase_nodes, record_name,
                                 stock_take, unbuy, use)
@@ -236,3 +238,49 @@ class TakenBack(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FromTheTerminal(unittest.TestCase):
+    """tools/pantry.py unbuy: the record is uploaded as a file before anything is deleted, and a record that cannot
+    be kept stops the undo."""
+
+    def graph(self, status):
+        g = kitchen()
+        uploads = []
+
+        class Answer:
+            status_code, text = status, "file-1"
+
+        def request(method, path, **kwargs):
+            uploads.append((path, kwargs["files"]["file"][0], json.loads(kwargs["files"]["file"][1])))
+            return Answer()
+        g.request, g.wait_until_ready = request, lambda: None
+        g.nodes["file-1"] = {"id": "file-1", "type": "File", "name": "upload"}
+        g.get = (lambda get: lambda path, params=None: {"result": []} if path.endswith("/me") else get(path, params))(g.get)
+        buy(g, "Eggs", 600, "g", NOW, "t1")
+        return g, uploads
+
+    def run_tool(self, g, *argv):
+        from unittest import mock
+        from tools import pantry as pantry_tool
+        out = io.StringIO()
+        with mock.patch.object(pantry_tool, "connect", return_value=g), \
+                mock.patch.object(pantry_tool.ownership, "settle", return_value=True), redirect_stdout(out):
+            code = pantry_tool.main(list(argv))
+        return code, out.getvalue()
+
+    def test_kept_then_deleted(self):
+        g, uploads = self.graph(200)
+        code, said = self.run_tool(g, "unbuy", "t1", "--at", "2026-09-25T14:00:00+00:00")
+        self.assertEqual(code, 0, said)
+        ((path, name, record),) = uploads
+        self.assertEqual((path, name, record["undone"]), ("/structr/upload", "undone Purchase t1 20260925T140000.json", "Purchase t1"))
+        self.assertEqual(g.nodes["file-1"]["visibleToAuthenticatedUsers"], False)
+        self.assertFalse([n for n in g.nodes.values() if n["name"].startswith("Purchase t1")])
+
+    def test_a_record_that_cannot_be_kept_stops_it(self):
+        g, _ = self.graph(500)
+        code, said = self.run_tool(g, "unbuy", "t1")
+        self.assertEqual(code, 1)
+        self.assertIn("could not be kept", said)
+        self.assertTrue([n for n in g.nodes.values() if n["name"] == "Purchase t1 -- Eggs"])

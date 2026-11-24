@@ -639,7 +639,10 @@ def bought_check(check: Check, client, t: dict) -> None:
             check.fail(f"{what} through Python: {exc}")
             continue
         check.remember(py.created)
+        before = len(check.problems)
         check.same_nodes(what, booked["created"], [page_tokens[i]], py.created, [py_tokens[i]])
+        if len(check.problems) > before:
+            continue
         portions = [n for n in booked["created"] if n.startswith(f"Purchase {page_tokens[i]} -- ") and " container" not in n
                     and not n.endswith((" mass Quality", " mass bought"))]
         print(f"  {what}: {len(portions)} portion(s), the same both ways")

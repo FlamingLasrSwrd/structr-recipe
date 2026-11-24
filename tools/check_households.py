@@ -25,6 +25,7 @@ booking may not make itself. Then, each member as themselves:
   write only what is private to A, each Process names A1, the first use opens the sealed portion, and
   neither A1's page nor B1's reaches what is not theirs, and C, signed in but in no household, is refused
   rather than booking as the superuser;
+  the shopping page's ticked line books as A1 for A, B1 cannot take it back and A2 can, its record A's alone;
   and none of them acts on what every signed-in user sees (the data made before households kept theirs
   apart): a portion expiring sooner than A's, which A's cook must not draw on and A cannot book on, a
   meal A cannot change, and a week of that name A's request must not add to.
@@ -389,6 +390,7 @@ def main(argv=None) -> int:
         week_check(check, client, m, args.food, args.keeps, bought, shared, own_a)
         request_check(check, client, m, shared)
         page_check(check, client, m, args.food, args.keeps, shared)     # after the week's list, which counts A's stock
+        shopping_check(check, client, m, args.food)
 
         mass = [d for d in client.get("/structr/rest/DomainType", params={"name": "Mass"})["result"] if d.get("type") == "DomainType"][0]
         before = client.get_all("DomainType", mass["id"])["result"].get("isLookupBearing")
@@ -511,6 +513,47 @@ def page_check(check: Check, client, m: dict, food: str, keeps: str, shared: dic
         check.fail(f"C's pantry page, in no household, counting A's portion was not refused: {got}")
     else:
         print("  C, signed in but in no household, is refused a booking on the pantry page")
+
+
+def shopping_check(check: Check, client, m: dict, food: str) -> None:
+    """The shopping page's "Put ticked items into the pantry" and its Undo as a household's member: A1's ticked
+    line books as A1 for A, two packages each private to A; B1 cannot take it back (no such purchase, and
+    nothing goes); A2, in A1's household, can, and the record of it is A's to read, not B's."""
+    token = secrets.token_hex(4)
+    got = page(m["A1"], "shopping", do="bought", token=token, lines="1", t0="1", food0=food, pieces0="300,200", buy0="450")
+    booked = (got.get("bookings") or [{}])[0]
+    check.remember(booked.get("created") or [])
+    purchase = token + "000"
+    if booked.get("problem") or booked.get("privileged") or booked.get("household") != "TEST -- household A":
+        check.fail(f"A1's ticked line on the shopping page: {got}")
+        return
+    portions = [n for n in booked["created"] if n in (f"Purchase {purchase} -- {food}", f"Purchase {purchase} -- {food} #2")]
+    if len(portions) != 2 or private_to(check, client, m, booked["created"], "A"):
+        check.fail(f"A1's ticked line wrote {booked['created']}")
+        return
+    got = page(m["B1"], "shopping", do="unbuy", purchase=purchase, token=secrets.token_hex(4))["bookings"][0]
+    left = [n for n in booked["created"] if check.named(n)]
+    if not (got.get("problem") or "").startswith("no purchase") or got.get("created") or len(left) != len(booked["created"]):
+        check.fail(f"B1 taking back A's purchase was not refused as no such purchase: {got}")
+    ids = {r["id"] for n in booked["created"] if n.startswith(f"Purchase {purchase}") for _, r in check.named(n)}
+    got = page(m["A2"], "shopping", do="unbuy", purchase=purchase, token=secrets.token_hex(4))["bookings"][0]
+    if not got.get("problem"):
+        check.made = [(t, i) for t, i in check.made if i not in ids]         # gone with the undo
+    if got.get("problem") or sorted(got.get("created") or []) != sorted(n for n in booked["created"] if n.startswith(f"Purchase {purchase}")):
+        check.fail(f"A2 taking back A1's purchase: {got}")
+        return
+    files = [r for r in client.get("/structr/rest/File", params={"name": got.get("record") or ""})["result"] if r.get("type") == "File"]
+    if len(files) != 1:
+        check.fail(f"A2's undo left no record named {got.get('record')!r}")
+        return
+    check.made.append(("File", files[0]["id"]))
+    row = client.get_all("File", files[0]["id"])["result"]
+    reads = {who: m[who].session.get(f"{client.base_url}/{files[0]['id']}", timeout=client.timeout).status_code for who in ("A1", "B1")}
+    if (row.get("visibleToAuthenticatedUsers"), row.get("visibleToPublicUsers")) != (False, False) or reads["A1"] != 200 or reads["B1"] == 200:
+        check.fail(f"the record of A2's undo: visible to all {row.get('visibleToAuthenticatedUsers')}, A1 reads {reads['A1']}, B1 {reads['B1']}")
+    else:
+        print("  A1's ticked line on the shopping page: two packages booked as A1, private to A; B1 cannot take it back, "
+              f"A2 can, and the record is A's to read (B1 gets {reads['B1']})")
 
 
 def private_to(check: Check, client, m: dict, names, side: str) -> int:

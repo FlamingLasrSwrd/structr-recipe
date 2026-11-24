@@ -88,8 +88,8 @@ function runShopping() {
         continue;
       }
       out.booked.push({item: (week ? week.id : "") + "|" + String(asked.food || ""), food: String(asked.food || ""), purchase: lineToken});
-      said.push("<p class=\"booked\">" + esc(done.booking.notes.join(" ")) + (done.booking.created.length ? "" : " (put in before, so nothing new was written)")
-        + " " + undoForm(lineToken) + "</p>");
+      said.push("<div class=\"booked\">" + esc(done.booking.notes.join("; ") + ".") + (done.booking.created.length ? "" : " (put in before, so nothing new was written)")
+        + " " + undoForm(lineToken) + "</div>");
     }
     out.html = said.length ? said.join("") : "<p class=\"problem\">Problem: nothing was ticked.</p>";
   }
@@ -173,8 +173,8 @@ if (!week) {
       + " (where it keeps)</option>" + STORAGE.map((w) => "<option>" + w + "</option>").join("") + "</select></label></div></details>";
     html += "<tr><td><input type=\"checkbox\" name=\"t" + i + "\" value=\"1\" id=\"" + id + "\" data-item=\"" + esc(week.id + "|" + l.food) + "\">"
       + field("food", l.food) + field("pieces", l.pieces.map((g) => Math.round(g * 1e6) / 1e6).join(",")) + field("buy", Math.round(l.buy * 1e6) / 1e6) + "</td>"
-      + "<td><label for=\"" + id + "\">" + esc(l.food) + (l.optional ? " <i>(optional)</i>" : "") + "</label></td>"
-      + "<td class=\"num" + (l.estimated_size ? " estimated" : "") + "\">" + esc(amountText(l)) + change + "</td>"
+      + "<td><label for=\"" + id + "\">" + esc(l.food) + (l.optional ? " <i>(optional)</i>" : "") + "</label>" + change + "</td>"
+      + "<td class=\"num" + (l.estimated_size ? " estimated" : "") + "\">" + esc(amountText(l)) + "</td>"
       + "<td class=\"num" + (l.estimated ? " estimated" : "") + "\">" + (l.cost == null ? "" : "$" + l.cost.toFixed(2)) + "</td>"
       + "<td class=\"note\">" + (l.have > 0 ? "have " + number(l.have, 0) + " g of " + number(l.need, 0) + " g; " : "")
       + (formText(l) ? esc(formText(l)) + "; " : "") + esc(l.recipes.join(", "))

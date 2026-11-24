@@ -10,8 +10,10 @@
     python3 tools/pantry.py discard PORTION             # everything left, thrown away
     python3 tools/pantry.py meals private/week.toml     # the week's meals not yet cooked
     python3 tools/pantry.py cook ENTRY                  # a planned meal, cooked: its ingredients drawn
+    python3 tools/pantry.py unbuy TOKEN                 # a purchase taken back while nothing rests on it
 
-A PORTION is its name as `list` prints it, or its id; an ENTRY is an id as `meals` prints it. A FOOD
+A TOKEN is the one a purchase was booked with (its Process is "Purchase TOKEN"); taking it back keeps a
+record of what it wrote as a file on the instance first (pantry.unbuy; docs/pantry.md). A PORTION is its name as `list` prints it, or its id; an ENTRY is an id as `meals` prints it. A FOOD
 is a food or a product; a BARCODE is one a product was loaded with (tools/import_products.py).
 Every booking happens now unless --at gives an ISO time, and is named by --token, else a new
 one, so running the same booking twice with the same token writes nothing new. A purchase, a use,
@@ -107,6 +109,22 @@ def scan(client, barcode: str, packages: float, when: datetime, token: str, **ho
     return booking
 
 
+PRIVATE = {"visibleToAuthenticatedUsers": False, "visibleToPublicUsers": False}
+
+
+def keep_on_instance(client):
+    """pantry.unbuy's `keep`: the record uploaded as a file on the instance, visible to no one but its owner and
+    admins until ownership.settle makes it the household's (as the page's is its household's at once)."""
+    def keep(name: str, text: str) -> None:
+        r = client.request("POST", "/structr/upload", files={"file": (name, text.encode(), "application/json")},
+                           headers={"Content-Type": None})
+        if r.status_code >= 400:
+            raise pantry.PantryError(f"the record of what is taken back could not be kept ({r.status_code}), so nothing was")
+        client.patch(f"/structr/rest/File/{r.text.strip()}", {"contentType": "application/json", **PRIVATE})
+        print(f"record kept: {name}")
+    return keep
+
+
 def report(booking: pantry.Booking) -> None:
     if booking.process and not booking.created:
         print(f"{booking.process}: booked before; nothing new written")
@@ -118,7 +136,8 @@ def report(booking: pantry.Booking) -> None:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("action", choices=["list", "buy", "scan", "use", "count", "open", "move", "discard", "meals", "cook"])
+    parser.add_argument("action", choices=["list", "buy", "scan", "use", "count", "open", "move", "discard", "meals", "cook",
+                                           "unbuy"])
     parser.add_argument("args", nargs="*")
     parser.add_argument("--storage", default="Fridge")
     parser.add_argument("--keeps", help="its Perishability Class, for a shelf life")
@@ -129,7 +148,7 @@ def main(argv=None) -> int:
     now = datetime.fromisoformat(args.at) if args.at else datetime.now(timezone.utc)
     token = args.token or secrets.token_hex(4)
     wants = {"list": (0, 1), "buy": (3, 3), "scan": (1, 2), "use": (3, 3), "count": (3, 3), "open": (1, 1), "move": (2, 2),
-             "discard": (1, 1), "meals": (1, 1), "cook": (1, 1)}[args.action]
+             "discard": (1, 1), "meals": (1, 1), "cook": (1, 1), "unbuy": (1, 1)}[args.action]
     if not wants[0] <= len(args.args) <= wants[1]:
         parser.error(f"{args.action} takes {wants[0]}" + ("" if wants[0] == wants[1] else f" to {wants[1]}") + " argument(s)")
     client = connect(owner_data_ok=True)        # the pantry's own data: the owner's too
@@ -156,6 +175,9 @@ def main(argv=None) -> int:
             report(pantry.move(client, find_portion(client, a[0]), a[1], now, token, by=by))
         elif args.action == "discard":
             report(pantry.discard(client, find_portion(client, a[0]), now, token, by=by))
+        elif args.action == "unbuy":
+            booking = pantry.unbuy(client, a[0], now, by=by, keep=keep_on_instance(client))
+            print(f"{booking.process}: deleted {len(booking.created)} node(s)")
         elif args.action == "cook":
             booking, short = pantry.cook(client, a[0], now, token, by=by)
             report(booking)

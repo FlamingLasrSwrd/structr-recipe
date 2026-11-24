@@ -12,7 +12,7 @@ minutes a week once most barcodes are known.
 
 | # | Plan | Saves (A, B, C) | Size | Schema change | Waits on the owner for |
 |---|---|---|---|---|---|
-| 1 | A shopping-list tick books the purchase: **to build** (the owner, 2026-11-23) | 6, 9, 15 | medium | no | how an undo is recorded (`docs/todo.md`, "Undo a booking") |
+| 1 | A shopping-list tick books the purchase: **built 2026-11-24** (`docs/pantry.md`, "Ticking the shopping list") | 6, 9, 15 | medium | no | how an undo is recorded (`docs/todo.md`, "Undo a booking") |
 | 2 | Bookings without a page reload | 3, 5, 8 | medium | no | none: bookings for the household, naming who (decided 2026-11-23) |
 | 8 | Scanning an item as it is used | 1, 2, 4 | medium, after 2 | no | none: decided 2026-11-23 |
 | 6a | The shopping list in store order | 5, 10, 15 | small | no | the order of the owner's shop |
@@ -28,6 +28,8 @@ builds on 2 for food going out. 6a is cheap and independent. 6b waits (the owner
 **Measuring first was dropped:** the owner, 2026-11-23: "Estimates are fine for now."
 
 ## 1. A shopping-list tick books the purchase
+
+**Built 2026-11-24**, stages 1 and 2 together and the untick as an Undo (`docs/pantry.md`, "Ticking the shopping list"). Where it is kept follows J31 with frozen foods in the freezer, not the rule below, which would have frozen the milk.
 
 Asked for 2026-11-13 (`docs/todo.md`, "A grocery item checked off goes into the pantry"). Today a tick on
 the shopping page is only remembered in that browser, and every item is entered again on the pantry page.

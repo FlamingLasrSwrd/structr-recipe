@@ -25,8 +25,9 @@ the edible part already. Leftover meals add nothing: they eat what an earlier co
 
 Known limits: one step of yield only (a food yielded by a food yielded by another is not followed);
 a price is read per gram as a recipe weighs it, as Purchase to Plate's are, so an owner's price for a
-trimmed food, stated per gram as bought, prices it a little low; and the pantry books what is bought
-as it is weighed, so stock of a trimmed food bought by weight is counted with its trimmings.
+trimmed food, stated per gram as bought, prices it a little low; and the pantry's Buy books what is
+bought as it is weighed, so stock of a trimmed food bought there by weight is counted with its trimmings.
+A line ticked on the shopping page books its `pieces`, as a recipe weighs them (pantry.buy_line).
 """
 
 from __future__ import annotations
