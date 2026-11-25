@@ -148,12 +148,15 @@ function roundUp(line, food, packages) {
     });
     line.bought = bought;
     line.as_bought = asBought;
+    line.pieces = [].concat(...counts.map((n, i) => Array(n).fill(sizes[i][0])));
   } else if (line.each) {
     line.bought = Math.ceil(line.buy / line.each - 1e-9) * line.each;
     line.as_bought = line.bought;
+    line.pieces = [line.bought];
   } else {
     line.bought = line.buy;
     line.as_bought = line.buy / line.edible;
+    line.pieces = [line.bought];
   }
   line.left = Math.max(0, line.bought - line.buy);
 }
@@ -171,22 +174,21 @@ function needs(week) {
     const scale = y && y.unit === "servings" && y.value > 0 ? entry.hasPlannedServings / y.value : null;
     const specs = [].concat(...(plan.steps || []).map((s) => s.hasSpecification || []));
     const produced = new Set(specs.filter((s) => s.hasParticipationRole === "output" && s.specifies).map((s) => s.specifies.id));
-    for (const spec of specs) {
-      const food = spec.specifies;
-      if (spec.hasParticipationRole !== "input" || !food || produced.has(food.id)) continue;
-      const q = spec.hasSpecifiedQuantity;
-      const grams = q && q.value != null ? toGrams(food, q.value, q.unit) : null;
+    const inputs = specs.filter((s) => s.hasParticipationRole === "input" && s.specifies && !produced.has(s.specifies.id));
+    for (const item of entryInputs(entry, inputs)) {          // a food bought instead followed (92_substitutes.js)
+      const food = item.food, spec = item.spec, grams = item.grams;
       if (!grams || scale == null) {
         const used = unquantified[food.name] = unquantified[food.name] || [];
         if (used.indexOf(plan.name) < 0) used.push(plan.name);
         continue;
       }
-      const p = pools[food.id] = pools[food.id] || {food: food, need: 0, recipes: [], first: null, optional: true, counted: false};
+      const p = pools[food.id] = pools[food.id] || {food: food, need: 0, recipes: [], first: null, optional: true, counted: false, instead: []};
       p.need += grams * scale;
+      if (item.original && p.instead.indexOf(item.original.name) < 0) p.instead.push(item.original.name);
       if (p.recipes.indexOf(plan.name) < 0) p.recipes.push(plan.name);
       if (start && (!p.first || start < p.first)) p.first = start;
       p.optional = p.optional && !!spec.isOptional;
-      p.counted = p.counted || COUNT.indexOf(String(q.unit || "").trim().toLowerCase()) >= 0;
+      p.counted = p.counted || item.counted;
     }
   }
   return {pools: pools, unquantified: unquantified, cooks: cooks, leftovers: leftovers};
@@ -216,7 +218,9 @@ function eligibleGrams(food, portions, pools) {
 // needed, then food), covered, unquantified, not_bought, unpriced, total, left_total}. A line: {food, need,
 // have, buy, first, recipes, optional, each, cost, estimated, packages ([{count, label}]), estimated_size,
 // bought, left, left_cost, keeps_until, keeps_opened, made ([[food, grams]]: what it is bought to make),
-// edible (of a gram as bought, what a recipe weighs), trimmed, as_bought (grams as the shop weighs them)}.
+// edible (of a gram as bought, what a recipe weighs), trimmed, as_bought (grams as the shop weighs them), pieces (the
+// grams of each package bought, as a recipe weighs them; one for a line bought loose or by count: what ticking it books),
+// instead (the foods the recipes name that it is bought in place of: substitutes.py)}.
 // ownOnly: only stock private to the caller counts (a household's own; ownStock in 50_pantry.js), as for a
 // household's method. packageLevel: a package
 // level's name, or null for none
@@ -262,7 +266,7 @@ function shoppingFor(week, levelName, ownOnly, packageLevel) {
     const line = {food: p.food.name, need: need, have: have[id], buy: short >= SHORT_G ? short : 0, first: p.first,
                   recipes: p.recipes, optional: p.optional, each: p.counted ? toGrams(p.food, 1, "each") : null, cost: null, estimated: false,
                   packages: [], estimated_size: false, bought: null, left: 0, left_cost: null, keeps_until: null, keeps_opened: false,
-                  made: madeFor[id] || [], edible: 1, trimmed: "", as_bought: null};
+                  made: madeFor[id] || [], edible: 1, trimmed: "", as_bought: null, pieces: [], instead: (p.instead || []).slice().sort()};
     if (line.buy > 0) {
       const price = table ? foodPrice(table, p.food) : null;
       const value = price && price.hasValue ? price.hasValue.value : null;

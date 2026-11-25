@@ -74,7 +74,7 @@ class InstallPages(unittest.TestCase):
         g = PageGraph()
         self.assertEqual(run(self.tool, [], g), 0)
         pages = {p["name"]: p for p in g.of("Page")}
-        self.assertEqual(set(pages), {"week", "recipes", "recipe", "nutrition", "pantry", "shopping"})
+        self.assertEqual(set(pages), {"week", "recipes", "recipe", "nutrition", "pantry", "shopping", "alternatives"})
         for name, page in pages.items():
             elements = [n for n in g.of("DOMNode") if n["pageId"] == page["id"]]
             self.assertEqual(len(elements), 10, name)

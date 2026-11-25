@@ -42,7 +42,7 @@ review, so what the README and REVIEW.md claim has to be true.
   files live in `private/`, which git ignores: the repository is public, the owner's data is
   not. Never run a demo from `scripts/` against it (`connect()` refuses a marked instance), and
   never `down -v` it: nothing can rebuild it. The exception is a schema-only migration (such as
-  `30a` to `43a`), which declares `owner_data_ok=True` and must be run on the owner's instance as well,
+  `30a` to `43a`, `49a`, `51a`), which declares `owner_data_ok=True` and must be run on the owner's instance as well,
   then Structr restarted (hard rule 8); and `50a`, the data migration that made the owner's existing data
   their household's and their people's (`docs/verification-and-sharing.md` §3.4a). The tools that write a
   household's data make what they wrote its own when they finish (`mealplanner/ownership.py`).
@@ -110,6 +110,7 @@ STRUCTR_URL=http://localhost:8085 python3 tools/plan_week.py private/week.toml  
 python3 tools/plan_problem.py private/week.problem.json   # the planner as a worker: a problem file (plan_week.py --export-problem) in, a plan file out; no Structr
 STRUCTR_URL=http://localhost:8085 python3 tools/import_products.py private/products.toml   # products: barcodes and package sizes (docs/pantry.md); --check reads only
 python3 tools/import_grocy.py private/grocy/ --map private/grocy-map.toml --check   # a Grocy export: what it would book (docs/imports.md)
+STRUCTR_URL=http://localhost:8085 python3 scripts/51a_swap_schema.py   # schema only: a food bought instead (J42); then restart Structr
 python3 tools/install_pages.py && python3 tools/install_methods.py   # the pages (and pages/files/) and the Structr methods (methods/): code, safe on any instance
 STRUCTR_URL=http://localhost:8085 python3 scripts/50a_household_ownership.py --check   # what is not yet the household's or its people's; without --check, makes it so (after install_methods.py)
 python3 tools/check_households.py   # dev only: two test households book and read as themselves through the methods, kept apart (docs/methods.md)

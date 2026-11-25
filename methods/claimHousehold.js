@@ -37,7 +37,7 @@ if (p.household && p.household !== household.id) return {problem: "no such house
 // json names, hard rule 6)
 const PARTS = {
   MealPlan: ["isAbout", "hasEntry", "acquisitionLists"],
-  MealPlanEntry: ["isAbout", "hasPlannedConsumption", "hasShare", "reservationRole"],
+  MealPlanEntry: ["isAbout", "hasPlannedConsumption", "hasShare", "reservationRole", "usesSubstitution"],
   MealShare: ["hasPlannedConsumption"],
   Process: ["occupiesTemporalRegion", "qualifiedUsage", "qualifiedGeneration", "thingsBegunDuring"],
   Allocation: ["hasActualQuantity"],
@@ -75,6 +75,7 @@ function visit(node, person, root) {
   for (const key of PARTS[node.type] || []) {
     for (const child of list(node[key])) {
       if (node.type === "DomainType" && child.forType && child.forType.id !== node.id) continue;
+      if (key === "usesSubstitution" && !child.isOneOff) continue;      // a recipe's own rule is the recipe's
       visit(child, person, false);
     }
   }

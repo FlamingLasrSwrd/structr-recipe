@@ -226,6 +226,7 @@ class TheListRoundedUp(unittest.TestCase):
         eggs, noodles = lines["Eggs"], lines["Noodles"]
         self.assertEqual((eggs.buy, eggs.packages, eggs.bought, eggs.left), (450.0, [(1, "box")], 600.0, 150.0))
         self.assertEqual((noodles.packages, noodles.bought, noodles.left), ([(1, "12 oz bag")], 340.0, 140.0))
+        self.assertEqual((eggs.pieces, noodles.pieces), ([600.0], [340.0]))     # what ticking each puts in the pantry
         self.assertAlmostEqual(eggs.cost, 3.00)
         self.assertAlmostEqual(eggs.left_cost, 0.75)
         self.assertAlmostEqual(noodles.cost, 1.02)
@@ -250,6 +251,7 @@ class TheListRoundedUp(unittest.TestCase):
         lines = {line.food: line for line in shopping_list(g, "week", NOW, None, sold_in(Eggs=[("pack", 450.0)])).to_buy}
         self.assertEqual((lines["Eggs"].left, lines["Eggs"].keeps_until), (0.0, None))
         self.assertEqual((lines["Noodles"].packages, lines["Noodles"].bought, lines["Noodles"].left), ([], 200.0, 0.0))
+        self.assertEqual((lines["Eggs"].pieces, lines["Noodles"].pieces), ([450.0], [200.0]))   # a pack; bought loose
 
     def test_without_a_package_level_it_buys_what_is_needed(self):
         lines = {line.food: line for line in shopping_list(week(), "week", NOW, priced(Eggs=0.5)).to_buy}
@@ -261,6 +263,22 @@ class TheListRoundedUp(unittest.TestCase):
         _round_up(None, line, "Tortilla", None)
         self.assertEqual((line.bought, line.left), (150.0, 20.0))
         self.assertEqual(line.amount(), "3 (about 150 g)")
+        self.assertEqual(line.pieces, [150.0])                     # loose items: one portion, not three
+
+    def test_each_package_bought_is_a_piece_of_its_own(self):
+        # 450 g of eggs from 120 g and 200 g cartons: 4 x 120 = 480 leaves 30, less than 1 x 120 + 2 x 200 = 520 (70),
+        # 3 x 120 + 1 x 200 = 560 (110) or 3 x 200 = 600 (150): so 4 cartons of 120 g, each its own piece
+        lines = {line.food: line for line in shopping_list(week(), "week", NOW, None,
+                                                           sold_in(Eggs=[("small", 120.0), ("large", 200.0)])).to_buy}
+        self.assertEqual(lines["Eggs"].packages, [(4, "small")])
+        self.assertEqual(lines["Eggs"].pieces, [120.0, 120.0, 120.0, 120.0])
+
+    def test_two_sizes_bought_are_pieces_in_the_order_the_sizes_are_listed(self):
+        # 450 g from 100 g and 250 g: 2 x 100 + 1 x 250 = 450 exactly, nothing over
+        lines = {line.food: line for line in shopping_list(week(), "week", NOW, None,
+                                                           sold_in(Eggs=[("a small", 100.0), ("b large", 250.0)])).to_buy}
+        self.assertEqual(lines["Eggs"].packages, [(2, "a small"), (1, "b large")])
+        self.assertEqual(lines["Eggs"].pieces, [100.0, 100.0, 250.0])
 
 
 class InWords(unittest.TestCase):
