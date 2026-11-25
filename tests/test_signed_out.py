@@ -7,6 +7,7 @@ import pathlib
 import re
 import shutil
 import subprocess
+import tempfile
 import unittest
 
 from tests.test_pages_tools import PageGraph, load, run
@@ -18,10 +19,13 @@ LOGIN = "/structr/html/login"
 
 
 def javascript(code: str):
-    """What `code` leaves in `result`."""
-    flag = "-e" if pathlib.Path(ENGINE).name == "node" else "-c"
+    """What `code` leaves in `result`. The program goes in a file, not on the command line: a page with its
+    library is more than the 128 KB one argument may hold."""
     program = code + '\n(typeof print === "function" ? print : console.log)(JSON.stringify(result));'
-    done = subprocess.run([ENGINE, flag, program], capture_output=True, text=True, timeout=30)
+    with tempfile.TemporaryDirectory() as folder:
+        path = pathlib.Path(folder) / "program.js"
+        path.write_text(program)
+        done = subprocess.run([ENGINE, str(path)], capture_output=True, text=True, timeout=30)
     if done.returncode:
         raise AssertionError(done.stderr)
     return json.loads(done.stdout.strip().splitlines()[-1])

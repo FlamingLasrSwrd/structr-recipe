@@ -117,6 +117,7 @@ class TheList(unittest.TestCase):
         self.assertAlmostEqual(lemon.have, 58.0)
         self.assertAlmostEqual(lemon.buy, 4.5)
         self.assertEqual((lemon.each, lemon.bought, lemon.amount()), (58.0, 58.0, "1 (about 58 g)"))
+        self.assertEqual(lemon.pieces, [58.0])                     # one lemon: what ticking it puts in the pantry
         self.assertAlmostEqual(lemon.left, 53.5)
         self.assertEqual(len(lemon.made), 1)
         self.assertEqual(lemon.made[0][0], "Lemon juice")
@@ -127,6 +128,7 @@ class TheList(unittest.TestCase):
         onion = self.lines(shopping_list(salad_week(), "week", NOW))["Onion"]
         self.assertEqual((onion.buy, onion.bought, onion.left, onion.edible, onion.trimmed), (270.0, 270.0, 0.0, 0.9, "skin and ends"))
         self.assertAlmostEqual(onion.as_bought, 300.0)
+        self.assertEqual(onion.pieces, [270.0])                    # stocked as a recipe weighs it, not with its skin
         self.assertEqual(onion.amount(), "300 g (0.7 lb) as bought")
 
     def test_a_package_of_a_trimmed_food_holds_its_edible_part(self):
@@ -135,6 +137,8 @@ class TheList(unittest.TestCase):
         self.assertEqual(onion.packages, [(1, "1 lb bag")])
         self.assertAlmostEqual(onion.bought, 408.2328)
         self.assertAlmostEqual(onion.as_bought, 453.592)
+        self.assertEqual(len(onion.pieces), 1)
+        self.assertAlmostEqual(onion.pieces[0], 408.2328)          # the bag's edible part: 453.592 x 0.9
         self.assertAlmostEqual(onion.left, 138.2328)
         self.assertAlmostEqual(onion.cost, 2.041164)
         self.assertAlmostEqual(onion.left_cost, 0.691164)
