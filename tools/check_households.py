@@ -26,6 +26,9 @@ booking may not make itself. Then, each member as themselves:
   neither A1's page nor B1's reaches what is not theirs, and C, signed in but in no household, is refused
   rather than booking as the superuser;
   the shopping page's ticked line books as A1 for A, B1 cannot take it back and A2 can, its record A's alone;
+  where each food goes (mealplanner/places.py): a place A1 picks first is everyone's and A's, A's private to A;
+  A2's different one is A2's own, which A1 reads but cannot change and B cannot see; a purchase that picks
+  nothing goes to A1's household's place, A2's own and, for B1, everyone's; B1's choice is B's alone;
   and none of them acts on what every signed-in user sees (the data made before households kept theirs
   apart): a portion expiring sooner than A's, which A's cook must not draw on and A cannot book on, a
   meal A cannot change, and a week of that name A's request must not add to.
@@ -61,7 +64,7 @@ from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mealplanner import ownership, pantry
+from mealplanner import ownership, pantry, places
 from mealplanner.connection import connect
 from mealplanner.inventory import instance_expiration
 from mealplanner.nutrition_scope import (
@@ -75,7 +78,8 @@ PRIVATE = {"visibleToAuthenticatedUsers": False, "visibleToPublicUsers": False}
 SEEN = {"visibleToAuthenticatedUsers": True, "visibleToPublicUsers": False}
 WRITTEN = ("TemporalRegion", "Process", "ContainerObject", "PortionOfSubstance", "Quality", "Measurement", "Allocation",
            "MealPlan", "MealPlanEntry", "QuantitySpecification", "MealShare", "NutritionTarget")
-GRANTS = ("stockOnHand", "bookPantry", "bookWeek", "bookRequest", "nutritionReport", "shoppingList", "DomainType/_id") \
+GRANTS = ("stockOnHand", "bookPantry", "bookWeek", "bookRequest", "nutritionReport", "shoppingList", "DomainType/_id",
+          "DefaultSpecification/_id") \
     + tuple(f"{t}/_id" for t in WRITTEN)
 # Run as the superuser to give household A a week of its own, as committing a planned week will (Path S
 # stage 4): a dinner to cook and a lunch of its leftovers, private to A and granted to its Group
@@ -272,6 +276,7 @@ def sweep(client) -> int:
         if m.get("name") == "testcheckhouseholdweek":
             client.delete(f"/structr/rest/SchemaMethod/{m['id']}")
             gone += 1
+    gone += forget_places(client)
     gone += Record(client).clear()
     for type_name, prefix in (("Household", "TEST -- household"), ("Person", "TEST -- member")):
         for row in client.get_all(type_name)["result"]:
@@ -395,6 +400,7 @@ def main(argv=None) -> int:
         request_check(check, client, m, shared)
         page_check(check, client, m, args.food, args.keeps, shared)     # after the week's list, which counts A's stock
         shopping_check(check, client, m, args.food)
+        places_check(check, client, m, args.food, args.keeps)
 
         mass = [d for d in client.get("/structr/rest/DomainType", params={"name": "Mass"})["result"] if d.get("type") == "DomainType"][0]
         before = client.get_all("DomainType", mass["id"])["result"].get("isLookupBearing")
@@ -426,6 +432,7 @@ def main(argv=None) -> int:
                 client.delete(f"/structr/rest/{type_name}/{node_id}")
             except Exception as exc:                      # already gone with another
                 print(f"  (could not remove {type_name} {node_id}: {exc})")
+        forget_places(client)
         check.record.clear()                                # what is left of it, and the record itself
         print(f"removed the {len(check.made)} node(s) made")
     print("households kept apart" if not check.problems else f"{len(check.problems)} failure(s)")
@@ -517,6 +524,104 @@ def page_check(check: Check, client, m: dict, food: str, keeps: str, shared: dic
         check.fail(f"C's pantry page, in no household, counting A's portion was not refused: {got}")
     else:
         print("  C, signed in but in no household, is refused a booking on the pantry page")
+
+
+def forget_places(client) -> int:
+    """Every storage place the test members chose (places.remember: its source names them), and the test households'
+    and members' levels. How many were removed."""
+    gone = 0
+    for row in client.get("/structr/rest/DefaultSpecification", params={"source": "chosen by TEST -- member", "_inexact": 1})["result"]:
+        client.delete(f"/structr/rest/DefaultSpecification/{row['id']}")
+        gone += 1
+    for prefix in ("household TEST -- household", "person TEST -- member"):
+        for row in client.get("/structr/rest/DomainType", params={"name": f"Storage places -- {prefix}", "_inexact": 1})["result"]:
+            for ref in client.get_all("DomainType", row["id"])["result"].get("defaultSpecifications") or []:
+                client.delete(f"/structr/rest/DefaultSpecification/{ref['id']}")      # one chosen by someone else on it
+                gone += 1
+            client.delete(f"/structr/rest/DomainType/{row['id']}")
+            gone += 1
+    return gone
+
+
+def places_check(check: Check, client, m: dict, food: str, keeps: str) -> None:
+    """Where each food goes, as households' members on the pantry page (pages/lib/57_places.js). Worked out by hand
+    from no place for the food on everyone's level (`other` a place the rule does not give it, `third` the last):
+      A1 picks `other`: everyone's place (seen by every signed-in user), A's level and A's place (private to A);
+      A2 picks `third`: A2's level and place, granted to A2 and read by A, so A1 reads but cannot change them,
+        and B1 gets a 404;
+      a Buy that picks nothing: A1's in `other` (A's), A2's in `third` (A2's own), B1's in `other` (everyone's);
+      B1 picks `third`: B's level and place, private to B."""
+    forget_places(client)                           # A1's move just after buying on the page remembered one
+    food_id = [d for d in client.get("/structr/rest/DomainType", params={"name": food})["result"] if d.get("type") == "DomainType"][0]["id"]
+    everyone = [d for d in client.get("/structr/rest/DomainType", params={"name": places.EVERYONE})["result"]]
+    if not everyone:
+        check.fail("storage places: scripts/52a_storage_places.py has not run on this instance")
+        return
+    if places.entry(client, everyone[0]["id"], food_id):
+        print(f"  everyone's level already has a place for {food}: storage places are not checked")
+        return
+    rule = pantry.default_storage(client, food_id)
+    other, third = [s for s in pantry.STORAGE if s != rule]
+    level = {k: places.household_level_name(f"TEST -- household {k}") for k in "AB"}
+    level.update({k: places.person_level_name(f"TEST -- member {k}") for k in ("A1", "A2")})
+    shared = f"{places.EVERYONE} -- {food}"
+
+    def buy(who: str, storage: str | None, expected: list[str]) -> str:
+        token = secrets.token_hex(4)
+        got = page(m[who], "pantry", do="buy", food=food, amount="200", unit="g", storage=storage or "", keeps=keeps, token=token)
+        check.remember(got.get("created") or [])
+        written = [n for n in got.get("created") or [] if n.startswith("Storage places")]
+        if got.get("problem") or written != expected:
+            check.fail(f"storage places: {who} picking {storage}: wrote {written}, not {expected} ({got.get('problem')})")
+        return token
+
+    def node(name: str) -> tuple[str, str] | None:
+        for type_name in ("DomainType", "DefaultSpecification"):
+            rows = [r for r in client.get(f"/structr/rest/{type_name}", params={"name": name})["result"] if r.get("type") == type_name]
+            if rows:
+                return type_name, rows[0]["id"]
+        return None
+
+    def reads(name: str, expected: dict) -> int:
+        """Who reads the node of this name: {member: status}; its flags show it to all only if B1 reads it."""
+        found = node(name)
+        got = {who: m[who].read(*found) for who in expected} if found else None
+        if got != expected:
+            check.fail(f"storage places: {name} read by {got}, not {expected}")
+            return 1
+        return 0
+
+    def kept(token: str) -> str | None:
+        rows = [r for t, r in check.named(f"Purchase {token} -- {food} container") if t == "ContainerObject"]
+        return (client.get_all("ContainerObject", rows[0]["id"])["result"].get("hasStorageCondition") or {}).get("name") if rows else None
+
+    bad = 0
+    buy("A1", other, [shared, level["A"], f"{level['A']} -- {food}"])
+    bad += reads(shared, {"A1": 200, "A2": 200, "B1": 200, "C": 200})
+    for name in (level["A"], f"{level['A']} -- {food}"):
+        bad += reads(name, {"A1": 200, "A2": 200, "B1": 404})
+    buy("A2", third, [level["A2"], f"{level['A2']} -- {food}"])
+    own = f"{level['A2']} -- {food}"
+    for name in (level["A2"], own):
+        bad += reads(name, {"A1": 200, "A2": 200, "B1": 404})
+    found = node(own)
+    if found:
+        status = m["A1"].session.put(f"{client.base_url}/structr/rest/DefaultSpecification/{found[1]}",
+                                     json={"source": "changed by A1"}, timeout=client.timeout).status_code
+        if client.get_all("DefaultSpecification", found[1])["result"].get("source") != "chosen by TEST -- member A2" or status < 400:
+            bad += 1
+            check.fail(f"storage places: A1 changed A2's own place (answered {status})")
+    said = {who: kept(buy(who, None, [])) for who in ("A1", "A2", "B1")}
+    if said != {"A1": other, "A2": third, "B1": other}:
+        bad += 1
+        check.fail(f"storage places: picking nothing kept it in {said}, not A1 {other}, A2 {third}, B1 {other}")
+    buy("B1", third, [level["B"], f"{level['B']} -- {food}"])
+    for name in (level["B"], f"{level['B']} -- {food}"):
+        bad += reads(name, {"B1": 200, "A1": 404, "A2": 404})
+    if not bad:
+        print(f"  storage places ({food}, by the rule the {rule.lower()}): A1's first choice everyone's and A's, A2's "
+              "own read by A1 but not changed, B's private to B; a purchase picking nothing goes where each one's says")
+    forget_places(client)
 
 
 def shopping_check(check: Check, client, m: dict, food: str) -> None:

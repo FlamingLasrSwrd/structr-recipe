@@ -113,7 +113,8 @@ function storageFor(food) {
 }
 
 // pantry.buy_line: `pieces` the grams of each package, each a portion in a container of its own; kept in `storage`,
-// else where storageFor says. The portions it wrote. "Bought something else" books its purchase through this too.
+// else where the food usually goes for the booking's person (usualPlace); a place given is remembered for them
+// (rememberPlace). The portions it wrote. "Bought something else" books its purchase through this too.
 function bookBought(booking, food, pieces, token, storage) {
   if (storage != null && STORAGE.indexOf(storage) < 0) throw new BookingError("storage must be one of " + STORAGE.join(", ") + ", not '" + storage + "'");
   if (!pieces.length) throw new BookingError(food.name + ": nothing to put away");
@@ -121,11 +122,12 @@ function bookBought(booking, food, pieces, token, storage) {
   if (pieces.some((g) => typeof g !== "number" || !isFinite(g) || !(g > 0))) {
     throw new BookingError(food.name + ": each package must weigh a number of grams more than 0");
   }
-  const where = storage || storageFor(food);
+  const where = storage || usualPlace(food, bookingPerson()).storage;
   const keeps = lastPerishability(food);
   const portions = bookPurchase(booking, food, pieces.map((g) => [Math.round(g * 1e6) / 1e6, "g"]), where, keeps, token);
   booking.notes.push(food.name + ": " + (pieces.length > 1 ? pieces.length + " packages, " : "")
                      + number(pieces.reduce((s, g) => s + g, 0), 0) + " g, kept in the " + where.toLowerCase());
+  if (storage) rememberPlace(booking, food.id, storage);
   noShelfLife(booking, food, keeps, where, "");
   return portions;
 }
@@ -232,15 +234,17 @@ function unbuyPurchase(booking, token) {
 }
 
 const PANTRY_ACTIONS = {
-  // pantry.buy
+  // pantry.buy: kept where it is said, which is then remembered for the person, else where the food usually goes
   buy: (booking, r, token) => {
-    const storage = String(r.storage || "Fridge");
-    if (STORAGE.indexOf(storage) < 0) throw new BookingError(WHERE_KEPT);
+    const said = r.storage ? String(r.storage) : null;
+    if (said != null && STORAGE.indexOf(said) < 0) throw new BookingError(WHERE_KEPT);
     const food = foodNamed(String(r.food || "").trim());
     const amount = amountFrom(r), unit = String(r.unit || "g");
     bookingGrams(food, amount, unit);
     const keeps = r.keeps ? typeNamed(String(r.keeps)) : lastPerishability(food);
+    const storage = said || usualPlace(food, bookingPerson()).storage;
     bookPurchase(booking, food, [[amount, unit]], storage, keeps, token);
+    if (said) rememberPlace(booking, food.id, said);
     noShelfLife(booking, food, keeps, storage, " To get one, choose how it keeps when you buy it.");
   },
   // pantry.buy_line: what a line of the shopping list bought, from "Put ticked items into the pantry" (pages/shopping.js)
@@ -293,7 +297,7 @@ const PANTRY_ACTIONS = {
       booking.notes.push(foodOf(portion) + " is marked opened.");
     }
   },
-  // pantry.move
+  // pantry.move: one within PLACE_FRESH_HOURS of buying corrects where it was put away, so it is remembered
   move: (booking, r, token) => {
     const storage = String(r.storage || "");
     if (STORAGE.indexOf(storage) < 0) throw new BookingError(WHERE_KEPT);
@@ -301,5 +305,6 @@ const PANTRY_ACTIONS = {
     bookProcess(booking, "Move", "Move " + token, NOW, {hasParticipant: [portion]});
     box.hasStorageCondition = typeNamed(storage);
     booking.notes.push(foodOf(portion) + " is in the " + storage.toLowerCase() + " now.");
+    if (portion.instanceOf && placeFresh(portion)) rememberPlace(booking, portion.instanceOf.id, storage);
   },
 };

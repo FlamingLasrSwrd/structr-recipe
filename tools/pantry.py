@@ -11,6 +11,7 @@
     python3 tools/pantry.py meals private/week.toml     # the week's meals not yet cooked
     python3 tools/pantry.py cook ENTRY                  # a planned meal, cooked: its ingredients drawn
     python3 tools/pantry.py unbuy TOKEN                 # a purchase taken back while nothing rests on it
+    python3 tools/pantry.py places [FOOD]               # where foods usually go for --by: remembered places, or one food's
 
 `list` sorts as the pantry page does (pages/pantry.js): by --sort expires (soonest first, unknown last), food
 (by name) or kept (fridge, freezer, pantry), a "-" before it reversing (--sort=-food); every order breaks
@@ -20,6 +21,9 @@ A TOKEN is the one a purchase was booked with (its Process is "Purchase TOKEN");
 record of what it wrote as a file on the instance first (pantry.unbuy; docs/pantry.md).
 A PORTION is its name as `list` prints it, or its id; an ENTRY is an id as `meals` prints it. A FOOD
 is a food or a product; a BARCODE is one a product was loaded with (tools/import_products.py).
+Without --storage, a purchase goes where the food usually goes for the Person who makes it (their own
+place for it, their household's, everyone's, else the rule: mealplanner/places.py); with --storage, the place
+is remembered for them, as a move within a day of buying is (docs/pantry.md, "Where each food goes").
 Every booking happens now unless --at gives an ISO time, and is named by --token, else a new
 one, so running the same booking twice with the same token writes nothing new. A purchase, a use,
 a discard and a cook name who made them: the Person --by names, else the Person the tool signs in as,
@@ -37,11 +41,12 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mealplanner import ownership, pantry, products
+from mealplanner import ownership, pantry, places, products
 from mealplanner.connection import connect
 from mealplanner.inventory import assumed_storage, container_storage_condition, instance_expiration
 from mealplanner.unit_conversion import QuantityError
 from mealplanner.nutrition_scope import FMT, active_entries
+from mealplanner.typetree import dt
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -159,6 +164,19 @@ def keep_on_instance(client):
     return keep
 
 
+def show_places(client, food: str | None, by: str | None) -> None:
+    """Where one food goes for this person and why, or every place remembered on their levels."""
+    if food:
+        usual = places.usual_place(client, dt(client, food), by)
+        print(f"{food}: {usual.words()}" + (f", as {usual.food}" if usual.food and usual.food != food else ""))
+        return
+    rows = places.places_of(client, by)
+    if not rows:
+        print("no places remembered yet: every food goes where the usual rule says")
+    for name, storage, source in rows:
+        print(f"{name}: {storage} ({source})")
+
+
 def report(booking: pantry.Booking) -> None:
     if booking.process and not booking.created:
         print(f"{booking.process}: booked before; nothing new written")
@@ -171,9 +189,9 @@ def report(booking: pantry.Booking) -> None:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("action", choices=["list", "buy", "scan", "use", "count", "open", "move", "discard", "meals", "cook",
-                                           "unbuy"])
+                                           "unbuy", "places"])
     parser.add_argument("args", nargs="*")
-    parser.add_argument("--storage", default="Fridge")
+    parser.add_argument("--storage", choices=pantry.STORAGE, help="where it is kept; default where the food usually goes")
     parser.add_argument("--keeps", help="its Perishability Class, for a shelf life")
     parser.add_argument("--at", help="when it happened, ISO with a zone; default now")
     parser.add_argument("--token", help="the booking's name; default a new one")
@@ -183,7 +201,8 @@ def main(argv=None) -> int:
     now = datetime.fromisoformat(args.at) if args.at else datetime.now(timezone.utc)
     token = args.token or secrets.token_hex(4)
     wants = {"list": (0, 1), "buy": (3, 3), "scan": (1, 2), "use": (3, 3), "count": (3, 3), "open": (1, 1), "move": (2, 2),
-             "discard": (1, 1), "meals": (1, 1), "cook": (1, 1), "unbuy": (1, 1)}[args.action]
+             "discard": (1, 1), "meals": (1, 1), "cook": (1, 1), "unbuy": (1, 1),
+             "places": (0, 1)}[args.action]
     if not wants[0] <= len(args.args) <= wants[1]:
         parser.error(f"{args.action} takes {wants[0]}" + ("" if wants[0] == wants[1] else f" to {wants[1]}") + " argument(s)")
     client = connect(owner_data_ok=True)        # the pantry's own data: the owner's too
@@ -193,6 +212,8 @@ def main(argv=None) -> int:
         by = pantry.person_named(client, args.by) if args.by else pantry.signed_in_person(client)
         if args.action == "list":
             show(client, a[0] if a else None, now, args.sort)
+        elif args.action == "places":
+            show_places(client, a[0] if a else None, by)
         elif args.action == "meals":
             return meals(client, a[0])
         elif args.action == "buy":
@@ -221,7 +242,7 @@ def main(argv=None) -> int:
     except (pantry.PantryError, LookupError) as exc:
         print(f"problem: {exc}")
         return 1
-    if args.action not in ("list", "meals") and not ownership.settle(client, ROOT):   # what it booked is the household's
+    if args.action not in ("list", "meals", "places") and not ownership.settle(client, ROOT):   # what it booked is the household's
         return 1
     return 0
 

@@ -203,7 +203,7 @@ def main():
               "the shopping list: 200 g of spaghetti, bought in place of the noodles, and no noodles")
         try:
             got = booker.page(f"alternatives/{weeks['page']}", do="instead", token=token(), week=weeks["page"], listed=NOODLES,
-                              food=SPAGHETTI, amount=250, unit="g", storage="Fridge", entries=meals["page"])
+                              food=SPAGHETTI, amount=250, unit="g", entries=meals["page"])
         except requests.HTTPError as e:
             if e.response is None or e.response.status_code != 404:
                 raise
@@ -229,7 +229,7 @@ def main():
             print("\n[5] The recipe's own rice noodles bought instead...")
             buy_instead(client, weeks["python"], NOODLES, RICE, 200, "g", datetime.now(timezone.utc), token())
             got = booker.page(f"alternatives/{weeks['page']}", do="instead", token=token(), week=weeks["page"], listed=NOODLES,
-                              food=RICE, amount=160, unit="g", storage="Fridge", entries=meals["page"])
+                              food=RICE, amount=160, unit="g", entries=meals["page"])
             check(not got["problem"] and uses(meals["python"]) == [rice_rule] and uses(meals["page"]) == [rice_rule]
                   and rules_named(one_off_name(spec, RICE)) == [],
                   f"both meals use the recipe's rule; no rule of the week's is made ({got['problem'] or 'booked'})")

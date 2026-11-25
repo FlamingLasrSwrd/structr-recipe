@@ -34,6 +34,7 @@ no page for it. Later pages use these words the same way:
 | estimate | a figure worked out from usual values, not measured or given by a source (shown in italics, or marked ≈ or "(estimate)") | imputed, rests on an estimate, provenance |
 | use by | the day a food is estimated to keep until, from its shelf life where it is kept, opened or not | expiry, instance expiration |
 | kept | where it is: fridge, freezer or pantry | storage condition |
+| usual place | where a food goes unless another is picked: yours, your household's, everyone's, else the usual rule (`docs/pantry.md`, "Where each food goes") | default storage, storage place, level |
 | assumed | where it is kept was not recorded, so it is taken to be where that food keeps longest | assumed storage |
 | how it keeps | a food's shelf-life group, chosen when buying a food with no use-by estimate | perishability class, FoodKeeper |
 | product | a packaged food with a barcode, one package size | GTIN, Type |

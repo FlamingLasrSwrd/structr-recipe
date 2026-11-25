@@ -4,11 +4,12 @@
 // write a household's data call it through mealplanner/ownership.py.
 //
 // What is whose is worked out from the graph each time, never stored apart from the grants it leaves:
-//   - a person's own: their nutrition targets and exclusions (forPerson) and their baseline recipes
-//     (hasBaseline), with what those hold;
+//   - a person's own: their nutrition targets and exclusions (forPerson), their baseline recipes
+//     (hasBaseline) and their level of storage places ("Storage places -- person <name>", mealplanner/places.py),
+//     with what those hold;
 //   - the household's: its weeks (MealPlan), every booking and cook (Process), its stock (portions and
 //     containers), its kitchen (UtensilSet), its pantry's stock levels (StockPolicy), its shopping lists,
-//     every other target, its own price and package levels (`levels`), and every recipe that is not one of
+//     every other target, its own price, package and storage-place levels (`levels`), and every recipe that is not one of
 //     the public ones (`shared`, the names in data/recipes/), with what each holds;
 //   - everything else is shared: the vocabulary, profiles, public levels and recipes, products and barcodes.
 // "What each holds" follows only the relationships of PARTS below, so a reference to shared vocabulary (a
@@ -86,6 +87,8 @@ for (const person of Object.keys(memberIds).map((id) => memberIds[id])) {
   for (const target of $.find("NutritionTarget")) if (target.forPerson && target.forPerson.id === person.id) visit(target, person, true);
   for (const rule of $.find("ExclusionConstraint")) if (rule.forPerson && rule.forPerson.id === person.id) visit(rule, person, true);
   for (const plan of list(person.hasBaseline)) visit(plan.specializationOf || plan, person, true);
+  const places = "Storage places -- person " + String(person.name).replace(/[,;]/g, "").trim();     // places.person_level_name
+  for (const level of $.find("DomainType", {name: places})) if (level.name === places) visit(level, person, true);
 }
 // then the household's
 const sharedRecipes = {};

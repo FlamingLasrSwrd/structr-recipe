@@ -203,6 +203,44 @@ class WhoOwnsWhat(unittest.TestCase):
         self.assertEqual(refused["problem"], "this instance has 2 households: ownership is worked out for one")
 
 
+PLACES = r"""
+var placeRef = node("TypeHierarchy", "Storage Place Reference"), fridge = node("DomainType", "Fridge");
+function places(name, parent) {
+  var lv = node("DomainType", name, {hierarchy: placeRef, parent: parent, defaultSpecifications: []});
+  var ds = node("DefaultSpecification", name + " -- Eggs", {forType: lv, keyedBy: [eggs], targetType: fridge});
+  lv.defaultSpecifications.push(ds);
+  return lv;
+}
+var everyone = places("Storage places -- everyone", null);
+places("Storage places -- person Jamie", places("Storage places -- household Home", everyone));
+"""
+
+
+@unittest.skipUnless(ENGINE, "needs node or gjs")
+class StoragePlaces(unittest.TestCase):
+    """mealplanner/places.py's levels, as the tools write them (seen by everyone) before the rule runs: worked out
+    by hand, Jamie's level and its place are Jamie's (the household reads them), the household's level and its
+    place the household's, and everyone's level, its place, and Fridge, which a place names, stay shared. The
+    levels as ownership.household_levels lists them: every level in the hierarchy but everyone's, Jamie's too."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.done = run(extra=PLACES, params={"levels": ["Home prices", "Storage places -- household Home",
+                                                        "Storage places -- person Jamie"]})
+
+    def test_a_persons_level_is_theirs_and_the_households_is_its_own(self):
+        nodes = self.done["nodes"]
+        for name in ("DomainType Storage places -- person Jamie", "DefaultSpecification Storage places -- person Jamie -- Eggs"):
+            self.assertEqual(nodes[name], {"seen": False, "who": {"Jamie": "delete read write", "Home": "read"}}, name)
+        for name in ("DomainType Storage places -- household Home",
+                     "DefaultSpecification Storage places -- household Home -- Eggs"):
+            self.assertEqual(nodes[name], {"seen": False, "who": {"Home": "delete read write"}}, name)
+        for name in ("DomainType Storage places -- everyone", "DefaultSpecification Storage places -- everyone -- Eggs",
+                     "DomainType Fridge", "TypeHierarchy Storage Place Reference"):
+            self.assertEqual(nodes[name], {"seen": True, "who": {}}, name)
+        self.assertEqual(self.done["answers"][0]["changed"], 37 + 4)
+
+
 class WhatTheRepositoryKnows(unittest.TestCase):
     def test_the_public_recipes_are_the_files_in_data_recipes(self):
         names = ownership.shared_recipes(str(ROOT))
@@ -211,7 +249,7 @@ class WhatTheRepositoryKnows(unittest.TestCase):
 
     def test_the_public_levels(self):
         self.assertEqual(ownership.PUBLIC_LEVELS, {"US prices 2017-18 adjusted (Purchase to Plate)", "US prices (BLS)",
-                                                   "West prices (BLS)", "US supermarket"})
+                                                   "West prices (BLS)", "US supermarket", "Storage places -- everyone"})
 
     def test_after_writing_does_nothing_without_a_household_and_with_several(self):
         class Rows:

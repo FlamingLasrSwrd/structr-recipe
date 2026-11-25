@@ -42,7 +42,7 @@ from datetime import date, datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mealplanner import menu_changes, ownership, pantry, products, requests
+from mealplanner import menu_changes, ownership, pantry, places, products, requests
 from mealplanner.connection import connect
 from mealplanner.inventory import FMT, instance_expiration
 from mealplanner.nutrition_scope import day_zone, raw_inputs
@@ -61,7 +61,7 @@ FIELDS = {     # what a booking writes on each type
     "MealPlanEntry": ("fulfilledBy", "isSkipped", "eatenInstead", "references", "hasPlannedServings", "isAbout", "memberOf"),
     "TypeHierarchy": (), "DomainType": ("hierarchy", "isLookupBearing", "parent"),
     "Identifier": ("identifierValue", "identifierScheme", "denotesType"), "ConceptScheme": (), "Concept": ("inScheme",),
-    "DefaultSpecification": ("forType", "hasKind", "hasValue", "provenance", "source"),
+    "DefaultSpecification": ("forType", "hasKind", "hasValue", "provenance", "source", "keyedBy", "targetType"),
     "QuantitySpecification": ("value", "unit", "status"),
 }
 SWEPT = (*FIELDS, "MealPlan", "MealShare", "Person", "File")   # every type the check and its bookings name
@@ -87,6 +87,8 @@ def sweep(client) -> int:
         for row in client.get(f"/structr/rest/{type_name}", params={"name": MARK, "_inexact": 1})["result"]:
             if MARK in (row.get("name") or ""):
                 found[row["id"]] = row.get("type") or type_name
+    for row in client.get("/structr/rest/DefaultSpecification", params={"source": MARK, "_inexact": 1})["result"]:
+        found[row["id"]] = "DefaultSpecification"     # a storage place the check's Person chose (places.remember)
     for row in client.get("/structr/rest/Identifier", params={"identifierValue": DEMO_PREFIX, "_inexact": 1})["result"]:
         code = client.get_all("Identifier", row["id"])["result"]     # a barcode the check added, its product gone or left
         owner = (code.get("denotesType") or {}).get("name")
@@ -338,6 +340,9 @@ def main(argv=None) -> int:
 
         print("tick the shopping list and put it into the pantry, then undo")
         bought_check(check, client, t)
+
+        print("where each food goes: remembered places")
+        places_check(check, client, args.food, args.keeps)
 
         print("bookings sent at the same moment")
         race_check(check, client, args.food, args.keeps)
@@ -807,6 +812,119 @@ def at_once(client, path: str, forms: list) -> list[str]:
     if None in answers:
         raise RuntimeError(f"/structr/html/{path}: a request sent at once got no answer")
     return answers
+
+
+def booker_places(client) -> dict:
+    """{name: (type, id)} of every storage place the check's Person chose (its source names them, and their
+    name holds MARK), and their own level."""
+    out = {}
+    for row in client.get("/structr/rest/DefaultSpecification", params={"source": MARK, "_inexact": 1})["result"]:
+        out[row["name"]] = ("DefaultSpecification", row["id"])
+    for row in client.get("/structr/rest/DomainType", params={"name": MARK, "_inexact": 1})["result"]:
+        if (row.get("name") or "").startswith("Storage places"):
+            out[row["name"]] = ("DomainType", row["id"])
+    return out
+
+
+def forget_places(client) -> None:
+    for type_name, node_id in booker_places(client).values():
+        client.delete(f"/structr/rest/{type_name}/{node_id}")
+
+
+def places_check(check: Check, client, food: str, keeps: str) -> None:
+    """Where each food goes (pages/lib/57_places.js against mealplanner/places.py), for the check's Person, who is
+    in no household, so their level sits under everyone's. Each step starts from the same places on both sides:
+    what the page remembered is removed before Python books the same, and the two are compared node by node.
+    Worked out by hand, from no place for the food on everyone's level (`other` is a place the rule does not
+    give the food, `third` the remaining one):
+      `other` picked at Buy: everyone's place for the food, and nothing of the Person's own;
+      then `third` picked: the Person's level and their place, `third` (everyone's stays `other`);
+      then a Buy that picks nothing goes to `third`, theirs;
+      then `other` picked again: their own place is forgotten (deleted), as everyone's says the same;
+      with nothing remembered, a move to `other` minutes after buying: everyone's place, `other`."""
+    if not places.installed(client):
+        check.fail("storage places: scripts/52a_storage_places.py has not run on this instance")
+        return
+    food_id = by_name(client, "DomainType", food)
+    forget_places(client)
+    if places.entry(client, by_name(client, "DomainType", places.EVERYONE), places.place_food(client, food_id)):
+        print(f"  everyone's level already has a place for {food}: storage places are not checked")
+        return
+    rule = pantry.default_storage(client, food_id)
+    other, third = [s for s in pantry.STORAGE if s != rule]
+    level = places.person_level_name(client.get_all("Person", check.booker_id)["result"]["name"])
+    shared, own = f"{places.EVERYONE} -- {food}", f"{level} -- {food}"
+    now = lambda: datetime.now(timezone.utc)      # noqa: E731
+
+    def page(what: str, expected: list[str], **form) -> str | None:
+        """A booking through the page; the places it wrote must be `expected`. Its token."""
+        tok = new_token()
+        got = check.page("pantry", token=tok, **form)
+        check.remember(got["created"])
+        if got["problem"]:
+            check.fail(f"storage places, {what}, through the page: {got['problem']}")
+            return None
+        written = [n for n in got["created"] if n.startswith("Storage places")]
+        if written != expected:
+            check.fail(f"storage places, {what}: the page wrote {written}, not {expected}")
+        return tok
+
+    def compare(what: str, names: list[str], py_call) -> None:
+        """The page's places, then removed, and Python's booking the same: the same nodes."""
+        shapes = {n: {t: check.shape(t, row, []) for t, row in check.nodes(n)} for n in names}
+        for name in reversed(names):
+            for type_name, row in check.nodes(name):
+                client.delete(f"/structr/rest/{type_name}/{row['id']}")
+        py = py_call()
+        check.remember(py.created)
+        written = [n for n in py.created if n.startswith("Storage places")]
+        if written != names:
+            check.fail(f"storage places, {what}: the page wrote {names}, Python {written}")
+        for name in written:
+            theirs = {t: check.shape(t, row, []) for t, row in check.nodes(name)}
+            if theirs != shapes.get(name):
+                check.fail(f"storage places, {what}: {name} is {shapes.get(name)} by the page, {theirs} by Python")
+
+    def buy(what: str, storage: str | None, expected: list[str]) -> str | None:
+        return page(what, expected, do="buy", food=food, amount="300", unit="g", storage=storage or "", keeps=keeps)
+
+    def pybuy(storage: str | None):
+        booking = pantry.buy(client, food, 300, "g", now(), new_token(), storage=storage, keeps=keeps, by=check.booker_id)
+        check.remember(booking.created)
+        return booking
+
+    def kept(tok: str | None) -> str | None:
+        rows = [row for t, row in check.nodes(f"Purchase {tok} -- {food} container") if t == "ContainerObject"]
+        return (rows[0].get("hasStorageCondition") or {}).get("name") if rows else None
+
+    buy(f"{other} picked first", other, [shared])
+    compare(f"{other} picked first", [shared], lambda: pybuy(other))
+    buy(f"{third} picked next", third, [level, own])
+    compare(f"{third} picked next", [level, own], lambda: pybuy(third))
+    tok = buy("nothing picked", None, [])
+    usual = places.usual_place(client, food_id, check.booker_id)
+    if kept(tok) != third or (usual.storage, usual.source) != (third, places.YOURS):
+        check.fail(f"storage places, nothing picked: the page kept it in {kept(tok)}, Python says {usual}, not {third} (yours)")
+    mine = by_name(client, "DomainType", level)
+    buy(f"{other} picked again", other, [])
+    if places.entry(client, mine, food_id):
+        check.fail(f"storage places, {other} picked again: the page kept the Person's own place")
+    pybuy(third)
+    pybuy(other)
+    if places.entry(client, mine, food_id):
+        check.fail(f"storage places, {other} picked again: Python kept the Person's own place")
+
+    forget_places(client)
+    tok, py = buy("bought to move", None, []), pybuy(None)        # pybuy remembers what it wrote
+    if tok:
+        page("moved minutes after buying", [shared], do="move", storage=other,
+             portion=by_name(client, "PortionOfSubstance", f"Purchase {tok} -- {food}"))
+        portion = by_name(client, "PortionOfSubstance", f"{py.process} -- {food}")
+        compare("moved minutes after buying", [shared], lambda: pantry.move(client, portion, other, now(), new_token(),
+                                                                            by=check.booker_id))
+    forget_places(client)
+    print(f"  remembered alike ({food}, by the rule the {rule.lower()}): a first choice everyone's, a different one "
+          "the Person's own, forgotten when it agrees, and a move just after buying")
 
 
 def race_check(check: Check, client, food: str, keeps: str) -> None:

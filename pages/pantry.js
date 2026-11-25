@@ -26,6 +26,11 @@
 
 const said = runBooking(Object.assign({}, PANTRY_ACTIONS, PRODUCT_ACTIONS));
 
+// Buy's first place: where the food goes unless another is picked (usualPlace), named once the food is known
+function usualText(name) {
+  const found = name ? $.find("DomainType", {name: String(name)}).filter((t) => t.type === "DomainType") : [];
+  return found.length === 1 ? placeWords(usualPlace(found[0], viewerPerson())) : "where it usually goes";
+}
 const options = (values, chosen) => values.map((v) => "<option" + (v === chosen ? " selected" : "") + ">" + esc(v) + "</option>").join("");
 const hidden = (fields) => Object.keys(fields).map((k) => "<input type=\"hidden\" name=\"" + k + "\" value=\"" + esc(fields[k]) + "\">").join("");
 function form(action, fields, inner, label, confirmText, help) {
@@ -162,7 +167,8 @@ let html = nav("pantry") + "<h1>Pantry</h1>" + said
   + scanSaid
   + form("buy", scan && scan.product ? {scanning: "1"} : {}, "<input name=\"food\" list=\"foods\" required placeholder=\"food\" size=\"24\""
     + (fill.food ? " value=\"" + esc(fill.food) + "\"" : "") + ">" + amountInputs(fill.unit, fill.amount)
-    + "<select name=\"storage\">" + options(STORAGE, "Fridge") + "</select>"
+    + "<select name=\"storage\" title=\"Where it goes. A place you pick is remembered for that food\"><option value=\"\">"
+    + esc(usualText(fill.food)) + "</option>" + options(STORAGE) + "</select>"
     + "<select name=\"keeps\" title=\"How it keeps. Only needed for a food with no use-by estimate\"><option value=\"\">keeps as usual</option>"
     + options(classes) + "</select>", "Add to pantry")
   + "<datalist id=\"foods\">" + foods.map((f) => "<option value=\"" + esc(f) + "\">").join("") + "</datalist></details>"
