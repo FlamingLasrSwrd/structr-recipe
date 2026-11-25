@@ -303,6 +303,14 @@ file gives one of that kind for; a food it gives none for keeps its own. Seen on
 instance: the profiles import failed after main's vocabulary load, and after a load with the fix (which
 deleted those four nodes) wrote 595.
 
+### Our own security review of 2026-11-24
+
+Of the stack as the household uses it, after the per-household migration. Written up in
+`docs/security-review.md`: nine findings, the worst that a page on another site can book through a
+signed-in browser (seen on a throwaway Structr 7.1), each with a fix suggested, and what a hosted platform
+would need. None is fixed: the owner's word is that no extra security is added while development is local.
+The fixes written for the first four are kept in commit `74c8c2d`.
+
 ## Open items
 
 Beyond the open rows above:

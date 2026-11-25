@@ -81,7 +81,8 @@ Each step says what is done when it is done.
    (Alternatives weighed on 2026-10-24: a planner web service the page calls, Python inside
    Structr's container, a JavaScript port, a scheduled run. The watcher needs no open port and no
    credentials between services, and a long run holds no request open.)
-4. **Security.** In order of cost:
+4. **Security.** `docs/security-review.md` (2026-11-24) holds what the review of the home setup found and
+   what a hosted platform would need, none adopted yet; what follows is the first plan. In order of cost:
    - *Cheap, and worth it even behind a firewall:* Structr's port bound to the machine
      (`127.0.0.1:`) unless other devices are meant to reach it; bookings as form posts carrying a
      token tied to the session and checked, in place of links with any token; HTTPS (built 2026-11-22

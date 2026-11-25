@@ -137,7 +137,8 @@ Sign in at `https://<address>:8443/structr/html/login`. The tools keep `http://l
 - **Back to HTTP only:** move `private/https/` away, then up. Sign-in then works at localhost alone.
 - **What it does not fix:** port 8085 still takes passwords and API requests unencrypted, the admin
   interface is on both ports, and a booking is still a link another site could send a signed-in browser
-  to (`docs/self-hosting.md`), which now reaches every device that can sign in.
+  to (`docs/self-hosting.md`), which now reaches every device that can sign in. The security review of
+  2026-11-24 suggests a fix for each (`docs/security-review.md`, none adopted while development is local).
 
 **Run on a throwaway Structr 7.1** (2026-11-22, by that day's review, 21 of 21 checks): by address and by
 name, a client trusting the authority signed in, kept the `Secure` cookie and opened five pages; a wrong
