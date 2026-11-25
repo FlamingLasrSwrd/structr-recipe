@@ -49,7 +49,8 @@ if (!week) {
     html += "<p class=\"note\">" + number(alts.grams, 0) + " g of it for " + alts.meals.map((m) => esc(mealText(m[0]))).join(", ")
       + ". Best first. Costs at " + esc(levelName) + (prices ? "" : " (no such price level)") + ", per gram as the recipes weigh it, before "
       + "rounding to packages; nutrients in the dishes as cooked.</p>";
-    const storage = "<select name=\"storage\">" + options(STORAGE, "Fridge") + "</select>";
+    const storage = "<select name=\"storage\" title=\"Where it goes. A place you pick is remembered for that food\">"
+      + "<option value=\"\">where it usually goes</option>" + options(STORAGE) + "</select>";
     const buyForm = (o) => "<form class=\"inline\" action=\"/structr/html/alternatives/" + esc(week.id) + "\">"
       + hidden({do: "instead", token: newToken(), week: week.id, listed: food.name, food: o.food,
                 entries: o.meals.map((m) => entries[m] ? entries[m].id : "").join(",")})

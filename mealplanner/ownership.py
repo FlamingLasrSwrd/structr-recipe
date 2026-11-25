@@ -21,7 +21,7 @@ import os
 import tomllib
 from dataclasses import dataclass, field
 
-from mealplanner import packages, prices
+from mealplanner import packages, places, prices
 from structr_client.client import StructrError
 
 METHOD = "claimHousehold"
@@ -29,8 +29,9 @@ OPERATIONS = "Pantry Operation"                       # pantry.OPERATIONS
 # The kinds of a pantry booking's Process (pantry.py, pages/lib/50_pantry.js): made here, shared, since a
 # household's booking finds its kind and never makes one
 KINDS = ("Purchase", "Use", "Discarding", "Stock take", "Opening", "Move")
-PUBLIC_LEVELS = {level for level, _ in prices.LEVELS} | {packages.PUBLIC_LEVEL}
-LEVEL_HIERARCHIES = (prices.PRICE_HIERARCHY, packages.PACKAGE_HIERARCHY)
+PUBLIC_LEVELS = {level for level, _ in prices.LEVELS} | {packages.PUBLIC_LEVEL, places.EVERYONE}
+# A household's own levels; a person's level of storage places is theirs (claimHousehold finds it by its name first)
+LEVEL_HIERARCHIES = (prices.PRICE_HIERARCHY, packages.PACKAGE_HIERARCHY, places.HIERARCHY)
 
 
 class OwnershipError(RuntimeError):
@@ -58,8 +59,9 @@ def shared_recipes(root: str) -> list[str]:
 
 
 def household_levels(client) -> list[str]:
-    """The price and package levels that are a household's own: every level in those hierarchies but the
-    public ones (prices.LEVELS, packages.PUBLIC_LEVEL)."""
+    """The price, package and storage-place levels that are a household's own: every level in those hierarchies
+    but the public ones (prices.LEVELS, packages.PUBLIC_LEVEL, places.EVERYONE). A person's own level of storage
+    places is listed too; claimHousehold makes it the person's before it comes to the household's."""
     out = []
     for hierarchy in LEVEL_HIERARCHIES:
         rows = client.get("/structr/rest/TypeHierarchy", params={"name": hierarchy})["result"]

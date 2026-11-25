@@ -44,6 +44,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from mealplanner import places
 from mealplanner.defaults import resolve_default
 from mealplanner.inventory import (FMT, assumed_storage, container_opened_status, eligible_lots, mass_quality,
                                    shelf_life_days)
@@ -172,21 +173,26 @@ def on_hand(client, portion: dict, when: datetime) -> float | None:
     return None if quality is None else magnitude_of(client, quality, when)
 
 
-def buy(client, food: str, amount: float, unit: str, when: datetime, token: str, *, storage: str = "Fridge",
+def buy(client, food: str, amount: float, unit: str, when: datetime, token: str, *, storage: str | None = None,
         keeps: str | None = None, by: str | None = None) -> Booking:
-    """Book a purchase of `amount` `unit` of `food`, kept in `storage`. Its expiry is its food's
-    FoodKeeper shelf life (J31); `keeps` names a Perishability Class for a food without one, and
+    """Book a purchase of `amount` `unit` of `food`, kept in `storage`, else where the food usually goes for
+    `by` (places.usual_place); a place given is remembered for them (places.remember). Its expiry is its
+    food's FoodKeeper shelf life (J31); `keeps` names a Perishability Class for a food without one, and
     without it the class of the latest portion of the same food that has one is taken, if any
     (computed, not stored)."""
-    if storage not in STORAGE:
+    if storage is not None and storage not in STORAGE:
         raise PantryError(f"storage must be one of {', '.join(STORAGE)}, not {storage!r}")
     food_id = dt(client, food)
     _grams(client, food_id, food, amount, unit)
     keeps_id = dt(client, keeps) if keeps else last_perishability(client, food_id)
     booking = Booking()
-    _purchase(client, _Writer(client, booking), food, food_id, [(amount, unit)], storage, keeps_id, when, token, by)
-    if keeps_id is None and shelf_life_days(client, food_id, "Sealed", storage) is None:
-        booking.notes.append(f"{food}: no shelf life known for it in the {storage.lower()}, so no expiry "
+    w = _Writer(client, booking)
+    where = storage or places.usual_place(client, food_id, by).storage
+    _purchase(client, w, food, food_id, [(amount, unit)], where, keeps_id, when, token, by)
+    if storage:
+        booking.notes += places.remember(client, w, food_id, storage, by)
+    if keeps_id is None and shelf_life_days(client, food_id, "Sealed", where) is None:
+        booking.notes.append(f"{food}: no shelf life known for it in the {where.lower()}, so no expiry "
                              "(name a perishability class with --keeps)")
     return booking
 
@@ -246,13 +252,15 @@ def buy_line(client, food: str, pieces: list[float], when: datetime, token: str,
         if grams is None or not isinstance(grams, (int, float)) or not math.isfinite(grams) or grams <= 0:
             raise PantryError(f"{food}: each package must weigh a number of grams more than 0")
     food_id = dt(client, food)
-    where = storage or default_storage(client, food_id)
+    where = storage or places.usual_place(client, food_id, by).storage
     keeps_id = last_perishability(client, food_id)
     booking = Booking()
-    _purchase(client, _Writer(client, booking), food, food_id, [(round(g, 6), "g") for g in pieces], where, keeps_id,
-              when, token, by)
+    w = _Writer(client, booking)
+    _purchase(client, w, food, food_id, [(round(g, 6), "g") for g in pieces], where, keeps_id, when, token, by)
     booking.notes.append(f"{food}: " + (f"{len(pieces)} packages, " if len(pieces) > 1 else "")
                          + f"{sum(pieces):,.0f} g, kept in the {where.lower()}")
+    if storage:
+        booking.notes += places.remember(client, w, food_id, storage, by)
     if keeps_id is None and shelf_life_days(client, food_id, "Sealed", where) is None:
         booking.notes.append(f"{food}: no shelf life known for it in the {where.lower()}, so no expiry")
     return booking
@@ -507,7 +515,8 @@ def open_portion(client, portion_id: str, when: datetime, token: str, *, by: str
 
 
 def move(client, portion_id: str, storage: str, when: datetime, token: str, *, by: str | None = None) -> Booking:
-    """Keep the portion in `storage` (Freezer to freeze it)."""
+    """Keep the portion in `storage` (Freezer to freeze it). A move within places.FRESH_HOURS of buying it
+    corrects where it was put away, so the place is remembered for `by` (places.remember)."""
     if storage not in STORAGE:
         raise PantryError(f"storage must be one of {', '.join(STORAGE)}, not {storage!r}")
     portion = _portion(client, portion_id)
@@ -517,6 +526,8 @@ def move(client, portion_id: str, storage: str, when: datetime, token: str, *, b
     _process(w, MOVE, f"Move {token}", when, by, hasParticipant=[portion["id"]])
     client.patch(f"/structr/rest/ContainerObject/{box}", {"hasStorageCondition": dt(client, storage)})
     booking.notes.append(f"{portion['name']}: kept in the {storage.lower()}")
+    if portion.get("instanceOf") and places.fresh(client, portion, when):     # a correction of where it was put away
+        booking.notes += places.remember(client, w, portion["instanceOf"]["id"], storage, by)
     return booking
 
 

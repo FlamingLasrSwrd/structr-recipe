@@ -327,7 +327,9 @@ are cleared.
 - **At the grams a recipe weighs them.** A bag of onions goes in as its edible part (a 1 lb bag as 408 g
   at a 10% trim), so stock bought from the list no longer counts the skins, as Buy by weight still does
   (`docs/packages.md`).
-- **Kept where the food keeps** (`pantry.default_storage`, `storageFor`): in the freezer for a food sold
+- **Kept where the food usually goes** (since 2026-11-25: the person's own place for it, their household's or
+  everyone's, below, "Where each food goes"), and with none of those **where the food keeps**
+  (`pantry.default_storage`, `storageFor`): in the freezer for a food sold
   frozen (its name, or the name of a food above it, says so: *Frozen green peas*); otherwise where the
   pantry already takes a portion in no container to be kept (J31): of the fridge and the pantry, where its
   food keeps longest unopened by FoodKeeper, the fridge on a tie or with neither. So potatoes, garlic,
@@ -368,8 +370,75 @@ package failed it); `tools/check_pages.py` compares each line's pieces with Pyth
 member taking it back, lets A's other member, and keeps the record A's. Seen in a browser at phone width.
 
 **Not yet:** scanning a barcode on the shopping page to match a line; a product's own default place (barcode
-step 6); ticks shared between a household's phones (they are kept in each browser); and the bookings without
+step 6: a product takes its food's remembered place, below); ticks shared between a household's phones (they are kept in each browser); and the bookings without
 a page reload (plan 2).
+
+## Where each food goes
+
+Built 2026-11-25, at the owner's word (asked "Can individuals set a default storage location for foods?", then
+"Yes" to a remembered place that inherits as remembered amounts are to: the person's own, then the
+household's, then everyone's; `mealplanner/places.py`, `pages/lib/57_places.js`). It is the first remembered
+value built; remembered amounts (`docs/todo.md`, "Scanning an item as it is used") can follow the same shape.
+
+**Where a purchase goes.** A purchase that does not say where (Buy with "where it usually goes", a ticked
+shopping line not changed, "Bought this instead" left as it is, `tools/pantry.py buy` without `--storage`) goes
+to the food's **usual place** for the person who books it: the first of their own place for it, their
+household's, everyone's; with none, the rule above (frozen by name, else the fridge or the pantry, whichever
+FoodKeeper says keeps it longer). The food is the one bought, or for a product the food it is a product of
+(a brand keeps where its food does); where none of the levels has a place for it, each food above it is
+asked the same way, nearest first, as a price is found (`prices.food_price`): the person's own place for
+potatoes does not override the household's for new potatoes. The Buy form names the usual place once the
+food is known (from a scan), and a shopping line's **Change** names it for its food: "the freezer (yours)",
+"(your household's)", "(everyone's)" or "(the usual rule)". `tools/pantry.py places [FOOD]` lists them.
+
+**When a place is remembered.** When a person picks the place themselves: on Buy, on a shopping line's
+**Change** before it is put away, on "Bought this instead", or by moving something within a day of buying it
+(`places.FRESH_HOURS`, 24), which corrects where it was put away. A move later than that (freezing what is
+about to go off) is not a habit and remembers nothing. A place the levels and the rule already give writes
+nothing. Otherwise, following the owner's rule that new shared knowledge reaches everyone when it overrides
+nothing (`docs/todo.md`, "New shared data reaches every user at once"):
+
+1. where everyone's level has no place for the food, the choice becomes everyone's;
+2. where the household's has none, it becomes the household's;
+3. then, if the levels above the person now say what they picked, they keep no place of their own (one they
+   had is forgotten, so they follow the household again); otherwise it is their own.
+
+So the first person to put potatoes in the fridge sets everyone's and their household's place, and a
+housemate who then keeps them in the pantry has that as their own place, without changing anyone else's. A
+household's or everyone's place someone else gave is never changed by a booking; changing everyone's is a
+suggestion to curate (`docs/verification-and-sharing.md` §3.6), not built.
+
+**How it is stored** (data-model.md J43; no schema change). As prices and package sizes are: a level is a
+`DomainType` in the hierarchy *Storage Place Reference*, and a remembered place is a `DefaultSpecification`
+of kind *Storage Place* on a level, keyed by the food, whose `targetType` is *Fridge*, *Freezer* or *Pantry*,
+its `source` "chosen by" the person.
+
+| Level | Seen by |
+|---|---|
+| *Storage places -- everyone* (`scripts/52a` makes it) | every signed-in user; written as the superuser, as a new product is |
+| *Storage places -- household \<name\>*, under everyone's | the household's members, who read and change it (its Group's grant) |
+| *Storage places -- person \<name\>*, under their household's (under everyone's with no household) | the person, who reads and changes it; their household reads it |
+
+A household's and a person's levels are made by the booking that first needs them, private as above; one
+written by a tool (`tools/pantry.py --by`) is made so by `mealplanner/ownership.py` (`claimHousehold` finds a
+person's level by its name).
+
+**Checked** (2026-11-25, on a cloud throwaway stack): `tests/test_places.py` (11 tests, worked out by hand:
+the rule alone, a first choice shared and a second the person's own, forgotten when it agrees, the nearest
+food before the nearest level, a product remembered for its food, a move within a day and not after, nothing
+remembered without a person or before `scripts/52a`; breaking the forgetting, the 24 hours, the filling of
+everyone's or the household's level, or the order of the lookup each failed them); `tests/test_ownership.py`
+(a person's level theirs, the household's its own, everyone's shared); `tools/check_bookings.py` remembers
+through the page and through Python from the same starting places and compares every node (a source changed
+on the page, or the forgetting taken out, failed it); `tools/check_households.py`: A1's first choice is
+everyone's and A's, A's private to A; A2's own place A1 reads and cannot change and B cannot see; a purchase
+that picks nothing goes to A1's household's place, A2's own and B1's everyone's; B's choice is B's alone (a
+person's place granted to their household to write failed it).
+
+**Not yet:** a page to see and forget one's places (the tool lists them); a product's own place, apart from
+its food's; changing a household's or everyone's place except by removing it; the shopping list's "keeps
+until" for what is left over still reads the rule, not the usual place; a Grocy import, which names no
+person, remembers nothing.
 
 ## What does not fit yet
 

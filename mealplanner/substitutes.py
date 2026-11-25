@@ -312,9 +312,10 @@ def use_instead(client, meal_plan_id: str, listed: str, bought: str, entry_ids=N
 
 
 def buy_instead(client, meal_plan_id: str, listed: str, bought: str, amount: float, unit: str, when, token: str, *,
-                storage: str = "Fridge", by: str | None = None, entry_ids=None):
-    """Book a purchase of `bought` in place of `listed` (pantry.buy), and the week's meals that need `listed`
-    use it (use_instead). Returns (the purchase's Booking, Swapped)."""
+                storage: str | None = None, by: str | None = None, entry_ids=None):
+    """Book a purchase of `bought` in place of `listed` (pantry.buy: kept in `storage`, which is remembered for
+    `by`, else where it usually goes), and the week's meals that need `listed` use it (use_instead). Returns
+    (the purchase's Booking, Swapped)."""
     from mealplanner.pantry import buy
     swapped = use_instead(client, meal_plan_id, listed, bought, entry_ids)
     booking = buy(client, bought, amount, unit, when, token, storage=storage, by=by)

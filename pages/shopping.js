@@ -9,7 +9,7 @@
 // links to /structr/html/alternatives (pages/alternatives.js): what could take its place, and "bought instead".
 //
 // Ticking a line and "Put ticked items into the pantry" books what the line buys as a purchase (docs/pantry.md,
-// "Ticking the shopping list"): its whole packages, each a portion of its own, kept where storageFor says, or the
+// "Ticking the shopping list"): its whole packages, each a portion of its own, kept where the food usually goes (usualPlace), or the
 // line as changed before (a product of its food, how many packages, other grams, where it is kept). One form sends
 // every ticked line, each booked on its own (PANTRY_ACTIONS.bought, pantry.buy_line) with a token of its own, the
 // form's and the line's number, so a form sent twice books nothing twice. The ticks are kept in the browser until
@@ -172,8 +172,9 @@ if (!week) {
          + choice.products.map((p) => "<option>" + esc(p) + "</option>").join("") + "</select></label>"
          + "<label><input name=\"count" + i + "\" type=\"number\" min=\"1\" step=\"1\" placeholder=\"how many\"> packages of it</label>" : "")
       + "<label>or <input name=\"grams" + i + "\" type=\"number\" min=\"0\" step=\"any\" placeholder=\"grams\"> g in all</label>"
-      + "<label>Kept in <select name=\"storage" + i + "\"><option value=\"\">the " + esc(choice.food ? storageFor(choice.food).toLowerCase() : "fridge")
-      + " (where it keeps)</option>" + STORAGE.map((w) => "<option>" + w + "</option>").join("") + "</select></label></div></details>";
+      + "<label>Kept in <select name=\"storage" + i + "\" title=\"A place you pick is remembered for this food\"><option value=\"\">"
+      + esc(choice.food ? placeWords(usualPlace(choice.food, viewerPerson())) : "where it usually goes")
+      + "</option>" + STORAGE.map((w) => "<option>" + w + "</option>").join("") + "</select></label></div></details>";
     html += "<tr><td><input type=\"checkbox\" name=\"t" + i + "\" value=\"1\" id=\"" + id + "\" data-item=\"" + esc(week.id + "|" + l.food) + "\">"
       + field("food", l.food) + field("pieces", l.pieces.map((g) => Math.round(g * 1e6) / 1e6).join(",")) + field("buy", Math.round(l.buy * 1e6) / 1e6) + "</td>"
       + "<td><label for=\"" + id + "\">" + esc(l.food) + (l.optional ? " <i>(optional)</i>" : "") + "</label>" + change + "</td>"

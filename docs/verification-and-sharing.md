@@ -161,6 +161,10 @@ page or method reads only what their household may read, and a 404 is all anyone
   package size and unit for the first time is every user's product from then on (the pantry page adds it as
   the superuser, the one booking that does). Changing a shared figure someone else relies on stays a
   curated suggestion (§3.6); a household's own level (its prices, its package sizes) applies to it at once.
+- **Remembered storage places** (where a food usually goes; built 2026-11-25, data-model.md J43, `docs/pantry.md`
+  "Where each food goes") are the first remembered value: a person's own, then the household's, then everyone's,
+  each a level of `DefaultSpecification`s keyed by the food, private by Structr's grants. A person's choice fills
+  the household's and everyone's levels where they have none, as new shared knowledge does.
 - **Remembered amounts** (how much one usually takes of a food, for scanning as it is used: planned with the
   time study, not built yet) are to resolve as prices do, nearest level first: the person's own, then the household's, then
   the food's, learned across all users. The person's and the household's levels fall under this rule as

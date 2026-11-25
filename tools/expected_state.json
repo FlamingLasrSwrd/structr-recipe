@@ -2042,6 +2042,15 @@
    "<Step:TEST -- Stir-fry the beef and broccoli>"
   ]
  },
+ "DomainType | Storage Place": {
+  "hierarchy": "<TypeHierarchy:Default Kind>",
+  "name": "Storage Place"
+ },
+ "DomainType | Storage places -- everyone": {
+  "hierarchy": "<TypeHierarchy:Storage Place Reference>",
+  "isLookupBearing": true,
+  "name": "Storage places -- everyone"
+ },
  "DomainType | Temperature": {
   "hierarchy": "<TypeHierarchy:Quality Kind>",
   "name": "Temperature"
@@ -3327,6 +3336,7 @@
    "<DomainType:NutrientAmount>",
    "<DomainType:PurchaseQuantity>",
    "<DomainType:RetentionFactor>",
+   "<DomainType:Storage Place>",
    "<DomainType:Yield>"
   ],
   "name": "Default Kind",
@@ -3411,6 +3421,13 @@
    "<DomainType:Pantry>"
   ],
   "name": "Storage Condition",
+  "singleParent": true
+ },
+ "TypeHierarchy | Storage Place Reference": {
+  "domainTypes": [
+   "<DomainType:Storage places -- everyone>"
+  ],
+  "name": "Storage Place Reference",
   "singleParent": true
  },
  "TypeHierarchy | Transformation Method": {
