@@ -21,7 +21,9 @@ session) and compares the data block each prints (#page-data) with Python's answ
               order; and what
               Buy offers (#buy-data), against products.buyable, and the unit it picks (#buy-units), buy_unit;
               and what its barcode box names (#scan-data) for every product's barcode, against products.find
-  shopping    shopping.shopping_list: each food to buy, what is needed and on hand, the packages it is
+  alternatives  alternatives.alternatives for the first three foods to buy by name: each option, the meals
+              it is for, its grams, stock on hand, ratio, and its effect on cost and on each targeted nutrient
+  shopping    shopping.shopping_list: each food to buy, what it is bought in place of (substitutes.py), what is needed and on hand, the packages it is
               bought in at the default package level (packages.default_level) and their weight as
               bought, the grams of each package ticking it puts in the pantry, what it is bought to make (a food another is bought as), what is left of them,
               its cost and until when it keeps, the cost at "Home prices" where it exists, and what
@@ -37,6 +39,7 @@ import json
 import os
 import re
 import sys
+from urllib.parse import quote
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -53,6 +56,8 @@ from mealplanner.packages import default_level, package_table
 from mealplanner.prices import price_table
 from mealplanner.profiles import ProfileError
 from mealplanner.shopping import shopping_list
+from mealplanner.alternatives import alternatives
+from mealplanner.substitutes import entry_swaps
 from mealplanner.nutrition_scope import (
     FMT, _source_plan, active_entries, entry_servings_eaten, nutrition_report, stored_figure, week_totals,
 )
@@ -60,6 +65,7 @@ from structr_client import ReadCache
 from tools.pantry import sort_rows
 
 TOLERANCE = 1e-6
+ALTERNATIVES_CHECKED = 3                     # foods per week whose alternatives page is compared (each is a long read)
 DATA = re.compile(r'<script type="application/json" id="page-data">(.*?)</script>', re.S)
 BUY_DATA = re.compile(r'<script type="application/json" id="buy-data">(.*?)</script>', re.S)
 BUY_UNITS = re.compile(r'<script type="application/json" id="buy-units">(.*?)</script>', re.S)
@@ -103,9 +109,13 @@ def check_week(client, reads, week: dict, problems: list[str]) -> int:
         for ref in entry.get("hasShare", []):
             share = reads.get_all("MealShare", ref["id"])["result"]
             shares[reads.get_all("Person", share["eatenBy"]["id"])["result"]["name"]] = entry_servings_eaten(reads, share)[0]
+        swaps = entry_swaps(reads, entry) if entry.get("references") and entry.get("usesSubstitution") else {}
+        labels = sorted(f"{swap.food_name} for {reads.get_all('Specification', spec)['result']['specifies']['name']}"
+                        for spec, swap in swaps.items())
         want = {"kind": "cook" if entry.get("references") else "leftover", "recipe": plan["name"] if plan else None,
                 "cooked": entry.get("hasPlannedServings") if entry.get("references") else None,
-                "eaten": entry_servings_eaten(reads, entry)[0], "shares": shares, "start": start, "start_by": start_by}
+                "eaten": entry_servings_eaten(reads, entry)[0], "shares": shares, "start": start, "start_by": start_by,
+                "swaps": labels}
         got = dict(row, start=utc(row["start"]), start_by=utc(row["start_by"]))
         for key, value in want.items():
             if got[key] != value and not (isinstance(value, float) and close(got[key], value)):
@@ -358,16 +368,60 @@ def check_shopping(client, week: dict, problems: list[str], shown=None, who: str
         shown_until, until = utc(row["keeps_until"]), line.keeps_until
         if (shown_until is None) != (until is None) or (until is not None and abs((shown_until - until).total_seconds()) > 60):
             problems.append(f"shopping {week['name']!r}, {line.food}: keeps until by {who} {row['keeps_until']!r}, is {until!r}")
+        if sorted(row.get("instead", [])) != line.instead:
+            problems.append(f"shopping {week['name']!r}, {line.food}: bought in place of {row.get('instead')!r} by {who}, "
+                            f"is {line.instead!r}")
         if utc(row["first"]) != line.first_needed:
             problems.append(f"shopping {week['name']!r}, {line.food}: first needed by {who} {row['first']!r}, is {line.first_needed!r}")
     # a food a policy tops up may be covered on the page, which applies no policy, and bought in Python
     if sorted(r["food"] for r in shown["covered"] if r["food"] not in topped) != [line.food for line in want.covered]:
         problems.append(f"shopping {week['name']!r}: the pantry covers differ ({who})")
+    for row in shown["covered"]:                 # what the pantry covers may be a food bought instead, too
+        line = next((l for l in want.covered if l.food == row["food"]), None)
+        if line is not None and "instead" in row and sorted(row["instead"]) != line.instead:
+            problems.append(f"shopping {week['name']!r}, {line.food}: covered, in place of {row['instead']!r} by {who}, "
+                            f"is {line.instead!r}")
     # the page walks the week in time order and Python as Structr lists it: which recipes, not their order
     by_food = lambda found: {food: sorted(recipes) for food, recipes in found.items()}
     if by_food(shown["unquantified"]) != by_food(want.unquantified) or sorted(shown["not_bought"]) != want.not_bought:
         problems.append(f"shopping {week['name']!r}: what has no amount, or is not bought, differs ({who})")
     return len(want.to_buy)
+
+
+def check_alternatives(client, week: dict, foods: list[str], problems: list[str]) -> int:
+    """The alternatives page for each food against alternatives.alternatives, at "Home prices"."""
+    try:
+        prices = price_table(client, "Home prices")
+    except ProfileError:
+        prices = None
+    for food in foods:
+        shown = page_data(client, f"alternatives/{week['id']}?food={quote(food)}")
+        want = alternatives(client, week["id"], food, datetime.now(timezone.utc), prices)
+        where = f"alternatives {week['name']!r}, {food}"
+        if not close(shown["grams"], want.grams) or sorted(map(tuple, shown["meals"])) != sorted(want.meals):
+            problems.append(f"{where}: {shown['grams']!r} g for {shown['meals']!r} by the page, is {want.grams!r} for {want.meals!r}")
+        got = [(o["kind"], o["food"]) for o in shown["options"]]
+        if got != [(o.kind, o.food) for o in want.options]:
+            problems.append(f"{where}: the page offers {got!r}, is {[(o.kind, o.food) for o in want.options]!r}")
+            continue
+        for row, option in zip(shown["options"], want.options):
+            label = f"{where}, {option.kind} {option.food}"
+            if sorted(row["meals"]) != sorted(option.meals) or row["kinds"] != option.kinds or row["checked"] != option.checked:
+                problems.append(f"{label}: meals, kinds or checked differ: {row!r}")
+            for key, value in (("grams", option.grams), ("have", option.have), ("ratio", option.ratio)):
+                if not close(row[key], value):
+                    problems.append(f"{label}: {key} by the page {row[key]!r}, is {value!r}")
+            if option.effect is None or row["effect"] is None:
+                if (option.effect is None) != (row["effect"] is None):
+                    problems.append(f"{label}: an effect on one side only")
+                continue
+            if not close(row["effect"]["cost"], option.effect.cost):
+                problems.append(f"{label}: cost by the page {row['effect']['cost']!r}, is {option.effect.cost!r}")
+            nutrients = [(n, u, c) for n, u, c in row["effect"]["nutrients"]]
+            if [(n, u) for n, u, _ in nutrients] != [(n, u) for n, u, _ in option.effect.nutrients] or not all(
+                    close(a, b) for (_, _, a), (_, _, b) in zip(nutrients, option.effect.nutrients)):
+                problems.append(f"{label}: nutrients by the page {nutrients!r}, are {option.effect.nutrients!r}")
+    return len(foods)
 
 
 def main(argv=None) -> int:
@@ -381,6 +435,8 @@ def main(argv=None) -> int:
         groups = check_nutrition(client, week, problems)
         bought = check_shopping(client, week, problems)
         print(f"{week['name']}: {entries} entries, {groups} target groups, {bought} foods to buy")
+        foods = sorted({line.food for line in shopping_list(client, week["id"], datetime.now(timezone.utc)).to_buy})[:ALTERNATIVES_CHECKED]
+        print(f"  alternatives: {check_alternatives(client, week, foods, problems)} foods")
         report = method(client, "nutritionReport", week=week["id"])
         listed = method(client, "shoppingList", week=week["id"])
         if report is None or listed is None:

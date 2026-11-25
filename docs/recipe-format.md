@@ -243,9 +243,13 @@ inputs = [
   off the page and out of any later suggestion.
 - **Not for something an earlier step made** (give that step's ingredients their substitutes
   instead), not the food itself, and not one food twice.
-- **Only the page reads them, for now.** The nutrition, the shopping list, the pantry and the planner
-  count the ingredient the recipe names; a cook that used the olive oil because the butter ran out
-  has no way to say so yet (invariant 18's `via_substitution`, not built).
+- **A recipe's own rules are used when a substitute is bought** (since 2026-11-24, J42): the shopping
+  page's alternatives list them first, with their ratios, and a food bought in place of what the list
+  says is used by the week's meals through the recipe's rule where it has one, else through a one-off
+  rule made then, one to one by weight, which is not the recipe's (`isOneOff`: the recipe's sentences
+  leave it out, and loading the recipe again keeps it). Those meals' shopping, nutrition and cook follow
+  it, and the cook records the rule it followed (`via_substitution`). Otherwise the nutrition, the
+  shopping list, the pantry and the planner count the ingredient the recipe names.
 
 ## A tool named by what it does
 

@@ -35,8 +35,16 @@ function intakeFigure(entry, nutrientId, unit, person) {
   }
   const plan = planOf(entry);
   const figure = plan ? servingFigure(plan, nutrientId, unit) : null;
-  return figure && figure.amount != null ? {amount: figure.amount * servings, estimated: figure.estimated}
-    : {amount: null, estimated: false};
+  if (!figure || figure.amount == null) return {amount: null, estimated: false};
+  const cook = sourceEntry(entry);
+  if (cook && (cook.usesSubstitution || []).length) {
+    // a food bought instead is what is eaten (92_substitutes.js): its share in place of the recipe's food
+    const y = plan.hasRecipeYield, made = y && y.unit === "servings" && y.value > 0 ? y.value : null;
+    const [delta, estimated] = made ? swapDelta(cook, plan, nutrientId, unit, made) : [null, false];
+    if (delta == null) return {amount: null, estimated: false};
+    return {amount: (figure.amount + delta) * servings, estimated: figure.estimated || estimated};
+  }
+  return {amount: figure.amount * servings, estimated: figure.estimated};
 }
 
 // nutrition_scope.entry_nutrient_intake: by everyone, or by one person; null when unknown

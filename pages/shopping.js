@@ -5,7 +5,8 @@
 // packages" where there is one, else "US supermarket"), with what will be left and until when, and a
 // cost at a price level. Stock policies' target levels are not applied here (the owner
 // has none, 2026-10-23); with one in the graph the page says so, and tools/shopping_list.py applies it.
-// The list itself is pages/lib/90_shopping.js (shoppingFor), which the shoppingList method returns.
+// The list itself is pages/lib/90_shopping.js (shoppingFor), which the shoppingList method returns. Each line
+// links to /structr/html/alternatives (pages/alternatives.js): what could take its place, and "bought instead".
 //
 // Ticking a line and "Put ticked items into the pantry" books what the line buys as a purchase (docs/pantry.md,
 // "Ticking the shopping list"): its whole packages, each a portion of its own, kept where storageFor says, or the
@@ -179,11 +180,15 @@ if (!week) {
       + "<td class=\"num" + (l.estimated_size ? " estimated" : "") + "\">" + esc(amountText(l)) + "</td>"
       + "<td class=\"num" + (l.estimated ? " estimated" : "") + "\">" + (l.cost == null ? "" : "$" + l.cost.toFixed(2)) + "</td>"
       + "<td class=\"note\">" + (l.have > 0 ? "have " + number(l.have, 0) + " g of the " + number(l.need, 0) + " g needed; " : "")
-      + (formText(l) ? esc(formText(l)) + "; " : "") + esc(l.recipes.join(", "))
-      + (leftText(l, zone) ? "<br>" + esc(leftText(l, zone)) : "") + "</td></tr>";
+      + (formText(l) ? esc(formText(l)) + "; " : "") + (l.instead.length ? "bought in place of " + esc(l.instead.join(", ")) + "; " : "")
+      + esc(l.recipes.join(", "))
+      + (leftText(l, zone) ? "<br>" + esc(leftText(l, zone)) : "") + "</td>"
+      + "<td><a href=\"/structr/html/alternatives/" + esc(week.id) + "?food=" + encodeURIComponent(l.food) + "\" title=\"What could take its place, "
+      + "and buying something else instead\">Alternatives</a></td></tr>";
     data.to_buy.push({food: l.food, buy: l.buy, need: l.need, have: l.have, first: l.first ? l.first.toISOString() : null, cost: l.cost,
                       packages: l.packages, bought: l.bought, left: l.left, left_cost: l.left_cost, as_bought: l.as_bought, made: l.made,
-                      keeps_until: l.keeps_until ? l.keeps_until.toISOString() : null, keeps_opened: l.keeps_opened, pieces: l.pieces});
+                      keeps_until: l.keeps_until ? l.keeps_until.toISOString() : null, keeps_opened: l.keeps_opened, pieces: l.pieces,
+                      instead: l.instead});
   }
   html += day === null ? "<p>Nothing to buy: the pantry covers the week.</p>" : "</tbody></table>" + putAway + "</form>";
   html += "<div id=\"bought-here\" hidden><h3>Put in the pantry from this list, on this device</h3><div class=\"rows\"></div></div>";
@@ -193,10 +198,11 @@ if (!week) {
     + (data.unpriced.length ? " No price for: " + esc(data.unpriced.sort().join(", ")) + "." : "") + "</p>";
   else html += "<p class=\"note\">There are no prices called " + esc(levelName) + ", so no costs are shown.</p>";
   if (data.not_bought.length) html += "<p class=\"note\">Needed but free, so not on the list: " + esc(data.not_bought.sort().join(", ")) + ".</p>";
-  if (covered.length) html += "<p class=\"note\">In the pantry already: " + covered.map((l) => esc(l.food) + " (" + number(l.need, 0) + " g needed, " + number(l.have, 0) + " g there)").join(", ") + ".</p>";
+  if (covered.length) html += "<p class=\"note\">In the pantry already: " + covered.map((l) => esc(l.food) + " (" + number(l.need, 0) + " g needed, " + number(l.have, 0) + " g there"
+    + (l.instead && l.instead.length ? ", in place of " + esc(l.instead.join(", ")) : "") + ")").join(", ") + ".</p>";
   const loose = Object.keys(n.unquantified).sort();
   if (loose.length) html += "<p class=\"note\">Check you have some of these, as the recipe gives no amount: " + loose.map((f) => esc(f) + " (" + esc(n.unquantified[f].join(", ")) + ")").join(", ") + ".</p>";
-  data.covered = covered.map((l) => ({food: l.food, need: l.need, have: l.have}));
+  data.covered = covered.map((l) => ({food: l.food, need: l.need, have: l.have, instead: l.instead || []}));
   data.unquantified = n.unquantified;
   // the ticks, kept in this browser until put away; what this browser put away from this week's list, each with an Undo
   // while it can be (a form of its own, its token made here: any 8 hex digits do)

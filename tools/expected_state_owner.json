@@ -429,6 +429,13 @@
   "propertyType": "Boolean",
   "unique": false
  },
+ "@schema | property SubstitutionRule.isOneOff": {
+  "format": null,
+  "indexed": false,
+  "notNull": false,
+  "propertyType": "Boolean",
+  "unique": false
+ },
  "@schema | property SubstitutionRule.substitutionRatio": {
   "format": null,
   "indexed": false,
@@ -486,6 +493,12 @@
   "sourceJsonName": "actualQuantityOfAllocations",
   "sourceMultiplicity": "*",
   "targetJsonName": "hasActualQuantity",
+  "targetMultiplicity": "1"
+ },
+ "@schema | relationship Allocation -[VIA_SUBSTITUTION]-> SubstitutionRule": {
+  "sourceJsonName": "allocationsVia",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "viaSubstitution",
   "targetMultiplicity": "1"
  },
  "@schema | relationship Concept -[IN_SCHEME]-> ConceptScheme": {
@@ -703,6 +716,12 @@
   "sourceMultiplicity": "*",
   "targetJsonName": "references",
   "targetMultiplicity": "1"
+ },
+ "@schema | relationship MealPlanEntry -[USES_SUBSTITUTION]-> SubstitutionRule": {
+  "sourceJsonName": "usedByEntries",
+  "sourceMultiplicity": "*",
+  "targetJsonName": "usesSubstitution",
+  "targetMultiplicity": "*"
  },
  "@schema | relationship MealShare -[EATEN_BY]-> Person": {
   "sourceJsonName": "mealShares",

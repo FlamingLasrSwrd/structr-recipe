@@ -43,7 +43,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from mealplanner.inventory import eligible_lots, eligible_on_hand_with_urgency
-from mealplanner.material_accounting import candidate_input_requirements, recipe_servings_strict
+from mealplanner.material_accounting import recipe_servings_strict
+from mealplanner.substitutes import entry_input_requirements
 from mealplanner.typetree import ancestors_or_self
 from mealplanner.unit_conversion import QuantityError, convert_to_grams
 from structr_client import ReadCache
@@ -93,7 +94,7 @@ def committed_requirements(client, meal_plan_id: str) -> dict[str, float]:
                 f"{planned_servings:g} planned"
             )
         scale = planned_servings / servings
-        for domain_type_id, qty_grams in candidate_input_requirements(client, plan):
+        for domain_type_id, qty_grams in entry_input_requirements(client, entry, plan):   # a swap followed
             requirements[domain_type_id] = requirements.get(domain_type_id, 0.0) + qty_grams * scale
     return requirements
 

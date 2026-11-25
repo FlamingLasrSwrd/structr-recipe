@@ -144,7 +144,8 @@ function planSteps(plan) {
         else if (wanted["Heat Level"]) out.heat.push([k, {tool: name, temp: null, unit: null, level: wanted["Heat Level"][0]}]);
       } else {
         const q = spec.hasSpecifiedQuantity;
-        const rules = (spec.hasSubstitutionRule || []).slice().sort((x, y) => lastNumber(x.name, "or") - lastNumber(y.name, "or"))
+        // a one-off rule is a week's, for the meals that use it (92_substitutes.js), not the recipe's
+        const rules = (spec.hasSubstitutionRule || []).filter((r) => !r.isOneOff).sort((x, y) => lastNumber(x.name, "or") - lastNumber(y.name, "or"))
           .map((r) => ({food: r.candidateType ? r.candidateType.name : null, ratio: r.substitutionRatio == null ? 1 : r.substitutionRatio,
                         never: !!r.isExcluded}));
         inputs.push([lastNumber(spec.name, "input"), {food: name, amount: q ? q.value : null, unit: q ? q.unit : null,

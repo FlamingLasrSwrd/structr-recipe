@@ -164,10 +164,13 @@ const WEEK_ACTIONS = {
     const process = bookProcess(booking, null, "Cook " + token + " -- " + plan.name, NOW, {concretizes: plan});
     const inputs = rawInputs(plan), stock = {}, taken = {}, drawn = {};
     // as pantry.cook: the stock before any draw, and each later draw of a food from one portion numbered
-    for (const [, spec] of inputs) if (!stock[spec.specifies.id]) stock[spec.specifies.id] = eligibleLots(spec.specifies, booking);
+    // as pantry.cook: a meal using a food bought instead draws on it, by the rule it uses (92_substitutes.js)
+    const swaps = (entry.usesSubstitution || []).length ? entrySwaps(entry) : {};
+    const takenFood = (spec) => swaps[spec.id] ? swaps[spec.id].food : spec.specifies;
+    for (const [, spec] of inputs) if (!stock[takenFood(spec).id]) stock[takenFood(spec).id] = eligibleLots(takenFood(spec), booking);
     for (const [, spec] of inputs) {
-      const food = spec.specifies, q = spec.hasSpecifiedQuantity;
-      const grams = q && q.value ? toGrams(food, q.value, q.unit) : null;
+      const food = takenFood(spec), swap = swaps[spec.id], q = spec.hasSpecifiedQuantity;
+      const grams = q && q.value ? (swap ? swappedGrams(spec.specifies, q, swap) : toGrams(food, q.value, q.unit)) : null;
       if (!grams) { booking.notes.push("The recipe gives no amount of " + food.name + ", so none was taken from the pantry."); continue; }
       const need = grams * scale;
       let left = need;
@@ -179,7 +182,7 @@ const WEEK_ACTIONS = {
         let label = food.name + " from " + lot.portion.name;
         drawn[label] = (drawn[label] || 0) + 1;
         if (drawn[label] > 1) label += " #" + drawn[label];
-        bookDraw(booking, process, lot.portion, take, NOW, label, spec);
+        bookDraw(booking, process, lot.portion, take, NOW, label, spec, swap ? swap.rule : null);
         taken[id] = (taken[id] || 0) + take;
         left -= take;
       }
