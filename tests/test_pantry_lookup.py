@@ -120,7 +120,7 @@ return $.find("DefaultSpecification", {name: "Shop eggs six package size"})[0].s
     def test_a_refused_product_keeps_its_source_in_the_form(self):
         got = page(do="product", token="abcd1234", barcode=UNKNOWN, name="Shop eggs six", food="Egg", amount="6", unit="each",
                    source="off")
-        self.assertIn("'Egg' is not a food of this instance", block(got["html"], "booking-data")["problem"])
+        self.assertIn("'Egg' isn't a food the planner knows; check the spelling", block(got["html"], "booking-data")["problem"])
         self.assertEqual(value(form_of(got["html"], "product"), "source"), "off")
         self.assertNotIn("data-lookup", got["html"])          # what the user sent is kept; nothing is looked up again
 
@@ -235,7 +235,7 @@ class InABrowser(unittest.TestCase):
 
     def test_a_barcode_it_does_not_know(self):
         got = self.drive({"status": 404, "body": {"status": 0, "status_verbose": "product not found"}})
-        self.assertEqual(got["note"]["text"], f"Open Food Facts does not know barcode {OFF_CODE}: fill it in from the package.")
+        self.assertEqual(got["note"]["text"], f"Open Food Facts doesn't know barcode {OFF_CODE}. Fill in the details from the package.")
         self.assertEqual(got["fields"], {"name": "", "food": "", "amount": "", "unit": "g", "source": ""})
 
     def test_when_it_cannot_be_reached(self):

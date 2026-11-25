@@ -38,19 +38,19 @@ function upcAOf(e) {
 function normalizeBarcode(barcode) {
   const shown = "'" + String(barcode == null ? "" : barcode) + "'";
   let text = String(barcode == null ? "" : barcode).replace(/[ -]/g, "");
-  if (!/^[0-9]+$/.test(text)) throw new BookingError("barcode " + shown + " is not a number");
+  if (!/^[0-9]+$/.test(text)) throw new BookingError("barcode " + shown + " should be digits only. Check it and try again");
   if ([8, 12, 13, 14].indexOf(text.length) < 0) {
-    throw new BookingError("barcode " + shown + " has " + text.length + " digits: a product's has 8, 12, 13 or 14");
+    throw new BookingError("barcode " + shown + " has " + text.length + " digits, but a product's barcode has 8, 12, 13 or 14. Check it and try again");
   }
   if (text.length === 8 && "01".indexOf(text[0]) >= 0) text = upcAOf(text);
   const check = checkDigit(text.slice(0, -1));
   if (check !== Number(text[text.length - 1])) {
-    throw new BookingError("barcode " + shown + " is misread or mistyped: its last digit should be " + check);
+    throw new BookingError("barcode " + shown + " is misread or mistyped: its last digit should be " + check + ". Scan or type it again");
   }
   const gtin = ("00000000000000" + text).slice(-14);
   if (text.length === 8 ? text[0] === "2" : SHOP_PREFIXES.some((p) => gtin.slice(1).startsWith(p))) {
     throw new BookingError("barcode " + shown + " is a shop's own number for a pack (often with its weight or price in it), "
-                           + "not a product's");
+                           + "not a product's barcode. Buy it by name instead");
   }
   return gtin;
 }
@@ -75,7 +75,7 @@ function findProduct(barcode) {
   const rows = gtinRows(gtin).filter((r) => r.denotesType);
   if (!rows.length) return {gtin: gtin, product: null, food: null, amount: null, unit: null};
   if (rows.length > 1) {
-    throw new BookingError("barcode " + gtin + " names " + rows.length + " products: "
+    throw new BookingError("barcode " + gtin + " belongs to " + rows.length + " products, so which one this is can't be told: "
                            + rows.map((r) => r.denotesType.name).sort().join(", "));
   }
   const product = rows[0].denotesType;
@@ -95,15 +95,15 @@ const PRODUCT_ACTIONS = {
     const name = String(r.name || "").trim(), foodName = String(r.food || "").trim();
     const unit = String(r.unit || "").trim().toLowerCase();
     const amount = r.amount == null || r.amount === "" ? NaN : Number(r.amount);
-    if (!name) throw new BookingError("a product has no name");
+    if (!name) throw new BookingError("give the product a name");
     // products.parse_products
     const problems = [];
     if (/[,;]/.test(name)) problems.push(name + ": a name cannot hold a comma or a semicolon");
-    if (!foodName) problems.push(name + ": it names no food");
-    else if (foodName === name) problems.push(name + ": a product is named apart from its food");
-    if (!(amount > 0) || !isFinite(amount)) problems.push(name + ": what a package holds (amount) must be more than 0");
+    if (!foodName) problems.push(name + ": say which food it is");
+    else if (foodName === name) problems.push(name + ": give it a name of its own, not its food's name");
+    if (!(amount > 0) || !isFinite(amount)) problems.push(name + ": say how much one package holds (more than 0)");
     if (!Object.prototype.hasOwnProperty.call(UNIT_TABLE, unit)) {
-      problems.push(name + ": unit '" + unit + "' is not one of " + Object.keys(UNIT_TABLE).sort().join(", "));
+      problems.push(name + ": unit '" + unit + "' isn't one the planner knows; use one of " + Object.keys(UNIT_TABLE).sort().join(", "));
     }
     let gtin = null;
     try { gtin = normalizeBarcode(r.barcode); } catch (e) { problems.push(name + ": " + e.message); }
@@ -123,24 +123,24 @@ const PRODUCT_ACTIONS = {
       if (!holds) problems.push(name + ": no package size is known for it");
       else if (holds.value !== amount || holds.unit !== unit) {
         problems.push(name + ": one package of it holds " + holds.value + " " + holds.unit + " already; a package of another "
-                      + "size is another product, so name it apart");
+                      + "size is another product, so give it another name");
       }
       held(mine);
     } else if (!food) {                     // products.import_products, for a new one
-      problems.push(name + ": '" + foodName + "' is not a food of this instance");
+      problems.push(name + ": '" + foodName + "' isn't a food the planner knows; check the spelling");
     } else if (products[food.id]) {
-      problems.push(name + ": '" + foodName + "' is a product itself; name the food it is a kind of");
+      problems.push(name + ": '" + foodName + "' is a product, not a food; name the food it is a kind of");
     } else {
       const others = (food.children || []).filter((c) => !products[c.id]).map((c) => c.name).sort();
       if (others.length) {
         problems.push(name + ": '" + foodName + "' is a group of foods (" + others.slice(0, 3).join(", ")
-                      + (others.length > 3 ? ", ..." : "") + "), not a food that is bought");
+                      + (others.length > 3 ? ", ..." : "") + "); name the one it is");
       }
-      if (mine) problems.push(name + ": that name is already a food here, not a product");
+      if (mine) problems.push(name + ": that name is already a food's; give the product another name");
       held(null);
       if (toGrams(food, amount, unit) == null) {
-        problems.push(name + ": " + amount + " " + unit + " of " + foodName + " does not convert to grams "
-                      + "(the food has no density or weight per item)");
+        problems.push(name + ": the weight of " + amount + " " + unit + " of " + foodName + " isn't known; "
+                      + "give what one package holds by weight (g, kg, oz or lb)");
       }
     }
     if (!isMine && $.find("DomainType", {name: PACKAGE_KIND}).length !== 1) {

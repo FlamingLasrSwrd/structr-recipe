@@ -59,7 +59,7 @@ function askedLine() {
     const latest = (r.planVersions || []).slice().sort((a, b) => String(a.name).localeCompare(String(b.name), "en", {numeric: true})).pop();
     return latest ? "<a href=\"/structr/html/recipe/" + latest.id + "\">" + esc(r.name) + "</a>" : esc(r.name);
   });
-  return "<p class=\"note\">Asked for the week of " + esc(weekWords(start)) + ": " + linked.join(", ") + ".</p>";
+  return "<p class=\"note\">On the list to cook in the week of " + esc(weekWords(start)) + ": " + linked.join(", ") + ".</p>";
 }
 
 const link = (m, p) => "/structr/html/recipes?" + (m ? "meal=" + encodeURIComponent(m) + "&" : "") + "page=" + p;
@@ -87,8 +87,9 @@ for (const plan of shown) {
     + number(plan.estimatedDurationMinutes, 0) + (plan.makeAheadHours ? " <span class=\"ahead\">+" + number(plan.makeAheadHours) + " h ahead</span>" : "")
     + "</td><td>" + esc(plan.difficultyRating || "") + "</td><td>" + number(plan.hasRecipeYield ? plan.hasRecipeYield.value : null, 2) + "</td>"
     + row.map((f) => "<td class=\"num" + (f && f.estimated ? " estimated" : "") + "\">"
-      + (f == null ? "<span title=\"not stored: tools/calculate_recipe_nutrition.py\">–</span>" : f.amount == null ? "?" : number(f.amount, f.amount >= 100 ? 0 : 1)) + "</td>").join("")
+      + (f == null ? "<span title=\"Not worked out yet\">–</span>" : f.amount == null ? "?" : number(f.amount, f.amount >= 100 ? 0 : 1)) + "</td>").join("")
     + "</tr>";
 }
-html += "</tbody></table><p class=\"note\">Italics: the figure rests on an estimate. ?: unknown.</p>";
+html += "</tbody></table><p class=\"note\">Figures in italics are estimates. ? means not known, and – means not worked out yet. "
+  + "Open a recipe to see it, or to ask for it in next week's plan.</p>";
 $.print(html + "<script type=\"application/json\" id=\"page-data\">" + JSON.stringify(data).replace(/</g, "\\u003c") + "</script>");

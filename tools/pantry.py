@@ -1,6 +1,6 @@
 """Book what happens to the pantry, as Grocy does (mealplanner/pantry.py, docs/pantry.md).
 
-    python3 tools/pantry.py list [FOOD]                 # what is on hand, soonest to expire first
+    python3 tools/pantry.py list [FOOD] [--sort expires|food|kept]   # what is on hand, soonest to expire first
     python3 tools/pantry.py buy FOOD AMOUNT UNIT [--storage Fridge|Freezer|Pantry] [--keeps CLASS]
     python3 tools/pantry.py scan BARCODE [PACKAGES]     # buy a product by its barcode: one package, or so many
     python3 tools/pantry.py use PORTION AMOUNT UNIT
@@ -11,6 +11,10 @@
     python3 tools/pantry.py meals private/week.toml     # the week's meals not yet cooked
     python3 tools/pantry.py cook ENTRY                  # a planned meal, cooked: its ingredients drawn
 
+`list` sorts as the pantry page does (pages/pantry.js): by --sort expires (soonest first, unknown last), food
+(by name) or kept (fridge, freezer, pantry), a "-" before it reversing (--sort=-food); every order breaks
+ties soonest first. Where a portion is kept is its container's storage condition, or for one in no
+container where its food keeps longest, marked "(assumed)" (inventory.assumed_storage, J31).
 A PORTION is its name as `list` prints it, or its id; an ENTRY is an id as `meals` prints it. A FOOD
 is a food or a product; a BARCODE is one a product was loaded with (tools/import_products.py).
 Every booking happens now unless --at gives an ISO time, and is named by --token, else a new
@@ -32,7 +36,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mealplanner import ownership, pantry, products
 from mealplanner.connection import connect
-from mealplanner.inventory import instance_expiration
+from mealplanner.inventory import assumed_storage, container_storage_condition, instance_expiration
 from mealplanner.unit_conversion import QuantityError
 from mealplanner.nutrition_scope import FMT, active_entries
 
@@ -49,24 +53,53 @@ def find_portion(client, ref: str) -> str:
         raise pantry.PantryError(f"no portion named {ref!r} (tools/pantry.py list shows them)") from None
 
 
-def show(client, food: str | None, now: datetime) -> None:
+STORAGE = ("Fridge", "Freezer", "Pantry")          # pages/lib/50_pantry.js STORAGE: the order --sort kept lists them in
+SORTS = ("expires", "food", "kept")
+
+
+def sort_rows(rows: list[dict], sort: str = "expires") -> list[dict]:
+    """Rows ({food, name, days, kept}) in the pantry page's order (pages/pantry.js): `sort` is expires, food or
+    kept, a "-" before it reversing; each breaks ties by the default (soonest first, unknown last, then by
+    food and name). An order it does not know is the default."""
+    key = sort.lstrip("-") if sort.lstrip("-") in SORTS and sort.count("-") <= 1 else "expires"
+    reverse = sort == "-" + key
+
+    def by_expiry(r):
+        return (r["days"] is None, r["days"] or 0.0, r["food"].casefold(), r["name"])
+
+    out = sorted(rows, key=by_expiry)
+    if key == "food":
+        out.sort(key=lambda r: r["food"].casefold(), reverse=reverse)        # stable: ties stay soonest first
+    elif key == "kept":
+        out.sort(key=lambda r: STORAGE.index(r["kept"]) if r["kept"] in STORAGE else len(STORAGE), reverse=reverse)
+    elif reverse:
+        known = [r for r in out if r["days"] is not None]
+        out = sorted(known, key=lambda r: -r["days"]) + [r for r in out if r["days"] is None]
+    return out
+
+
+def show(client, food: str | None, now: datetime, sort: str = "expires") -> None:
     rows = []
     for portion in client.get_all("PortionOfSubstance")["result"]:
         name = (portion.get("instanceOf") or {}).get("name", "")
         if food and name != food:
             continue
+        stated = container_storage_condition(client, portion)
+        row = {"food": name, "name": portion["name"], "days": None, "expiry": "",
+               "kept": stated or assumed_storage(client, portion), "assumed": not stated}
         try:
             grams = pantry.on_hand(client, portion, now)
         except QuantityError as exc:
-            rows.append((float("inf"), portion["name"], f"? ({exc})", ""))
+            rows.append(dict(row, amount=f"? ({exc})"))
             continue
         if grams is None or grams < pantry.USED_UP_G:
             continue
         _, days = instance_expiration(client, portion, now)
-        rows.append((days if days is not None else float("inf"), portion["name"], f"{grams:,.0f} g",
-                     "" if days is None else (f"expired {-days:.0f} days ago" if days < 0 else f"{days:.1f} days left")))
-    for _, name, amount, expiry in sorted(rows):
-        print(f"{name:55} {amount:>10}  {expiry}")
+        rows.append(dict(row, amount=f"{grams:,.0f} g", days=days,
+                         expiry="" if days is None else (f"expired {-days:.0f} days ago" if days < 0 else f"{days:.1f} days left")))
+    for r in sort_rows(rows, sort):
+        kept = r["kept"] + (" (assumed)" if r["assumed"] else "")
+        print(f"{r['name']:55} {r['amount']:>10}  {kept:18} {r['expiry']}")
 
 
 def meals(client, week_file: str) -> int:
@@ -125,6 +158,7 @@ def main(argv=None) -> int:
     parser.add_argument("--at", help="when it happened, ISO with a zone; default now")
     parser.add_argument("--token", help="the booking's name; default a new one")
     parser.add_argument("--by", help="the Person who made it, by name; default the Person signed in, if any")
+    parser.add_argument("--sort", default="expires", help="list's order: expires, food or kept; -food etc. reverses")
     args = parser.parse_args(argv)
     now = datetime.fromisoformat(args.at) if args.at else datetime.now(timezone.utc)
     token = args.token or secrets.token_hex(4)
@@ -138,7 +172,7 @@ def main(argv=None) -> int:
     try:
         by = pantry.person_named(client, args.by) if args.by else pantry.signed_in_person(client)
         if args.action == "list":
-            show(client, a[0] if a else None, now)
+            show(client, a[0] if a else None, now, args.sort)
         elif args.action == "meals":
             return meals(client, a[0])
         elif args.action == "buy":

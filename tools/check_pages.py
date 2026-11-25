@@ -15,7 +15,10 @@ session) and compares the data block each prints (#page-data) with Python's answ
               recipe's instructions, written from its steps' facts, against mealplanner/instructions.py
               for the same Plan as recipe_import.export_plan reads it (J35), as written and as weights
               (?measure=weight; mealplanner/weights.py)
-  pantry      inventory.current_magnitude and instance_expiration for every portion on hand; and what
+  pantry      inventory.current_magnitude and instance_expiration for every portion on hand, and where it is
+              kept (its container's storage condition, else inventory.assumed_storage); that every order
+              (?sort=food, kept, expires, each reversed) shows the same rows, in tools/pantry.py sort_rows's
+              order; and what
               Buy offers (#buy-data), against products.buyable, and the unit it picks (#buy-units), buy_unit;
               and what its barcode box names (#scan-data) for every product's barcode, against products.find
   shopping    shopping.shopping_list: each food to buy, what is needed and on hand, the packages it is
@@ -44,7 +47,8 @@ from mealplanner.weights import food_weights
 from mealplanner.pantry import USED_UP_G
 from mealplanner.products import buy_units, buyable, check_digit, find, gtin_identifiers, normalize
 from mealplanner.recipe_import import capability_bearers, export_plan
-from mealplanner.inventory import current_magnitude, instance_expiration, mass_quality
+from mealplanner.inventory import (assumed_storage, container_storage_condition, current_magnitude, instance_expiration,
+                                   mass_quality)
 from mealplanner.packages import default_level, package_table
 from mealplanner.prices import price_table
 from mealplanner.profiles import ProfileError
@@ -53,6 +57,7 @@ from mealplanner.nutrition_scope import (
     FMT, _source_plan, active_entries, entry_servings_eaten, nutrition_report, stored_figure, week_totals,
 )
 from structr_client import ReadCache
+from tools.pantry import sort_rows
 
 TOLERANCE = 1e-6
 DATA = re.compile(r'<script type="application/json" id="page-data">(.*?)</script>', re.S)
@@ -211,7 +216,8 @@ def compare_instructions(plan: dict, written, want: list[str], how: str, problem
 
 
 def check_pantry(client, reads, problems: list[str]) -> int:
-    shown = {row["portion"]: row for row in page_data(client, "pantry")}
+    listed = page_data(client, "pantry")
+    shown = {row["portion"]: row for row in listed}
     now = datetime.now(timezone.utc)
     counted = 0
     for type_name in ("PortionOfSubstance", "DiscreteWholeItem"):
@@ -233,7 +239,31 @@ def check_pantry(client, reads, problems: list[str]) -> int:
             # the page reads the clock a moment before this does: a day is 86,400 s
             if (days is None) != (row["days"] is None) or (days is not None and abs(row["days"] - days) > 60 / 86400):
                 problems.append(f"pantry: {portion['name']}: expires in {row['days']!r} days shown, {days!r} worked out")
+            kept = container_storage_condition(reads, portion) or assumed_storage(reads, portion)
+            if row.get("kept") != kept:
+                problems.append(f"pantry: {portion['name']}: shown kept in the {row.get('kept')!r}, kept in the {kept!r}")
+    check_pantry_orders(client, listed, problems)
     return counted
+
+
+def check_pantry_orders(client, listed: list[dict], problems: list[str]) -> None:
+    """Every order the pantry page sorts in shows the rows the default shows, in sort_rows's order of them
+    (tools/pantry.py list --sort orders the same way). Each page reads the clock anew, so days match to a minute."""
+    def same(a, b):
+        return a["portion"] == b["portion"] and a.get("kept") == b.get("kept") and close(a["grams"], b["grams"]) \
+            and ((a["days"] is None) == (b["days"] is None)) and (a["days"] is None or abs(a["days"] - b["days"]) <= 60 / 86400)
+    by_name = {row["portion"]: row for row in listed}
+    for sort in ("-expires", "food", "-food", "kept", "-kept"):
+        got = page_data(client, f"pantry?sort={sort}")
+        if sorted(r["portion"] for r in got) != sorted(by_name):
+            problems.append(f"pantry ?sort={sort}: shows other rows than the default ({len(got)}, not {len(listed)})")
+            continue
+        if not all(same(r, by_name[r["portion"]]) for r in got):
+            problems.append(f"pantry ?sort={sort}: a row differs from the default's")
+        want = [r["name"] for r in sort_rows([{"food": r.get("food") or "", "name": r["portion"], "days": r["days"],
+                                               "kept": r.get("kept")} for r in got], sort)]
+        if [r["portion"] for r in got] != want:
+            problems.append(f"pantry ?sort={sort}: rows are not in sort_rows's order")
 
 
 def buy_data(client) -> tuple[list[str], dict[str, str]]:

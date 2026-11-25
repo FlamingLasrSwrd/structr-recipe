@@ -58,14 +58,23 @@ function heldBy(entry) {
   return other ? other.name : null;
 }
 
+// What a booking's words call a meal: "<day and meal> (<recipe>)" for planning/commit.py's "<slot key> -- <recipe>"
+function mealWords(entryOrName) {
+  const name = String(entryOrName && entryOrName.name != null ? entryOrName.name : entryOrName || "");
+  const parts = name.split(" -- ");
+  return parts.length > 1 ? parts[0] + " (" + parts.slice(1).join(" -- ") + ")" : name;
+}
+const NO_MEAL = "that meal isn't in this week any more. Reload the page to see what is";
+const NOT_OUR_WEEK = " is not in your household's week, so it can't be changed here";
+
 // menu_changes._replacement: a cook of `plan` at the skipped meal, for the same people and servings
 function replacement(booking, entry, plan) {
   const name = String(entry.name).split(" -- ")[0] + " -- " + plan.name;
-  if (name === entry.name) throw new BookingError(plan.name + " is the meal skipped");
+  if (name === entry.name) throw new BookingError(plan.name + " is the meal being skipped, so it can't be what was eaten instead");
   for (const there of $.find("MealPlanEntry", {name: name})) {
     if (booking.household && there.visibleToAuthenticatedUsers !== false) continue;     // ensureNode's own nodes
     if (there.memberOf && entry.memberOf && there.memberOf.id !== entry.memberOf.id) {
-      throw new BookingError(name + " is a meal of " + there.memberOf.name + ", another week");
+      throw new BookingError(plan.name + " is planned at this meal in another week already (" + there.memberOf.name + ")");
     }
   }
   const region = entry.isAbout, shares = entry.hasShare || [];
@@ -84,15 +93,15 @@ function replacement(booking, entry, plan) {
                            {value: servingsEaten(share)[0], unit: "servings", status: "specified"});
     ensureWith(booking, "MealShare", name + " -- " + who, {shareOf: made, eatenBy: share.eatenBy, hasPlannedConsumption: qty});
   }
-  booking.notes.push(name + ": planned in its place, for " + number(eaten, 2) + " serving" + (eaten === 1 ? "" : "s") + ".");
+  booking.notes.push("Planned " + plan.name + " in its place, for " + number(eaten, 2) + " serving" + (eaten === 1 ? "" : "s") + ".");
 }
 
 // The meal a booking names; a household's own only (ownStock's rule, for its week)
 function entryNamed(r, booking) {
   const found = $.find("MealPlanEntry", {id: String(r.entry || "")});
   const entry = Array.isArray(found) ? found[0] : found;
-  if (!entry || entry.type !== "MealPlanEntry") throw new BookingError("no such meal");
-  if (booking.household && entry.visibleToAuthenticatedUsers !== false) throw new BookingError(entry.name + ": not your household's week");
+  if (!entry || entry.type !== "MealPlanEntry") throw new BookingError(NO_MEAL);
+  if (booking.household && entry.visibleToAuthenticatedUsers !== false) throw new BookingError(mealWords(entry) + NOT_OUR_WEEK);
   return entry;
 }
 
@@ -100,43 +109,44 @@ const WEEK_ACTIONS = {
   // menu_changes.skip
   skip: (booking, r) => {
     const entry = entryNamed(r, booking);
-    if (entry.isSkipped) throw new BookingError(entry.name + ": skipped already");
-    if (entry.fulfilledBy) throw new BookingError(entry.name + ": cooked already, so it happened; skip the meals that were to eat it instead");
+    if (entry.isSkipped) throw new BookingError(mealWords(entry) + " is skipped already");
+    if (entry.fulfilledBy) throw new BookingError(mealWords(entry) + " was cooked already, so it can't be skipped. Skip the meals that were to eat its leftovers instead");
     const instead = String(r.instead || "").split(/\s+/).filter((w) => w).join(" ");
     const plan = instead ? bookRecipe(instead) : null;
     if (plan) replacement(booking, entry, plan);
     entry.isSkipped = true;
     entry.eatenInstead = instead && !plan ? instead : null;
-    booking.notes.push(instead && !plan ? entry.name + ": skipped; " + instead + " eaten instead, which the book has no figures for."
-                                        : entry.name + ": skipped.");
+    booking.notes.push(instead && !plan ? "Skipped " + mealWords(entry) + ", with " + instead + " eaten instead. "
+                                          + "That isn't in the recipe book, so the day's nutrition is unknown."
+                                        : "Skipped " + mealWords(entry) + ".");
     const pending = (entry.sourceForLeftoverEntries || []).slice();
     while (pending.length) {
       const later = pending.shift();
       if (later.isSkipped) continue;
       later.isSkipped = true;
-      booking.notes.push(later.name + ": skipped too, as there are no leftovers to eat.");
+      booking.notes.push("Also skipped " + mealWords(later) + ", as there are no leftovers to eat.");
       pending.push(...(later.sourceForLeftoverEntries || []));
     }
   },
   // menu_changes.unskip
   unskip: (booking, r) => {
     const entry = entryNamed(r, booking);
-    if (!entry.isSkipped) throw new BookingError(entry.name + ": not skipped");
+    if (!entry.isSkipped) throw new BookingError(mealWords(entry) + " isn't skipped");
     const source = entry.consumesLeftoverFrom;
-    if (source && source.isSkipped) throw new BookingError(entry.name + ": its leftovers come from " + source.name + ", which is skipped; undo that first");
+    if (source && source.isSkipped) throw new BookingError(mealWords(entry) + " eats the leftovers of " + mealWords(source) + ", which is skipped. Undo that one first");
     const held = heldBy(entry);
-    if (held) throw new BookingError(held + " is planned at this meal now; skip it first");
+    if (held) throw new BookingError(mealWords(held) + " is planned at this meal now. Skip it first");
     entry.isSkipped = false;
     entry.eatenInstead = null;
-    booking.notes.push(entry.name + ": planned again.");
+    booking.notes.push("Planned " + mealWords(entry) + " again.");
     const pending = (entry.sourceForLeftoverEntries || []).slice();
     while (pending.length) {
       const later = pending.shift();
       if (!later.isSkipped || later.eatenInstead) continue;
       const there = heldBy(later);
-      if (there) { booking.notes.push(later.name + ": left skipped, as " + there + " is planned there now."); continue; }
+      if (there) { booking.notes.push("Left " + mealWords(later) + " skipped, as " + mealWords(there) + " is planned there now."); continue; }
       later.isSkipped = false;
-      booking.notes.push(later.name + ": planned again too.");
+      booking.notes.push("Also planned " + mealWords(later) + " again.");
       pending.push(...(later.sourceForLeftoverEntries || []));
     }
   },
@@ -144,12 +154,12 @@ const WEEK_ACTIONS = {
   // pantry.cook
   cook: (booking, r, token) => {
     const entry = entryNamed(r, booking);
-    if (entry.fulfilledBy) throw new BookingError(entry.name + ": already cooked");
-    if (entry.isSkipped) throw new BookingError(entry.name + ": skipped, so not cooked (undo the skip first)");
+    if (entry.fulfilledBy) throw new BookingError(mealWords(entry) + " is already cooked");
+    if (entry.isSkipped) throw new BookingError(mealWords(entry) + " is skipped, so it can't be cooked. Undo the skip first");
     const plan = entry.references;
-    if (!plan || entry.hasPlannedServings == null) throw new BookingError(entry.name + ": not a cook (leftovers need nothing from the pantry)");
+    if (!plan || entry.hasPlannedServings == null) throw new BookingError(mealWords(entry) + " is leftovers, which take nothing from the pantry");
     const y = plan.hasRecipeYield;
-    if (!y || y.unit !== "servings" || !y.value) throw new BookingError(plan.name + ": no yield in servings, so its amounts cannot be scaled");
+    if (!y || y.unit !== "servings" || !y.value) throw new BookingError(plan.name + " doesn't say how many servings it makes, so how much to take can't be worked out");
     const scale = entry.hasPlannedServings / y.value;
     const process = bookProcess(booking, null, "Cook " + token + " -- " + plan.name, NOW, {concretizes: plan});
     const inputs = rawInputs(plan), stock = {}, taken = {}, drawn = {};
@@ -158,7 +168,7 @@ const WEEK_ACTIONS = {
     for (const [, spec] of inputs) {
       const food = spec.specifies, q = spec.hasSpecifiedQuantity;
       const grams = q && q.value ? toGrams(food, q.value, q.unit) : null;
-      if (!grams) { booking.notes.push(food.name + ": no amount in the recipe, so none is drawn."); continue; }
+      if (!grams) { booking.notes.push("The recipe gives no amount of " + food.name + ", so none was taken from the pantry."); continue; }
       const need = grams * scale;
       let left = need;
       for (const lot of stock[food.id]) {
@@ -173,7 +183,7 @@ const WEEK_ACTIONS = {
         taken[id] = (taken[id] || 0) + take;
         left -= take;
       }
-      if (left > 1e-6) booking.notes.push("Not in the pantry: " + food.name + ", " + number(left, 0) + " g of the " + number(need, 0) + " g it took.");
+      if (left > 1e-6) booking.notes.push("Not in the pantry: " + number(left, 0) + " g of the " + number(need, 0) + " g of " + food.name + " it took.");
     }
     // as pantry.cook: a draw that leaves some of a sealed portion opens it, as a use does; a whole item is left be
     for (const id of Object.keys(stock)) {

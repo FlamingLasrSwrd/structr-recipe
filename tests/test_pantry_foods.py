@@ -145,7 +145,7 @@ class InABrowser(unittest.TestCase):
         got = self.drive([["open", "product", None], ["type", "product", "e"], ["type", "product", "zzz"]])
         self.assertEqual(got["seen"][0]["found"], ["Eggs"])         # not the product Farm eggs dozen
         self.assertEqual((got["seen"][1]["found"], got["seen"][1]["said"]),
-                         ([], "No food here is named like that: try a shorter or other word."))
+                         ([], "No food matches that. Try a shorter or different word."))
 
     def test_enter_takes_the_first_found_and_another_case_is_put_right_when_sent(self):
         got = self.drive([["open", "product", None], ["type", "product", "chick"], ["enter", "product", None]])

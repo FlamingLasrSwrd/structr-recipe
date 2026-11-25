@@ -3,15 +3,16 @@
 // share of each meal that day, from each recipe's stored figure per serving (J28). The report itself is
 // pages/lib/80_nutrition.js (report, weekTotals), which the nutritionReport method returns.
 
-const WORDS = {ok: "met", below_min: "under", above_max: "over", indeterminate: "unknown", unsupported: "not judged"};
+const WORDS = {ok: "met", below_min: "under", above_max: "over", indeterminate: "unknown", unsupported: "not checked"};
+const capital = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const rangeWords = (r) => (r.min != null && r.max != null ? number(r.min, 0) + "–" + number(r.max, 0)
   : r.min != null ? "at least " + number(r.min, 0) : r.max != null ? "at most " + number(r.max, 0) : "any") + " " + r.unit;
 const rangeText = (r) => esc(rangeWords(r));
 // a total that rests on an estimate somewhere (J21) is marked ≈ and says which meals (REVIEW.md round 3, #12)
 const ESTIMATE = "≈";
-const estimates = (r) => (r.estimated && r.estimated.length ? "; rests on estimates: " + r.estimated.join(", ") : "");
+const estimates = (r) => (r.estimated && r.estimated.length ? ". Includes estimates for: " + r.estimated.join(", ") : "");
 const mark = (r) => (r.estimated && r.estimated.length ? ESTIMATE : "");
-const cell = (r) => "<td class=\"" + r.status + "\" title=\"" + esc(WORDS[r.status] + (r.unknown && r.unknown.length ? ": no figure for " + r.unknown.join(", ") : "") + estimates(r)) + "\">"
+const cell = (r) => "<td class=\"" + r.status + "\" title=\"" + esc(capital(WORDS[r.status]) + (r.unknown && r.unknown.length ? ". No figures for: " + r.unknown.join(", ") : "") + estimates(r)) + "\">"
   + (r.status === "unsupported" ? "–" : mark(r) + number(r.total, r.total >= 100 ? 0 : 1)) + "</td>";
 
 // the week's total of a daily target: its range over the days judged, and how many days were each
@@ -19,8 +20,8 @@ function weekCell(t) {
   const range = rangeWords({min: t.week_min, max: t.week_max, unit: t.unit});
   const days = ["ok", "below_min", "above_max", "indeterminate"].filter((s) => t.day_statuses[s])
     .map((s) => t.day_statuses[s] + " " + WORDS[s]).join(", ");
-  const why = WORDS[t.status] + " for the week: " + range + " over " + t.days + (t.days === 1 ? " day" : " days") + "; days: " + days
-    + (t.unknown.length ? "; no figure for " + t.unknown.join(", ") : "") + estimates(t);
+  const why = capital(WORDS[t.status]) + " for the week: " + range + " over " + t.days + (t.days === 1 ? " day" : " days") + ". Days: " + days
+    + (t.unknown.length ? ". No figures for: " + t.unknown.join(", ") : "") + estimates(t);
   return "<td class=\"" + t.status + " total\" title=\"" + esc(why) + "\">" + mark(t) + number(t.total, t.total >= 100 ? 0 : 1)
     + " <small>" + esc(WORDS[t.status]) + "</small></td>";
 }
@@ -32,7 +33,7 @@ function table(rows, columns, label, totals) {
     + (totals ? "<th class=\"total\">Week</th>" : "") + "</tr></thead><tbody>";
   for (const name of Object.keys(byTarget).sort((a, b) => byTarget[a][0].nutrient.localeCompare(byTarget[b][0].nutrient))) {
     const first = byTarget[name][0];
-    html += "<tr><td>" + esc(first.nutrient) + (first.hard ? " <span class=\"hard\">hard</span>" : "") + "</td><td>" + rangeText(first) + "</td>"
+    html += "<tr><td>" + esc(first.nutrient) + (first.hard ? " <span class=\"hard\" title=\"A firm limit: the planner always keeps within it\">firm</span>" : "") + "</td><td>" + rangeText(first) + "</td>"
       + columns.map((c) => { const r = byTarget[name].find((x) => x.group === c); return r ? cell(r) : "<td></td>"; }).join("")
       + (totals ? (totals[name] ? weekCell(totals[name]) : "<td></td>") : "") + "</tr>";
   }
@@ -43,15 +44,15 @@ const week = chosenWeek();
 let html = nav("nutrition") + "<h1>Nutrition</h1>";
 let data = [];
 if (!week) {
-  html += "<p>No week has been committed yet: <code>tools/plan_week.py --commit</code> writes one.</p>";
+  html += "<p>No week is planned yet. To plan one, run <code>tools/plan_week.py</code> with <code>--commit</code>.</p>";
 } else {
   const rows = report(week), totals = weekTotals(rows);
   data = rows.concat(totals);
   html += "<h2>" + esc(week.name) + "</h2>" + weekPicker("nutrition", week)
-    + "<p class=\"note\">Each day: the baseline and the person's share of every meal, from stored figures per serving. "
-    + "<span class=\"ok\">met</span> <span class=\"below_min\">under</span> <span class=\"above_max\">over</span> "
-    + "<span class=\"indeterminate\">unknown</span>; " + ESTIMATE + " rests on an estimate somewhere; hover a cell for why. "
-    + "Week: a daily target's days added up, against its range times the days with meals.</p>";
+    + "<p class=\"note\">Each day adds up what each person eats: their share of every meal, and their daily extras such as "
+    + "supplements. Colours: <span class=\"ok\">met</span> <span class=\"below_min\">under</span> <span class=\"above_max\">over</span> "
+    + "<span class=\"indeterminate\">unknown</span>. " + ESTIMATE + " means part of it is an estimate. Hover over a number (or tap it) to see why. "
+    + "The Week column adds up the days and compares that with the daily range times the days that have meals.</p>";
   const people = Array.from(new Set(rows.map((r) => r.person))).sort((a, b) => String(a).localeCompare(String(b)));
   for (const person of people) {
     const mine = rows.filter((r) => r.person === person);
@@ -74,7 +75,7 @@ if (!week) {
       html += "</tbody></table>";
     }
     const odd = mine.filter((r) => r.status === "unsupported");
-    if (odd.length) html += "<p class=\"note\">Not judged: " + odd.map((r) => esc(r.target)).join(", ") + ".</p>";
+    if (odd.length) html += "<p class=\"note\">Not checked, as the planner can't judge targets like these yet: " + odd.map((r) => esc(r.target)).join(", ") + ".</p>";
   }
 }
 $.print(html + "<script type=\"application/json\" id=\"page-data\">" + JSON.stringify(data).replace(/</g, "\\u003c") + "</script>");

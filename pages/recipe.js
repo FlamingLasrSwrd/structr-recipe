@@ -4,6 +4,9 @@
 // Amounts are shown as written, or as weights (docs/recipe-format.md, "Amounts as weights") for a person
 // whose preferredMeasure is "weight"; ?measure=weight or ?measure=written in the address overrides it.
 
+// what a figure with no source of its own says it rests on, in the pages' words (docs/pages.md, "Words")
+const PROVENANCE_WORDS = {estimated: "an estimate", calculated: "worked out from the ingredients", sourced: "a source", "default": "a usual value"};
+
 function stepIndex(step) {
   const m = / step (\d+)( -- |$)/.exec(String(step.name || ""));
   return m ? Number(m[1]) : 0;
@@ -34,7 +37,7 @@ if (!plan) {
       + "<input type=\"hidden\" name=\"recipe\" value=\"" + esc(identity.id) + "\">"
       + "<input type=\"hidden\" name=\"week\" value=\"" + esc(start) + "\">"
       + "<input type=\"hidden\" name=\"token\" value=\"" + newToken() + "\">"
-      + (asked ? "Asked for in the week of " + esc(weekWords(start)) + ". <button>Don't cook it then</button>"
+      + (asked ? "On the list for the week of " + esc(weekWords(start)) + ". <button>Take it off</button>"
                : "<button title=\"The planner cooks it at least once that week, choosing the day\">Cook in the week of "
                  + esc(weekWords(start)) + "</button>")
       + "</form>";
@@ -84,19 +87,21 @@ if (!plan) {
   // instructions of our own, written from the steps' facts (mealplanner/instructions.py; J35)
   data.instructions = stepSentences(planSteps(plan), capabilityBearers(plan), weights);
   html += "<h2>How to make it</h2><ol class=\"instructions\">" + data.instructions.map((line) => "<li>" + esc(line) + "</li>").join("")
-    + "</ol><p class=\"note\">Written here from the steps' facts, not the source's words.</p>";
+    + "</ol><p class=\"note\">The planner writes these steps from the recipe's details, not in the source's words. "
+    + "Check the source if a step is unclear.</p>";
 
   const stored = (plan.servingProfiles || []).filter((p) => p.basis === "per_serving" && p.forNutrient)
     .sort((a, b) => String(a.forNutrient.name).localeCompare(String(b.forNutrient.name)));
   data.figures = stored.map((p) => ({nutrient: p.forNutrient.name, amount: p.amount, unit: p.unit, provenance: p.provenance}));
   html += "<h2>Per serving</h2>";
   if (!stored.length) {
-    html += "<p>No figures stored: <code>tools/calculate_recipe_nutrition.py</code> works them out.</p>";
+    html += "<p>Nutrition for this recipe hasn't been worked out yet.</p>";
   } else {
-    html += "<table><thead><tr><th>Nutrient</th><th>Amount</th><th>Rests on</th></tr></thead><tbody>"
+    html += "<table><thead><tr><th>Nutrient</th><th>Amount</th><th>From</th></tr></thead><tbody>"
       + stored.map((p) => "<tr><td>" + esc(p.forNutrient.name) + "</td><td class=\"num\">"
         + (p.amount == null ? "?" : number(p.amount, p.amount >= 100 ? 0 : 2) + " " + esc(p.unit)) + "</td><td>"
-        + esc(p.provenance === "calculated" && p.amount != null ? "published data" : p.source || p.provenance) + "</td></tr>").join("")
+        + esc(p.provenance === "calculated" && p.amount != null ? "published data" : p.source || PROVENANCE_WORDS[p.provenance] || p.provenance)
+        + "</td></tr>").join("")
       + "</tbody></table>";
   }
 }

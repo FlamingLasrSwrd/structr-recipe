@@ -12,7 +12,7 @@ booking may not make itself. Then, each member as themselves:
   A1 and B1 each buy the food through bookPantry, and A1 uses some of A's;
   one purchase sent four times at once makes one, as the pages' bookings do;
   A2, in A1's household, sees A's portion through stockOnHand and B1 does not;
-  B1 cannot use A's portion ("no such portion"), and nothing is written;
+  B1 cannot use A's portion (it "isn't in your pantry"), and nothing is written;
   every node the bookings made is private: a member of its household reads it by id, a member of the
   other gets a 404, and it is visible to no one else;
   a member cannot change shared vocabulary (a 403, and it stays as it was);
@@ -101,6 +101,10 @@ WEEK_SETUP = """{
 }"""
 OPERATIONS = ownership.KINDS     # every pantry booking's kind, which a household's booking finds and never makes
 SHARED_TOKEN = "e0e0e0"         # the start of the token of the stock everyone sees that the check buys, so a sweep finds it
+# What the pages' bookings say when they refuse another household's item or meal (pages/lib/50_pantry.js, 70_menu.js)
+NOT_IN_PANTRY = "that item isn't in your pantry. Reload the page to see what is"
+NOT_YOURS = " is not in your household's pantry, so it can't be changed here"
+NO_MEAL = "that meal isn't in this week any more. Reload the page to see what is"
 STORED = "TEST -- check households -- "     # the start of the name of a recipe figure the check stores (store_figures)
 
 
@@ -335,10 +339,10 @@ def main(argv=None) -> int:
             check.fail(f"A1 using 150 g of A's: {got['problem']}")
         got = m["B1"].call("bookPantry", do="use", portion=bought["A"], amount=100, unit="g", token=token["steal"])
         check.remember(got.get("created") or [])                         # if it wrongly booked, it is removed too
-        if got.get("problem") != "no such portion" or got.get("created") or check.named(f"Use {token['steal']}"):
-            check.fail(f"B1 using A's portion was not refused as no such portion: {got}")
+        if got.get("problem") != NOT_IN_PANTRY or got.get("created") or check.named(f"Use {token['steal']}"):
+            check.fail(f"B1 using A's portion was not refused as not in their pantry: {got}")
         else:
-            print("  B1 cannot use A's portion: no such portion, and nothing written")
+            print("  B1 cannot use A's portion: not in their pantry, and nothing written")
 
         answers = at_once(m["A1"], "bookPantry", dict(do="buy", food=args.food, amount=100, unit="g", storage="Fridge",
                                                       keeps=args.keeps, token=token["race"]), 4)
@@ -381,10 +385,10 @@ def main(argv=None) -> int:
 
         got = m["A1"].call("bookPantry", do="use", portion=shared["portion"], amount=10, unit="g", token=secrets.token_hex(4))
         check.remember(got.get("created") or [])
-        if not (got.get("problem") or "").endswith("not your household's stock") or got.get("created"):
+        if not (got.get("problem") or "").endswith(NOT_YOURS) or got.get("created"):
             check.fail(f"A1 using stock every signed-in user sees was not refused: {got}")
         else:
-            print("  A1 cannot book on stock every signed-in user sees: not your household's stock")
+            print("  A1 cannot book on stock every signed-in user sees: not in their household's pantry")
         own_a = [bought["A"]] + [r["id"] for t, r in check.named(f"Purchase {token['race']} -- {args.food}") if t == "PortionOfSubstance"]
         week_check(check, client, m, args.food, args.keeps, bought, shared, own_a)
         request_check(check, client, m, shared)
@@ -475,7 +479,7 @@ def page_check(check: Check, client, m: dict, food: str, keeps: str, shared: dic
         if got.get("problem") or got.get("privileged") or not got.get("created"):
             check.fail(f"A1's {action} on the pantry page: {got}")
             continue
-        if action == "use" and not any("opened by this use" in n for n in got.get("notes") or []):
+        if action == "use" and not any("is marked opened now" in n for n in got.get("notes") or []):
             check.fail(f"A1's first use of a sealed portion did not open it: {got.get('notes')}")
         names += got["created"]
         processes.append(got.get("process"))
@@ -496,12 +500,12 @@ def page_check(check: Check, client, m: dict, food: str, keeps: str, shared: dic
               "to A, each Process naming A1; the first use opened the portion")
     got = page(m["A1"], "pantry", do="use", portion=shared["portion"], amount="10", unit="g", token=token["everyone"])
     check.remember(got.get("created") or [])
-    if not (got.get("problem") or "").endswith("not your household's stock") or got.get("created"):
+    if not (got.get("problem") or "").endswith(NOT_YOURS) or got.get("created"):
         check.fail(f"A1's page booking on stock every signed-in user sees was not refused: {got}")
     got = page(m["B1"], "pantry", do="count", portion=portion, amount="1", unit="g", token=token["steal"])
     check.remember(got.get("created") or [])
-    if got.get("problem") != "no such portion" or got.get("created"):
-        check.fail(f"B1's pantry page counting A's portion was not refused as no such portion: {got}")
+    if got.get("problem") != NOT_IN_PANTRY or got.get("created"):
+        check.fail(f"B1's pantry page counting A's portion was not refused as not in their pantry: {got}")
     else:
         print("  A1's page cannot book on stock everyone sees, and B1's cannot reach A's portion")
     # C, signed in but in no household, must not fall back to booking as the superuser on A's stock
@@ -558,15 +562,15 @@ def week_check(check: Check, client, m: dict, food: str, keeps: str, bought: dic
 
     got = m["B1"].call("bookWeek", do="skip", entry=week["dinner"], instead=other["name"], token=secrets.token_hex(4))
     check.remember(got.get("created") or [])
-    if got.get("problem") != "no such meal" or got.get("created"):
-        check.fail(f"B1 skipping A's dinner was not refused as no such meal: {got}")
+    if got.get("problem") != NO_MEAL or got.get("created"):
+        check.fail(f"B1 skipping A's dinner was not refused as not in this week: {got}")
     got = m["A1"].call("bookWeek", do="skip", entry=shared["meal"], token=secrets.token_hex(4))
     check.remember(got.get("created") or [])
-    if not (got.get("problem") or "").endswith("not your household's week") \
+    if "your household's week" not in (got.get("problem") or "") \
             or client.get_all("MealPlanEntry", shared["meal"])["result"].get("isSkipped"):
         check.fail(f"A1 skipping a meal every signed-in user sees was not refused: {got}")
     else:
-        print("  A1 cannot change a meal every signed-in user sees: not your household's week")
+        print("  A1 cannot change a meal every signed-in user sees: not in their household's week")
     got = m["A2"].call("bookWeek", do="skip", entry=week["dinner"], instead=other["name"], token=secrets.token_hex(4))
     check.remember(got.get("created") or [])
     dinner = client.get_all("MealPlanEntry", week["dinner"])["result"]
@@ -671,7 +675,7 @@ def read_check(check: Check, client, m: dict, week_id: str, food: str, own_a: li
     for method in ("nutritionReport", "shoppingList"):
         if m["B1"].call(method, week=week_id).get("problem") != "no such week":
             check.fail(f"B1's {method} for A's week was not refused as no such week")
-        if not (m["A1"].call(method, week=everyones_week).get("problem") or "").endswith("not your household's week"):
+        if "your household's week" not in (m["A1"].call(method, week=everyones_week).get("problem") or ""):
             check.fail(f"A1's {method} for a week every signed-in user sees was not refused")
 
 

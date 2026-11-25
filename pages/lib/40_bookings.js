@@ -34,10 +34,16 @@ const newToken = () => Math.random().toString(16).slice(2, 10);
 
 class BookingError extends Error {}
 
+// What a booking by someone in no household, or in several, is told (a page's and a method's alike)
+const householdProblem = (n) => n ? "your account is in more than one household, so whose this is can't be told. "
+  + "Ask whoever runs the planner to fix your account"
+  : "your account isn't in a household yet, so there is nothing of yours to change. Ask whoever runs the planner to add you";
+
 // typetree.dt: the one DomainType with this name
 function typeNamed(name) {
   const found = $.find("DomainType", {name: name});
-  if (found.length !== 1) throw new BookingError("expected exactly one DomainType named " + name + ", found " + found.length);
+  if (!found.length) throw new BookingError("\"" + name + "\" isn't known here. Check the spelling, or pick it from the list");
+  if (found.length > 1) throw new BookingError("more than one thing is called \"" + name + "\", so which one is meant can't be told");
   return found[0];
 }
 
@@ -45,10 +51,10 @@ function typeNamed(name) {
 // household's booking finds among its own nodes only (private to it): a node of the same name that
 // every signed-in user sees is no household's, and is neither reused nor changed
 function ensureNode(booking, type, name, props) {
-  if (/[,;]/.test(name)) throw new BookingError(name + ": a name cannot hold a comma or a semicolon");
+  if (/[,;]/.test(name)) throw new BookingError("a name can't contain a comma or a semicolon. Take them out of \"" + name + "\" and try again");
   const found = $.find(type, {name: name})
     .filter((n) => n.type === type && (!booking.household || n.visibleToAuthenticatedUsers === false));
-  if (found.length > 1) throw new BookingError("two " + type + " nodes are named " + name);
+  if (found.length > 1) throw new BookingError("two " + type + " records are named \"" + name + "\", so nothing can be saved until one is removed");
   if (found.length) return found[0];
   const fields = {name: name};
   for (const key of Object.keys(props)) if (props[key] != null) fields[key] = props[key];
@@ -107,16 +113,16 @@ function bookOnce(actions, action, request, token, household) {
         });
       } else {
         const lock = $.cypher(LOCK);
-        if (!lock.length || !lock[0].n) throw new BookingError("the bookings' lock is missing: install the pages again (tools/install_pages.py)");
+        if (!lock.length || !lock[0].n) throw new BookingError("the planner isn't fully installed, so nothing was saved. Run tools/install_pages.py again");
       }
       actions[action](booking, request, token);
     } catch (e) {
-      problem = e instanceof BookingError ? e.message : "the booking failed: " + (e.message || e);
+      problem = e instanceof BookingError ? e.message : "something went wrong, so nothing was saved (" + (e.message || e) + ")";
       throw e;                          // so that nothing of it is kept
     }
   };
   const failed = (e) => {               // thrown above, or the commit refused (a validator, a unique name)
-    if (!problem) problem = "the booking was not saved: " + (e && e.message || e);
+    if (!problem) problem = "the database refused the change, so nothing was saved (" + (e && e.message || e) + ")";
     booking.created = [];
     booking.notes = [];
   };
@@ -130,9 +136,9 @@ function bookOnce(actions, action, request, token, household) {
 function bookForCaller(actions, asked) {
   const action = String(asked.do || ""), token = String(asked.token || "");
   const households = (($.me && $.me.groups) || []).filter((g) => g.type === "Household");
-  if (households.length !== 1) return {action: action, problem: "a booking is for one household, and you are in " + households.length};
-  if (!actions[action]) return {action: action, problem: "no such booking: " + action};
-  if (!/^[0-9a-f]{4,16}$/.test(token)) return {action: action, problem: "a booking needs a token of 4 to 16 hex digits"};
+  if (households.length !== 1) return {action: action, problem: householdProblem(households.length)};
+  if (!actions[action]) return {action: action, problem: "\"" + action + "\" isn't something this can do"};
+  if (!/^[0-9a-f]{4,16}$/.test(token)) return {action: action, problem: "the request needs a token of 4 to 16 hex digits"};
   const done = bookOnce(actions, action, asked, token, households[0]);
   return {action: action, problem: done.problem, process: done.booking.process, created: done.booking.created,
           notes: done.booking.notes};

@@ -130,7 +130,7 @@ class Scanning(unittest.TestCase):
             buy = form_of(got["html"], "buy")
             self.assertEqual((value(buy, "food"), value(buy, "amount"), selected(buy, "unit"), value(buy, "scanning")),
                              ("Farm eggs dozen", "12", "each", "1"))
-            self.assertIn("Farm eggs dozen <small>(Eggs)</small>: one package holds 12 each", got["html"])
+            self.assertIn("Found Farm eggs dozen <small>(Eggs)</small>. One package holds 12 each", got["html"])
             self.assertIn('placeholder="scan or type a barcode" autofocus>', got["html"])    # ready for the next
             self.assertEqual(got["written"], [])
 
@@ -147,11 +147,11 @@ class Scanning(unittest.TestCase):
         self.assertIn('<details class="product" open>', got["html"])
         self.assertEqual(value(form_of(got["html"], "product"), "barcode"), "04252614")
         self.assertIsNone(value(form_of(got["html"], "buy"), "food"))
-        self.assertIn("No product has barcode 04252614 yet", got["html"])
+        self.assertIn("Barcode 04252614 isn't saved yet", got["html"])
         self.assertEqual(re.findall(r'<input name="(\w+)"[^>]* autofocus', got["html"]), ["name"])   # name it first
 
     def test_a_misread_or_shops_own_barcode_says_why(self):
-        for typed, why in (("036000291453", "its last digit should be 2"), ("212345678992", "a shop's own number")):
+        for typed, why in (("036000291453", "its last digit should be 2. Scan or type it again"), ("212345678992", "a shop's own number")):
             got = page(scan=typed)
             self.assertIn(why, block(got["html"], "scan-data")["problem"])
             self.assertIn('<p class="problem">Problem: barcode', got["html"])
@@ -198,17 +198,17 @@ return [t.parent.name, t.hierarchy.name, t.isLookupBearing, vis(t), c.identifier
     def test_what_cannot_be_added_is_named_kept_in_the_form_and_nothing_is_written(self):
         for change, expected in (
             (dict(name="Farm eggs dozen"), "Farm eggs dozen: one package of it holds 12 each already; a package of another "
-                                           "size is another product, so name it apart"),
+                                           "size is another product, so give it another name"),
             (dict(name="Farm eggs dozen", amount="12", food="Noodles"), "Farm eggs dozen: it is a product of 'Eggs' already, not of 'Noodles'"),
             (dict(barcode="036000291452"), "Shop eggs six: barcode 00036000291452 already belongs to 'Farm eggs dozen'"),
-            (dict(food="Beans"), "Shop eggs six: 'Beans' is a group of foods (Chickpeas), not a food that is bought; "
-                                 "Shop eggs six: 6 each of Beans does not convert to grams (the food has no density or weight per item)"),
-            (dict(food="Farm eggs dozen"), "Shop eggs six: 'Farm eggs dozen' is a product itself; name the food it is a kind of"),
-            (dict(food="Egg"), "Shop eggs six: 'Egg' is not a food of this instance"),
-            (dict(name="Eggs", food="Noodles"), "Eggs: that name is already a food here, not a product; "
-                                                "Eggs: 6 each of Noodles does not convert to grams (the food has no density or weight per item)"),
-            (dict(amount="0", barcode="036000291453"), "Shop eggs six: what a package holds (amount) must be more than 0; "
-                                                       "Shop eggs six: barcode '036000291453' is misread or mistyped: its last digit should be 2"),
+            (dict(food="Beans"), "Shop eggs six: 'Beans' is a group of foods (Chickpeas); name the one it is; "
+                                 "Shop eggs six: the weight of 6 each of Beans isn't known; give what one package holds by weight (g, kg, oz or lb)"),
+            (dict(food="Farm eggs dozen"), "Shop eggs six: 'Farm eggs dozen' is a product, not a food; name the food it is a kind of"),
+            (dict(food="Egg"), "Shop eggs six: 'Egg' isn't a food the planner knows; check the spelling"),
+            (dict(name="Eggs", food="Noodles"), "Eggs: that name is already a food's; give the product another name; "
+                                                "Eggs: the weight of 6 each of Noodles isn't known; give what one package holds by weight (g, kg, oz or lb)"),
+            (dict(amount="0", barcode="036000291453"), "Shop eggs six: say how much one package holds (more than 0); "
+                                                       "Shop eggs six: barcode '036000291453' is misread or mistyped: its last digit should be 2. Scan or type it again"),
             (dict(name="Eggs, six"), "Eggs, six: a name cannot hold a comma or a semicolon"),
         ):
             got = page(**dict(self.FORM, **change))

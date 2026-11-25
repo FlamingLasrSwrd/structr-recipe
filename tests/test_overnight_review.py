@@ -284,7 +284,7 @@ class WhatTheSuiteMissed(unittest.TestCase):
         g.nodes["Farm eggs dozen"]["hierarchy"] = Ref("Food Identity")
         with self.assertRaises(ProductError) as caught:
             import_products(g, listed)
-        self.assertIn("is a product itself", str(caught.exception))
+        self.assertIn("is a product, not a food", str(caught.exception))
 
     def test_what_is_left_keeps_as_long_as_the_longest_opened_figure(self):
         g = WritableGraph()

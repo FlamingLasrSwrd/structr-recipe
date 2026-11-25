@@ -12,7 +12,43 @@ page's "Mark cooked" (docs/pantry.md).
 | Recipes | `/structr/html/recipes[?meal=Breakfast]` | the book the planner chooses from (no baselines, nothing retired): meal types, minutes, difficulty, servings, and energy, protein, fibre and sodium a serving where targets are about them |
 | Recipe | `/structr/html/recipe/<Plan id>[?measure=weight\|written]` | one version: where it came from, its facts, its ingredients and amounts step by step, and every stored figure per serving with what it rests on. A source's instructions are not stored; **How to make it** writes each step as a sentence of our own from its facts (method, ingredients and amounts and what may stand in, tools and their heat, a capability as the tools that can give it, minutes, order, doneness: `mealplanner/instructions.py`, `pages/lib/75_instructions.js`, J35, J36, J37). Amounts are shown as written, or as weights rounded to suit each food for a person whose preferred measure is weight; `?measure=weight` or `?measure=written` asks either way, and the page links to the other (`mealplanner/weights.py`, `docs/recipe-format.md` "Amounts as weights"). A **Cook in the week of ...** button asks for the recipe in the next week to plan, and takes it back (`mealplanner/requests.py`, data-model.md J33); the recipe book lists what that week has asked for |
 | Nutrition | `/structr/html/nutrition[/<MealPlan id>]` | each of the week's targets judged at its own scope, per person: met, under, over or unknown, per day (and per meal or week where a target is scoped so), and a daily target's **week total**: its days added up, judged against its range times the days with meals (`nutrition_scope.week_totals`; the owner's request, 2026-10-24). A total that rests on an estimated figure (J21) is marked ≈, and its tooltip names the meals and baseline recipes it rests on (`nutrition_report`'s `estimated`; REVIEW.md round 3, #12) |
-| Pantry | `/structr/html/pantry` | every portion on hand, how much, when it was weighed, and when it expires, soonest first. **Buy** adds a portion (a food or a product of one, `docs/pantry.md` "Products and barcodes"; an amount in any unit that converts to grams, the unit picked when the food is chosen from its package size, where it is kept, its perishability class). Above it, a **barcode box**: a USB or Bluetooth scanner types into it as a keyboard does, or a barcode is typed, and **Look up** (or the scanner's Enter) fills Buy in with the product it names and what one package holds; one no product has opens **Add a product** with it (a name, the food it is a kind of, what one package holds), which then fills Buy in with the new product (`docs/pantry.md` "Scanning on the pantry page"). **Scan with camera** reads a barcode with a phone's camera into that box (over HTTPS; else a photo of it: `docs/pantry.md` "Scanning with a phone's camera"); each portion's **Change** has **Use**, **Count** (a stock take), **Open**, **Freeze** (or **Move to fridge**) and **Discard** |
+| Pantry | `/structr/html/pantry[?sort=food\|kept\|expires]` | every portion on hand, how much, when it was last checked (bought or counted), where it is kept, and when it expires (its use-by estimate), soonest first. A tap on the **Food**, **Kept** or **Use by** heading sorts by it, a second tap reverses it (`?sort=-food`); every order breaks ties soonest first, and the forms carry the order through a booking (the owner's request, 2026-11-23). **Kept** is the portion's container's storage condition (Fridge, Freezer or Pantry; there is no finer place), or for one in no container where its food keeps longest, marked "(assumed)" (J31). `tools/pantry.py list --sort` sorts the same way. **Buy** adds a portion (a food or a product of one, `docs/pantry.md` "Products and barcodes"; an amount in any unit that converts to grams, the unit picked when the food is chosen from its package size, where it is kept, its perishability class). Above it, a **barcode box**: a USB or Bluetooth scanner types into it as a keyboard does, or a barcode is typed, and **Look up** (or the scanner's Enter) fills Buy in with the product it names and what one package holds; one no product has opens **Add a product** with it (a name, the food it is a kind of, what one package holds), which then fills Buy in with the new product (`docs/pantry.md` "Scanning on the pantry page"). **Scan with camera** reads a barcode with a phone's camera into that box (over HTTPS; else a photo of it: `docs/pantry.md` "Scanning with a phone's camera"); each portion's **Change** has **Use**, **Count** (a stock take), **Open**, **Freeze** (or **Move to fridge**) and **Discard** |
+
+## Words the pages use (2026-11-24)
+
+The owner asked for the pages' help notes in plain words (2026-11-23: "The instructions are unclear. Rewrite
+them in a user friendly way"; asked which, "help notes on the pages"). So each note says what the reader is
+looking at and what to do, in short sentences, without the data model's terms or file names; a booking's
+problem says what went wrong and how to fix it ("only 300 g of Rice is left, less than the 500 g entered. If
+there is more, use Count to say how much"), and what it did by the food or meal, not the name the booking
+gave a node. The methods (`methods/`) answer in the same words, since they share `pages/lib/`; a product's
+problems are `mealplanner/products.py`'s words, kept the same on both sides (`tools/check_bookings.py`
+compares them). Where a note still names a tool, it is the step to take (`tools/plan_week.py`), there being
+no page for it. Later pages use these words the same way:
+
+| Word | Means | Not |
+|---|---|---|
+| on hand | what the pantry holds now | stock, magnitude, level |
+| last checked | when an amount was bought or counted | weighed, measurement |
+| estimate | a figure worked out from usual values, not measured or given by a source (shown in italics, or marked ≈ or "(estimate)") | imputed, rests on an estimate, provenance |
+| use by | the day a food is estimated to keep until, from its shelf life where it is kept, opened or not | expiry, instance expiration |
+| kept | where it is: fridge, freezer or pantry | storage condition |
+| assumed | where it is kept was not recorded, so it is taken to be where that food keeps longest | assumed storage |
+| how it keeps | a food's shelf-life group, chosen when buying a food with no use-by estimate | perishability class, FoodKeeper |
+| product | a packaged food with a barcode, one package size | GTIN, Type |
+| on the list (for a week) | a recipe asked for in the next week to plan | request, requestsRecipe |
+| daily extras | a person's baseline (supplements) | baseline |
+| firm | a hard target, which the planner always keeps within | hard |
+| saved | a booking written; "saved already, so nothing changed" when sent again | booked, booked before |
+
+**What the notes no longer say, and where it is.** The pantry's use-by date is the shelf life for how a portion
+is kept now, counted from purchase or its first weighing; when it was opened, frozen or moved is not recorded,
+so storage is a tag and not a history (`docs/pantry.md`). An amount marked "estimate" there is an imputed
+measurement from the pantry profile (`docs/profiles.md`). The shopping list leaves out stock policies'
+levels, which `tools/shopping_list.py` applies, and a price level is chosen with `?prices=` and a package
+level with `?packages=` (above). A recipe's "–" is a figure not stored yet: `tools/calculate_recipe_nutrition.py`
+stores it. The nutrition page's day is the person's baseline and their share of each meal, from the stored
+figures per serving (J28).
 
 A week page without an id shows the latest week with entries, and links the others. The week and
 nutrition pages show **committed** weeks only: a proposed week exists nowhere until
