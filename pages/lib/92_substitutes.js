@@ -164,7 +164,11 @@ function usesOf(week, food) {
   return out;
 }
 
-const nutrientIdsByName = (nutrients) => Object.keys(nutrients).sort((a, b) => nutrients[a][0].localeCompare(nutrients[b][0]));
+// by name as Python's sorted() orders them (alternatives.py): by character code, so capitals first, not localeCompare
+const nutrientIdsByName = (nutrients) => Object.keys(nutrients).sort((a, b) => {
+  const x = nutrients[a][0], y = nutrients[b][0];
+  return x < y ? -1 : x > y ? 1 : 0;
+});
 
 // alternatives.effect: [{cost, nutrients: [[name, unit, change]]}, grams of what stands in]
 function swapEffect(uses, swapOf, prices, nutrients) {

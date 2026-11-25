@@ -68,6 +68,14 @@ class ThePagesAgree(unittest.TestCase):
             for a, b in zip(row["effect"]["nutrients"], option.effect.nutrients):
                 self.assertAlmostEqual(a[2], b[2])
 
+    def test_nutrients_are_listed_in_pythons_order(self):
+        # by character code, as sorted() in mealplanner/alternatives.py: capitals before small letters, so
+        # "PUFA 18:2" before "Phosphorus" ('U' < 'h') and "iron" last; worked out by hand (seen on 2026-11-25,
+        # when the page sorted with localeCompare and tools/check_pages.py found 21 lines in another order)
+        nutrients = {"n1": ["Phosphorus", "mg"], "n2": ["iron", "mg"], "n3": ["Protein", "g"], "n4": ["PUFA 18:2", "g"]}
+        shown = run(kitchen(), f"return nutrientIdsByName({json.dumps(nutrients)});")
+        self.assertEqual(shown, ["n4", "n1", "n3", "n2"])
+
     def test_the_shopping_list_and_a_meals_nutrition_follow_a_swap(self):
         g = kitchen()
         # the omelette's 6 eggs, and the recipe's 3 duck eggs for them: duck eggs have no weight per item, so by weight
